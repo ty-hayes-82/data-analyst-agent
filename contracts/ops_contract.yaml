@@ -1,0 +1,33 @@
+name: "Operational Metrics"
+version: "1.0.0"
+description: "Infrastructure and service performance metrics"
+
+time:
+  column: "date"
+  frequency: "daily"
+  format: "%Y-%m-%d"
+
+grain:
+  columns: ["date", "region"]
+
+metrics:
+  - name: "latency"
+    column: "latency"
+    type: "non_additive"
+    format: "float"
+    optimization: "minimize"
+  - name: "requests"
+    column: "requests"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+  - name: "error_rate"
+    column: "error_rate"
+    type: "non_additive"
+    format: "percent"
+    optimization: "minimize"
+
+dimensions:
+  - name: "region"
+    column: "region"
+    role: "primary"

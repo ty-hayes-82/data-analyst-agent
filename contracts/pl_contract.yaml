@@ -1,0 +1,32 @@
+name: "P&L Dataset"
+version: "1.0.0"
+description: "Profit and Loss data by Cost Center and GL Account"
+
+time:
+  column: "period"
+  frequency: "monthly"
+  format: "%Y-%m"
+  range_months: 24
+
+grain:
+  columns: ["period", "cost_center", "gl_account"]
+
+metrics:
+  - name: "amount"
+    column: "amount"
+    type: "additive"
+    format: "currency"
+    optimization: "minimize" # Assuming it's cost/expense-centric by default, or just general
+    description: "Financial amount in USD"
+
+dimensions:
+  - name: "cost_center"
+    column: "cost_center"
+    role: "primary"
+  - name: "gl_account"
+    column: "gl_account"
+    role: "secondary"
+
+hierarchies:
+  - name: "CC_GL"
+    children: ["cost_center", "gl_account"]

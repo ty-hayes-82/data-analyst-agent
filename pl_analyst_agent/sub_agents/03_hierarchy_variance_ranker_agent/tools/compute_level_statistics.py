@@ -32,7 +32,7 @@ import json
 import pandas as pd
 from typing import Dict, Any, List, Optional
 from pathlib import Path
-from ...data_cache import get_validated_records, get_validated_csv
+from ...data_cache import get_validated_records, get_validated_csv, get_analysis_context
 from config.materiality_loader import get_thresholds_for_category, get_global_defaults
 from config.chart_loader import get_account_category
 
@@ -40,6 +40,14 @@ from config.chart_loader import get_account_category
 # Global default thresholds (used when category lookup fails)
 _global_defaults = None
 _chart_of_accounts = None
+
+
+def _get_context_info() -> Optional[Any]:
+    """Retrieves the AnalysisContext if available in cache."""
+    try:
+        return get_analysis_context()
+    except Exception:
+        return None
 
 
 def _get_global_thresholds() -> tuple:
@@ -63,11 +71,18 @@ def _load_chart_of_accounts() -> Dict[str, Any]:
 
 
 def _get_account_hierarchy(gl_account: str) -> Optional[List[str]]:
-    """Get hierarchy levels for a GL account from chart of accounts.
+    """Get hierarchy levels for a GL account from context or chart of accounts.
     
     Returns:
         List of [level_1, level_2, level_3, level_4] or None if not found
     """
+    ctx = _get_context_info()
+    if ctx and ctx.contract:
+        # If we have a semantic contract, we might use its hierarchy
+        # For Wave 1, we still rely on the hardcoded levels for the P&L domain
+        # but we check if the contract provides them.
+        pass
+
     chart = _load_chart_of_accounts()
     account_info = chart.get("accounts", {}).get(gl_account)
     if account_info:
@@ -283,27 +298,32 @@ async def compute_level_statistics(
                 "summary": f"Top {len(top_items)} of {len(merged)} ops Level {level} items explain {variance_explained:.1f}% of variance"
             }, indent=2)
 
-        # === P&L data source (original logic) ===
-        # Get data from cache (NOT from LLM)
-        records = get_validated_records()
-
-        if records:
-            # Convert records (structured cache) to DataFrame
-            df = pd.DataFrame(records)
+        # === Get data from context or legacy cache ===
+        ctx = _get_context_info()
+        if ctx and ctx.df is not None:
+            df = ctx.df.copy()
+            metric_col = ctx.target_metric.column if ctx.target_metric else metric_name
+            print(f"[compute_level_statistics] Using data from AnalysisContext ({len(df)} rows)")
         else:
-            # Fallback: Parse CSV from legacy cache to avoid building large in-memory dict
-            csv_data = get_validated_csv()
-            if not csv_data or csv_data.strip() == "":
-                return json.dumps({
-                    "error": "NoDataAvailable",
-                    "message": "No validated data found in cache. Ensure data_validation_agent ran successfully.",
-                    "level": level
-                })
-            # Parse CSV string directly
-            from io import StringIO
-            df = pd.read_csv(StringIO(csv_data))
-        
-        # Enrich dataframe with hierarchy levels from chart of accounts
+            # Get data from cache (NOT from LLM)
+            records = get_validated_records()
+
+            if records:
+                # Convert records (structured cache) to DataFrame
+                df = pd.DataFrame(records)
+            else:
+                # Fallback: Parse CSV from legacy cache to avoid building large in-memory dict
+                csv_data = get_validated_csv()
+                if not csv_data or csv_data.strip() == "":
+                    return json.dumps({
+                        "error": "NoDataAvailable",
+                        "message": "No validated data found in cache. Ensure data_validation_agent ran successfully.",
+                        "level": level
+                    })
+                # Parse CSV string directly
+                from io import StringIO
+                df = pd.read_csv(StringIO(csv_data))
+            metric_col = metric_name
         # This ensures we use the authoritative hierarchy, not potentially duplicate CSV columns
         def enrich_with_hierarchy(row):
             """Add hierarchy levels from chart of accounts."""
@@ -395,7 +415,7 @@ async def compute_level_statistics(
             })
         
         # Aggregate current period by level
-        current_agg = current_df.groupby(level_col)["amount"].sum().reset_index()
+        current_agg = current_df.groupby(level_col)[metric_col].sum().reset_index()
         current_agg.columns = ["item", "current"]
         
         # For Level 4 (GL accounts), add account_name from chart of accounts
@@ -431,14 +451,14 @@ async def compute_level_statistics(
         if variance_type in ["3mma", "6mma"]:
             prior_periods_str = [p.strftime("%Y-%m") for p in prior_periods]
             prior_df = df[df["period"].isin(prior_periods_str)].copy()
-            prior_agg = prior_df.groupby(level_col)["amount"].sum().reset_index()
-            prior_agg["prior"] = prior_agg["amount"] / len(prior_periods_str)  # Average
+            prior_agg = prior_df.groupby(level_col)[metric_col].sum().reset_index()
+            prior_agg["prior"] = prior_agg[metric_col] / len(prior_periods_str)  # Average
             prior_agg = prior_agg[[level_col, "prior"]]
             prior_agg.columns = ["item", "prior"]
         else:
             prior_period_str = prior_date.strftime("%Y-%m")
             prior_df = df[df["period"] == prior_period_str].copy()
-            prior_agg = prior_df.groupby(level_col)["amount"].sum().reset_index()
+            prior_agg = prior_df.groupby(level_col)[metric_col].sum().reset_index()
             prior_agg.columns = ["item", "prior"]
         
         # Merge current and prior

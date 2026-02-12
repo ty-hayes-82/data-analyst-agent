@@ -42,6 +42,20 @@ _CACHE_DIR.mkdir(exist_ok=True)
 _validated_csv_cache: Optional[str] = None
 _validated_data_cache: Optional[Dict[str, Any]] = None
 _ops_metrics_csv_cache: Optional[str] = None
+_analysis_context_cache: Any = None
+
+
+# === Analysis Context Cache ===
+
+def set_analysis_context(context: Any) -> None:
+    """Store AnalysisContext in memory cache."""
+    global _analysis_context_cache
+    _analysis_context_cache = context
+
+def get_analysis_context() -> Any:
+    """Retrieve AnalysisContext from memory cache."""
+    global _analysis_context_cache
+    return _analysis_context_cache
 
 
 # === Legacy CSV Cache (with file-based persistence) ===

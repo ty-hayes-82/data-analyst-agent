@@ -118,6 +118,71 @@ from .sub_agents.testing_data_agent.agent import root_agent as testing_data_agen
 import os
 
 # Authentication and environment setup is handled by config module
+from .semantic.models import DatasetContract, AnalysisContext
+from .semantic.quality import DataQualityGate
+import uuid
+
+class ContractLoader(BaseAgent):
+    """Loads the DatasetContract from YAML based on request analysis or default."""
+    
+    def __init__(self):
+        super().__init__(name="contract_loader")
+    
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        # For now, default to P&L contract. In Wave 3 (Planning), this will be dynamic.
+        contract_path = os.path.join(_project_root, "contracts", "pl_contract.yaml")
+        contract = DatasetContract.from_yaml(contract_path)
+        
+        print(f"[ContractLoader] Loaded contract: {contract.name} v{contract.version}")
+        
+        # Store in session state as a non-serialized object for sub-agents to use
+        ctx.session.state["dataset_contract"] = contract
+        
+        actions = EventActions(state_delta={"contract_name": contract.name})
+        yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=actions)
+
+class AnalysisContextInitializer(BaseAgent):
+    """Initializes the AnalysisContext after data is fetched and validated."""
+    
+    def __init__(self):
+        super().__init__(name="analysis_context_initializer")
+        
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        import pandas as pd
+        from io import StringIO
+        
+        contract = ctx.session.state.get("dataset_contract")
+        pl_data_csv = ctx.session.state.get("validated_pl_data_csv")
+        
+        if not contract or not pl_data_csv:
+            print("[AnalysisContextInitializer] Missing contract or data")
+            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            return
+            
+        df = pd.read_csv(StringIO(pl_data_csv))
+        
+        # Default to first metric and primary dimension for now
+        target_metric = contract.metrics[0]
+        primary_dim = next(d for d in contract.dimensions if d.role == "primary")
+        
+        context = AnalysisContext(
+            contract=contract,
+            df=df,
+            target_metric=target_metric,
+            primary_dimension=primary_dim,
+            run_id=str(uuid.uuid4()),
+            max_drill_depth=ctx.session.state.get("max_drill_depth", 3)
+        )
+        
+        # Store in session state and global cache
+        ctx.session.state["analysis_context"] = context
+        from .sub_agents.data_cache import set_analysis_context
+        set_analysis_context(context)
+        
+        print(f"[AnalysisContextInitializer] Created context for {len(df)} rows. Target: {target_metric.name}")
+        
+        actions = EventActions(state_delta={"analysis_context_ready": True})
+        yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=actions)
 
 # TEST MODE FLAG - Set to True to use CSV data instead of Tableau A2A agents
 TEST_MODE = os.environ.get("PL_ANALYST_TEST_MODE", "false").lower() == "true"
@@ -651,6 +716,7 @@ cost_center_analysis = SequentialAgent(
     sub_agents=[
         AgentLogger(parallel_data_fetch, "parallel_data_fetch_logger"),
         AgentLogger(validation_agent, "data_validation_agent_logger"),
+        AgentLogger(AnalysisContextInitializer(), "analysis_context_initializer_logger"),
         AgentLogger(data_analyst_agent, "data_analyst_agent_logger"),
         AgentLogger(synthesis_agent, "report_synthesis_agent_logger"),
         AgentLogger(OutputPersistenceAgent(level="cost_center"), "output_persistence_agent_logger"),
@@ -675,6 +741,7 @@ root_agent = SequentialAgent(
     name="pl_analyst_agent",
     sub_agents=[
         request_analyzer,           # Analyze request type and determine data needs
+        ContractLoader(),           # Load DatasetContract
         cost_center_extractor,      # Extract all cost centers from user message
         CostCenterParserAgent(),    # Parse JSON string into list
         cost_center_loop,           # Loop through cost centers with dynamic conditional workflows

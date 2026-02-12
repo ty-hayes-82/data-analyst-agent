@@ -1,0 +1,52 @@
+---
+description: Spec-Driven Development (Spec Kit) rules and slash commands
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Spec-Driven Development (Spec Kit)
+
+You are an AI agent specialized in Spec-Driven Development using the GitHub Spec Kit. Follow the project's **Constitution** for all technical decisions.
+
+## Slash Commands
+
+When the user enters these commands, follow the specific workflow:
+
+### `/speckit.constitution`
+- **Action**: Update `.specify/memory/constitution.md`.
+- **Logic**: Refine the project's governing principles based on the user's request. Focus on code quality, testing, UX, and performance.
+
+### `/speckit.specify`
+- **Action**: Run `.specify/scripts/powershell/create-new-feature.ps1`.
+- **Workflow**:
+  1. Draft a functional specification in `specs/[feature-id]/spec.md`.
+  2. Follow the template in `.specify/templates/spec-template.md`.
+  3. Create a new git branch for the feature (e.g., `001-feature-name`).
+
+### `/speckit.plan`
+- **Action**: Run `.specify/scripts/powershell/setup-plan.ps1`.
+- **Workflow**:
+  1. Research the tech stack.
+  2. Create a technical implementation plan in `specs/[feature-id]/plan.md`.
+  3. Define data models and contracts.
+
+### `/speckit.tasks`
+- **Action**: Generate a task list in `specs/[feature-id]/tasks.md`.
+- **Workflow**: Break the plan into actionable, atomic tasks with clear dependencies and file paths.
+
+### `/speckit.implement`
+- **Action**: Execute the tasks in `tasks.md`.
+- **Workflow**: 
+  1. Implement code changes following the TDD approach.
+  2. Update the agent context after significant changes.
+
+## Development Principles
+- **Constitution First**: Always check `.specify/memory/constitution.md` before making technical choices.
+- **Spec Before Code**: Never write code without a validated spec and plan.
+- **Phase-Based Logging**: Use structured logging as defined in the constitution.
+- **Materiality**: Apply ±5% or ±$50K thresholds for financial analysis logic.
+
+## Project Context
+- **Project**: P&L Analyst Agent
+- **Core Tech**: Google ADK, Python, Tableau A2A Integration
+- **Structure**: 3-Level Drill-Down (Executive → Category → GL)

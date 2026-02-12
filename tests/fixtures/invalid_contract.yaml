@@ -1,0 +1,17 @@
+name: "Invalid Dataset"
+version: "1.0.0"
+# Missing 'time' section
+# Wrong enum value for role
+
+grain:
+  columns: ["category"]
+
+metrics:
+  - name: "count"
+    column: "row_count"
+    type: "additive"
+
+dimensions:
+  - name: "category"
+    column: "category_name"
+    role: "not_a_valid_role"

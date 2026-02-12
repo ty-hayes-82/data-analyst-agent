@@ -21,14 +21,14 @@ from google.genai import types
 
 from config.model_loader import get_agent_model
 from .prompt import DATA_VALIDATION_INSTRUCTION
-from .tools import reshape_and_validate, load_and_validate_from_cache, aggregate_by_category, join_ops_metrics, join_chart_metadata, json_to_csv, csv_to_json_passthrough, load_from_global_cache, flip_revenue_signs
+from .tools import reshape_and_validate, load_and_validate_from_cache, aggregate_by_category, join_ops_metrics, join_chart_metadata, json_to_csv, csv_to_json_passthrough, load_from_global_cache, flip_revenue_signs, semantic_quality_check
 
 
 root_agent = Agent(
     model=get_agent_model("data_validation_agent"),
     name="data_validation_agent",
     instruction=DATA_VALIDATION_INSTRUCTION,
-    tools=[reshape_and_validate, load_and_validate_from_cache, aggregate_by_category, join_ops_metrics, join_chart_metadata, json_to_csv, csv_to_json_passthrough, load_from_global_cache, flip_revenue_signs],
+    tools=[reshape_and_validate, load_and_validate_from_cache, aggregate_by_category, join_ops_metrics, join_chart_metadata, json_to_csv, csv_to_json_passthrough, load_from_global_cache, flip_revenue_signs, semantic_quality_check],
     generate_content_config=types.GenerateContentConfig(
         response_modalities=["TEXT"],
         temperature=0.0,

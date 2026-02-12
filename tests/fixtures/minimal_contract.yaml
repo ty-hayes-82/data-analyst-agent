@@ -1,0 +1,26 @@
+name: "Minimal Generic Dataset"
+version: "1.0.0"
+description: "Minimal valid contract for testing"
+
+time:
+  column: "date"
+  frequency: "daily"
+  format: "%Y-%m-%d"
+  timezone: "UTC"
+  range_months: 12
+
+grain:
+  columns: ["date", "category"]
+  description: "Daily data by category"
+
+metrics:
+  - name: "count"
+    column: "row_count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+
+dimensions:
+  - name: "category"
+    column: "category_name"
+    role: "primary"

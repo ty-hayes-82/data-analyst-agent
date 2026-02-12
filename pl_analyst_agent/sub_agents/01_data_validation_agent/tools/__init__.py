@@ -24,6 +24,8 @@ from .csv_to_json_passthrough import csv_to_json_passthrough
 from .load_from_global_cache import load_from_global_cache
 from .flip_revenue_signs import flip_revenue_signs
 
+from .semantic_quality_check import semantic_quality_check
+
 __all__ = [
     "reshape_and_validate",
     "load_and_validate_from_cache",
@@ -34,4 +36,5 @@ __all__ = [
     "csv_to_json_passthrough",
     "load_from_global_cache",
     "flip_revenue_signs",
+    "semantic_quality_check",
 ]
