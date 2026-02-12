@@ -1,0 +1,131 @@
+# Action Ownership Configuration
+# Maps alert types to owners and SLAs
+
+# Default ownership matrix by alert type
+ownership_matrix:
+  revenue_variance:
+    owner: "Sales Leader"
+    escalation_owner: "VP Sales"
+    sla_hours: 48
+    notification_channels: ["email", "teams"]
+    description: "Revenue variances requiring sales investigation"
+  
+  cost_variance:
+    owner: "Finance BP"
+    escalation_owner: "Controller"
+    sla_hours: 24
+    notification_channels: ["email"]
+    description: "Cost variances requiring finance review"
+  
+  toll_expense_opportunity:
+    owner: "Billing Specialist"
+    escalation_owner: "Finance Manager"
+    sla_hours: 24
+    window_days: 180  # Billable window
+    notification_channels: ["email", "dynamics_crm"]
+    description: "Toll billing recovery opportunities"
+  
+  fuel_variance:
+    owner: "Operations Manager"
+    escalation_owner: "VP Operations"
+    sla_hours: 48
+    notification_channels: ["email"]
+    description: "Fuel cost variances"
+  
+  labor_variance:
+    owner: "HR Business Partner"
+    escalation_owner: "VP HR"
+    sla_hours: 72
+    notification_channels: ["email", "teams"]
+    description: "Labor cost variances"
+
+# Cost center-specific ownership overrides
+cost_center_overrides:
+  "067":
+    revenue_variance:
+      owner: "Sacramento Ops Manager"
+      escalation_owner: "Regional Director"
+      sla_hours: 48
+      notification_channels: ["email", "teams"]
+    
+    cost_variance:
+      owner: "Sacramento Finance BP"
+      escalation_owner: "Regional Controller"
+      sla_hours: 24
+      notification_channels: ["email"]
+  
+  "497":
+    revenue_variance:
+      owner: "Regional Sales Manager"
+      escalation_owner: "VP Sales West"
+      sla_hours: 48
+      notification_channels: ["email", "teams"]
+
+# GL account-specific ownership (for critical accounts)
+gl_account_overrides:
+  "4560-06":  # Tolls
+    owner: "Toll Billing Specialist"
+    escalation_owner: "Billing Manager"
+    sla_hours: 24
+    notification_channels: ["email", "dynamics_crm"]
+    description: "Critical toll account - immediate billing review"
+  
+  "4100-00":  # Driver Pay
+    owner: "Payroll Manager"
+    escalation_owner: "VP HR"
+    sla_hours: 48
+    notification_channels: ["email"]
+    description: "Driver payroll variances"
+
+# SLA tier definitions
+sla_tiers:
+  critical:
+    sla_hours: 4
+    escalation_interval_hours: 2
+    notification_frequency: "immediate"
+  
+  high:
+    sla_hours: 24
+    escalation_interval_hours: 12
+    notification_frequency: "daily"
+  
+  medium:
+    sla_hours: 48
+    escalation_interval_hours: 24
+    notification_frequency: "daily"
+  
+  low:
+    sla_hours: 168  # 1 week
+    escalation_interval_hours: 72
+    notification_frequency: "weekly"
+
+# Notification channel configurations
+notification_channels:
+  email:
+    enabled: true
+    template: "variance_alert_email.html"
+    cc_management: true
+  
+  teams:
+    enabled: true
+    webhook_url: "${TEAMS_WEBHOOK_URL}"
+    mention_owner: true
+  
+  dynamics_crm:
+    enabled: false  # Enable when CRM integration ready
+    opportunity_type: "billing_recovery"
+    auto_create: true
+
+# Escalation rules
+escalation_rules:
+  - condition: "sla_breached"
+    action: "notify_escalation_owner"
+    repeat_interval_hours: 24
+  
+  - condition: "high_severity_unacknowledged"
+    action: "escalate_to_management"
+    threshold_hours: 12
+  
+  - condition: "critical_severity"
+    action: "immediate_escalation"
+    threshold_hours: 0

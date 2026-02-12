@@ -1,0 +1,35 @@
+# Materiality Configuration for P&L Analyst
+# Used by statistical_analysis_agent to flag significant variances
+
+# Enable empirical thresholds (calculated from historical data)
+# If true, loads category-specific thresholds from materiality_thresholds_empirical.yaml
+# If false or file not found, uses fixed defaults below
+use_empirical: false
+
+materiality_thresholds:
+  # Variance percentage threshold (±5%)
+  variance_pct: 5.0
+  
+  # Absolute dollar threshold (±$50K)
+  variance_dollar: 50000
+  
+  # Number of top categories to analyze in detail
+  top_categories_count: 5
+  
+  # Cumulative variance percentage target (80%)
+  # Identify top N categories that explain 80%+ of total variance
+  cumulative_variance_pct: 80
+  
+  # Minimum dollar amount to consider a GL/category material
+  min_amount: 10000
+
+# Per-unit variance thresholds (for operational metrics)
+per_unit_thresholds:
+  # Cost per mile variance (±10%)
+  cost_per_mile_pct: 10.0
+  
+  # Cost per load variance (±10%)
+  cost_per_load_pct: 10.0
+  
+  # Cost per stop variance (±10%)
+  cost_per_stop_pct: 10.0

@@ -1,0 +1,100 @@
+# P&L Analyst Agent - Required Packages
+# 
+# IMPORTANT: This project uses EXPERIMENTAL A2A features that may not be 
+# available in the published google-adk package yet.
+#
+# INSTALLATION STATUS: ✅ ADK INSTALLED FROM SOURCE
+#
+# ADK Source: C:\Streamlit\adk-python (editable install)
+# Installation command used:
+#   pip install -e c:\Streamlit\adk-python
+#
+# To reinstall if needed:
+#   1. Clone repo: git clone https://github.com/google/adk-python.git (in C:\Streamlit\)
+#   2. Install: .\.venv\Scripts\python.exe -m pip install -e c:\Streamlit\adk-python
+
+# ============================================================================
+# Core Dependencies
+# ============================================================================
+
+# Core ADK (installed from source - DO NOT uncomment)
+# google-adk>=1.14.1
+
+# A2A SDK (REQUIRED for A2A server functionality)
+a2a-sdk>=0.3.4,<0.4.0
+
+# AI/ML packages (installed automatically with ADK)
+# google-genai>=1.32.0
+# google-cloud-aiplatform>=1.91.0
+
+# Configuration
+python-dotenv>=1.0.0
+pyyaml>=6.0.2
+
+# ============================================================================
+# Data Processing
+# ============================================================================
+
+# Data manipulation
+pandas>=2.2.0
+numpy>=1.26
+
+# Database connectivity
+pyodbc>=5.2.0
+tableauhyperapi>=0.0.19347
+
+# ============================================================================
+# Time-Series Analysis & Forecasting
+# ============================================================================
+
+# Statistical models
+statsmodels>=0.14.1
+scipy>=1.11
+scikit-learn>=1.4
+
+# ARIMA forecasting
+pmdarima>=2.0.4
+
+# Date manipulation
+python-dateutil>=2.8.2
+
+# Change-point detection
+ruptures>=1.1.9
+
+# ============================================================================
+# Visualization
+# ============================================================================
+
+# Charts and graphs
+matplotlib>=3.8.0
+
+# ============================================================================
+# Deployment & CLI Tools
+# ============================================================================
+
+# Command-line flags for deployment scripts
+absl-py>=2.2.1
+
+# Serialization
+cloudpickle>=3.1.1
+
+# ============================================================================
+# Development Dependencies
+# ============================================================================
+
+# Testing
+# pytest>=7.4.0
+
+# Code quality
+# black>=23.0.0
+# flake8>=6.0.0
+
+# HTTP client for testing (installed automatically with ADK)
+# httpx>=0.27.0
+# requests>=2.32.0
+
+# Web framework for servers (installed automatically with ADK)
+# fastapi>=0.116.1
+# uvicorn>=0.35.0
+# starlette>=0.47.3
+# sse-starlette>=3.0.2

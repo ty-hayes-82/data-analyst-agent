@@ -1,0 +1,162 @@
+# Agent Model Configuration
+# Defines which models to use for different agents
+
+default_tier: "standard"
+
+model_tiers:
+  ultra:
+    model: "gemini-2.0-flash-lite"
+    description: "Ultra-fast, lightweight model for simple operations"
+  
+  fast:
+    model: "gemini-2.5-flash-lite"
+    description: "Fast, efficient model for simple tasks"
+  
+  standard:
+    model: "gemini-2.5-flash"
+    description: "Balanced model for general use"
+  
+  advanced:
+    model: "gemini-2.5-pro"
+    description: "High-capability model for complex reasoning"
+
+agents:
+  # Core P&L Analyst Agents
+  data_validation_agent:
+    tier: "ultra"
+    description: "Data validation gateway (includes data cleaning and invalid period filtering)"
+  
+  # Analysis Sub-Agents (run in parallel - consolidated from 10 to 6 agents)
+  statistical_insights_agent:
+    tier: "fast"
+    description: "Stats-first analysis with business insights"
+  
+  # Hierarchical Drill-Down Agents
+  data_analyst_agent:
+    tier: "standard"
+    description: "Hierarchical drill-down orchestrator (Level 2→3→4)"
+  
+  drill_down_decision_agent:
+    tier: "standard"
+    description: "LLM-driven drill-down decision maker based on materiality"
+  
+  hierarchy_variance_ranker_agent:
+    tier: "fast"
+    description: "Aggregates and ranks items by hierarchy level"
+  
+  statistical_analysis_agent:
+    tier: "fast"
+    description: "Comprehensive statistics (descriptive stats, variances, period comparisons)"
+  
+  anomaly_detection_agent:
+    tier: "standard"
+    description: "Multi-method anomaly detection (change points, drift, timing swings)"
+  
+  forecasting_agent:
+    tier: "fast"
+    description: "Time series forecasting (baseline and future predictions)"
+  
+  seasonal_baseline_agent:
+    tier: "standard"
+    description: "Creates seasonal baselines"
+  
+  ratio_analysis_agent:
+    tier: "fast"
+    description: "Performs ratio analysis"
+  
+  visualization_agent:
+    tier: "fast"
+    description: "Creates visualizations"
+  
+  synthesis_agent:
+    tier: "standard"
+    description: "Synthesizes results from all parallel analysis agents"
+  
+  report_synthesis_agent:
+    tier: "standard"
+    description: "Report synthesis from structured insight report (3-level framework)"
+  
+  report_report_synthesis_agent:
+    tier: "standard"
+    description: "Report synthesis from structured insight report (3-level framework)"
+  
+  output_persistence_agent:
+    tier: "ultra"
+    description: "Saves complete analysis to JSON files"
+  
+  testing_data_agent:
+    tier: "ultra"
+    description: "Testing data loader (CSV) for test mode"
+  
+  # Alert and Scoring Agents
+  alert_scoring_coordinator:
+    tier: "standard"
+    description: "Complete alert lifecycle manager (extraction, suppression, scoring, prioritization, feedback learning)"
+  
+  # Jira Agents (a2a - not modified per user request)
+  jira_agent:
+    tier: "fast"
+    description: "Main Jira orchestrator agent"
+  
+  jira_analytics_agent:
+    tier: "fast"
+    description: "Analytics, summaries, counts, and rankings"
+  
+  jira_issues_agent:
+    tier: "ultra"
+    description: "Single-issue details, comments, and attachments"
+  
+  jira_query_agent:
+    tier: "fast"
+    description: "Fetches sets of tickets via JQL or criteria"
+  
+  jira_users_agent:
+    tier: "fast"
+    description: "User discovery and fuzzy lookup"
+  
+  jira_health_agent:
+    tier: "ultra"
+    description: "Readiness, health, and observability checks"
+  
+  jira_learning_agent:
+    tier: "fast"
+    description: "Learning and memory agent"
+  
+  attachment_analyzer_agent:
+    tier: "fast"
+    description: "Attachment analysis with vision capabilities"
+  
+  browser_updater_agent:
+    tier: "fast"
+    description: "Browser-based Jira ticket updater with automation"
+  
+  project_manager_agent:
+    tier: "fast"
+    description: "Intelligent project management analysis and recommendations"
+
+  cost_center_iterator:
+    tier: "ultra"
+    description: "Iterates through cost centers for individual analysis"
+    cost_centers: "${cost_centers}"
+  
+  # Main P&L Analyst Workflow Agents
+  request_analyzer:
+    tier: "standard"
+    description: "Analyzes user request to determine GL accounts and analysis type"
+  
+  cost_center_extractor:
+    tier: "standard"
+    description: "Extracts cost center numbers from user request"
+  
+  financial_data_agent:
+    tier: "standard"
+    description: "Requests P&L data from Account Research DS"
+  
+  ops_metrics_data_agent:
+    tier: "standard"
+    description: "Requests monthly operational metrics from Ops Metrics DS"
+  
+  order_details_data_agent:
+    tier: "standard"
+    description: "Requests order-level detail for contract validation"
+

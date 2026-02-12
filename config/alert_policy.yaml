@@ -1,0 +1,24 @@
+windows: [3, 6, 12, 24]
+
+severity:
+  info:
+    point_z_mad_min: 2.0
+    pi_breaches_min: 0
+  warn:
+    point_z_mad_min: 3.0
+    pi_breaches_min: 1
+  critical:
+    change_point: true
+    mom_pct_min: 25
+    yoy_pct_min: 20
+
+fatigue:
+  suppress_days: 14
+  rearm_on_escalation: true
+
+ownership:
+  mapping:
+    "gl_div_cd:107": "Finance BP - West"
+    "gl_cst_ctr_cd:067": "Ops - Sacramento"
+
+

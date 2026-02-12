@@ -1,0 +1,100 @@
+# Business Context Configuration
+# Captures recurring patterns, root causes, and analyst decisions
+# Updated monthly after P&L review
+
+# Known recurring patterns (seasonal, operational, etc.)
+known_patterns:
+  "067_freight_revenue_q4_spike":
+    pattern_type: "seasonal"
+    description: "Q4 freight revenue typically up 10-15% due to holiday volume"
+    affected_gls: ["3100-00", "3100-01", "3100-03"]
+    cost_centers: ["067"]
+    months: [10, 11, 12]
+    suppress_alerts: true
+    documented_by: "Finance BP"
+    documented_date: "2024-12-15"
+  
+  "067_accessorial_revenue_growth":
+    pattern_type: "operational"
+    description: "New accessorial pricing effective 2025-01, expect +$50K/mo"
+    affected_gls: ["3110-00", "3110-01"]
+    root_cause: "rate_change"
+    expected_duration_months: 12
+    one_time: false
+    documented_by: "Sales"
+    documented_date: "2024-12-20"
+
+# Historical root cause analysis by GL account
+gl_root_cause_history:
+  "3110-00":  # Accessorial Revenue
+    - period: "2025-09"
+      variance_dollar: 100472
+      root_cause: "operational"
+      sub_classification: "rate_change"
+      one_time: false
+      reasoning: "New accessorial pricing rolled out Aug 2025"
+      validated_by: "Operations Manager"
+      validation_date: "2025-10-05"
+      follow_up_action: "Monitor next 3 months to confirm sustained"
+      status: "active_monitoring"
+  
+  "3115-00":  # Fuel Surcharge Revenue
+    - period: "2025-09"
+      variance_dollar: 61462
+      root_cause: "operational"
+      sub_classification: "volume_mix"
+      one_time: false
+      reasoning: "Miles up 8% driving fuel surcharge revenue"
+      validated_by: "Finance BP"
+      validation_date: "2025-10-05"
+
+# Suppression rules for known timing issues
+suppression_rules:
+  "067_period_14_accruals":
+    description: "Period 14 accruals cause timing variances in GL 4xxx-xx"
+    affected_gls: ["4100-*", "4200-*"]  # Wildcards supported
+    cost_centers: ["067"]
+    periods: [14]  # Period number or month
+    suppress_severity_below: 0.6  # Still alert on HIGH severity
+    reason: "Known timing - accrual reversals in P14"
+    active: true
+    created_by: "Finance"
+    created_date: "2024-11-01"
+  
+  "q4_seasonal_adjustments":
+    description: "Q4 seasonal patterns across revenue accounts"
+    affected_gls: ["3*"]  # All revenue accounts
+    cost_centers: []  # All cost centers
+    months: [10, 11, 12]
+    suppress_severity_below: 0.5
+    reason: "Expected seasonal variance"
+    active: true
+    created_by: "Finance"
+    created_date: "2024-11-15"
+
+# Root cause classifications
+root_cause_types:
+  - "accruals"      # Monthly accrual timing
+  - "timing"        # Period shifts, posting lags
+  - "allocations"   # Cross-account allocations
+  - "miscoding"     # GL coding errors
+  - "operational"   # Volume/rate driven changes
+  - "rate_change"   # Pricing updates
+  - "volume_mix"    # Volume or customer mix shifts
+  - "one_time"      # Non-recurring events
+
+# Pattern types
+pattern_types:
+  - "seasonal"      # Recurring seasonal patterns
+  - "operational"   # Business-driven changes
+  - "timing"        # Known timing issues
+  - "policy"        # Policy or rate changes
+  - "one_time"      # One-time events
+
+# Status values for follow-up tracking
+status_values:
+  - "active_monitoring"  # Ongoing monitoring required
+  - "resolved"           # Issue resolved
+  - "expected"           # Expected pattern confirmed
+  - "investigating"      # Under investigation
+  - "escalated"          # Escalated to management

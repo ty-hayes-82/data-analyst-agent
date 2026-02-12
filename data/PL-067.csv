@@ -1,0 +1,178 @@
+﻿DIV,LOB,GL_CC,Account Nbr,level_1,level_2,level_3,level_4,CTDESC,2024 - 07,2024 - 08,2024 - 09,2024 - 10,2024 - 11,2024 - 12,2025 - 01,2025 - 02,2025 - 03,2025 - 04,2025 - 05,2025 - 06,2025 - 07,2025 - 08,2025 - 09,10
+107,17,67,3100-00,Total Operating Revenue,Freight Revenue,Mileage Revenue,Mileage Revenue,Operating Revenue,"-645,527","-781,132","-898,057","-864,917","-779,765","-771,735","-761,881","-729,095","-848,019","-818,699","-929,569","-875,563","-943,343","-931,619","-955,957","-130,387"
+107,17,67,3100-05,Total Operating Revenue,Freight Revenue,Mileage Revenue,Mileage Revenue,Operating Rev-Transmex Backout,,,,,,,,,,,,,175,,,
+107,17,67,3103-00,Total Operating Revenue,Freight Revenue,Mileage Revenue,Mileage Revenue,AR - Revenue Adjustments,8,0,,122,489,840,886,113,83,-8,70,56,2,,,
+107,17,67,3115-00,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Load/Unload,-175,-35,"-3,745","-2,987","-3,920","-4,060","-3,545","-3,381","-3,663","-3,220","-4,025","-3,605","-3,535","-3,205","-4,200",-35
+107,17,67,3115-01,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Operating Revenue-Singles,,,,-816,,-238,0,-255,-255,,,-260,-538,-520,0,
+107,17,67,3116-00,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Tolls Accessorial Revenue,"-3,439","-12,837",-390,"-19,627","-10,158",-130,"-8,245","-9,209","-16,545","-10,815","-8,468","-8,325","-1,354","-9,816","-7,945","-7,205"
+107,17,67,3120-00,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Stop-Offs,"-32,874","-49,701","-64,665","-58,641","-53,534","-55,017","-56,387","-56,572","-63,334","-61,837","-50,846","-36,089","-44,206","-38,116","-173,816","117,547"
+107,17,67,3130-00,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Trailer Detention Revenue,,,,,,,,,,"-1,596",,"1,596",0,,,
+107,17,67,3131-00,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Power Detention Revenue,,,-760,-495,-225,,,-120,,,,,-116,-75,,
+107,17,67,3135-00,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Accessorial Revenue-Other,293,"-3,729","3,552",-246,"-5,420","4,860",444,90,86,-164,-152,"-2,794","2,304","-2,683",-841,"4,249"
+107,17,67,3135-04,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Accessorial Revenue-RBill,"-89,856","-76,904","-79,524","-82,662","-68,141","-84,774","-90,969","-73,125","-78,494","-80,818","-86,441","-74,341","-71,623","-65,816","-67,213","10,195"
+107,17,67,3135-05,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Other Accessorials BH Credit,,,,,,,,,,,,,"1,480","1,316","7,760",
+107,17,67,3135-06,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Other Accessorials TONU,-192,,,,,,,,,,,,,,,
+107,17,67,3135-08,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Other Accessorials Spotting,,,,,,,58,,,,,,,,,
+107,17,67,3135-10,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Other Accessorials Ded Gener,,,,,,-816,0,,,,,,,,,
+107,17,67,3135-15,Total Operating Revenue,Freight Revenue,Accessorial Revenue,Accessorial Revenue,Other Accessorials LO Revenu,,,-251,,,,,,,,,,,,,
+107,17,67,3200-00,Total Operating Revenue,Fuel Surcharge Revenue,Fuel Surcharge Revenue,Fuel Surcharge Revenue,Fuel Surcharge,"-203,573","-234,844","-260,021","-247,296","-214,852","-211,210","-215,169","-211,063","-242,964","-232,667","-282,909","-279,589","-299,897","-268,834","-307,848","-39,034"
+107,17,67,3200-05,Total Operating Revenue,Fuel Surcharge Revenue,Fuel Surcharge Revenue,Fuel Surcharge Revenue,Fuel Surcharge-RBill,"-36,724","-42,851","-42,370","-29,202","-42,520","-34,333","-40,945","-33,592","-33,621","-38,485","-43,274","-46,789","-45,955","-70,710","-56,019",0
+107,17,67,3203-00,Total Operating Revenue,Fuel Surcharge Revenue,Fuel Surcharge Revenue,Fuel Surcharge Revenue,AR - FSC Revenue Adjustments,,732,,,,,,,,,,,,,14,
+107,17,67,3300-00,Total Operating Revenue,Other Revenue,Non-Operating Revenue,Non-Operating Revenue,Lease Revenue,"-1,829","-1,829",,,,,"-1,756","-1,756","-1,756","-1,756","-1,756","-1,756","-1,756","-1,756",,
+107,17,67,3900-00,Total Operating Revenue,Other Revenue,Non-Operating Revenue,Non-Operating Revenue,Other Operating Revenue,,,,,,,,,,,,,,,,
+107,17,67,4210-00,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Salaries & Wages,Non-Driver Wages,NDRV Hourly Base Wages,"6,872","5,412","5,641","6,241","6,636","6,709","6,773","5,152","8,469","9,114","8,814","10,273","12,019","7,436","9,893","-3,103"
+107,17,67,4210-01,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Salaries & Wages,Non-Driver Wages,NDRV Salary Base Wages,"17,264","18,587","16,118","18,626","17,734","18,861","28,492","21,163","22,287","24,198","24,968","23,607","23,071","24,018","24,731","-7,869"
+107,17,67,4210-02,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Salaries & Wages,Non-Driver Wages,Admin Overtime Wages,"2,488","2,292","2,118","3,563","3,714","3,271","3,823","3,251","3,870","4,696","2,604","3,151","3,589","2,991","3,355","-1,071"
+107,17,67,4210-04,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Salaries & Wages,Non-Driver Bonus / Stock Compensation,Admin Bonus,,496,578,578,"1,734",804,888,"3,160",808,"1,616","2,064",428,"1,290","1,955","1,955",
+107,17,67,4210-08,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Salaries & Wages,Non-Driver Wages,NDRV - Vacation/Sick/Other,"1,393",431,"1,523","1,100","2,445","1,090","3,156","3,796","1,571","2,014","1,761","1,076","2,570","1,086","1,650",
+107,17,67,4210-17,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Salaries & Wages,Non-Driver Wages,Non-Driver Wages - Premium Pay,274,125,53,215,"2,160",611,672,"2,826","1,371",566,943,223,,480,168,-30
+107,17,67,4220-00,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Mileage & Hourly,Driver Wages,-205,"1,864",-541,"5,776","2,768","5,357","3,309","3,290",410,"6,549","4,109","3,771",847,"2,282",916,127
+107,17,67,4220-01,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Mileage & Hourly,Driver Wages - Mileage Pay,"195,736","209,900","227,999","215,810","183,086","192,135","175,472","176,903","200,191","195,223","214,380","181,212","181,797","190,507","202,467","-14,260"
+107,17,67,4220-02,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Mileage & Hourly,Driver Wages - Hourly Pay,"155,294","124,108","55,313","183,666","111,135","139,566","133,963","126,902","141,540","133,376","136,838","157,565","150,051","149,253","148,229","-9,604"
+107,17,67,4220-03,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Trainee Pay,Driver Wages - Trainee Pay,"8,698","9,163","16,530","23,990","19,062","13,707","21,274","16,996","11,898","9,054","21,656","26,085","27,409","30,482","27,639",-817
+107,17,67,4220-03,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Trainee Pay,Driver Wages-Trainee Pay,,,,,,,"1,273","1,394","2,933","1,420","1,841","2,850","5,469","1,966",,
+107,17,67,4220-05,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Vacation Pay,"2,341","5,563","3,161","6,717","4,621","7,217","4,645","5,454","5,965","3,869","6,468","8,246","6,435","5,830","5,812",
+107,17,67,4220-06,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Unloading Pay,,400,770,435,540,445,90,270,59,256,480,290,15,75,60,0
+107,17,67,4220-07,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Wait Pay,,8,116,120,108,32,92,28,,,,,,,,
+107,17,67,4220-08,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Exception Pay,442,635,"1,334","3,273",860,"2,515",614,700,,930,275,738,420,483,255,-10
+107,17,67,4220-09,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Breakdown Pay,,,"1,100",75,,775,150,525,,750,425,"1,125",175,600,,
+107,17,67,4220-10,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Short Haul Pay,,,,,,50,,,,,,,,,,
+107,17,67,4220-12,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Layover Pay,500,400,,300,"1,900","2,800",500,525,602,"2,000",100,75,300,775,400,
+107,17,67,4220-13,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Stop Pay,"12,093","11,851","24,112","18,171","16,658","14,595","17,370","13,848","17,921","16,034","19,193","16,082","13,684","16,130","13,602","1,548"
+107,17,67,4220-14,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Sick Pay,,"1,250","2,435","5,141","4,073","2,258","8,319","3,974","10,092","8,311","4,034","6,344","2,412","11,254","10,953",0
+107,17,67,4220-15,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Compliance Pay,-835,"1,957",860,"-1,512","1,759",450,-605,"2,120","1,466","1,816",-410,903,"2,175","1,333",493,0
+107,17,67,4220-16,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Rest Pay,"6,599","7,442","8,281","7,330","6,393","8,524","6,849","7,958","10,143","8,791","8,591","9,729","7,724","9,809","8,615",-11
+107,17,67,4220-17,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Premium Pay,75,-75,100,335,-435,26,-26,,,,,,,,,
+107,17,67,4220-30,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Wages - Performance Pay,67,,785,"2,028",-528,,"1,045","1,333",,632,,,"1,357",-154,,
+107,17,67,4220-32,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Driver Bonuses,"3,638","5,702","7,054","4,925","2,275","3,534","4,443","4,575","5,551","2,723","6,189","8,386","7,862","7,588","7,757",-515
+107,17,67,4400-00,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Salaries & Wages,Driver Wages Accessorial & Other,Other Fringes,136,27,227,169,-373,733,-375,50,-46,338,-206,162,-367,234,302,
+107,17,67,4410-00,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Benefits,Payroll Taxes Drv,Federal Payroll Taxes - Driver,"26,436","27,484","24,977","34,578","25,680","27,928","29,971","27,880","30,119","26,622","30,392","33,253","28,732","30,775","30,847","-8,814"
+107,17,67,4411-00,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Benefits,Payroll Taxes NonDrv,Federal Payroll Taxes - NDRV,"2,861","1,940","1,781","1,959","2,451","2,229","4,631","2,643","2,446","3,350","2,765","2,792","2,658","2,464","2,512","5,917"
+107,17,67,4420-00,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Benefits,Payroll Taxes Drv,State Payroll Taxes - Driver,-94,-69,-129,-184,-124,-212,"4,942","1,433",961,881,850,780,725,752,627,-729
+107,17,67,4421-00,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Benefits,Payroll Taxes NonDrv,State Payroll Taxes - NDRV,"1,097","1,050","1,298","1,630","1,866","2,408","-1,731",152,95,96,91,77,88,73,64,2
+107,17,67,4430-00,Total Variable Operating Expense,"Work Comp and Claims, Drv","Work Comp Claims Less Than $250,000 Drv","Work Comp Claims Less Than $250,000 Drv",Work Compensation Claim-Driver,,,,"13,000","10,000","7,500","2,298",,0,,,"-5,622",,,"7,564",
+107,17,67,4430-01,Total Variable Operating Expense,"Work Comp and Claims, Drv",Work Comp Premiums and Allocations Drv,Work Comp Premiums and Allocations Drv,Work Compensation Prem-Driver,851,"1,305","1,494","1,540","1,537","1,525","1,535","1,601","2,003","1,870","1,904","1,919","1,390","1,342","1,342",
+107,17,67,4430-03,Total Variable Operating Expense,"Work Comp and Claims, Drv",Work Comp Premiums and Allocations Drv,Work Comp Premiums and Allocations Drv,Work Comp Excess Alloc-Driver,,,,,,,,,"-109,527",,741,"-3,471","7,069","-2,785","-14,372",
+107,17,67,4431-01,Total Fixed Operating Expense,"Work Comp and Claims, NonDrv",Work Comp Premiums and Allocations NonDrv,Work Comp Premiums and Allocations NonDrv,Work Comp Premiums-NDRV,,,0,,,,,,,,,,,,,
+107,17,67,4440-00,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Benefits,Group Health Insurance Drv,Group Health Insurance-Driver,,,0,0,0,0,0,0,"20,054",,"21,602","24,361","28,935","24,140","28,835",
+107,17,67,4441-00,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Benefits,Group Health Insurance NonDrv,Group Health Insurance-NDRV,"1,793","1,976","2,512","1,772","1,552",-434,"1,452","2,095","1,940","2,644","2,201","2,588","3,227","2,720","3,164",
+107,17,67,4450-00,Total Variable Operating Expense,"Driver Salaries, Wages and Benefits",Driver Benefits,Pension & Retirement Drv,Pension/Retirement Plan-Driver,"15,425","4,936","6,722","1,926","2,749","10,814","9,451","6,997","3,440","11,641","3,081","5,870","6,138","5,381","4,444","-58,192"
+107,17,67,4451-00,Total Fixed Operating Expense,"Non-Driver Salaries, Wages and Benefits",Non-Driver Benefits,Pension & Retirement NonDrv,Pension/Retirement Plan-NDRV,"1,769",746,672,899,-94,515,500,723,867,846,921,"1,071",994,"1,038",989,"-8,093"
+107,17,67,4500-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Operating Supplies & Expenses,,,"-14,200",,,,,,,,,,,,,
+107,17,67,4510-00,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Fuel Expense,"221,524","254,467","258,955","253,316","223,419","224,850","222,190","216,307","237,516","233,061","271,340","275,285","290,197","291,322","306,596","131,439"
+107,17,67,4510-02,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Fuel Rebates,"-1,562","-1,357","-2,127","-1,615","-1,516",-444,-379,"-1,033","-2,161","-1,092","-1,725","-2,959","-2,536","-2,115","-1,533",
+107,17,67,4511-00,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Fuel Expense - Refrigerated,"35,708","36,061","32,758","38,531","30,236","22,598","29,742","28,812","22,530","32,525","34,188","46,970","52,063","52,505","44,700","17,863"
+107,17,67,4512-00,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Fuel Discounts,"-63,433","-67,319","-59,371","-59,431","-50,075","-58,707","-47,121","-40,632","-45,239","-46,989","-35,576","-39,316","-42,965","-57,698","-58,515","-26,621"
+107,17,67,4515-00,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Diesel Exhaust Fluid Expense,"8,450","9,950","10,642","10,421","9,308","9,525","9,119","8,833","10,143","9,384","10,835","10,617","11,298","11,472","11,880","5,285"
+107,17,67,4515-01,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Diesel Exhaust Fluid - Bulk,,,,,,,,,354,,352,456,396,489,439,
+107,17,67,4515-02,Total Variable Operating Expense,Fuel Expense,Fuel Expense,Fuel Expense,Diesel Exhaust Fluid-Trk Stop,,,27,,,,,,,,,,,,,
+107,17,67,4531-00,Total Variable Operating Expense,Total Equipment Maintenance,Tractor Maint. & Tire Expense,Tractor Maintenance,Tractor Maintenance Expense,"24,339","21,803","17,922","25,801","38,227","22,312","24,748","31,872","27,495","34,965","30,351","50,307","29,300","26,224","43,825","1,007"
+107,17,67,4531-01,Total Variable Operating Expense,Total Equipment Maintenance,Tractor Maint. & Tire Expense,Tractor Maintenance,Warranty Credits,"-4,745","-6,565","-3,347","-6,598","-4,078","-4,675","-2,799","-7,130","-6,130","-10,980","-3,772","-11,658","-9,841","-4,740","-7,647",-70
+107,17,67,4532-00,Total Variable Operating Expense,Total Equipment Maintenance,Trailer Maint. & Tire Expense,Trailer Maintenance,Trailer Maintenance,63,141,127,42,34,129,254,26,0,47,15,62,149,153,162,
+107,17,67,4533-00,Total Variable Operating Expense,Total Equipment Maintenance,Trailer Maint. & Tire Expense,Trailer Maintenance,Reefer Maintenance Expense,,,,,,,,,20,,,,,,,
+107,17,67,4537-00,Total Variable Operating Expense,Total Equipment Maintenance,Tractor Maint. & Tire Expense,Tractor Maintenance,Tractor Damage Expense,"3,647","2,826","1,512","1,363","3,217","1,457","2,304","1,197","1,467","3,901",-827,942,596,"1,831",367,"1,174"
+107,17,67,4538-00,Total Variable Operating Expense,Total Equipment Maintenance,Trailer Maint. & Tire Expense,Trailer Maintenance,Trailer Damage Expense,13,33,24,8,7,20,60,6,0,13,3,15,36,31,31,
+107,17,67,4541-00,Total Variable Operating Expense,Total Equipment Maintenance,Other Maintenance,Applied Labor / Other,Outsourced Equip Maint-Tractor,"5,182","2,232","5,986","4,859","22,344","8,187","1,216","11,626","7,652","17,027","9,983","24,311","17,453","8,662","21,123","3,615"
+107,17,67,4541-01,Total Variable Operating Expense,Total Equipment Maintenance,Other Maintenance,Applied Labor / Other,Outsourced Equip Maint-Trailer,,,,,,,,,"19,030",,"20,776","19,684","22,172","21,191","22,346",
+107,17,67,4542-00,Total Variable Operating Expense,Total Equipment Maintenance,Other Maintenance,Applied Labor / Other,Sublets Applied,"-5,182","-2,232","-5,986","-4,859","-22,344","-8,187","-1,216","-11,626","-26,682","-17,027","-30,759","-43,995","-39,625","-29,853","-43,469",
+107,17,67,4545-02,Total Variable Operating Expense,Total Equipment Maintenance,Other Maintenance,Applied Labor / Other,Sales Tax,,,,,,,,,,,"9,481",,,,,
+107,17,67,4551-00,Total Variable Operating Expense,Total Equipment Maintenance,Tractor Maint. & Tire Expense,Tractor Tire Expense,Tractor Tires Expense,"2,256","5,873","8,837","3,162","7,527","10,973","6,722","3,378","12,086","5,079","9,654","4,894","7,534","13,001","8,185","5,657"
+107,17,67,4552-00,Total Variable Operating Expense,Total Equipment Maintenance,Trailer Maint. & Tire Expense,Trailer Tire Expense,Trailer Tire Expense,72,167,128,42,17,67,213,19,0,55,13,62,155,139,146,
+107,17,67,4560-00,Total Variable Operating Expense,Other Ops Variable Expense,Road Expense,Road Expense,Road Expense-General,,22,,114,25,20,,,,,68,,,,86,
+107,17,67,4560-01,Total Variable Operating Expense,Other Ops Variable Expense,Road Expense,Road Expense,Road Expenses - Motel,,258,,234,410,,,259,,,318,514,149,107,853,
+107,17,67,4560-02,Total Variable Operating Expense,Other Ops Variable Expense,Road Expense,Road Expense,Road Expenses - Phones,338,473,374,374,491,363,488,449,423,413,557,408,398,488,416,102
+107,17,67,4560-03,Total Variable Operating Expense,Other Ops Variable Expense,Road Expense,Road Expense,Road Expenses - Scales,54,42,70,,28,,14,14,33,90,35,,,15,,12
+107,17,67,4560-06,Total Variable Operating Expense,Other Ops Variable Expense,Tolls Expense,Tolls Expense,Road Expenses - Tolls Prepass,"1,550","3,110","7,790","10,075","12,096","9,910","10,917","9,763","9,186","13,775","7,913","7,782","9,983","9,535","8,304",
+107,17,67,4562-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Employee Expenses,,,,,,87,,,,,172,,,,,
+107,17,67,4563-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Travel - Drivers,,,,,,,,,,,,,,,437,
+107,17,67,4564-00,Total Fixed Operating Expense,Total Hiring Expense,Total Hiring Expense,Driver Hiring Expense,Hiring Expense,"20,241","3,911","-9,096","14,517","1,478","-4,806","12,994","3,761","4,656","5,596","4,319","-15,718","-7,753","-18,510","-12,434","-5,005"
+107,17,67,4564-06,Total Fixed Operating Expense,Total Hiring Expense,Total Hiring Expense,Driver Hiring Expense,Hiring-Transportation Costs,,24,,57,,,,,193,,,,,109,,
+107,17,67,4564-09,Total Fixed Operating Expense,Total Hiring Expense,Total Hiring Expense,Driver Hiring Expense,Orientation Pay,900,727,773,"3,300","1,200","1,200","1,500","2,400",600,"2,100","1,200",300,300,600,600,
+107,17,67,4568-00,Total Variable Operating Expense,Other Ops Variable Expense,Other Variable Expenses,Other Variable Expenses,Operations Chargeback,288,0,"5,824","2,542","2,423","2,761","2,329","1,888","1,314",523,"1,398","1,374","1,600","1,803","2,111",
+107,17,67,4572-00,Total Variable Operating Expense,Other Ops Variable Expense,Other Variable Expenses,Other Variable Expenses,Unloading Expense,,,486,,,,,255,,,,260,"1,555",260,260,
+107,17,67,4590-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Op Supplies & Exp,135,"1,074",84,545,-255,28,47,0,14,92,15,15,15,94,,
+107,17,67,4591-00,Total Variable Operating Expense,Total Equipment Maintenance,Tractor Maint. & Tire Expense,Tractor Maintenance,Tractor Wash Expense,60,65,125,60,162,,188,131,"1,978",51,"2,509","2,476","2,378","2,570","2,167",
+107,17,67,4592-00,Total Variable Operating Expense,Total Equipment Maintenance,Trailer Maint. & Tire Expense,Trailer Maintenance,Trailer Washes,,,,,,,,,56,,27,144,98,92,68,
+107,17,67,4596-01,Total Fixed Operating Expense,Total Hiring Expense,Total Hiring Expense,Driver Hiring Expense,Student Drv Loan Reimb Swift,"2,650","6,595","2,850","2,600","3,300","2,000","2,900","11,035","5,145","3,500","5,695","2,150","2,350","5,495","4,645",450
+107,17,67,4596-02,Total Fixed Operating Expense,Total Hiring Expense,Total Hiring Expense,Driver Hiring Expense,Student Drv Loan Reimb Outsi,,,150,150,150,150,210,270,270,270,300,270,390,350,120,30
+107,17,67,4610-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Office Supplies,,,184,,23,20,113,,,,,374,,,199,
+107,17,67,4611-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Postage,,,,,,26,,,,,,,,,,
+107,17,67,4622-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Company Vehicle-Gas,,,,,,,,,,,,241,,,,
+107,17,67,4625-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Management Meetings,,,,,,,,91,203,,,,,,147,
+107,17,67,4628-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Travel,,,,,0,0,70,-18,53,-105,643,59,386,"1,117",869,"-2,300"
+107,17,67,4628-01,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Travel - Meals (Nonded),,,28,,,,89,,,,,,,,,
+107,17,67,4634-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Service Awards - Non Driver,,,,,,74,62,23,-2,,186,14,,,,
+107,17,67,4665-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Employee Rewards & Recognition,,,,,,,,,118,,50,,,,16,
+107,17,67,4665-01,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Driver Rewards & Recognition,,,,"2,332",130,"1,653",18,,818,95,,42,,,726,
+107,17,67,4670-00,Total Fixed Operating Expense,Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Operating Supplies (Overhead),Other Employees Expenses,,,,,,,,,,,16,,,,,
+107,17,67,4730-00,Total Variable Operating Expense,Other Ops Variable Expense,Fuel & Highway Taxes,Fuel & Highway Taxes,Fed Highway Use Tax,,,,,,,,,"2,560",,"2,648","2,722","2,706","2,729","2,627",
+107,17,67,4770-00,Total Fixed Operating Expense,Total Operational Equipment Expense,Tractor Fixed Expense,Tractor Fixed Expense,Veh Lic & Reg Fees - State,376,483,234,,260,252,331,208,"9,856",145,"10,237","10,753","10,209","10,305","10,332",
+107,17,67,4780-00,Total Variable Operating Expense,Other Ops Variable Expense,Fuel & Highway Taxes,Fuel & Highway Taxes,Fuel & Mileage Tax,"24,408","22,578","40,178","43,888","34,138","31,929","51,740","38,681","45,879","30,456","28,400","42,670","34,906","50,678","30,445",
+107,17,67,4820-00,Total Variable Operating Expense,Insurance and Claims,Insurance Premiums,Insurance Premiums,CargoLoss & Damage Ins Premium,,,,,,,,,222,,211,217,703,696,-216,
+107,17,67,4821-00,Total Variable Operating Expense,Insurance and Claims,Claims Expense,Liability Claims Less Than $500K,Liability Self Insurance,"11,300",,"73,712","-56,294","21,113","3,847","52,120","13,973","59,602","48,663","156,232","-22,413","22,235","4,726","110,061",
+107,17,67,4822-00,Total Variable Operating Expense,Insurance and Claims,Claims Expense,Liability Claims Less Than $500K,Collision Self Ins,"4,266","1,136","-3,844",341,"6,579","3,577","23,183",614,"10,069","1,775","12,396","1,988","7,687","8,481","2,476","3,974"
+107,17,67,4823-00,Total Variable Operating Expense,Insurance and Claims,Claims Expense,Cargo Loss & Damage Insurance,Cargo Self Insurance,,,,,,,"6,282",,"-5,313",,,,"49,203",,,
+107,17,67,4825-00,Total Variable Operating Expense,Insurance and Claims,Insurance Premiums,Insurance Premiums,Liability Excess Allocation,,,,,,,,,"68,059",,"64,012","6,868","36,923","44,127","49,734",
+107,17,67,4840-00,Total Variable Operating Expense,Insurance and Claims,Insurance Premiums,Insurance Premiums,Insurance on Bldg & Structures,,,,,,,,,774,,801,791,619,620,684,
+107,17,67,4890-00,Total Variable Operating Expense,Insurance and Claims,Insurance Premiums,Insurance Premiums,Other Insurance,,,,,,,,,707,,"1,345","1,322","1,377","1,324","1,220",
+107,17,67,4987-00,Total Variable Operating Expense,Total Equipment Maintenance,Other Maintenance,Trade Expense,Equipment Trade Exp Allocation,,,,,,,,,-133,,"2,485","-2,471","2,769","2,059","-1,677",
+107,17,67,4999-00,Total Other Expense:,Operational & Corporate Overhead:,Corporate Allocations-Other:,Corporate Allocations-Other:,Corporate Overhead Allocation,"44,759","49,882","56,481","50,337","43,230","41,906","50,415","54,965","32,839","44,142","58,645","58,825","59,132","59,267","55,109",
+107,17,67,4999-01,Total Other Expense:,Operational & Corporate Overhead:,Corporate Allocations-Other:,Corporate Allocations-Other:,Terminal G&A Allocation,,,,,,,,,220,,455,220,220,178,87,
+107,17,67,4999-20,Total Variable Operating Expense,Other Ops Variable Expense,Surge Expense,Surge Expense,LOB - Transfer Pricing,"11,700","11,700","24,800","17,400","14,300","18,500","12,700","8,500","8,400","6,000","4,200","3,500","4,600","2,800",100,
+107,17,67,5110-03,Total Fixed Operating Expense,Total Facilities Expense,Utilities,Utilities,Cellular/Paging Services,58,155,97,97,97,97,178,97,65,65,65,65,81,145,97,
+107,17,67,5111-00,Total Fixed Operating Expense,Total Operational Equipment Expense,Tractor Fixed Expense,Mobile Communications-Tractor,Mobile Communications-Tractor,,,,,,,,,"2,942",,"3,006","3,877","3,389","3,339","3,395",
+107,17,67,5111-01,Total Fixed Operating Expense,Total Operational Equipment Expense,Trailer Fixed Expense,Mobile Communications-Trailer,Mobile Communications-Trailer,,,,,,,,,1,,0,,5,3,4,
+107,17,67,5321-00,Total Fixed Operating Expense,Total Operational Equipment Expense,Tractor Fixed Expense,Tractor Depreciation,Depr - Tractor,"79,465","83,580","94,548","85,771","79,352","84,348","78,228","84,904","88,942","86,187","85,771","87,917","86,893","91,320","89,402",
+107,17,67,5322-00,Total Fixed Operating Expense,Total Operational Equipment Expense,Trailer Fixed Expense,Trailer & Container Depreciation,Depr - Trailer,,,,,,,,,67,,10,,147,82,110,
+107,17,67,5323-00,Total Fixed Operating Expense,Total Operational Equipment Expense,Trailer Fixed Expense,Carrier Mass Depr [Trailer],Depr - Carrier Mass Trailer,,,,,,,,,3,,1,,15,8,10,
+107,17,67,5324-00,Total Fixed Operating Expense,Total Operational Equipment Expense,Tractor Fixed Expense,Carrier Mass Depr [Tractor],Depr - Carrier Mass Tractor,,,,,,,,,666,,624,638,620,624,622,
+107,17,67,5411-00,Total Variable Operating Expense,Purchased Transportation,Purchased Trans (xFuel Reimb),O/O Pay,Purchased Trans Expense,"26,147","20,379",42,,43,156,"12,216","12,520","25,605","5,354","23,019","22,227","34,974","16,194",,
+107,17,67,5411-01,Total Variable Operating Expense,Purchased Transportation,PT Fuel Reimbursements,PT Fuel Reimbursements,Purchased Trans - FSC Reimb,"8,089","5,526",,,,,"3,651","3,829","6,545","1,464","5,926","5,461","8,885","3,730",,
+107,17,67,5987-00,Total Other Expense:,Gain on Disposal of Property and Equipment:,Gain on Disposal of Property and Equipment:,Gain on Disposal of Property and Equipment:,Gain/Loss Rev Equip Allocation,0,,,,,,,,"-3,788",0,"-4,948","-9,482","-4,777","-10,472","-7,326",
+107,17,67,5990-00,Total Variable Operating Expense,Total Equipment Maintenance,Other Maintenance,Shop Gain / Loss Allocation,Shop Gain/Loss Allocation,"10,698","10,119","7,810","4,920","7,451","7,214","2,290",-611,"-3,025","10,801",312,492,"1,720","3,028","1,288",
+107,17,67,5993-00,Total Fixed Operating Expense,Total Hiring Expense,Total Hiring Expense,Corporate Allocations-Hiring,Hiring Allocation,"59,155","18,030","23,799","34,813","25,288","18,130","34,564","42,884","9,781","38,525","27,163","7,901","24,499","16,946","26,052",
+107,17,67,5995-00,Total Other Expense:,Operational & Corporate Overhead:,Operational Corporate Allocations:,Operational Corporate Allocations:,Owner Operator Corp Allocation,157,33,,,,,66,105,206,68,147,169,253,142,,
+107,17,67,5998-00,Total Other Expense:,Operational & Corporate Overhead:,Operational Corporate Allocations:,Operational Corporate Allocations:,Dedicated Corp Alloc,"11,286","14,395","14,955","14,044","9,362","12,479","13,698","15,211","14,511","14,217","15,591","13,666","16,625","14,984","16,042",
+107,17,67,5998-00,Total Other Expense:,Operational & Corporate Overhead:,Operational Corporate Allocations:,Operational Corporate Allocations:,Dedicated Overhead Allocation,,,,,,,,,,240,442,483,912,391,,
+107,17,67,,,,,,Company Drive Hours,"6,617","8,492","8,939","8,799","7,726","7,833","7,287","7,051","7,777","7,812","8,639","7,689","9,535","9,545","9,210",
+107,17,67,,,,,,Company Driving Gallons,"37,467","48,023","50,586","51,025","41,297","44,085","43,926","41,961","48,280","45,992","50,737","43,584","56,443","55,881","56,720",
+107,17,67,,,,,,Company Idle Gallons,"2,209","2,343","2,317","1,720","1,173","1,167","1,046",245,13,1,0,,,,,
+107,17,67,,,,,,Company Idle Hours,"3,549","3,741","3,749","2,974","2,142","2,000","2,212","2,506","1,987","2,146","3,050","4,292","4,533","4,959","4,445",
+107,17,67,,,,,,Dispatches,530,728,795,811,714,709,698,647,703,729,821,836,885,885,930,
+107,17,67,,,,,,Drivers - Company,52,60,58,57,59,57,57,66,64,67,69,66,63,62,64,
+107,17,67,,,,,,Drivers - Owner Operator,2,2,,,,,0,1,1,1,1,1,2,1,,
+107,17,67,,,,,,Drivers - Trainee,3,2,1,3,4,3,6,5,4,1,2,1,1,2,3,
+107,17,67,,,,,,Fuel Gallons,"51,694","57,916","57,685","54,194","48,594","51,325","53,678","49,480","53,062","52,530","67,987","69,203","70,808","68,810","74,653",
+107,17,67,,,,,,Liability Excess Allocation,,,,,,,,,"-3,486",,"-3,884","-2,439","-1,738","-1,435","-1,428",
+107,17,67,,,,,,Miles - Empty - Mentors,22,"1,156","2,065","2,421","1,428",672,"1,991","1,317",176,590,"1,077","1,621",883,"3,915","1,406",
+107,17,67,,,,,,Miles - Empty - Singles,"7,914","16,313","9,625","4,421","6,684","3,700","7,883","9,923","2,523","4,606","1,054","4,075","1,902","5,799","2,365",
+107,17,67,,,,,,Miles - Empty - Teams,,,,,,,,,"5,159",,"5,894",211,"1,552",567,"1,447",
+107,17,67,,,,,,Miles - Loaded - Mentors,"22,827","42,493","77,035","85,330","75,095","61,101","74,778","57,054","60,492","41,592","108,228","130,062","141,037","156,007","105,118",
+107,17,67,,,,,,Miles - Loaded - Singles,"60,635","82,962","103,265","114,848","107,325","121,163","102,341","81,150","94,688","118,379","142,237","176,498","199,521","188,995","225,064",
+107,17,67,,,,,,Miles - Loaded - Teams,"284,676","312,044","284,155","262,277","221,515","229,696","217,031","243,770","283,614","264,113","217,295","141,687","138,206","129,974","155,825",
+107,17,67,,,,,,Miles - Total Company,"356,774","439,448","476,145","469,297","412,047","416,332","395,936","383,300","428,703","422,147","462,680","438,649","457,982","472,902","491,225",
+107,17,67,,,,,,New Hires,4,4,3,12,7,2,6,9,1,7,4,1,1,2,3,
+107,17,67,,,,,,Non-Driver-Full Time,5,5,5,5,5,6,6,5,7,7,7,7,7,7,7,
+107,17,67,,,,,,Order Length of Haul,"192,351","235,708","252,262","251,671","221,915","225,979","210,548","198,583","241,293","230,548","264,597","249,967","266,836","266,206","279,765",
+107,17,67,,,,,,Orders,472,631,678,677,615,615,592,564,629,618,678,658,714,686,698,
+107,17,67,,,,,,Qualcomm Miles,"351,209","448,346","471,155","460,476","401,649","412,849","387,034","369,425","421,383","410,780","449,361","385,808","493,360","493,805","490,187",
+107,17,67,,,,,,Service Awards - Drivers,94,117,33,219,437,"1,486",-15,129,206,309,75,246,49,85,90,124
+107,17,67,,,,,,Surge Tractors,4,4,8,6,5,6,4,3,3,2,1,1,1,1,0,
+107,17,67,,,,,,Terminations,4,3,11,6,6,6,9,7,8,3,9,4,6,3,5,
+107,17,67,,,,,,Tractors - Company - Mentors,2,3,6,6,5,5,5,5,3,2,6,8,7,8,7,
+107,17,67,,,,,,Tractors - Company - Singles,46,48,52,50,47,48,47,47,32,50,32,35,38,37,38,
+107,17,67,,,,,,Tractors - Company - Teams,,,,,,,,,17,,14,10,8,8,9,
+107,17,67,,,,,,Tractors - O/O - Mentors,,,,,,,0,1,1,1,1,1,1,1,,
+107,17,67,,,,,,Tractors - O/O - Singles,,,,,,,,0,0,0,0,0,0,0,,
+107,17,67,,,,,,Tractors - O/O - Teams,1,1,,,,,,,,,,,,,,
+107,17,67,,,,,,Tractors - Unmanned,6,9,10,12,9,14,14,7,13,11,9,5,5,8,8,
+107,17,67,,,,,,Trailer Hours - Container,,250,,,,,,,,,,,,,,
+107,17,67,,,,,,Trailer Hours - Dry Van,567,"2,796","3,356","2,085",758,1,593,,,559,61,,914,501,628,
+107,17,67,,,,,,Trailer Hours Chassis,,,16,,,,,,,,,,,,,
+107,17,67,,,,,,Trailer Hours- Refrigerated,,17,463,308,85,395,846,671,156,,,,,,,
+107,17,67,,,,,,Trailer Miles -Containers,,44,,,,,,,,,,,,,,
+107,17,67,,,,,,Trailer Miles -Dry Vans,"1,606","3,217","1,503",667,83,232,"4,091",626,1,"1,204",339,"1,510","3,552","1,382",735,
+107,17,67,,,,,,Trailer Miles Chassis,162,315,89,2,1,,112,169,,,56,56,583,151,709,
+107,17,67,,,,,,Trailer Miles- Refrigerated,,112,"2,603",752,869,"4,110","4,667",57,,,,,,,,
+107,17,67,,,,,,Transfers-In,19,4,5,9,4,4,5,12,,12,7,,4,4,4,
+107,17,67,,,,,,Transfers-Out,-4,-4,-3,-11,-5,-2,,-7,-1,-6,-5,-2,,-3,,

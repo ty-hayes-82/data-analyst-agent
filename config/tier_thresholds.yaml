@@ -1,0 +1,84 @@
+# Two-Tier Analysis Pipeline Configuration
+#
+# This file configures the two-tier cost center analysis system:
+# - Tier-1: Fast triage using descriptive statistics
+# - Tier-2: Deep analysis with 10 parallel agents
+#
+# Only cost centers with tier1_severity >= tier1_threshold trigger Tier-2.
+
+tier_config:
+  # Severity threshold to trigger Tier-2 deep analysis (0-100 scale)
+  # 60.0 maps to "Open Jira ticket" action tier
+  # Below 60: "Log for monitoring" or "Notify owner" (low-value alerts)
+  tier1_threshold: 60.0
+  
+  # Metrics used in Tier-1 triage scoring
+  tier1_metrics:
+    - z_score_max        # Maximum standard deviations from mean (0-3+ SD)
+    - outlier_count      # Number of periods outside 2 SD threshold
+    - coefficient_of_variation  # Volatility measure (StdDev/Mean)
+  
+  # Tier-1 scoring weights (sum to 100)
+  tier1_weights:
+    z_score: 40          # Max z-score component (0-40 points)
+    outlier_ratio: 30    # Outlier frequency component (0-30 points)
+    volatility: 30       # Coefficient of variation component (0-30 points)
+  
+  # Enable/disable Tier-2 deep analysis globally
+  # Set to false to always use Tier-1 only (testing/cost savings)
+  tier2_enabled: true
+  
+  # GL code-specific threshold overrides
+  # Lower thresholds for high-value or critical accounts
+  gl_overrides:
+    "4560-06":  # Tolls (high-value, high-priority)
+      tier1_threshold: 50.0
+      reason: "Critical toll expense account requires lower threshold"
+    
+    "4560-04":  # Toll - Other
+      tier1_threshold: 55.0
+      reason: "High-value toll account"
+    
+    "4560-05":  # Toll - Transponders
+      tier1_threshold: 55.0
+      reason: "High-value toll account"
+  
+  # Cost center-specific overrides (if needed)
+  # Use this for cost centers with known volatility or special handling
+  cost_center_overrides:
+    # Example:
+    # "497":
+    #   tier1_threshold: 40.0
+    #   reason: "High-volume cost center, lower threshold for early detection"
+  
+# Performance tuning
+performance:
+  # Tier-1 target latency (seconds)
+  tier1_target_latency: 10
+  
+  # Tier-2 target latency (seconds)
+  tier2_target_latency: 45
+  
+  # Maximum concurrent Tier-2 analyses
+  # Limits parallel execution to prevent rate limit issues
+  max_concurrent_tier2: 3
+
+# Logging and monitoring
+monitoring:
+  # Log all gate decisions for analysis
+  log_gate_decisions: true
+  
+  # Log Tier-1 metrics for threshold tuning
+  log_tier1_metrics: true
+  
+  # Alert if Tier-1/Tier-2 ratio is unexpected
+  alert_on_anomalous_ratio: true
+  expected_tier2_ratio: 0.30  # Expect ~30% of cost centers to trigger Tier-2
+
+# Graceful degradation
+fallback:
+  # If Tier-1 fails, should we run Tier-2 anyway?
+  tier2_on_tier1_failure: true
+  
+  # If Tier-2 fails, use Tier-1 results?
+  tier1_on_tier2_failure: true

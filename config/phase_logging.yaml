@@ -1,0 +1,247 @@
+# Phase Logging Configuration for P&L Analyst Agent
+#
+# Controls logging behavior for each analysis phase
+
+# Global logging settings
+global:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: "INFO"
+  
+  # Enable/disable phase logging
+  enabled: true
+  
+  # Log directory (relative to project root)
+  log_directory: "logs"
+  
+  # Save phase summary JSON after each cost center
+  save_phase_summary: true
+  
+  # Console output format: "simple", "detailed", "json"
+  console_format: "detailed"
+
+# Phase-specific logging configuration
+phases:
+  # Phase 1: Data Ingestion & Validation
+  data_ingestion:
+    enabled: true
+    log_input_data: true
+    log_output_data: true
+    log_metrics:
+      - records_fetched
+      - data_quality_score
+      - missing_periods
+      - tableau_response_time
+    
+  # Phase 2: Category Aggregation & Prioritization
+  category_analysis:
+    enabled: true
+    log_input_data: true
+    log_output_data: true
+    log_metrics:
+      - categories_identified
+      - material_categories
+      - total_variance_dollars
+      - top_category_coverage_pct
+  
+  # Phase 3: GL Drill-Down
+  gl_drilldown:
+    enabled: true
+    log_input_data: true
+    log_output_data: true
+    log_metrics:
+      - gls_analyzed
+      - root_causes_classified
+      - one_time_events_detected
+      - operational_drivers_found
+  
+  # Phase 3b: Hierarchical Drill-Down (Level 2→3→4)
+  hierarchical_drilldown:
+    enabled: true
+    log_input_data: true
+    log_output_data: true
+    log_each_level: true  # Log each hierarchy level separately
+    log_metrics:
+      - levels_analyzed
+      - drill_down_decisions
+      - top_drivers_per_level
+      - total_items_analyzed
+      - final_drill_depth
+    
+    # Sub-level logging per hierarchy level
+    sub_levels:
+      level_2:
+        enabled: true
+        log_metrics:
+          - items_aggregated
+          - top_drivers_identified
+          - variance_materiality
+      
+      level_3:
+        enabled: true
+        log_metrics:
+          - items_aggregated
+          - sub_category_drivers
+          - drill_down_reasoning
+      
+      level_4:
+        enabled: true
+        log_metrics:
+          - gl_accounts_analyzed
+          - root_causes_identified
+          - final_variances
+  
+  # Phase 4: Parallel Analysis
+  parallel_analysis:
+    enabled: true
+    log_input_data: false  # Too verbose, logged by sub-phases
+    log_output_data: true
+    log_each_agent: true  # Log each parallel agent separately
+    log_metrics:
+      - agents_executed
+      - total_analysis_time
+      - failed_agents
+      
+    # Sub-agent logging
+    sub_agents:
+      statistical_analysis:
+        enabled: true
+        log_metrics:
+          - variances_calculated
+          - material_variances_count
+      
+      seasonal_baseline:
+        enabled: true
+        log_metrics:
+          - seasonal_patterns_detected
+          - yoy_comparisons_count
+      
+      ratio_analysis:
+        enabled: true
+        log_metrics:
+          - per_mile_ratios
+          - per_load_ratios
+          - rate_effect_decomposition
+      
+      anomaly_detection:
+        enabled: true
+        log_metrics:
+          - anomalies_detected
+          - changepoints_found
+          - drift_periods
+      
+      forecasting:
+        enabled: true
+        log_metrics:
+          - forecast_periods
+          - model_accuracy
+          - confidence_intervals
+      
+      visualization:
+        enabled: true
+        log_metrics:
+          - charts_generated
+          - chart_types
+  
+  # Phase 5: Synthesis & Structuring
+  synthesis:
+    enabled: true
+    log_input_data: false  # Too verbose
+    log_output_data: true
+    log_metrics:
+      - executive_bullets_count
+      - categories_in_summary
+      - gls_in_drilldown
+      - synthesis_llm_tokens
+  
+  # Phase 6: Alert Scoring & Persistence
+  alert_scoring:
+    enabled: true
+    log_input_data: true
+    log_output_data: true
+    log_metrics:
+      - alerts_extracted
+      - alerts_scored
+      - alerts_suppressed
+      - high_priority_alerts
+      - output_files_written
+
+# Performance monitoring
+performance:
+  # Track phase duration
+  track_duration: true
+  
+  # Alert if phase exceeds threshold (seconds)
+  alert_slow_phases: true
+  thresholds:
+    data_ingestion: 30
+    category_analysis: 15
+    gl_drilldown: 20
+    parallel_analysis: 60
+    synthesis: 15
+    alert_scoring: 10
+  
+  # Track memory usage per phase
+  track_memory: false  # Set to true for debugging
+
+# Error handling
+error_handling:
+  # Log full stack traces
+  log_stack_traces: true
+  
+  # Continue logging even if phase fails
+  continue_on_error: true
+  
+  # Save partial results on phase failure
+  save_partial_results: true
+
+# Output formats
+output:
+  # Phase summary JSON format
+  phase_summary:
+    enabled: true
+    include_metrics: true
+    include_errors: true
+    include_warnings: true
+    include_timing: true
+  
+  # Per-phase JSON files
+  per_phase_files:
+    enabled: false  # Set to true for detailed debugging
+    directory: "logs/phases"
+  
+  # Structured logs for analysis
+  structured_logs:
+    enabled: true
+    format: "json"  # "json" or "yaml"
+
+# Data sanitization (security)
+sanitization:
+  # Remove PII from logs
+  remove_pii: true
+  
+  # Truncate large data structures
+  truncate_large_objects: true
+  max_list_items: 10
+  max_string_length: 200
+  
+  # Fields to redact
+  redact_fields:
+    - password
+    - api_key
+    - secret
+    - token
+    - ssn
+    - credit_card
+
+# Integration with external systems
+integration:
+  # Send logs to Google Cloud Logging
+  cloud_logging:
+    enabled: false  # Set to true for production
+    project_id: null  # Will use default project
+  
+  # Export metrics to monitoring system
+  metrics_export:
+    enabled: false
+    endpoint: null
+

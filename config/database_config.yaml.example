@@ -1,0 +1,46 @@
+# Database Configuration for Agents - TEMPLATE FILE
+# Copy this to database_config.yaml and fill in your actual credentials
+# NEVER commit database_config.yaml with real credentials!
+
+# Connection type: DSN (for AS400) or DIRECT (for SQL Server)
+# Note: as400_verify_toll_rates_agent always uses DSN regardless of this setting
+connection_type: DSN
+
+# DSN Configuration (for AS400 IBM i)
+dsn:
+  name: SWIFTC
+  username: YOUR_AS400_USERNAME
+  password: YOUR_AS400_PASSWORD
+  ssl_validate: false
+  table: IESR7FILE.ORDER
+  columns:
+    order_number: ORDR_NBR
+    customer_code: SHPR_CD
+    load_date: LDAT_CD
+    consignee: CNSGNE_CD
+    shipping_number: SHPR_SHPNG_NBR
+    origin: ORGN_CD
+    destination: DEST_CD
+    pieces: PIECES
+    weight: WEIGHT
+    revenue: REVENUE
+
+# Direct Connection Configuration (for SQL Server)
+direct:
+  driver: "ODBC Driver 17 for SQL Server"
+  server: "NDCSQLCLUS04"
+  database: "pCORE"
+  username: "YOUR_SQL_SERVER_USERNAME"
+  password: "YOUR_SQL_SERVER_PASSWORD"
+  table: "pCORE.dbo.v_edw_order"
+  columns:
+    order_number: "ordr_nbr"
+    customer_code: "shpr_cd"
+    load_date: "ldat_cd"
+    consignee: "cnsgne_cd"
+    shipping_number: "shpr_shpng_nbr"
+
+# Fallback SQL Settings
+sql_settings:
+  schema: pCORE
+  table: v_edw_order

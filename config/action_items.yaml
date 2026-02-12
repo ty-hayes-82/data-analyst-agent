@@ -1,0 +1,602 @@
+# Action Items Catalog for Alert Scoring Agents
+# Purpose: Structured, cost-center-focused actions for translating scored alerts into concrete follow-ups
+# Used by: Alert Scoring Coordinator Agent, Alert Scoring Agent
+# Related: config/alerts.yaml, config/events_calendar.yaml, docs/TOLLS_REVENUE_OPPORTUNITIES.md
+
+# Cost-center follow-up workflow by phase
+cost_center_workflow:
+  
+  data_readiness:
+    - action: "Identify in-scope GL codes for category under this cost center"
+      priority: high
+      timing: "before_scoring"
+      examples:
+        - "Confirm toll_expenses GL codes: 4560-06, 4560-07, etc."
+    
+    - action: "Pull 24-36 months of expense and revenue by GL"
+      priority: high
+      timing: "before_scoring"
+      validation:
+        - "Check for ETL gaps"
+        - "Check for duplicates"
+        - "Check for timing offsets"
+    
+    - action: "Confirm cost center to shipper code and facility mappings"
+      priority: high
+      timing: "before_scoring"
+      notes: "Used operationally; may differ from contract"
+
+  scoring_validation:
+    - action: "Aggregate anomalies from upstream analysis agents"
+      priority: high
+      timing: "during_scoring"
+      sources:
+        - "z-scores from descriptive_stats_agent"
+        - "MoM/YoY from variance_calculation_agent or period_comparison_agent"
+        - "Forecast interval breaches from forecast_baseline_agent"
+        - "Change-points from change_point_agent"
+        - "Drift from drift_detection_agent"
+        - "Seasonal outliers from seasonal_baseline_agent"
+    
+    - action: "Validate alert object completeness"
+      priority: high
+      timing: "during_scoring"
+      required_fields:
+        - "id"
+        - "period"
+        - "gl_code"
+        - "cost_center"
+        - "category"
+        - "variance_amount"
+        - "variance_pct"
+        - "cv"
+        - "history_count"
+        - "signals"
+        - "months_flagged_in_last_3"
+    
+    - action: "Sanity-check variance math and units"
+      priority: medium
+      timing: "during_scoring"
+      validation:
+        - "Reconcile to BI/EDW source tables"
+        - "Confirm dollar amounts match reporting"
+
+  triage:
+    high_priority:
+      score_threshold: 0.6
+      actions:
+        - action: "Open investigation ticket immediately"
+          sla_hours: 24
+          owner_required: true
+          due_date_required: true
+        
+        - action: "If expense > 0 and revenue = 0, initiate opportunity creation"
+          sla_hours: 48
+          window: "180-day billable window"
+        
+        - action: "Daily status updates until contained"
+          frequency: "daily"
+        
+        - action: "Add to executive digest"
+          timing: "immediately"
+    
+    medium_priority:
+      score_threshold: 0.3
+      actions:
+        - action: "Schedule review within 48 hours"
+          sla_hours: 48
+        
+        - action: "Define verification steps"
+          timing: "within_24_hours"
+        
+        - action: "If confirmed issue, promote to High and execute remediation"
+          condition: "root_cause_confirmed"
+        
+        - action: "Otherwise, monitor next period"
+          condition: "root_cause_not_confirmed"
+    
+    low_priority:
+      score_threshold: 0.0
+      max_threshold: 0.3
+      actions:
+        - action: "Add to watchlist"
+          timing: "immediately"
+        
+        - action: "Monitor next period"
+          frequency: "monthly"
+        
+        - action: "No immediate action required"
+          notes: "Escalate only on persistence or accumulating impact"
+
+  suppression_review:
+    hard_suppressed:
+      reasons:
+        - "insufficient_history"
+        - "below_minimum_threshold"
+      actions:
+        - action: "Confirm history count and dollar thresholds"
+          priority: medium
+        
+        - action: "Override only with strong evidence"
+          approval_required: true
+          notes: "Document justification for audit"
+    
+    soft_suppressed:
+      reasons:
+        - "period_pattern"
+        - "known_event"
+      actions:
+        - action: "Validate the event actually occurred"
+          priority: medium
+        
+        - action: "Ensure period labeling is correct"
+          validation: "events_calendar.yaml"
+        
+        - action: "Update events calendar if needed"
+          timing: "before_next_run"
+        
+        - action: "Record suppression rationale for audit"
+          required: true
+
+  volatility_calibration:
+    - action: "Evaluate coefficient of variation (CV) across toll GLs"
+      priority: medium
+      timing: "quarterly"
+    
+    - action: "If stable (low CV), consider stricter thresholds"
+      condition: "cv < 0.6"
+      config_file: "config/alerts.yaml"
+      section: "volatility_adjustment.cv_stable_lt"
+    
+    - action: "If volatile, verify current sensitivity"
+      condition: "cv >= 0.6"
+      notes: "Adjust only if noise is excessive"
+
+  contract_verification:
+    - action: "Confirm pass-through toll terms for all customers in cost center"
+      priority: high
+      timing: "before_billing"
+      stakeholders:
+        - "Sales"
+        - "Customer Service"
+    
+    - action: "Align language across relevant shipper codes"
+      priority: high
+      reference: "docs/TOLLS_REVENUE_OPPORTUNITIES.md#contract-language-validation"
+    
+    - action: "Capture contract excerpts and effective dates"
+      priority: medium
+      condition: "ambiguity_exists"
+
+  as400_verification:
+    - action: "Validate AS400 toll rate loads for all shipper and facility codes"
+      priority: high
+      timing: "before_billing"
+      include:
+        - "Primary shipper codes"
+        - "Alternate shipper codes"
+        - "Related facility codes"
+    
+    - action: "Check rate start/end dates covering alert periods"
+      priority: high
+      source_table: "RTRTOLDC1P"
+    
+    - action: "Confirm TLDC# and rate presence"
+      priority: high
+      validation: "Against contract rate sheets"
+    
+    - action: "Correct missing or mis-keyed loads"
+      priority: high
+      sla_hours: 48
+    
+    - action: "Propagate to alternate/related shipper codes"
+      priority: medium
+      notes: "Ensure inheritance is correct"
+
+  unmatched_expense_remediation:
+    within_window:
+      condition: "expense > 0 and revenue = 0, within 180 days"
+      actions:
+        - action: "Confirm billability from contract"
+          priority: high
+          sla_hours: 24
+        
+        - action: "Create back-bill plan"
+          priority: high
+          sla_hours: 48
+          window: "180-day billable window"
+        
+        - action: "Ensure Dynamics opportunity creation and publication"
+          priority: high
+          workflow: "Liska → Abdalla → Cyndi"
+    
+    aged_beyond_window:
+      condition: "expense > 0 and revenue = 0, beyond 180 days"
+      actions:
+        - action: "Escalate to Finance for treatment and disposition"
+          priority: medium
+          sla_hours: 72
+        
+        - action: "Document as potential write-off"
+          required: true
+
+  opportunity_pipeline:
+    - action: "Confirm opportunity creation for each valid alert"
+      priority: high
+      system: "Dynamics"
+    
+    - action: "Verify publication status"
+      priority: high
+      workflow: "Liska → Abdalla → Cyndi"
+    
+    - action: "Track SLA checkpoints and aging"
+      priority: medium
+      checkpoints:
+        - name: "30-day"
+          action: "Review status"
+        - name: "60-day"
+          action: "Escalate to supervisor"
+        - name: "90-day"
+          action: "Escalate to manager"
+        - name: "150-day"
+          action: "Escalate to director"
+
+  root_cause_analysis:
+    timing_differences:
+      - "Posting lags"
+      - "Accrual reversals"
+      - "Period-14 adjustments"
+    
+    volume_mix_shifts:
+      - "Lane volume spikes"
+      - "Routing changes"
+      - "New facilities onboarding"
+    
+    rate_issues:
+      - "Missing/expired toll rates"
+      - "Incorrect TLDC#"
+      - "Wrong shipper code used"
+    
+    classification:
+      - "Incorrect GL coding"
+      - "Reclass/credit entries distorting variance"
+    
+    data_pipeline:
+      - "Missing files"
+      - "Late loads"
+      - "Duplicate ingestion"
+
+  gl_override_tuning:
+    - action: "Update thresholds per GL for this cost center"
+      priority: medium
+      timing: "quarterly"
+      config_file: "config/alerts.yaml"
+      parameters:
+        - "small_dollar"
+        - "small_sample"
+        - "period_pattern suppressions"
+    
+    - action: "Refine known-event calendar entries"
+      priority: medium
+      config_file: "config/events_calendar.yaml"
+      types:
+        - "Period patterns"
+        - "Explicit periods"
+    
+    - action: "Re-run scoring to verify effectiveness"
+      priority: high
+      validation:
+        - "High-signal alerts remain actionable"
+        - "Noise is suppressed"
+
+  forecast_baseline_checks:
+    - action: "Validate interval breaches align with business context"
+      priority: medium
+      context_factors:
+        - "Seasonality"
+        - "Holidays"
+        - "Promotions"
+    
+    - action: "If repeated breaches without clear causes, refine model"
+      priority: medium
+      parameters:
+        - "Baseline inputs"
+        - "Seasonality parameters"
+
+  billing_execution:
+    - action: "Prepare back-billing or true-up entries with documentation"
+      priority: high
+      required_docs:
+        - "Contract clause"
+        - "Rate loads"
+        - "Load list"
+    
+    - action: "Coordinate invoice creation"
+      priority: high
+      stakeholders:
+        - "Billing team"
+        - "Customer Service"
+    
+    - action: "Confirm customer communications and approvals"
+      priority: high
+      condition: "where_required"
+    
+    - action: "Track realized recovery vs alerted potential"
+      priority: medium
+      metrics:
+        - "Win-rate"
+        - "Cycle time"
+
+  monitoring_dashboards:
+    - action: "Add cost center to exception dashboard"
+      priority: high
+      refresh: "daily"
+      metrics:
+        - "Alert severity"
+        - "Aging"
+    
+    - action: "Implement nightly reconciliation"
+      priority: high
+      checks:
+        - "Toll expense vs expected revenue"
+        - "Open opportunities status"
+    
+    - action: "Define ownership, due dates, and escalation thresholds"
+      priority: high
+      by_priority: true
+
+  documentation:
+    - action: "Record hypothesis, steps taken, evidence, decision, and outcome"
+      priority: high
+      required_for_each_alert: true
+    
+    - action: "Link to supporting artifacts"
+      priority: medium
+      artifacts:
+        - "Contract pages"
+        - "AS400 screenshots"
+        - "EDW queries"
+        - "Published opportunities"
+
+  automation_candidates:
+    - action: "Auto-flag expense > 0 and revenue = 0 within 7 days of posting"
+      priority: medium
+      timing: "implementation_phase"
+    
+    - action: "Auto-check AS400 rate coverage for new shipper/facility codes"
+      priority: medium
+      timing: "implementation_phase"
+    
+    - action: "Auto-suggest known-event labeling for period-pattern matches"
+      priority: low
+      timing: "implementation_phase"
+
+  closeout:
+    - action: "Summarize recoveries, root causes, and config changes"
+      priority: high
+      timing: "end_of_cycle"
+    
+    - action: "Feed learnings into GL overrides, events calendar, and procedures"
+      priority: high
+      timing: "end_of_cycle"
+      prevent_recurrence: true
+
+  optional_deep_dives:
+    - action: "Cross-cost-center comparison for systemic issues"
+      priority: low
+      timing: "quarterly"
+    
+    - action: "Sensitivity analysis of scoring parameters"
+      priority: low
+      timing: "semi_annually"
+    
+    - action: "Backtest alert precision/recall for last 12 months"
+      priority: low
+      timing: "annually"
+
+
+# Action templates by detection signal
+actions_by_signal:
+  
+  mad_outlier:
+    description: "Z-score or robust z above threshold"
+    actions:
+      - action: "Verify data integrity"
+        priority: high
+        sla_hours: 24
+        checks:
+          - "Duplicates"
+          - "Late postings"
+          - "Reclasses"
+      
+      - action: "Re-run descriptive stats after corrections"
+        priority: medium
+        condition: "data_issues_found"
+      
+      - action: "If single-period spike, check one-off charges"
+        priority: high
+        investigate:
+          - "Credits"
+          - "Reclasses"
+          - "Source documents"
+      
+      - action: "If tolls, confirm AS400 coverage for period and shipper/facility"
+        priority: high
+        category: "toll_expenses"
+        validation:
+          - "Missing rates"
+          - "Expired rates"
+
+  change_point:
+    description: "Structural break or regime change detected"
+    actions:
+      - action: "Investigate process or routing changes"
+        priority: high
+        sla_hours: 48
+        areas:
+          - "Facility onboarding"
+          - "Shipper code swaps"
+      
+      - action: "Validate rate effective dates"
+        priority: high
+        checks:
+          - "TLDC# mapping"
+          - "Rate presence"
+          - "Alternate codes"
+      
+      - action: "Determine if new level is sustained"
+        priority: medium
+        followup:
+          - "Adjust thresholds if structural"
+          - "Update forecasts if permanent"
+
+  mom_breach:
+    description: "Month-over-month variance exceeds threshold"
+    actions:
+      - action: "Identify sub-ledger drivers for the month"
+        priority: high
+        sla_hours: 24
+      
+      - action: "Confirm accruals and reversals timing"
+        priority: high
+      
+      - action: "Reconcile volume/mix changes"
+        priority: high
+        validate:
+          - "Rate changes"
+          - "Exceptions"
+      
+      - action: "If tolls, tie spike to lanes/facilities and AS400 entries"
+        priority: high
+        category: "toll_expenses"
+
+  yoy_breach:
+    description: "Year-over-year variance exceeds threshold"
+    actions:
+      - action: "Assess seasonality and known events"
+        priority: medium
+        normalize:
+          - "Holiday shifts"
+          - "Promotions"
+      
+      - action: "Confirm contract terms did not change vs prior year"
+        priority: high
+      
+      - action: "Validate shipper code usage continuity"
+        priority: medium
+      
+      - action: "If tolls, validate pass-through terms and rate continuity"
+        priority: high
+        category: "toll_expenses"
+
+  pi_breach:
+    description: "Forecast prediction interval breach"
+    actions:
+      - action: "Compare actuals to baseline expectations"
+        priority: medium
+      
+      - action: "Review model inputs and recent outliers"
+        priority: medium
+      
+      - action: "If repeated, recalibrate model parameters"
+        priority: medium
+        condition: "persistent_breaches"
+        parameters:
+          - "Baseline inputs"
+          - "Exogenous events"
+
+  drift_detected:
+    description: "Sustained trend detected"
+    actions:
+      - action: "Quantify slope and duration"
+        priority: medium
+      
+      - action: "Test for operational changes or policy shifts"
+        priority: high
+        sla_hours: 48
+      
+      - action: "If business-driven, adjust thresholds"
+        priority: medium
+        condition: "legitimate_trend"
+      
+      - action: "If not, open root-cause investigation"
+        priority: high
+        condition: "unexpected_trend"
+
+  seasonal_outlier:
+    description: "Seasonal pattern deviation"
+    actions:
+      - action: "Validate events calendar"
+        priority: medium
+        config_file: "config/events_calendar.yaml"
+      
+      - action: "Correct period labels or add missing events"
+        priority: medium
+      
+      - action: "Determine if outlier is within historical bounds"
+        priority: medium
+      
+      - action: "Adjust seasonal priors if justified"
+        priority: low
+        condition: "persistent_deviation"
+
+
+# Priority-based SLAs and escalation
+priority_slas:
+  
+  high:
+    score_threshold: 0.6
+    sla_hours: 24
+    escalation: true
+    frequency: "daily"
+    actions:
+      - "Open investigation ticket immediately"
+      - "Assign owner and due date"
+      - "Target resolution within 5 business days"
+      - "If expense > 0 and revenue = 0, initiate opportunity creation and back-billing"
+      - "Daily status updates until contained"
+      - "Add to executive digest"
+    
+  medium:
+    score_threshold: 0.3
+    sla_hours: 48
+    escalation: false
+    actions:
+      - "Review within 48 hours"
+      - "Confirm or rule out root-cause hypothesis"
+      - "If confirmed issue, promote to High and execute remediation"
+      - "Otherwise, monitor next period"
+  
+  low:
+    score_threshold: 0.0
+    max_threshold: 0.3
+    actions:
+      - "Monitor next period"
+      - "Escalate only on persistence or accumulating impact"
+      - "Revisit thresholds if frequent but immaterial alerts"
+  
+  info:
+    description: "Soft-suppressed known events"
+    actions:
+      - "Log for audit with event reference"
+      - "No action unless business indicates misclassification"
+
+
+# References to related documentation and config
+references:
+  tolls_specific:
+    file: "docs/TOLLS_REVENUE_OPPORTUNITIES.md"
+    description: "Root causes, examples, and controls for toll revenue opportunities"
+  
+  alerts_config:
+    file: "config/alerts.yaml"
+    description: "GL-specific overrides, thresholds, and suppression rules"
+  
+  events_calendar:
+    file: "config/events_calendar.yaml"
+    description: "Known events and period patterns for soft suppression"
+  
+  action_checklist_doc:
+    file: "docs/ALERT_ACTION_ITEMS_CHECKLIST.md"
+    description: "Human-readable version of this action catalog"
+
