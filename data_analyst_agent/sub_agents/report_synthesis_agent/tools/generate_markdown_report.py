@@ -189,12 +189,29 @@ async def generate_markdown_report(
             md.extend(["## Anomalies", ""])
             items = anoms.get("anomalies", []) if isinstance(anoms, dict) else []
             if items:
-                for a in items[:5]:
+                for a in items[:10]:
+                    sid = a.get("scenario_id")
+                    atype = a.get("anomaly_type")
                     desc = a.get("ground_truth_insight") or a.get("description") or "Anomaly detected"
-                    dev = a.get("deviation_pct")
-                    md.append(f"- {desc} (deviation {dev:+.1f}%)")
+                    dev = float(a.get("deviation_pct") or 0.0)
+                    md.append(f"- [{sid} | {atype}] {desc} (deviation {dev:+.1f}%)")
             else:
                 md.append("- No anomalies available.")
+
+            # If narrative didn’t provide actionable recommendations, derive them from anomaly scenarios.
+            if isinstance(narrative_data, dict) and not narrative_data.get("recommended_actions") and items:
+                derived_actions = []
+                for a in items[:5]:
+                    sid = a.get("scenario_id")
+                    atype = a.get("anomaly_type")
+                    ex = a.get("example") or {}
+                    loc = "/".join([str(x) for x in (ex.get("state_name") or ex.get("state"), ex.get("port_name") or ex.get("port_code")) if x])
+                    dev = float(a.get("deviation_pct") or 0.0)
+                    derived_actions.append(
+                        f"Investigate {sid} ({atype}) at {loc} and validate drivers behind {dev:+.1f}% deviation; propose mitigation/monitoring steps."
+                    )
+                narrative_data["recommended_actions"] = derived_actions
+
             md.append("")
 
         if seasonal_decomposition:

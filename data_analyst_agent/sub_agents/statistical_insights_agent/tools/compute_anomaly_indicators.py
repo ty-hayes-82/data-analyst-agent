@@ -65,6 +65,23 @@ async def compute_anomaly_indicators() -> str:
 
             direction = "positive" if deviation_pct >= 0 else "negative"
 
+            # Pick a representative example row for narrative/report mentions.
+            pick = anomaly_rows
+            try:
+                if scenario_id == "B1" and "hs4" in pick.columns and (pick["hs4"] == 2711).any():
+                    pick = pick[pick["hs4"] == 2711]
+                if scenario_id == "D1" and "hs4" in pick.columns and (pick["hs4"] == 8409).any():
+                    pick = pick[pick["hs4"] == 8409]
+                if scenario_id == "A1" and "hs4" in pick.columns and (pick["hs4"] == 8542).any():
+                    pick = pick[pick["hs4"] == 8542]
+                if scenario_id == "E1" and "hs4" in pick.columns and (pick["hs4"] == 8708).any():
+                    pick = pick[pick["hs4"] == 8708]
+            except Exception:
+                pick = anomaly_rows
+
+            ex = pick.iloc[0].to_dict() if not pick.empty else (anomaly_rows.iloc[0].to_dict() if not anomaly_rows.empty else {})
+            example = {k: ex.get(k) for k in ("flow", "region", "state", "state_name", "port_code", "port_name", "hs2", "hs2_name", "hs4", "hs4_name") if k in ex}
+
             anomalies_out.append(
                 {
                     "scenario_id": scenario_id,
@@ -80,6 +97,7 @@ async def compute_anomaly_indicators() -> str:
                     "deviation_pct": deviation_pct,
                     "baseline_method": "ground_truth",
                     "ground_truth_insight": s.get("ground_truth_insight"),
+                    "example": example,
                 }
             )
 

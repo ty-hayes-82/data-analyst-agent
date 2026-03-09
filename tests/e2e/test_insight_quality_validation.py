@@ -207,3 +207,200 @@ class TestSeasonalPatternAccuracy:
             assert summary["seasonal_amplitude_pct"] == pytest.approx(validation["seasonal_amplitude_pct"], abs=2.0)
         finally:
             clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+class TestNarrativeInsightQuality:
+    @pytest.mark.asyncio
+    async def test_narrative_mentions_terms_locations_and_quant_claims(self) -> None:
+        import re
+
+        from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics import (
+            compute_level_statistics,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_anomaly_indicators import (
+            compute_anomaly_indicators,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_seasonal_decomposition import (
+            compute_seasonal_decomposition,
+        )
+        from data_analyst_agent.sub_agents.narrative_agent.tools.generate_narrative_summary import (
+            generate_narrative_summary,
+        )
+
+        df = _load_full_trade_df()
+        validation = _load_validation()
+        gt_weekly = [
+            s
+            for s in validation["anomaly_scenarios"]
+            if s["grain"] == "weekly" and s["scenario_id"] in {"A1", "B1", "C1", "D1", "E1", "F1"}
+        ]
+        gt_pcts = [float(s["deviation_pct"]) for s in gt_weekly]
+
+        clear_all_caches()
+        try:
+            _prime_cache(df, run_id="e2e-narrative-full")
+
+            hv = json.loads(
+                await compute_level_statistics(
+                    level=2,
+                    analysis_period="2024",
+                    variance_type="yoy",
+                    hierarchy_name="full_hierarchy",
+                    top_n=10,
+                )
+            )
+            ai = json.loads(await compute_anomaly_indicators())
+            sd = json.loads(await compute_seasonal_decomposition())
+
+            narrative = await generate_narrative_summary(
+                hierarchy_variance=hv,
+                anomaly_indicators=ai,
+                seasonal_decomposition=sd,
+            )
+        finally:
+            clear_all_caches()
+
+        low = narrative.lower()
+
+        # Required terms
+        assert ("semiconductors" in low) or ("8542" in low)
+        assert ("energy" in low) or ("natural gas" in low) or ("2711" in low)
+        assert ("weather" in low) or ("disruption" in low)
+        assert ("machinery" in low) or ("8409" in low)
+        assert ("auto parts" in low) or ("8703" in low) or ("8708" in low)
+        assert ("plastics" in low) or ("3901" in low) or ("3923" in low)
+
+        # Geographic locations
+        for geo in (
+            "california",
+            "lax",
+            "texas",
+            "houston",
+            "newark",
+            "northeast",
+            "chicago",
+            "midwest",
+            "michigan",
+            "detroit",
+            "florida",
+        ):
+            assert geo in low, f"Missing geo term: {geo}\n\n{narrative}"
+
+        # Quantitative claims: at least 3 percentages, each within 10 pts of a ground-truth deviation
+        percents = [float(m.group(1)) for m in re.finditer(r"([+-]?\d+(?:\.\d+)?)%", narrative)]
+        assert len(percents) >= 3, narrative
+
+        matched = 0
+        for p in percents:
+            if any(abs(p - gt) <= 10.0 for gt in gt_pcts):
+                matched += 1
+        assert matched >= 3, f"Not enough percent claims matched ground truth. percents={percents} gt={gt_pcts}"
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+class TestReportCompleteness:
+    @pytest.mark.asyncio
+    async def test_report_sections_anomalies_variance_recommendations(self) -> None:
+        from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics import (
+            compute_level_statistics,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_anomaly_indicators import (
+            compute_anomaly_indicators,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_seasonal_decomposition import (
+            compute_seasonal_decomposition,
+        )
+        from data_analyst_agent.sub_agents.narrative_agent.tools.generate_narrative_summary import (
+            generate_narrative_summary,
+        )
+        from data_analyst_agent.sub_agents.report_synthesis_agent.tools.generate_markdown_report import (
+            generate_markdown_report,
+        )
+
+        df = _load_full_trade_df()
+        clear_all_caches()
+        try:
+            _prime_cache(df, run_id="e2e-report-full")
+
+            hv = json.loads(
+                await compute_level_statistics(
+                    level=2,
+                    analysis_period="2024",
+                    variance_type="yoy",
+                    hierarchy_name="full_hierarchy",
+                    top_n=10,
+                )
+            )
+            ai = json.loads(await compute_anomaly_indicators())
+            sd = json.loads(await compute_seasonal_decomposition())
+            narrative = await generate_narrative_summary(
+                hierarchy_variance=hv,
+                anomaly_indicators=ai,
+                seasonal_decomposition=sd,
+            )
+        finally:
+            clear_all_caches()
+
+        narrative_results = json.dumps({"narrative_summary": narrative, "insight_cards": []})
+        hierarchical_results = json.dumps({"level_2": hv, "levels_analyzed": [2], "drill_down_path": "Region"})
+
+        report = await generate_markdown_report(
+            hierarchical_results=hierarchical_results,
+            analysis_target="trade_full",
+            analysis_period="2024",
+            narrative_results=narrative_results,
+            target_label="Trade",
+            anomaly_indicators=json.dumps(ai),
+            seasonal_decomposition=json.dumps(sd),
+        )
+
+        low = report.lower()
+        for required in (
+            "executive summary",
+            "variance",
+            "anomalies",
+            "seasonality",
+            "recommended actions",
+        ):
+            assert required in low
+
+        # Anomalies section should mention at least 4 of the scenario categories
+        categories = [
+            "volume_drop",
+            "surge",
+            "weather_disruption",
+            "rebound",
+            "shutdown",
+            "demand_shift",
+        ]
+        mentioned = sum(1 for c in categories if c in low)
+        assert mentioned >= 4, f"Only mentioned {mentioned}/6 anomaly categories"
+
+        # Variance section should clearly indicate West as top region
+        assert "west" in low
+
+        # Recommendations: >=3 actionable items, not boilerplate-only
+        rec_idx = low.find("recommended actions")
+        assert rec_idx != -1
+        rec_block = report[rec_idx : rec_idx + 900]
+        action_lines = [
+            ln
+            for ln in rec_block.splitlines()
+            if ln.strip().startswith(("1.", "2.", "3.", "4.", "5."))
+        ]
+        assert len(action_lines) >= 3
+
+        specific = any(
+            (
+                "a1" in ln.lower()
+                or "b1" in ln.lower()
+                or "8542" in ln
+                or "2711" in ln
+                or "detroit" in ln.lower()
+            )
+            for ln in action_lines
+        )
+        assert specific, f"Recommendations too generic:\n{rec_block}"
