@@ -88,3 +88,7 @@ Agents: after each session, append what you learned here. Before starting work, 
 
 ### 2026-03-09 — Incremental E2E Level 6 (ReportSynthesis)
 - `generate_markdown_report()` now supports explicit `## Anomalies` and `## Seasonality` sections (via optional `anomaly_indicators` and `seasonal_decomposition` inputs), so report structure can be asserted deterministically.
+
+### 2026-03-09 — Incremental E2E Level 7 (FullPipeline)
+- Full incremental flow now validated end-to-end in a single deterministic test: fixture load → hierarchy variance → anomaly indicators → alert extraction+suppression → seasonality → narrative summary → markdown report.
+- Keep the end-to-end assertions structural (required sections present) and schema-based (alerts include severity) to avoid brittle text comparisons.
