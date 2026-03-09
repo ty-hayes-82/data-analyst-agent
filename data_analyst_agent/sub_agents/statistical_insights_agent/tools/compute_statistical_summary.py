@@ -36,6 +36,12 @@ from config.statistical_analysis_config import (
 )
 
 
+def _json_default(value):
+    if isinstance(value, np.generic):
+        return value.item()
+    return str(value)
+
+
 async def compute_statistical_summary() -> str:
     """
     Compute comprehensive statistical summary from validated data.
@@ -55,7 +61,7 @@ async def compute_statistical_summary() -> str:
     from .compute_outlier_impact import compute_outlier_impact
     from .compute_distribution_analysis import compute_distribution_analysis
     from .compute_cross_dimension_analysis import compute_cross_dimension_analysis
-    from ....semantic.lag_utils import resolve_effective_latest_period
+    from ....semantic.lag_utils import resolve_effective_latest_period, get_effective_lag_or_default
     
     try:
         # 1. Get data from context or legacy cache
@@ -63,7 +69,7 @@ async def compute_statistical_summary() -> str:
         try:
             df, time_col, metric_col, grain_col, name_col, ctx = resolve_data_and_columns("StatisticalSummary")
         except ValueError as e:
-            return json.dumps({"error": str(e)}, indent=2)
+            return json.dumps({"error": str(e)}, indent=2, default=_json_default)
         print(f"[StatisticalSummary] [TIMER] resolve_data_and_columns: {time.perf_counter() - t_resolve_start:.2f}s", flush=True)
 
         # Ensure numeric metric column
@@ -178,15 +184,17 @@ async def compute_statistical_summary() -> str:
                 pass
         
         # Precompute helpers for upgrades
+        temporal_grain = "monthly"
         periods = sorted(pivot.columns)
-        lag = 0
-        if ctx and ctx.contract and ctx.target_metric:
-            lag = ctx.contract.get_effective_lag(ctx.target_metric)
-            
+        lag = get_effective_lag_or_default(ctx.contract, ctx.target_metric) if ctx and ctx.contract and ctx.target_metric else 0
+        
         effective_latest, lag_window = resolve_effective_latest_period(periods, lag)
         
         latest_period = str(effective_latest) if effective_latest else "N/A"
-        temporal_grain = getattr(ctx, "temporal_grain", "monthly") if ctx else "monthly"
+        temporal_grain = "monthly"
+        ctx_temporal_grain = getattr(ctx, "temporal_grain", None) if ctx else None
+        if isinstance(ctx_temporal_grain, str) and ctx_temporal_grain:
+            temporal_grain = ctx_temporal_grain
         period_unit = "week" if temporal_grain == "weekly" else "month"
         
         # Find index of effective_latest to get prev_period
@@ -648,7 +656,7 @@ async def compute_statistical_summary() -> str:
 
         async def _skipped_placeholder(name: str):
             t0 = time.perf_counter()
-            r = json.dumps({"skipped": True, "reason": "disabled"})
+            r = json.dumps({"skipped": True, "reason": "disabled"}, default=_json_default)
             elapsed = time.perf_counter() - t0
             print(f"[StatisticalSummary] [TIMER] {name}: {elapsed:.2f}s (skipped)", flush=True)
             return r
@@ -671,8 +679,9 @@ async def compute_statistical_summary() -> str:
 
         # Cross-dimension analysis follows the unified tool-toggle system.
         _cross_dim_enabled = "cross_dimension_analysis" not in skip_tools
-        if _cross_dim_enabled and ctx and ctx.contract and ctx.contract.cross_dimensions:
-            for cd_cfg in ctx.contract.cross_dimensions:
+        cross_dims = ctx.contract.cross_dimensions if (_cross_dim_enabled and ctx and ctx.contract and isinstance(getattr(ctx.contract, "cross_dimensions", None), (list, tuple))) else []
+        if cross_dims:
+            for cd_cfg in cross_dims:
                 _cd_name = cd_cfg.name
                 tool_defs.append((
                     "cross_dimension_analysis",
@@ -793,10 +802,10 @@ async def compute_statistical_summary() -> str:
             }
         }
         
-        return json.dumps(result, indent=2)
+        return json.dumps(result, indent=2, default=_json_default)
         
     except Exception as e:
         return json.dumps({
             "error": f"Failed to compute statistical summary: {str(e)}",
             "traceback": str(e)
-        }, indent=2)
+        }, indent=2, default=_json_default)

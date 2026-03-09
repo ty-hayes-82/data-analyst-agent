@@ -35,7 +35,7 @@ import re
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
-from ....semantic.lag_utils import resolve_effective_latest_period
+from ....semantic.lag_utils import resolve_effective_latest_period, get_effective_lag_or_default
 from io import StringIO
 
 
@@ -246,9 +246,7 @@ def _compute_derived_series(
         degradation_alert: Optional[str] = None
         trend_pct: Optional[float] = None
         
-        lag = 0
-        if ctx and getattr(ctx, "contract", None):
-            lag = ctx.contract.get_effective_lag(metric)
+        lag = get_effective_lag_or_default(ctx.contract, metric) if ctx and getattr(ctx, "contract", None) else 0
         if periods_list:
             effective_latest, lag_window = resolve_effective_latest_period(periods_list, lag)
         else:

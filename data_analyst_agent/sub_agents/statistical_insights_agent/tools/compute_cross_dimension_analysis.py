@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as scipy_stats
 from typing import Any, Dict, List, Optional
-from ....semantic.lag_utils import resolve_effective_latest_period
+from ....semantic.lag_utils import resolve_effective_latest_period, get_effective_lag_or_default
 
 _TOP_N_AUX_VALUES = 50
 _ANOVA_PARAM_CAP = 5000
@@ -407,9 +407,7 @@ def _detect_cross_cutting_patterns(
     if len(periods) < 2:
         return []
 
-    lag = 0
-    if ctx and ctx.contract and ctx.target_metric:
-        lag = ctx.contract.get_effective_lag(ctx.target_metric)
+    lag = get_effective_lag_or_default(ctx.contract, ctx.target_metric) if ctx and ctx.contract and ctx.target_metric else 0
         
     effective_latest, _ = resolve_effective_latest_period(periods, lag)
     current_period = effective_latest

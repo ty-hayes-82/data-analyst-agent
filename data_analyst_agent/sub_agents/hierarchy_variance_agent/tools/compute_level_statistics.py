@@ -25,7 +25,7 @@ import os
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from ...data_cache import get_analysis_context, resolve_data_and_columns
-from ....semantic.lag_utils import resolve_effective_latest_period
+from ....semantic.lag_utils import resolve_effective_latest_period, get_effective_lag_or_default
 from config.materiality_loader import get_thresholds_for_category, get_global_defaults
 
 
@@ -127,10 +127,8 @@ async def compute_level_statistics(
 
         # 3. Period Analysis
         periods = sorted(df[time_col].unique())
-        lag = 0
-        if ctx and ctx.contract and ctx.target_metric:
-            lag = ctx.contract.get_effective_lag(ctx.target_metric)
-            
+        lag = get_effective_lag_or_default(ctx.contract, ctx.target_metric) if ctx and ctx.contract and ctx.target_metric else 0
+        
         effective_current, lag_window = resolve_effective_latest_period(periods, lag)
         
         if analysis_period == "latest":

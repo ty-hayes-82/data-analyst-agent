@@ -34,3 +34,16 @@ def get_lag_window_periods(periods: List[Any], lag_periods: int) -> List[Any]:
 def is_period_in_lag_window(period: Any, lag_window: List[Any]) -> bool:
     """True if the given period is within the incomplete lag window."""
     return period in lag_window
+
+
+def get_effective_lag_or_default(contract: Any, metric: Any, default: int = 0) -> int:
+    """Safely fetch contract.get_effective_lag(metric), returning an int fallback."""
+    try:
+        if contract is None:
+            return default
+        value = contract.get_effective_lag(metric)
+        if value is None:
+            return default
+        return int(value)
+    except (AttributeError, TypeError, ValueError):
+        return default

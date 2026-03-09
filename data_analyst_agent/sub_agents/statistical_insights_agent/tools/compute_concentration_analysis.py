@@ -28,7 +28,7 @@ import pandas as pd
 import numpy as np
 from scipy import stats as scipy_stats
 from typing import Dict, Any, List, Optional
-from ....semantic.lag_utils import resolve_effective_latest_period
+from ....semantic.lag_utils import resolve_effective_latest_period, get_effective_lag_or_default
 
 
 def _compute_hhi(shares: pd.Series) -> float:
@@ -157,9 +157,7 @@ async def compute_concentration_analysis(
         
         # Period resolution with lag support
         periods = sorted(pivot.columns)
-        lag = 0
-        if ctx and ctx.contract and ctx.target_metric:
-            lag = ctx.contract.get_effective_lag(ctx.target_metric)
+        lag = get_effective_lag_or_default(ctx.contract, ctx.target_metric) if ctx and ctx.contract and ctx.target_metric else 0
         
         effective_latest, _ = resolve_effective_latest_period(periods, lag)
         latest_period_name = str(effective_latest) if effective_latest else "N/A"
