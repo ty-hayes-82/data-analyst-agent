@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-09T22:41:33
+**Last updated:** 2026-03-09T22:49:27
 
 ## Current State
-- **Unit Tests:** 264 passed, 0 failed, 0 errors
+- **Unit Tests:** 265 passed, 1 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 174 files, 26,363 lines, **51 files >200L**
+- **Codebase:** 174 files, 26,453 lines, **51 files >200L**
 - **Largest:** sub_agents/hierarchical_analysis_agent/agent.py (763L)
-- **Commit:** `699690c test(e2e): insight quality class3 seasonal`
+- **Commit:** `b2eef66 test(e2e): insight quality classes4-5 narr`
 
 ## Progress Over Time
 
@@ -32,9 +32,10 @@
 | 17 | 22:33 | `357b8b0` | 261 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 | 18 | 22:39 | `c3335a1` | 263 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 | 19 | 22:41 | `699690c` | 264 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
+| 20 | 22:49 | `b2eef66` | 265 | 1 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 
 ## Cumulative Improvement
-- Tests: 247 → **264** (+17)
-- Failures: 0 → **0**
+- Tests: 247 → **265** (+18)
+- Failures: 0 → **1**
 - Files >200L: 50 → **51** (+1)
-- Iterations: 19
+- Iterations: 20

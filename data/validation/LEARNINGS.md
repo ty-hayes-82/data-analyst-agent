@@ -106,3 +106,8 @@ Agents: after each session, append what you learned here. Before starting work, 
 
 ### 2026-03-09 — Insight Quality Class 3 (Seasonality)
 - Seasonality accuracy test uses `compute_seasonal_decomposition()` dataset-level `seasonality_summary` and validates peak/trough + amplitude against `validation_datapoints.json`.
+
+### 2026-03-09 — Insight Quality Classes 4-5 (Narrative + Report)
+- Expanded deterministic `generate_narrative_summary()` to enumerate all scenario anomalies with explicit geo + HS codes and deviation percentages, plus scenario-specific recommended actions.
+- `compute_anomaly_indicators()` now includes a representative `example` payload (region/state/port/HS) and picks scenario-relevant HS codes (e.g., B1 prefers HS4 2711 Natural gas) so narrative/report include required domain terms.
+- `generate_markdown_report()` anomalies section now emits `[scenario_id | anomaly_type] ...` lines and can derive specific recommended actions from anomaly indicators when narrative doesn’t provide them.
