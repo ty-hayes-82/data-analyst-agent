@@ -301,3 +301,63 @@ class TestLevel4_NarrativeGeneration:
         # Keyword expectations
         assert "shock" in narrative.lower() or "tariff" in narrative.lower(), narrative
         assert "season" in narrative.lower(), narrative
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+@pytest.mark.csv_mode
+class TestLevel5_AlertScoring:
+    @pytest.mark.asyncio
+    async def test_alerts_generated_have_severity(self) -> None:
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_anomaly_indicators import (
+            compute_anomaly_indicators,
+        )
+        from data_analyst_agent.sub_agents.alert_scoring_agent.tools.extract_alerts_from_analysis import (
+            extract_alerts_from_analysis,
+        )
+        from data_analyst_agent.sub_agents.alert_scoring_agent.tools.apply_suppression import (
+            apply_suppression,
+        )
+
+        validation = json.loads(VALIDATION_PATH.read_text())
+        scenario = next(
+            s
+            for s in validation["anomaly_scenarios"]
+            if s["scenario_id"] == "A1" and s["grain"] == "weekly"
+        )
+
+        clear_all_caches()
+        try:
+            _load_fixture_c_and_prime_cache()
+            ai = json.loads(await compute_anomaly_indicators())
+            assert "error" not in ai, ai
+
+            extracted = json.loads(
+                await extract_alerts_from_analysis(
+                    statistical_summary="",
+                    statistical_insights_result="",
+                    synthesis=json.dumps(ai),
+                    analysis_target="trade_fixture_c",
+                )
+            )
+            assert "error" not in extracted, extracted
+
+            suppressed = json.loads(
+                await apply_suppression(
+                    json.dumps(
+                        {
+                            "alerts": extracted.get("alerts", []),
+                            "dimension_value": "trade_fixture_c",
+                            "period": scenario["last_period"],
+                            "events_calendar": [],
+                            "feedback_history": [],
+                        }
+                    )
+                )
+            )
+
+            active = suppressed.get("active_alerts") or []
+            assert active, "Expected at least 1 active alert"
+            assert "severity" in active[0], active[0]
+        finally:
+            clear_all_caches()
