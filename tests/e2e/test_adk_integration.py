@@ -123,3 +123,48 @@ class TestSessionStateFlow:
             )
         )
         assert has_dates, f"Expected date fields in state, got keys={sorted(session.state.keys())}"
+
+
+@pytest.mark.e2e
+class TestDataFetchPipeline:
+    @pytest.mark.asyncio
+    async def test_data_fetch_workflow_populates_primary_data_csv(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ACTIVE_DATASET", "trade_data")
+        monkeypatch.setenv("DATA_ANALYST_TEST_MODE", "false")
+
+        from google.adk.sessions.in_memory_session_service import InMemorySessionService
+
+        from data_analyst_agent.core_agents.loaders import ContractLoader, DateInitializer
+        from data_analyst_agent.agent import data_fetch_workflow
+
+        svc = InMemorySessionService()
+        session = svc.create_session_sync(
+            app_name="data-analyst-agent",
+            user_id="test-user",
+            state={
+                "user_message": "Analyze trade data",
+                "active_dataset": "trade_data",
+            },
+        )
+
+        await _run_agent(ContractLoader(), svc, session, user_text="Analyze trade data")
+        await _run_agent(DateInitializer(), svc, session)
+
+        await _run_agent(data_fetch_workflow, svc, session)
+
+        csv_data = session.state.get("primary_data_csv")
+        assert isinstance(csv_data, str) and len(csv_data) > 1000
+
+        header = csv_data.splitlines()[0].split(",")
+        for col in (
+            "grain",
+            "period_end",
+            "flow",
+            "region",
+            "state",
+            "port_code",
+            "hs2",
+            "hs4",
+            "trade_value_usd",
+        ):
+            assert col in header
