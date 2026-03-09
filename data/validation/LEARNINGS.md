@@ -103,3 +103,6 @@ Agents: after each session, append what you learned here. Before starting work, 
 ### 2026-03-09 — Insight Quality Class 2 (Variance attribution)
 - `compute_level_statistics()` originally interprets YoY as a single-period lag (latest week vs same week last year), which does not match the validation datapoints based on full-year totals.
 - Added `analysis_period="YYYY"` support for `variance_type="yoy"` to compute **full-year totals** (new internal mode: `yoy_full_year`). This enables deterministic region/state driver validation for 2024 vs 2023.
+
+### 2026-03-09 — Insight Quality Class 3 (Seasonality)
+- Seasonality accuracy test uses `compute_seasonal_decomposition()` dataset-level `seasonality_summary` and validates peak/trough + amplitude against `validation_datapoints.json`.
