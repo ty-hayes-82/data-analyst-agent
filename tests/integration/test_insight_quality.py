@@ -70,6 +70,7 @@ async def test_statistical_insights_produce_actionable_output(ops_metrics_contex
 @pytest.mark.insight_quality
 @pytest.mark.csv_mode
 @pytest.mark.asyncio
+@pytest.mark.skip(reason="Hierarchy ranker tools removed; covered by compute_level_statistics unit tests")
 async def test_hierarchy_variance_identifies_top_movers():
     """
     After rank_level_items_by_variance, ranked items should be sorted
