@@ -33,6 +33,11 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Importing from the new modules happens at module import, so ensure every dependency (e.g., `Field`) is imported locally or `pytest` will fail during collection.
 - `scripts/track_results.py` re-runs the full suite + trade e2e and writes SCOREBOARD/iteration_results; run it after each commit so the metrics reflect the latest refactor.
 
+### 2026-03-09 — Trade validation iteration 3
+- Cache the 258K-row trade dataset with `@lru_cache` inside the E2E tests so repeated pytest runs stay under a second; return copies if you need to mutate the frame.
+- Recompute YoY totals and region rankings only on `grain == "weekly"` rows; monthly rows will double-count and skew the variance percentages.
+- The seasonal amplitude check should rely on the average of all monthly totals (`(max-min)/mean`) to match the 20.15% reference in `validation_datapoints.json`.
+
 ### 2026-03-09 — Statistical card builders
 - Keep `tools/card_builders.py` as a re-export shim so existing imports keep working while the actual builders live under `tools/card_builder_modules/`.
 - Group the builders by concern (anomaly, trend, portfolio, correlation, variance) to keep each file <200 lines and make future rewrites targeted.
