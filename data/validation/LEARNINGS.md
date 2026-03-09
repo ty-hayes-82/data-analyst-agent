@@ -116,6 +116,10 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Added `tests/e2e/test_adk_integration.py` to validate ADK wiring without running the full pipeline.
 - Root agent + `data_fetch_workflow` + `target_analysis_pipeline` should all instantiate as `google.adk.agents.sequential_agent.SequentialAgent` with expected timed sub-agent names.
 
+### 2026-03-09 — ADK Integration Class 2 (Session state flow)
+- When running agents directly via `agent.run_async(InvocationContext)`, state updates are emitted via `EventActions(state_delta=...)`. The app runner normally applies these deltas.
+- The integration tests now mimic runner behavior by applying `state_delta` onto `session.state` during the event loop so ContractLoader/DateInitializer state writes are observable.
+
 ### 2026-03-09 — Hierarchical drill-down modularization
 - Split hierarchical_analysis_agent/agent.py into dedicated modules (logging, decisions, initialization, cross-dimension, independent scan, finalization) to keep each under 200 lines and simplify future edits.
 - Centralized feature flags (USE_CODE_INSIGHTS, CROSS_DIMENSION_ANALYSIS, INDEPENDENT_LEVEL_ANALYSIS) inside settings.py so helpers can import shared toggles without circulars.
