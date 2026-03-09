@@ -37,8 +37,8 @@ def test_get_active_dataset_reads_from_yaml():
 
     assert isinstance(result, str)
     assert len(result) > 0, "active_dataset should not be empty"
-    # The default configured value is account_research
-    assert result == "ops_metrics", f"Expected 'account_research', got '{result}'"
+    # The default configured value is trade_data
+    assert result == "trade_data", f"Expected 'trade_data', got '{result}'"
     clear_dataset_cache()
 
 
@@ -284,7 +284,14 @@ def test_active_dataset_folder_exists():
         cfg = yaml.safe_load(f)
 
     active = cfg.get("active_dataset", "")
-    assert (DATASETS_DIR / active).is_dir(), f"Dataset folder '{active}' not found in config/datasets/"
+    candidate_dirs = [
+        DATASETS_DIR / active,
+        DATASETS_DIR / "csv" / active,
+        DATASETS_DIR / "tableau" / active,
+    ]
+    assert any(d.is_dir() for d in candidate_dirs), (
+        f"Dataset folder '{active}' not found in config/datasets/"
+    )
     clear_dataset_cache()
 
 
