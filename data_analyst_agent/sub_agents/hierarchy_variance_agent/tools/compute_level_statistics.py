@@ -136,6 +136,58 @@ async def compute_level_statistics(
         else:
             current_period = analysis_period
 
+        # Special mode: year-over-year by full-year totals (used by insight-quality E2E)
+        import re
+        if variance_type.lower() == "yoy" and re.fullmatch(r"\d{4}", str(current_period)):
+            current_year = int(current_period)
+            prior_year = current_year - 1
+
+            if "year" not in df.columns:
+                df["year"] = pd.to_datetime(df[time_col], errors="coerce").dt.year
+
+            cur = df[df["year"] == current_year].copy()
+            pri = df[df["year"] == prior_year].copy()
+
+            if cur.empty or pri.empty:
+                return json.dumps({"error": "YearNotFound", "message": f"Year {current_year} or {prior_year} not found.", "level": level})
+
+            cur_grp = cur.groupby(level_col)[metric_col].sum()
+            pri_grp = pri.groupby(level_col)[metric_col].sum()
+
+            drivers = []
+            for item, cur_val in cur_grp.items():
+                prior_val = float(pri_grp.get(item, 0.0))
+                cur_val = float(cur_val)
+                var_d = cur_val - prior_val
+                var_pct = (var_d / prior_val * 100.0) if prior_val else 0.0
+                drivers.append({
+                    "item": str(item),
+                    "current": cur_val,
+                    "prior": prior_val,
+                    "variance_dollar": var_d,
+                    "variance_pct": var_pct,
+                })
+
+            drivers.sort(key=lambda d: abs(d.get("variance_dollar", 0.0)), reverse=True)
+
+            total_var = sum(d["variance_dollar"] for d in drivers)
+            # Keep existing schema shape
+            return json.dumps(
+                {
+                    "level": level,
+                    "level_name": level_name,
+                    "metric": metric_col,
+                    "analysis_period": str(current_year),
+                    "variance_type": "yoy_full_year",
+                    "total_variance_dollar": total_var,
+                    "top_drivers": [{"rank": i + 1, **d} for i, d in enumerate(drivers[:top_n])],
+                    "items_analyzed": int(len(drivers)),
+                    "variance_explained_pct": 100.0,
+                    "is_last_level": is_last_level,
+                },
+                indent=2,
+            )
+
         # 4 & 5. Prior period for variance
         current_date = pd.to_datetime(current_period)
         if variance_type.lower() == "yoy":

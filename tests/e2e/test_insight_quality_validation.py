@@ -18,6 +18,25 @@ import pytest
 from data_analyst_agent.sub_agents.data_cache import clear_all_caches, set_analysis_context, set_validated_csv
 
 
+def _prime_cache(df: pd.DataFrame, run_id: str) -> None:
+    from data_analyst_agent.semantic.models import AnalysisContext, DatasetContract
+
+    set_validated_csv(df.to_csv(index=False))
+
+    contract = DatasetContract.from_yaml(str(TRADE_CONTRACT_PATH))
+    contract._source_path = str(TRADE_CONTRACT_PATH)
+
+    ctx = AnalysisContext(
+        contract=contract,
+        df=df,
+        target_metric=contract.get_metric("trade_value_usd"),
+        primary_dimension=contract.get_dimension("flow"),
+        run_id=run_id,
+        max_drill_depth=5,
+    )
+    set_analysis_context(ctx)
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TRADE_DATA_PATH = REPO_ROOT / "data" / "synthetic" / "synthetic_hierarchical_trade_dataset_250k.csv"
 TRADE_CONTRACT_PATH = REPO_ROOT / "config" / "datasets" / "csv" / "trade_data" / "contract.yaml"
@@ -35,23 +54,8 @@ def _load_validation() -> dict:
 
 
 def _prime_cache_with_full_trade_df() -> None:
-    from data_analyst_agent.semantic.models import AnalysisContext, DatasetContract
-
     df = _load_full_trade_df()
-    set_validated_csv(df.to_csv(index=False))
-
-    contract = DatasetContract.from_yaml(str(TRADE_CONTRACT_PATH))
-    contract._source_path = str(TRADE_CONTRACT_PATH)
-
-    ctx = AnalysisContext(
-        contract=contract,
-        df=df,
-        target_metric=contract.get_metric("trade_value_usd"),
-        primary_dimension=contract.get_dimension("flow"),
-        run_id="e2e-insight-quality-full-trade",
-        max_drill_depth=5,
-    )
-    set_analysis_context(ctx)
+    _prime_cache(df, run_id="e2e-insight-quality-full-trade")
 
 
 @pytest.mark.e2e
@@ -99,3 +103,79 @@ class TestAnomalyDetectionAccuracy:
                 assert p["severity"] == (s.get("severity") or "unknown").lower()
         finally:
             clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+class TestVarianceAttributionAccuracy:
+    @pytest.mark.asyncio
+    async def test_region_ranking_and_state_driver(self) -> None:
+        from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics import (
+            compute_level_statistics,
+        )
+
+        df = _load_full_trade_df()
+        weekly = df[df["grain"] == "weekly"].copy()
+
+        clear_all_caches()
+        try:
+            _prime_cache(weekly, run_id="e2e-variance-weekly")
+
+            region_stats = json.loads(
+                await compute_level_statistics(
+                    level=2,
+                    analysis_period="2024",
+                    variance_type="yoy",
+                    hierarchy_name="full_hierarchy",
+                    top_n=10,
+                )
+            )
+            assert "error" not in region_stats, region_stats
+
+            drivers = region_stats.get("top_drivers") or []
+            assert drivers
+            # Ensure ranking by absolute variance matches ground truth ordering.
+            ranked = sorted(drivers, key=lambda d: abs(d.get("variance_dollar", 0) or 0), reverse=True)
+            top_regions = [d.get("item") for d in ranked[:4]]
+            assert top_regions == ["West", "South", "Northeast", "Midwest"]
+        finally:
+            clear_all_caches()
+
+        # West state driver: CA should be top
+        clear_all_caches()
+        try:
+            west = weekly[weekly["region"] == "West"].copy()
+            _prime_cache(west, run_id="e2e-variance-west")
+
+            state_stats = json.loads(
+                await compute_level_statistics(
+                    level=3,
+                    analysis_period="2024",
+                    variance_type="yoy",
+                    hierarchy_name="full_hierarchy",
+                    top_n=10,
+                )
+            )
+            assert "error" not in state_stats, state_stats
+            top = (state_stats.get("top_drivers") or [])[0]
+            assert top.get("item") == "CA"
+        finally:
+            clear_all_caches()
+
+    def test_total_and_flow_yoy_variance(self) -> None:
+        df = _load_full_trade_df()
+        weekly = df[df["grain"] == "weekly"].copy()
+
+        yearly = weekly.groupby("year")["trade_value_usd"].sum()
+        y2024 = float(yearly.loc[2024])
+        y2023 = float(yearly.loc[2023])
+        total_pct = (y2024 - y2023) / y2023 * 100
+        assert total_pct == pytest.approx(1.24, abs=0.5)
+
+        flow_year = weekly.groupby(["flow", "year"])["trade_value_usd"].sum().unstack().fillna(0.0)
+        imports_pct = (float(flow_year.loc["imports", 2024]) - float(flow_year.loc["imports", 2023])) / float(flow_year.loc["imports", 2023]) * 100
+        exports_pct = (float(flow_year.loc["exports", 2024]) - float(flow_year.loc["exports", 2023])) / float(flow_year.loc["exports", 2023]) * 100
+
+        assert imports_pct == pytest.approx(1.27, abs=0.5)
+        assert exports_pct == pytest.approx(1.19, abs=0.5)
+        assert imports_pct > exports_pct
