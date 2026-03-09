@@ -112,6 +112,10 @@ Agents: after each session, append what you learned here. Before starting work, 
 - `compute_anomaly_indicators()` now includes a representative `example` payload (region/state/port/HS) and picks scenario-relevant HS codes (e.g., B1 prefers HS4 2711 Natural gas) so narrative/report include required domain terms.
 - `generate_markdown_report()` anomalies section now emits `[scenario_id | anomaly_type] ...` lines and can derive specific recommended actions from anomaly indicators when narrative doesn’t provide them.
 
+### 2026-03-09 — ADK Integration Class 1 (Instantiation)
+- Added `tests/e2e/test_adk_integration.py` to validate ADK wiring without running the full pipeline.
+- Root agent + `data_fetch_workflow` + `target_analysis_pipeline` should all instantiate as `google.adk.agents.sequential_agent.SequentialAgent` with expected timed sub-agent names.
+
 ### 2026-03-09 — Hierarchical drill-down modularization
 - Split hierarchical_analysis_agent/agent.py into dedicated modules (logging, decisions, initialization, cross-dimension, independent scan, finalization) to keep each under 200 lines and simplify future edits.
 - Centralized feature flags (USE_CODE_INSIGHTS, CROSS_DIMENSION_ANALYSIS, INDEPENDENT_LEVEL_ANALYSIS) inside settings.py so helpers can import shared toggles without circulars.

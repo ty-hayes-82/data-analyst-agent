@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-09T22:55:58
+**Last updated:** 2026-03-09T23:26:52
 
 ## Current State
-- **Unit Tests:** 266 passed, 0 failed, 0 errors
+- **Unit Tests:** 267 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
 - **Codebase:** 181 files, 26,475 lines, **50 files >200L**
 - **Largest:** sub_agents/statistical_insights_agent/tools/compute_cross_dimension_analysis.py (605L)
-- **Commit:** `9c13da2 test: align narrative keywords with new su`
+- **Commit:** `1522d21 test(e2e): adk integration class1 agent in`
 
 ## Progress Over Time
 
@@ -35,9 +35,10 @@
 | 20 | 22:49 | `b2eef66` | 265 | 1 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 | 21 | 22:53 | `9c13da2` | 266 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 | 22 | 22:55 | `9c13da2` | 266 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
+| 23 | 23:26 | `1522d21` | 267 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
 
 ## Cumulative Improvement
-- Tests: 247 → **266** (+19)
+- Tests: 247 → **267** (+20)
 - Failures: 0 → **0**
 - Files >200L: 50 → **50** (+0)
-- Iterations: 22
+- Iterations: 23
