@@ -32,8 +32,10 @@ import sys
 import contextvars
 
 # Use a registry in sys.modules to survive multiple imports of this module
-if '_data_analyst_cache_registry' not in sys.modules:
-    sys.modules['_data_analyst_cache_registry'] = {
+_REGISTRY_KEY = "_data_analyst_cache_registry"
+
+def _create_cache_registry() -> dict:
+    return {
         'validated_csv': {},
         'ops_metrics_csv': {},
         'analysis_context': {},
@@ -42,23 +44,38 @@ if '_data_analyst_cache_registry' not in sys.modules:
         'session_id_var': contextvars.ContextVar("current_session_id", default=None)
     }
 
-_cache_registry = sys.modules['_data_analyst_cache_registry']
+def _get_cache_registry() -> dict:
+    registry = sys.modules.get(_REGISTRY_KEY)
+    if not isinstance(registry, dict):
+        registry = _create_cache_registry()
+        sys.modules[_REGISTRY_KEY] = registry
+    else:
+        # Defensive check for required keys (tests sometimes set registry to {})
+        required_keys = {"validated_csv", "ops_metrics_csv", "analysis_context", "session_id_var"}
+        if not required_keys.issubset(registry.keys()):
+            registry = _create_cache_registry()
+            sys.modules[_REGISTRY_KEY] = registry
+    return registry
+
+# Initialize (or rehydrate) the cache registry
+sys.modules[_REGISTRY_KEY] = _get_cache_registry()
+_cache_registry = sys.modules[_REGISTRY_KEY]
 current_session_id = _cache_registry['session_id_var']
 _validated_csv_cache = _cache_registry['validated_csv']
 _ops_metrics_csv_cache = _cache_registry['ops_metrics_csv']
 _analysis_context_cache = _cache_registry['analysis_context']
 
 def _get_validated_data_cache():
-    return sys.modules['_data_analyst_cache_registry']['validated_data']
+    return sys.modules[_REGISTRY_KEY]['validated_data']
 
 def _set_validated_data_cache(val):
-    sys.modules['_data_analyst_cache_registry']['validated_data'] = val
+    sys.modules[_REGISTRY_KEY]['validated_data'] = val
 
 def _get_supplementary_csv_cache():
-    return sys.modules['_data_analyst_cache_registry']['supplementary_csv']
+    return sys.modules[_REGISTRY_KEY]['supplementary_csv']
 
 def _set_supplementary_csv_cache(val):
-    sys.modules['_data_analyst_cache_registry']['supplementary_csv'] = val
+    sys.modules[_REGISTRY_KEY]['supplementary_csv'] = val
 
 
 # Use a fixed temp file path for the session
