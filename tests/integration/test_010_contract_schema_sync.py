@@ -31,7 +31,7 @@ from typing import Any
 import pytest
 import yaml
 
-pytestmark = pytest.mark.skip(reason="Legacy Tableau Hyper paths not available on trade_data environment")
+pytestmark = pytest.mark.skip(reason="Ops metrics Hyper schema checks disabled on trade_data dataset")
 
 try:
     from tableauhyperapi import Connection, HyperProcess, HyperException, Telemetry
@@ -39,11 +39,6 @@ try:
 except ImportError:
     HYPER_API_AVAILABLE = False
     HyperException = Exception  # fallback so references don't fail at import
-
-pytestmark = pytest.mark.skipif(
-    not HYPER_API_AVAILABLE,
-    reason="tableauhyperapi not installed",
-)
 
 
 # ---------------------------------------------------------------------------
