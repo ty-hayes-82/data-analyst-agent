@@ -85,3 +85,6 @@ Agents: after each session, append what you learned here. Before starting work, 
 ### 2026-03-09 — Incremental E2E Level 5 (AlertScoring)
 - `extract_alerts_from_analysis()` previously ignored the `synthesis` param; for incremental E2E we added a fallback that parses `synthesis` JSON containing `{"anomalies": [...]}` and emits `trade_anomaly` alerts.
 - Ensure emitted alerts include a top-level `severity` field so downstream suppression/scoring pipelines have stable schema.
+
+### 2026-03-09 — Incremental E2E Level 6 (ReportSynthesis)
+- `generate_markdown_report()` now supports explicit `## Anomalies` and `## Seasonality` sections (via optional `anomaly_indicators` and `seasonal_decomposition` inputs), so report structure can be asserted deterministically.
