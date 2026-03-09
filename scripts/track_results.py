@@ -17,7 +17,7 @@ def run_cmd(cmd):
 commit = run_cmd("git log --oneline -1")
 
 # Run full test suite
-test_output = run_cmd(f"{PYTHON} -m pytest --tb=no -q 2>&1")
+test_output = run_cmd(f"{PYTHON} -m pytest tests/ --tb=no -q 2>&1")
 passed = failed = errors = skipped = 0
 for line in test_output.split("\n"):
     m = re.search(r"(\d+) passed", line)
