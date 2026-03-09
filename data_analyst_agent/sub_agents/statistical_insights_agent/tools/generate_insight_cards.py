@@ -42,6 +42,7 @@ def _max_cards() -> int:
 
 
 MAX_CARDS = 25  # Legacy default; _max_cards() used at runtime
+PRIORITY_SORT_ORDER = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +90,22 @@ def _priority_label(score: float) -> str:
     if score >= 0.2:
         return "medium"
     return "low"
+
+
+def _anomaly_priority(z_score: float) -> str:
+    abs_z = abs(z_score)
+    if abs_z >= 4.0:
+        return "critical"
+    if abs_z >= 3.0:
+        return "high"
+    if abs_z >= 2.0:
+        return "medium"
+    return "low"
+
+
+def _priority_rank(label: str | None) -> int:
+    order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+    return order.get(label or "", 0)
 
 
 # ---------------------------------------------------------------------------
@@ -148,7 +165,7 @@ def _build_anomaly_cards(
     cards = []
     for a in anomalies:
         z = a.get("z_score", 0.0)
-        if abs(z) < 1.5:  # very loose floor to avoid pure noise
+        if abs(z) < 2.0:  # align with spec threshold
             continue
         item_name = a.get("item_name", a.get("item", "Unknown"))
         period = a.get("period", "N/A")
@@ -157,6 +174,7 @@ def _build_anomaly_cards(
         std = a.get("std", 0.0)
         direction = "above" if value > avg else "below"
         delta = abs(value - avg)
+        p_val = a.get("p_value")
 
         stat = _statistical_impact(z=z)
         mag = _magnitude_impact(value, avg)
@@ -166,13 +184,20 @@ def _build_anomaly_cards(
 
         is_recent = str(period) in recent_periods if recent_periods else False
 
+        evidence = {"z_score": round(z, 2), "avg": avg, "std_dev": std, "value": value}
+        if p_val is not None:
+            try:
+                evidence["p_value"] = round(float(p_val), 6)
+            except (TypeError, ValueError):
+                evidence["p_value"] = p_val
+
         card = {
             "title": f"Anomaly: {item_name} in {period}",
             "what_changed": f"{value:,.2f} -- {delta:,.2f} ({direction} avg {abs(avg):,.2f})",
             "why": f"Z-score {z:+.2f} indicates a statistically significant deviation.",
-            "evidence": {"z_score": round(z, 2), "avg": avg, "std_dev": std, "value": value},
+            "evidence": evidence,
             "now_what": "Investigate root cause and verify data integrity for this period.",
-            "priority": _priority_label(score),
+            "priority": _anomaly_priority(z),
             "impact_score": score,
             "materiality_weight": round(mat, 3),
             "tags": ["outlier", "z-score"],
@@ -192,7 +217,7 @@ def _build_correlation_cards(correlations: dict) -> list[dict]:
             r = float(value)
             p_val = 0.0
 
-        if abs(r) <= 0.5:
+        if abs(r) < 0.7:
             continue
         if p_val >= 0.05 and p_val != 0.0:
             continue
@@ -1166,8 +1191,15 @@ def generate_statistical_insight_cards(statistical_summary: dict) -> dict:
             "tags": ["error"],
         })
 
-    # Rank by recency first (recent-period cards rank higher), then by impact score
-    cards.sort(key=lambda c: (c.get("recent", False), -c.get("impact_score", 0.0)), reverse=True)
+    def _priority_rank(card: dict) -> int:
+        label = str(card.get("priority", "")).lower()
+        return PRIORITY_SORT_ORDER.get(label, 0)
+
+    cards.sort(key=lambda c: (
+        -_priority_rank(c),
+        -int(bool(c.get("recent", False))),
+        -c.get("impact_score", 0.0)
+    ))
     
     # Add lag metadata to summary_stats if available
     summary_stats = statistical_summary.get("summary_stats", {})
