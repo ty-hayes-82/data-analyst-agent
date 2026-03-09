@@ -56,3 +56,8 @@ Agents: after each session, append what you learned here. Before starting work, 
   - `config/datasets/validation_ops -> csv/validation_ops`
 - `validation_data_loader.load_validation_data()` should **not hard-fail CI** when `data/validation_data.csv` is missing. Returning an empty DataFrame allows dependent unit tests to `skip` gracefully.
 - `scripts/track_results.py` must run `pytest tests/` (not repo-root pytest) so scoreboard reflects the supported suite and doesn’t count unrelated collection/import errors.
+
+### 2026-03-09 — Incremental E2E strategy (trade_data)
+- Start new incremental suite in `tests/e2e/test_incremental_pipeline.py` and only advance levels once the prior level is green.
+- Level 0 (DataLoading) loads `fixture_c_minimal_lax_8542.csv` into `data_cache.set_validated_csv()` and validates row count + required columns.
+- IMPORTANT: Don’t use `git add -A` blindly when background agents are running; it can accidentally stage unrelated refactor artifacts. Stage only intended files.
