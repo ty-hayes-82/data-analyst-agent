@@ -12,4 +12,4 @@
 #   order_dispatch    - Order-level detail, billing, tolls, entity revenue
 #   validation_ops    - Weekly terminal KPIs from validation_data.csv (TEST MODE only)
 
-active_dataset: ops_metrics
+active_dataset: trade_data
