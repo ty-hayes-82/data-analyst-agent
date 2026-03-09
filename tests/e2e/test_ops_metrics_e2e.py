@@ -62,16 +62,16 @@ def test_full_ops_analysis_workflow_offline(
     assert len(ctx.df) > 0
 
     # -- Phase 2: Data Validation --
-    assert "ttl_rev_amt" in df.columns, "total_revenue column must exist"
+    assert "total_revenue" in df.columns, "total_revenue column must exist"
     assert "cal_dt" in df.columns, "time column must exist"
-    assert df["ttl_rev_amt"].notna().all(), "No NaN in revenue column"
+    assert df["total_revenue"].notna().all(), "No NaN in revenue column"
 
     # -- Phase 3: Statistical Summary (basic verification) --
     periods = sorted(df["cal_dt"].unique())
     assert len(periods) >= 2, "Need at least 2 periods for trend analysis"
 
     # Monthly totals
-    monthly = df.groupby("cal_dt")["ttl_rev_amt"].sum().sort_index()
+    monthly = df.groupby("cal_dt")["total_revenue"].sum().sort_index()
     assert len(monthly) == len(periods)
 
     # Check for non-zero revenue
@@ -137,17 +137,17 @@ def test_ops_metrics_insight_quality_offline(
     assert len(periods) >= 12, "Need >= 12 periods for meaningful variance analysis"
 
     # 2. MoM variance exists
-    monthly = df.groupby("cal_dt")["ttl_rev_amt"].sum().sort_index()
+    monthly = df.groupby("cal_dt")["total_revenue"].sum().sort_index()
     mom_changes = monthly.diff().dropna()
     assert any(abs(mom_changes) > 0), "Should have non-zero MoM variance"
 
     # 3. Top movers identifiable (at least some rows vary)
     if "gl_div_nm" in df.columns:
-        terminal_totals = df.groupby("gl_div_nm")["ttl_rev_amt"].sum()
+        terminal_totals = df.groupby("gl_div_nm")["total_revenue"].sum()
         assert len(terminal_totals) >= 1, "Should have at least 1 terminal"
 
     # 4. Multi-metric data available
-    metric_cols = ["ttl_rev_amt", "ld_trf_mi", "ordr_cnt", "stop_count"]
+    metric_cols = ["total_revenue", "ld_trf_mi", "ordr_cnt", "stop_count"]
     available = [c for c in metric_cols if c in df.columns]
     assert len(available) >= 2, "Should have at least 2 metric columns for multi-metric analysis"
 
@@ -183,7 +183,7 @@ def test_full_ops_analysis_live(a2a_client, ops_metrics_contract, temp_output_di
     sql = (
         f'SELECT "cal_dt", "ops_ln_of_bus_ref_nm" AS lob, '
         f'"gl_div_nm" AS terminal, '
-        f'SUM(CAST("ttl_rev_amt" AS FLOAT)) AS ttl_rev_amt, '
+        f'SUM(CAST("total_revenue" AS FLOAT)) AS total_revenue, '
         f'SUM(CAST("ld_trf_mi" AS FLOAT)) AS ld_trf_mi, '
         f'SUM(CAST("ordr_cnt" AS FLOAT)) AS ordr_cnt '
         f"FROM {table} "
@@ -212,9 +212,9 @@ def test_full_ops_analysis_live(a2a_client, ops_metrics_contract, temp_output_di
         pytest.skip("A2A returned empty dataset")
 
     # -- Build context --
-    # Find the revenue column (may be ttl_rev_amt or total_rev)
+    # Find the revenue column (may be total_revenue, ttl_rev_amt, etc.)
     rev_col = None
-    for candidate in ["ttl_rev_amt", "total_rev", "revenue"]:
+    for candidate in ["total_revenue", "ttl_rev_amt", "total_rev", "revenue"]:
         if candidate in df.columns:
             rev_col = candidate
             break

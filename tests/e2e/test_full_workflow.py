@@ -275,12 +275,12 @@ def test_live_mode_ops_metrics_offline(temp_output_dir):
 
     # Validate data basics
     assert len(df) >= 10, "Need sufficient data for analysis"
-    assert "ttl_rev_amt" in df.columns
+    assert "total_revenue" in df.columns
     assert "cal_dt" in df.columns
 
     # Build report structure
     periods = sorted(df["cal_dt"].unique())
-    monthly = df.groupby("cal_dt")["ttl_rev_amt"].sum().sort_index()
+    monthly = df.groupby("cal_dt")["total_revenue"].sum().sort_index()
 
     report_sections = {
         "executive_summary": {
@@ -328,7 +328,7 @@ def test_report_contains_all_sections_live(a2a_client, ops_metrics_contract, tem
     table = '"Extract"."Extract"'
     sql = (
         f'SELECT "cal_dt", '
-        f'SUM(CAST("ttl_rev_amt" AS FLOAT)) AS ttl_rev_amt, '
+        f'SUM(CAST("total_revenue" AS FLOAT)) AS total_revenue, '
         f'SUM(CAST("ld_trf_mi" AS FLOAT)) AS ld_trf_mi '
         f"FROM {table} "
         f'WHERE "empty_call_dt" >= DATE \'2025-10-01\' '
@@ -356,7 +356,7 @@ def test_report_contains_all_sections_live(a2a_client, ops_metrics_contract, tem
     if len(df) == 0:
         pytest.skip("A2A returned empty dataset")
 
-    rev_col = next((c for c in ["ttl_rev_amt", "total_rev"] if c in df.columns), None)
+    rev_col = next((c for c in ["total_revenue", "ttl_rev_amt", "total_rev"] if c in df.columns), None)
     if rev_col is None:
         pytest.skip(f"Revenue column not found: {list(df.columns)}")
 
