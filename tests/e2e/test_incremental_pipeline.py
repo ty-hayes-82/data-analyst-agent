@@ -361,3 +361,84 @@ class TestLevel5_AlertScoring:
             assert "severity" in active[0], active[0]
         finally:
             clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+@pytest.mark.csv_mode
+class TestLevel6_ReportSynthesis:
+    @pytest.mark.asyncio
+    async def test_markdown_report_contains_required_sections(self) -> None:
+        from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics import (
+            compute_level_statistics,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_anomaly_indicators import (
+            compute_anomaly_indicators,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_seasonal_decomposition import (
+            compute_seasonal_decomposition,
+        )
+        from data_analyst_agent.sub_agents.narrative_agent.tools.generate_narrative_summary import (
+            generate_narrative_summary,
+        )
+        from data_analyst_agent.sub_agents.report_synthesis_agent.tools.generate_markdown_report import (
+            generate_markdown_report,
+        )
+
+        validation = json.loads(VALIDATION_PATH.read_text())
+        scenario = next(
+            s
+            for s in validation["anomaly_scenarios"]
+            if s["scenario_id"] == "A1" and s["grain"] == "weekly"
+        )
+
+        clear_all_caches()
+        try:
+            _load_fixture_c_and_prime_cache()
+            hv = json.loads(
+                await compute_level_statistics(
+                    level=1,
+                    analysis_period=scenario["last_period"],
+                    variance_type="yoy",
+                    hierarchy_name="full_hierarchy",
+                )
+            )
+            ai = json.loads(await compute_anomaly_indicators())
+        finally:
+            clear_all_caches()
+
+        clear_all_caches()
+        try:
+            _load_full_trade_dataset_and_prime_cache()
+            sd = json.loads(await compute_seasonal_decomposition())
+        finally:
+            clear_all_caches()
+
+        narrative = await generate_narrative_summary(
+            hierarchy_variance=hv,
+            anomaly_indicators=ai,
+            seasonal_decomposition=sd,
+        )
+        narrative_results = json.dumps({"narrative_summary": narrative, "insight_cards": []})
+        hierarchical_results = json.dumps({"level_1": hv, "levels_analyzed": [1], "drill_down_path": "Flow"})
+
+        report = await generate_markdown_report(
+            hierarchical_results=hierarchical_results,
+            analysis_target="trade_fixture_c",
+            analysis_period=scenario["last_period"],
+            statistical_summary=None,
+            narrative_results=narrative_results,
+            target_label="Trade",
+            anomaly_indicators=json.dumps(ai),
+            seasonal_decomposition=json.dumps(sd),
+        )
+
+        low = report.lower()
+        for required in (
+            "executive summary",
+            "variance",
+            "anomalies",
+            "seasonality",
+            "recommended actions",
+        ):
+            assert required in low, f"Missing section: {required}\n\n{report[:800]}"
