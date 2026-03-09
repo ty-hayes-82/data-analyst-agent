@@ -6,7 +6,7 @@ import pandas as pd
 # Add the project root to sys.path
 sys.path.insert(0, str(Path(os.getcwd())))
 
-from pl_analyst.data_analyst_agent.tools.config_data_loader import load_from_config
+from data_analyst_agent.tools.config_data_loader import load_from_config
 
 def test_toll_load():
     try:

@@ -2,7 +2,7 @@ import unittest
 import os
 import shutil
 from pathlib import Path
-from pl_analyst.data_analyst_agent.utils.output_manager import OutputManager
+from data_analyst_agent.utils.output_manager import OutputManager
 
 class TestOutputManager(unittest.TestCase):
     def setUp(self):

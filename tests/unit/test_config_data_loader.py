@@ -18,8 +18,8 @@ Unit test for config_data_loader to ensure parity with validation_data_loader.
 
 import unittest
 import pandas as pd
-from pl_analyst.data_analyst_agent.tools.validation_data_loader import load_validation_data
-from pl_analyst.data_analyst_agent.tools.config_data_loader import load_from_config
+from data_analyst_agent.tools.validation_data_loader import load_validation_data
+from data_analyst_agent.tools.config_data_loader import load_from_config
 
 
 class TestConfigDataLoaderParity(unittest.TestCase):
