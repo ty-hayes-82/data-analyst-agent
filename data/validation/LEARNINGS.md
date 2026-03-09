@@ -116,6 +116,11 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Added `tests/e2e/test_adk_integration.py` to validate ADK wiring without running the full pipeline.
 - Root agent + `data_fetch_workflow` + `target_analysis_pipeline` should all instantiate as `google.adk.agents.sequential_agent.SequentialAgent` with expected timed sub-agent names.
 
+### 2026-03-09 — ADK Integration Classes 2-3 (State flow + Data fetch)
+- When running agents directly in tests, you must apply `EventActions.state_delta` to `session.state` (the app runner normally does this). The `_run_agent(...)` helper in `test_adk_integration.py` now mimics this.
+- `InMemorySessionService.create_session()` is async; tests should use `create_session_sync()`.
+- `data_fetch_workflow` for `ACTIVE_DATASET=trade_data` populates `session.state["primary_data_csv"]` with the full CSV content and can be validated via header columns (no A2A server needed).
+
 ### 2026-03-09 — ADK Integration Class 2 (Session state flow)
 - When running agents directly via `agent.run_async(InvocationContext)`, state updates are emitted via `EventActions(state_delta=...)`. The app runner normally applies these deltas.
 - The integration tests now mimic runner behavior by applying `state_delta` onto `session.state` during the event loop so ContractLoader/DateInitializer state writes are observable.
