@@ -61,3 +61,7 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Start new incremental suite in `tests/e2e/test_incremental_pipeline.py` and only advance levels once the prior level is green.
 - Level 0 (DataLoading) loads `fixture_c_minimal_lax_8542.csv` into `data_cache.set_validated_csv()` and validates row count + required columns.
 - IMPORTANT: Don’t use `git add -A` blindly when background agents are running; it can accidentally stage unrelated refactor artifacts. Stage only intended files.
+
+### 2026-03-09 — Incremental E2E Level 1 (HierarchyVariance)
+- `compute_level_statistics()` output driver keys use `variance_dollar` (not `abs_variance`). Use the tool’s schema when writing downstream assertions.
+- For `trade_data`, `hierarchy_name="full_hierarchy"` + `level=1` corresponds to the **Flow** level (imports/exports).
