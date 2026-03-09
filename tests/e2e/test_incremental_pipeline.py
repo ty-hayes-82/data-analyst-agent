@@ -235,3 +235,69 @@ class TestLevel3_SeasonalBaseline:
             assert summary["seasonal_amplitude_pct"] == pytest.approx(validation["seasonal_amplitude_pct"], abs=0.5)
         finally:
             clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+@pytest.mark.csv_mode
+class TestLevel4_NarrativeGeneration:
+    @pytest.mark.asyncio
+    async def test_narrative_non_empty_contains_keywords(self) -> None:
+        from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics import (
+            compute_level_statistics,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_anomaly_indicators import (
+            compute_anomaly_indicators,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_seasonal_decomposition import (
+            compute_seasonal_decomposition,
+        )
+        from data_analyst_agent.sub_agents.narrative_agent.tools.generate_narrative_summary import (
+            generate_narrative_summary,
+        )
+
+        validation = json.loads(VALIDATION_PATH.read_text())
+        scenario = next(
+            s
+            for s in validation["anomaly_scenarios"]
+            if s["scenario_id"] == "A1" and s["grain"] == "weekly"
+        )
+
+        # Collect anomaly + hierarchy variance from fixture_c
+        clear_all_caches()
+        try:
+            _load_fixture_c_and_prime_cache()
+            hv = json.loads(
+                await compute_level_statistics(
+                    level=1,
+                    analysis_period=scenario["last_period"],
+                    variance_type="yoy",
+                    hierarchy_name="full_hierarchy",
+                )
+            )
+            assert "error" not in hv, hv
+            ai = json.loads(await compute_anomaly_indicators())
+            assert "error" not in ai, ai
+        finally:
+            clear_all_caches()
+
+        # Collect seasonality from full dataset
+        clear_all_caches()
+        try:
+            _load_full_trade_dataset_and_prime_cache()
+            sd = json.loads(await compute_seasonal_decomposition())
+            assert "error" not in sd, sd
+        finally:
+            clear_all_caches()
+
+        narrative = await generate_narrative_summary(
+            hierarchy_variance=hv,
+            anomaly_indicators=ai,
+            seasonal_decomposition=sd,
+        )
+
+        assert isinstance(narrative, str)
+        assert narrative.strip(), "Expected non-empty narrative"
+        # Keyword expectations
+        assert "shock" in narrative.lower() or "tariff" in narrative.lower(), narrative
+        assert "season" in narrative.lower(), narrative
