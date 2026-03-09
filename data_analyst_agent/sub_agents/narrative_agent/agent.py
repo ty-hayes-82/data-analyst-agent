@@ -28,8 +28,21 @@ class NarrativeWrapper(BaseAgent):
     """Wrapper to dynamically update narrative agent instruction from contract."""
     
     def __init__(self, wrapped_agent):
+        output_key = getattr(wrapped_agent, "output_key", None) or "narrative_results"
+        description = getattr(wrapped_agent, "description", "")
         super().__init__(name="narrative_agent")
         object.__setattr__(self, 'wrapped_agent', wrapped_agent)
+        object.__setattr__(self, '_wrapped_output_key', output_key)
+        object.__setattr__(self, '_wrapped_description', description)
+        object.__setattr__(self, 'output_key', output_key)
+        object.__setattr__(self, 'description', description)
+    
+    def __getattr__(self, name: str):
+        if name == "output_key":
+            return getattr(self, "_wrapped_output_key", None)
+        if name == "description":
+            return getattr(self, "_wrapped_description", "")
+        return super().__getattr__(name)
     
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         contract = ctx.session.state.get("dataset_contract")
