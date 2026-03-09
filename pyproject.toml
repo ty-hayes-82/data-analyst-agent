@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "pl-analyst"
+name = "data-analyst"
 version = "0.1.0"
-description = "P&L Analyst Agent - Automated cost center analysis with anomaly detection and actionable insights"
+description = "Data Analyst Agent - Automated cost center analysis with anomaly detection and actionable insights"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
-packages = [{include = "pl_analyst_agent"}]
+packages = [{include = "data_analyst_agent"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"

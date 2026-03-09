@@ -1,0 +1,16 @@
+# Global Report Configuration (Defaults)
+# These settings are used if not specified in the dataset-specific contract.yaml
+
+analysis:
+  # Maximum depth for hierarchical drill-down analysis
+  max_drill_depth: 3
+
+executive_brief:
+  # Number of levels to generate scoped briefs for in the final executive output
+  drill_levels: 0
+  
+  # Maximum number of scoped entities to process per level to prevent token bloat
+  max_scope_entities: 10
+
+  # Output format for executive brief (pdf, md, or both)
+  output_format: "pdf"

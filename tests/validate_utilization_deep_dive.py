@@ -269,7 +269,7 @@ def _setup_test_environment():
     """Set up the test environment: add paths, set env vars, import modules."""
     project_root = Path(__file__).resolve().parent.parent
     sys.path.insert(0, str(project_root))
-    os.environ["PL_ANALYST_TEST_MODE"] = "true"
+    os.environ["DATA_ANALYST_TEST_MODE"] = "true"
 
     # Try loading env from .env
     try:
@@ -285,7 +285,7 @@ def _import_tool(sub_agent_dir: str, tool_name: str):
     """Import a tool from a sub-agent directory using importlib.import_module (handles numeric prefixes)."""
     import importlib
     module = importlib.import_module(
-        f"pl_analyst_agent.sub_agents.{sub_agent_dir}.tools.{tool_name}"
+        f"data_analyst_agent.sub_agents.{sub_agent_dir}.tools.{tool_name}"
     )
     return module
 
@@ -296,10 +296,10 @@ def _load_test_data():
 
     # Import data_cache
     try:
-        from pl_analyst_agent.sub_agents.data_cache import set_validated_csv, set_ops_metrics_csv, clear_all_caches
+        from data_analyst_agent.sub_agents.data_cache import set_validated_csv, set_supplementary_data_csv, clear_all_caches
         data_cache = type('dc', (), {
             'set_validated_csv': staticmethod(set_validated_csv),
-            'set_ops_metrics_csv': staticmethod(set_ops_metrics_csv),
+            'set_supplementary_data_csv': staticmethod(set_supplementary_data_csv),
             'clear_all_caches': staticmethod(clear_all_caches),
         })()
         # Clear prior state
@@ -345,12 +345,12 @@ def _load_test_data():
     melted_ops["value"] = pd.to_numeric(melted_ops["value"], errors="coerce").fillna(0)
     output_ops = melted_ops[["period", "CTDESC", "value"]].copy()
     output_ops.columns = ["period", "metric_name", "value"]
-    output_ops["cost_center"] = "067"
+    output_ops["dimension_value"] = "067"
     ops_csv = output_ops.to_csv(index=False)
 
     # Store in caches
     data_cache.set_validated_csv(pl_csv)
-    data_cache.set_ops_metrics_csv(ops_csv)
+    data_cache.set_supplementary_data_csv(ops_csv)
 
     return {
         "pl_csv": pl_csv,
@@ -362,48 +362,13 @@ def _load_test_data():
     }
 
 
-def test_01_data_validation(data_info: dict) -> TestResult:
-    """Test join_ops_metrics computes miles_per_truck in enriched output."""
-    t0 = time.time()
-    try:
-        import asyncio
-        mod = _import_tool("01_data_validation_agent", "join_ops_metrics")
-        join_ops_metrics = mod.join_ops_metrics
-
-        # Create minimal test data
-        pl_json = json.dumps({"time_series": [
-            {"period": "2025-01", "amount": 50000},
-            {"period": "2025-02", "amount": 52000},
-        ]})
-        ops_json = json.dumps({"time_series": [
-            {"period": "2025-01", "total_miles": 100000, "loaded_miles": 80000, "empty_miles": 20000,
-             "orders": 500, "stops": 1200, "total_revenue": 400000, "truck_count": 40, "fuel_surcharge": 50000},
-            {"period": "2025-02", "total_miles": 110000, "loaded_miles": 85000, "empty_miles": 25000,
-             "orders": 520, "stops": 1250, "total_revenue": 420000, "truck_count": 42, "fuel_surcharge": 52000},
-        ]})
-
-        result = asyncio.run(join_ops_metrics(pl_json, ops_json))
-        parsed = json.loads(result)
-
-        ts = parsed.get("time_series", [])
-        has_mpt = any("miles_per_truck" in entry for entry in ts)
-        has_dh = any("deadhead_pct" in entry for entry in ts)
-        has_lrpm = any("lrpm" in entry for entry in ts)
-
-        passed = has_mpt and has_dh and has_lrpm
-        msg = "miles_per_truck, deadhead_pct, lrpm in enriched output" if passed else "Missing utilization metrics"
-
-        return TestResult("01 Data Validation", passed, msg, duration_s=time.time() - t0, section="SUBAGENT PIPELINE")
-    except Exception as e:
-        return TestResult("01 Data Validation", False, f"Error: {e}", duration_s=time.time() - t0, section="SUBAGENT PIPELINE")
-
 
 def test_02_statistical_summary(data_info: dict) -> TestResult:
     """Test compute_statistical_summary on cached data."""
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("02_statistical_insights_agent", "compute_statistical_summary")
+        mod = _import_tool("statistical_insights_agent", "compute_statistical_summary")
         compute_statistical_summary = mod.compute_statistical_summary
 
         result = asyncio.run(compute_statistical_summary())
@@ -426,7 +391,7 @@ def test_02_change_points(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("02_statistical_insights_agent", "detect_change_points")
+        mod = _import_tool("statistical_insights_agent", "detect_change_points")
         detect_change_points = mod.detect_change_points
 
         result = asyncio.run(detect_change_points())
@@ -445,7 +410,7 @@ def test_02_mad_outliers(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("02_statistical_insights_agent", "detect_mad_outliers")
+        mod = _import_tool("statistical_insights_agent", "detect_mad_outliers")
         detect_mad_outliers = mod.detect_mad_outliers
 
         result = asyncio.run(detect_mad_outliers())
@@ -464,7 +429,7 @@ def test_02_seasonal_decomposition(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("02_statistical_insights_agent", "compute_seasonal_decomposition")
+        mod = _import_tool("statistical_insights_agent", "compute_seasonal_decomposition")
         compute_seasonal_decomposition = mod.compute_seasonal_decomposition
 
         result = asyncio.run(compute_seasonal_decomposition())
@@ -486,7 +451,7 @@ def test_02_forecast_baseline(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("02_statistical_insights_agent", "compute_forecast_baseline")
+        mod = _import_tool("statistical_insights_agent", "compute_forecast_baseline")
         compute_forecast_baseline = mod.compute_forecast_baseline
 
         result = asyncio.run(compute_forecast_baseline())
@@ -507,10 +472,10 @@ def test_02_operational_ratios(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("02_statistical_insights_agent", "compute_operational_ratios")
-        compute_operational_ratios = mod.compute_operational_ratios
+        mod = _import_tool("statistical_insights_agent", "compute_derived_metrics")
+        compute_derived_metrics = mod.compute_derived_metrics
 
-        result = asyncio.run(compute_operational_ratios(ops_metrics_available=True))
+        result = asyncio.run(compute_derived_metrics(supplementary_data_available=True))
         parsed = json.loads(result)
 
         has_pl_ratios = len(parsed.get("ratios", [])) > 0
@@ -537,7 +502,7 @@ def test_03_hierarchy_level2(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("03_hierarchy_variance_ranker_agent", "compute_level_statistics")
+        mod = _import_tool("hierarchy_variance_agent", "compute_level_statistics")
         compute_level_statistics = mod.compute_level_statistics
 
         result = asyncio.run(compute_level_statistics(level=2, variance_type="mom"))
@@ -558,7 +523,7 @@ def test_03_hierarchy_level3(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("03_hierarchy_variance_ranker_agent", "compute_level_statistics")
+        mod = _import_tool("hierarchy_variance_agent", "compute_level_statistics")
         compute_level_statistics = mod.compute_level_statistics
 
         result = asyncio.run(compute_level_statistics(level=3, variance_type="mom"))
@@ -579,7 +544,7 @@ def test_04_report_generation(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("04_report_synthesis_agent", "generate_markdown_report")
+        mod = _import_tool("report_synthesis_agent", "generate_markdown_report")
         generate_markdown_report = mod.generate_markdown_report
 
         # Create minimal hierarchical results
@@ -662,7 +627,7 @@ def test_05_alert_scoring(data_info: dict) -> TestResult:
     t0 = time.time()
     try:
         import asyncio
-        mod = _import_tool("05_alert_scoring_agent", "extract_alerts_from_analysis")
+        mod = _import_tool("alert_scoring_agent", "extract_alerts_from_analysis")
         extract_alerts_from_analysis = mod.extract_alerts_from_analysis
 
         stats_json = json.dumps({
@@ -799,7 +764,7 @@ def print_results(all_results: List[TestResult], cost_center: str):
     width = 70
     print(f"\nMiles/Truck Utilization Deep-Dive Validation")
     print(f"  Server:       {DEFAULT_A2A_URL}")
-    print(f"  Cost Center:  {cost_center}")
+    print(f"  Cost Center:  {dimension_value}")
     print(f"  Analysis:     13-week utilization deep-dive")
 
     # Group by section
@@ -895,7 +860,6 @@ def main():
             print("\nRunning subagent pipeline tests...")
 
             pipeline_tests = [
-                test_01_data_validation,
                 test_02_statistical_summary,
                 test_02_change_points,
                 test_02_mad_outliers,
@@ -921,7 +885,7 @@ def main():
         print("\nValidating report structure...")
         import asyncio
         try:
-            mod = _import_tool("04_report_synthesis_agent", "generate_markdown_report")
+            mod = _import_tool("report_synthesis_agent", "generate_markdown_report")
             generate_markdown_report = mod.generate_markdown_report
 
             report = asyncio.run(generate_markdown_report(

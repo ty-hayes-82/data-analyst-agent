@@ -29,24 +29,36 @@ import fnmatch
 _CHART_CACHE: Optional[Dict[str, Any]] = None
 
 
+def _resolve_chart_paths() -> tuple[Optional[Path], Optional[Path]]:
+    """
+    Resolve JSON and YAML chart-of-accounts paths.
+
+    Priority:
+    1. config/datasets/<active_dataset>/chart_of_accounts.json
+    2. config/datasets/<active_dataset>/chart_of_accounts.yaml
+    """
+    from config.dataset_resolver import get_dataset_path_optional
+
+    json_path = get_dataset_path_optional("chart_of_accounts.json")
+    yaml_path = get_dataset_path_optional("chart_of_accounts.yaml")
+
+    return json_path, yaml_path
+
+
 def _load_chart_of_accounts() -> Dict[str, Any]:
     """Load the chart_of_accounts (JSON preferred, fallback to YAML)."""
     global _CHART_CACHE
-    
-    # Return cached data if available
+
     if _CHART_CACHE is not None:
         return _CHART_CACHE
-    
-    # Try JSON first (faster, more compact)
-    json_path = Path(__file__).parent / "chart_of_accounts.json"
-    if json_path.exists():
+
+    json_path, yaml_path = _resolve_chart_paths()
+
+    if json_path is not None and json_path.exists():
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            # Convert JSON format to YAML-compatible format for backward compatibility
             if "accounts" in data and isinstance(list(data["accounts"].values())[0], dict):
-                # Check if it's the new JSON format with 'levels' array
                 if "levels" in list(data["accounts"].values())[0]:
-                    # Convert to old format
                     converted = {"accounts": {}, "cost_categories": data.get("cost_categories", [])}
                     for code, info in data["accounts"].items():
                         converted["accounts"][code] = {
@@ -55,18 +67,22 @@ def _load_chart_of_accounts() -> Dict[str, Any]:
                             "level_2": info["levels"][1] if len(info["levels"]) > 1 else "",
                             "level_3": info["levels"][2] if len(info["levels"]) > 2 else "",
                             "level_4": info["levels"][3] if len(info["levels"]) > 3 else "",
-                            "canonical_category": info.get("category", "")
+                            "canonical_category": info.get("category", ""),
                         }
                     data = converted
             _CHART_CACHE = data
             return data
-    
-    # Fallback to YAML
-    yaml_path = Path(__file__).parent / "chart_of_accounts.yaml"
-    with open(yaml_path, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-        _CHART_CACHE = data
-        return data
+
+    if yaml_path is not None and yaml_path.exists():
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            _CHART_CACHE = data
+            return data
+
+    raise FileNotFoundError(
+        "[chart_loader] chart_of_accounts file not found. "
+        "Expected at config/datasets/<active_dataset>/chart_of_accounts.{json,yaml}."
+    )
 
 
 def clear_chart_cache():

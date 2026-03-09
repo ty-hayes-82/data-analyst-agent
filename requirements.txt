@@ -69,6 +69,19 @@ ruptures>=1.1.9
 matplotlib>=3.8.0
 
 # ============================================================================
+# Document Export (Spec 033)
+# ============================================================================
+
+# PDF generation — pure Python, no system libraries required (primary renderer)
+fpdf2>=2.8.0
+
+# HTML/CSS → PDF with CSS paging and bookmark support (optional, requires GTK3 on Windows)
+weasyprint>=62.0
+
+# Markdown → HTML conversion (used by weasyprint PDF renderer path)
+markdown2>=2.4.0
+
+# ============================================================================
 # Deployment & CLI Tools
 # ============================================================================
 

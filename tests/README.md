@@ -1,4 +1,4 @@
-# P&L Analyst Agent Test Suite
+# Data Analyst Agent Test Suite
 
 ## Directory Structure
 
@@ -42,11 +42,8 @@ pytest -m integration             # All integration tests
 pytest -m "not slow"              # Skip slow tests
 pytest -m "csv_mode"              # CSV-based tests only
 
-# Run specific test file
-pytest tests/unit/test_data_validation.py
-
 # Run with coverage
-pytest --cov=pl_analyst_agent --cov-report=html
+pytest --cov=data_analyst_agent --cov-report=html
 ```
 
 ## Test Markers
@@ -65,20 +62,8 @@ pytest --cov=pl_analyst_agent --cov-report=html
 
 ## Migration from Root-Level Tests
 
-Existing test files in the root directory should be migrated to the organized structure:
-
-| Existing File | New Location | Type |
-|---|---|---|
-| `test_validation_agent_isolated.py` | `tests/unit/test_data_validation.py` | unit |
-| `test_advanced_stats.py` | `tests/unit/test_statistical_insights.py` | unit |
-| `test_advanced_stats_direct.py` | `tests/unit/test_statistical_tools.py` | unit |
-| `test_persistence_direct.py` | `tests/unit/test_output_persistence.py` | unit |
-| `test_sequential_context.py` | `tests/workflow/test_context_propagation.py` | workflow |
-| `test_loop_continuation.py` | `tests/workflow/test_loop_control.py` | workflow |
-| `test_with_csv.py` | `tests/integration/test_csv_data_source.py` | integration |
-| `test_advanced_integration.py` | `tests/e2e/test_tableau_full_workflow.py` | e2e |
-| `test_full_workflow_advanced.py` | `tests/e2e/test_csv_full_workflow.py` | e2e |
-| `test_efficient_workflow.py` | `tests/performance/test_workflow_performance.py` | performance |
+Migration from root-level test files to the organized `tests/` structure is complete.
+All tests now live under `tests/unit/`, `tests/integration/`, `tests/workflow/`, `tests/e2e/`, or `tests/performance/`.
 
 ## Writing New Tests
 
@@ -89,17 +74,10 @@ import pytest
 from tests.utils.test_helpers import assert_dataframe_structure
 
 @pytest.mark.unit
-def test_reshape_and_validate(mock_pl_data_csv):
-    """Test the reshape_and_validate tool."""
-    from pl_analyst_agent.sub_agents.01_data_validation_agent.tools.reshape_and_validate import reshape_and_validate
-
-    result = reshape_and_validate(mock_pl_data_csv)
-
-    assert_dataframe_structure(
-        result,
-        required_columns=["period", "gl_account", "amount"],
-        min_rows=1
-    )
+def test_compute_statistical_summary(mock_pl_data_csv):
+    """Test the compute_statistical_summary tool."""
+    from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_statistical_summary import compute_statistical_summary
+    # ... test implementation ...
 ```
 
 ### Example Integration Test
@@ -109,8 +87,17 @@ import pytest
 
 @pytest.mark.integration
 @pytest.mark.csv_mode
-async def test_data_pipeline_chain(populated_session_state):
-    """Test Testing Data Agent → Data Validation Agent."""
+async def test_analysis_context_initialization(ops_metrics_contract):
+    """Test AnalysisContext initialization with a dataset contract."""
+    from data_analyst_agent.semantic.models import AnalysisContext
+    ctx = AnalysisContext(
+        contract=ops_metrics_contract,
+        df=mock_df,
+        target_metric=ops_metrics_contract.metrics[0],
+        primary_dimension=ops_metrics_contract.dimensions[0],
+        run_id="test",
+    )
+    assert ctx.contract.name == ops_metrics_contract.name
     # Test implementation
     pass
 ```
@@ -133,7 +120,7 @@ async def test_single_cc_full_workflow(mock_cost_center, temp_output_dir):
 
 - **Mock data** is generated via fixtures in `conftest.py`
 - **Static test files** go in `tests/fixtures/mock_data/`
-- **Use CSV mode** (`PL_ANALYST_TEST_MODE=true`) to avoid external dependencies
+- **Use CSV mode** (`DATA_ANALYST_TEST_MODE=true`) to avoid external dependencies
 - **Reuse fixtures** instead of generating data in each test
 
 ## Performance Testing

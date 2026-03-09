@@ -20,7 +20,7 @@ from pathlib import Path
 @pytest.mark.csv_mode
 def test_data_cache_csv_roundtrip():
     """Test CSV cache set -> get -> clear cycle."""
-    from pl_analyst_agent.sub_agents.data_cache import (
+    from data_analyst_agent.sub_agents.data_cache import (
         set_validated_csv, get_validated_csv, clear_validated_csv
     )
 
@@ -40,7 +40,7 @@ def test_data_cache_csv_roundtrip():
 @pytest.mark.csv_mode
 def test_data_cache_structured_data():
     """Test structured data cache operations."""
-    from pl_analyst_agent.sub_agents.data_cache import (
+    from data_analyst_agent.sub_agents.data_cache import (
         set_validated_data, get_validated_data, get_validated_records,
         get_validated_metadata, clear_validated_data
     )
@@ -81,7 +81,7 @@ def test_data_cache_structured_data():
 @pytest.mark.csv_mode
 def test_data_cache_clear_all():
     """Test clearing all caches at once."""
-    from pl_analyst_agent.sub_agents.data_cache import (
+    from data_analyst_agent.sub_agents.data_cache import (
         set_validated_csv, set_validated_data, clear_all_caches,
         get_validated_data
     )
@@ -100,7 +100,7 @@ def test_data_cache_clear_all():
 @pytest.mark.csv_mode
 def test_data_cache_empty_metadata():
     """Test metadata when no data is set."""
-    from pl_analyst_agent.sub_agents.data_cache import (
+    from data_analyst_agent.sub_agents.data_cache import (
         clear_all_caches, get_validated_metadata
     )
 
@@ -120,7 +120,7 @@ def test_data_cache_empty_metadata():
 def test_json_output_file_creation(temp_output_dir):
     """Test that JSON analysis output file is created correctly."""
     output = {
-        "cost_center": "067",
+        "dimension_value": "067",
         "timeframe": {"start": "2024-07", "end": "2025-09"},
         "hierarchical_analysis": {
             "level_2": {"items": 3, "variance_explained_pct": 92.3},
@@ -142,7 +142,7 @@ def test_json_output_file_creation(temp_output_dir):
     with open(json_file, "r") as f:
         loaded = json.load(f)
 
-    assert loaded["cost_center"] == "067"
+    assert loaded["dimension_value"] == "067"
     assert "hierarchical_analysis" in loaded
     assert len(loaded["alerts"]) == 1
 
@@ -191,12 +191,12 @@ def test_output_idempotent(temp_output_dir):
     json_file = temp_output_dir / "cost_center_067.json"
 
     # Write first time
-    data_v1 = {"cost_center": "067", "version": 1}
+    data_v1 = {"dimension_value": "067", "version": 1}
     with open(json_file, "w") as f:
         json.dump(data_v1, f)
 
     # Write second time (overwrite)
-    data_v2 = {"cost_center": "067", "version": 2, "extra_field": True}
+    data_v2 = {"dimension_value": "067", "version": 2, "extra_field": True}
     with open(json_file, "w") as f:
         json.dump(data_v2, f)
 

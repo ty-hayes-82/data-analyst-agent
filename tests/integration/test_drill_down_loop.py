@@ -17,9 +17,9 @@ import pandas as pd
 from io import StringIO
 
 from tests.fixtures.test_data_loader import TestDataLoader
-from pl_analyst_agent.sub_agents.data_cache import (
+from data_analyst_agent.sub_agents.data_cache import (
     set_validated_csv, set_validated_data, get_validated_csv,
-    clear_all_caches, _CSV_CACHE_FILE
+    set_analysis_context, clear_all_caches, _CSV_CACHE_FILE
 )
 
 
@@ -27,10 +27,36 @@ from pl_analyst_agent.sub_agents.data_cache import (
 # Helpers
 # ============================================================================
 
-def _setup_cache_with_enriched_data():
-    """Load PL-067 data, enrich with hierarchy, store in cache."""
-    from tests.utils.import_helpers import import_data_validation_tool
+def _build_pl_context(ts_df: pd.DataFrame):
+    """Build and register a P&L AnalysisContext for the given time-series DataFrame."""
+    from pathlib import Path
+    from data_analyst_agent.semantic.models import DatasetContract, AnalysisContext
 
+    contract_path = Path(__file__).parent.parent / "fixtures" / "pl_067_contract.yaml"
+    contract = DatasetContract.from_yaml(str(contract_path))
+
+    # Ensure hierarchical columns exist (fill from level_1 if missing)
+    for col in ("canonical_category", "level_2", "level_3"):
+        if col not in ts_df.columns:
+            ts_df[col] = ts_df.get("level_1", ts_df["gl_account"])
+
+    target_metric = contract.get_metric("amount")
+    primary_dim = contract.get_dimension("dimension_value")
+
+    ctx = AnalysisContext(
+        contract=contract,
+        df=ts_df,
+        target_metric=target_metric,
+        primary_dimension=primary_dim,
+        run_id="test-drill-down",
+        max_drill_depth=4,
+    )
+    set_analysis_context(ctx)
+    return ctx
+
+
+def _setup_cache_with_enriched_data():
+    """Load PL-067 data, enrich with hierarchy, store in cache + AnalysisContext."""
     loader = TestDataLoader()
     pl_df = loader.load_pl_067_csv()
     ts_df = loader.convert_to_time_series_format(pl_df)
@@ -46,13 +72,14 @@ def _setup_cache_with_enriched_data():
         _CSV_CACHE_FILE.unlink()
 
     set_validated_csv(csv_data)
+    _build_pl_context(ts_df)
     return ts_df
 
 
 def _import_compute_level_statistics():
     """Import compute_level_statistics from the hierarchy ranker agent."""
     mod = importlib.import_module(
-        "pl_analyst_agent.sub_agents.03_hierarchy_variance_ranker_agent.tools.compute_level_statistics"
+        "data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics"
     )
     return mod.compute_level_statistics
 
@@ -246,7 +273,7 @@ async def test_drill_down_full_sequence():
         # Build the final hierarchical result (simulating FinalizeAnalysisResults)
         hierarchical_result = {
             "analysis_type": "hierarchical_drill_down",
-            "cost_center": "067",
+            "dimension_value": "067",
             "levels_analyzed": levels_analyzed,
             "drill_down_path": " -> ".join(f"Level {l}" for l in levels_analyzed),
             "level_results": level_results

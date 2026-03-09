@@ -19,7 +19,7 @@ Configuration Module
 Configuration utilities for the pl_analyst project.
 """
 
-from .model_loader import get_agent_model
+from .model_loader import get_agent_model, get_agent_thinking_config, get_agent_thinking_level
 from .chart_loader import get_accounts_by_level, get_level_hierarchy, get_all_accounts_with_levels
 from .ratios_config_loader import (
     load_ops_metrics_config,
@@ -31,9 +31,18 @@ from .ratios_config_loader import (
     get_all_ops_metric_names,
     get_pl_account_classification,
 )
+from .dataset_resolver import (
+    get_active_dataset,
+    get_dataset_path,
+    get_dataset_path_optional,
+    get_dataset_dir,
+    clear_dataset_cache,
+)
 
 __all__ = [
     "get_agent_model",
+    "get_agent_thinking_config",
+    "get_agent_thinking_level",
     "get_accounts_by_level",
     "get_level_hierarchy",
     "get_all_accounts_with_levels",
@@ -45,6 +54,11 @@ __all__ = [
     "get_outlier_config",
     "get_all_ops_metric_names",
     "get_pl_account_classification",
+    "get_active_dataset",
+    "get_dataset_path",
+    "get_dataset_path_optional",
+    "get_dataset_dir",
+    "clear_dataset_cache",
 ]
 
 

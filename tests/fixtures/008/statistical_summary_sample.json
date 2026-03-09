@@ -1,0 +1,69 @@
+{
+  "top_drivers": [
+    {"item": "3100-00", "item_name": "Mileage Revenue", "avg": -645000.0, "std": 37500.0, "cv": 0.058, "slope_3mo": -2100.0, "slope_3mo_p_value": 0.031, "acceleration_3mo": -300.0, "min": -720000.0, "max": -570000.0},
+    {"item": "5010-00", "item_name": "Driver Pay", "avg": 320000.0, "std": 14000.0, "cv": 0.044, "slope_3mo": 800.0, "slope_3mo_p_value": 0.210, "acceleration_3mo": 50.0, "min": 290000.0, "max": 355000.0},
+    {"item": "5020-00", "item_name": "Fuel Expense", "avg": 185000.0, "std": 42000.0, "cv": 0.227, "slope_3mo": 3500.0, "slope_3mo_p_value": 0.018, "acceleration_3mo": 900.0, "min": 110000.0, "max": 260000.0}
+  ],
+  "most_volatile": [
+    {"item": "5020-00", "item_name": "Fuel Expense", "avg": 185000.0, "std": 42000.0, "cv": 0.227},
+    {"item": "3115-00", "item_name": "Load/Unload", "avg": -15000.0, "std": 12000.0, "cv": 0.800}
+  ],
+  "anomalies": [
+    {"period": "2025-07", "item": "3100-00", "item_name": "Mileage Revenue", "value": -750000.0, "z_score": 2.80, "p_value": 0.0051, "avg": -645000.0, "std": 37500.0},
+    {"period": "2025-08", "item": "3200-00", "item_name": "Fuel Surcharge Revenue", "value": -180000.0, "z_score": 2.31, "p_value": 0.0209, "avg": -120000.0, "std": 26000.0},
+    {"period": "2024-11", "item": "5020-00", "item_name": "Fuel Expense", "value": 260000.0, "z_score": 1.79, "p_value": 0.0735, "avg": 185000.0, "std": 42000.0}
+  ],
+  "correlations": {
+    "3100-00_vs_5010-00": {"r": 0.87, "p_value": 0.002},
+    "3200-00_vs_5020-00": {"r": 0.62, "p_value": 0.078}
+  },
+  "monthly_totals": {
+    "2024-09": -140000.0, "2024-10": -135000.0, "2024-11": -128000.0,
+    "2024-12": -150000.0, "2025-01": -142000.0, "2025-02": -138000.0,
+    "2025-03": -145000.0, "2025-04": -139000.0, "2025-05": -141000.0,
+    "2025-06": -144000.0, "2025-07": -165000.0, "2025-08": -148000.0
+  },
+  "summary_stats": {
+    "total_items": 12,
+    "total_periods": 12,
+    "period_range": "2024-09 to 2025-08",
+    "highest_total_month": {"period": "2025-07", "total": -165000.0},
+    "lowest_total_month": {"period": "2024-11", "total": -128000.0},
+    "total_anomalies_detected": 3,
+    "items_with_high_volatility": 2
+  },
+  "enhanced_top_drivers": [
+    {"item": "3100-00", "item_name": "Mileage Revenue", "avg": -645000.0, "std": 37500.0, "cv": 0.058, "slope_3mo": -2100.0, "acceleration_3mo": -300.0, "min": -720000.0, "max": -570000.0, "share_of_total": 0.55, "contribution_share": 0.61, "pattern_label": "run_rate_change", "anomaly_latest": false}
+  ],
+  "delta_attribution": [
+    {"item": "3100-00", "item_name": "Mileage Revenue", "delta": -21000.0, "share": 0.72, "pattern_label": "run_rate_change"}
+  ],
+  "dq_flags": {"suspected_uniform_growth": false},
+  "change_points": [
+    {"period": "2025-07", "item": "3100-00", "item_name": "Mileage Revenue", "before_mean": -635000.0, "after_mean": -750000.0, "magnitude_dollar": -115000.0, "magnitude_pct": -18.1, "confidence_score": 0.82}
+  ],
+  "mad_outliers": {
+    "top_outliers": [
+      {"period": "2025-07", "item": "3100-00", "item_name": "Mileage Revenue", "amount": -750000.0, "median": -643000.0, "modified_z_score": 4.21, "traditional_z_score": 2.80}
+    ],
+    "summary": {"items_analyzed": 12, "total_outliers_detected": 1, "items_with_outliers": 1}
+  },
+  "seasonal_analysis": {
+    "seasonal_anomalies": [
+      {"period": "2025-07", "item": "3100-00", "item_name": "Mileage Revenue", "residual_z_score": 2.45, "residual": -42000.0, "seasonal_strength": 0.61}
+    ],
+    "summary": {"items_analyzed": 3, "items_with_seasonal_component": 2}
+  },
+  "forecasts": {
+    "items": [
+      {"item": "3100-00", "item_name": "Mileage Revenue", "forecast": -648000.0, "actual": -750000.0, "variance_dollar": -102000.0, "variance_pct": -15.7, "mape": 15.7}
+    ],
+    "summary": {"items_forecasted": 3, "avg_mape": 8.4}
+  },
+  "operational_ratios": {"ratios": [], "summary": {"ratios_computed": 0}},
+  "metadata": {
+    "computation_method": "pandas/numpy statistical analysis + advanced methods",
+    "anomaly_threshold": "z-score >= 2.0",
+    "slope_method": "last 3 months linear regression"
+  }
+}

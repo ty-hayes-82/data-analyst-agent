@@ -1,0 +1,33 @@
+source:
+  file: "toll_data.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "wide"
+
+id_columns: ["Shipper Parent", "Shipper", "Stop Route Line", "Stop Route Line w/ Cust", "Unnamed: 4"]
+
+melt:
+  var_name: "week_ending_raw"
+  value_name: "raw_value"
+
+value_cleaning:
+  strip_characters: ['"', '$', ',', '%']
+  null_markers: ["-", "- ", "", "nan"]
+  coerce: "numeric"
+
+date_parsing:
+  source_column: "week_ending_raw"
+  input_format: "%d-%b-%y"
+  output_column: "week_ending"
+  output_format: "%Y-%m-%d"
+
+column_mapping:
+  "Shipper Parent": "shipper_parent"
+  "Shipper": "shipper"
+  "Stop Route Line": "route"
+  "Stop Route Line w/ Cust": "route_detail"
+  "Unnamed: 4": "metric"
+
+sort_columns: ["shipper_parent", "shipper", "route", "metric", "week_ending"]
+
+output_columns: ["shipper_parent", "shipper", "route", "route_detail", "metric", "value", "week_ending"]

@@ -13,131 +13,78 @@
 # limitations under the License.
 
 """
-Materiality Threshold Loader
+Materiality Config Loader
 
-Loads materiality thresholds from config, with support for empirical thresholds.
+Loads variance materiality thresholds from config/materiality_config.yaml.
+Follows the same pattern as model_loader.py and ratios_config_loader.py.
 """
 
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Optional
+
 import yaml
 
+_CONFIG_PATH = Path(__file__).parent / "materiality_config.yaml"
+_CONFIG_CACHE: Optional[Dict[str, Any]] = None
 
-_THRESHOLD_CACHE: Optional[Dict[str, Any]] = None
 
+def _load_config() -> Dict[str, Any]:
+    global _CONFIG_CACHE
+    if _CONFIG_CACHE is not None:
+        return _CONFIG_CACHE
 
-def load_materiality_config() -> Dict[str, Any]:
-    """
-    Load materiality configuration with optional empirical overrides.
-    
-    Returns:
-        Dict with materiality thresholds and per-unit thresholds
-    """
-    global _THRESHOLD_CACHE
-    
-    if _THRESHOLD_CACHE is not None:
-        return _THRESHOLD_CACHE
-    
-    config_path = Path(__file__).parent / "materiality_config.yaml"
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = yaml.safe_load(f)
-    
-    # Check if empirical thresholds are enabled
-    use_empirical = config.get("use_empirical", False)
-    
-    if use_empirical:
-        empirical_path = Path(__file__).parent / "materiality_thresholds_empirical.yaml"
-        if empirical_path.exists():
-            try:
-                with open(empirical_path, "r", encoding="utf-8") as f:
-                    empirical = yaml.safe_load(f)
-                
-                # Merge empirical thresholds into config
-                config["empirical_overrides"] = {
-                    "category_overrides": empirical.get("category_overrides", {}),
-                    "gl_overrides": empirical.get("gl_overrides", {}),
-                    "generation_date": empirical.get("generation_date"),
-                    "data_period": empirical.get("data_period")
-                }
-                
-                print(f"[materiality_loader] Loaded empirical thresholds from {empirical['data_period']}")
-            except Exception as e:
-                print(f"[materiality_loader] Warning: Could not load empirical thresholds: {e}")
-                config["empirical_overrides"] = None
-        else:
-            print(f"[materiality_loader] Warning: use_empirical=true but {empirical_path} not found")
-            config["empirical_overrides"] = None
+    if _CONFIG_PATH.exists():
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            _CONFIG_CACHE = yaml.safe_load(f) or {}
     else:
-        config["empirical_overrides"] = None
-    
-    _THRESHOLD_CACHE = config
-    return config
+        _CONFIG_CACHE = {}
 
-
-def get_thresholds_for_category(category: str) -> Tuple[float, float]:
-    """
-    Get variance thresholds for a specific category.
-    
-    Args:
-        category: Canonical category (e.g., "Revenue", "Fuel", "Wages")
-    
-    Returns:
-        Tuple of (variance_pct_threshold, variance_dollar_threshold)
-    """
-    config = load_materiality_config()
-    
-    # Check for empirical category override
-    empirical = config.get("empirical_overrides")
-    if empirical and category in empirical.get("category_overrides", {}):
-        override = empirical["category_overrides"][category]
-        return (override["variance_pct"], override["variance_dollar"])
-    
-    # Fall back to global defaults
-    thresholds = config.get("materiality_thresholds", {})
-    return (thresholds.get("variance_pct", 5.0), thresholds.get("variance_dollar", 50000))
-
-
-def get_thresholds_for_gl(gl_account: str, category: Optional[str] = None) -> Tuple[float, float]:
-    """
-    Get variance thresholds for a specific GL account.
-    
-    Priority order:
-    1. GL-specific override
-    2. Category-specific override (if category provided)
-    3. Global defaults
-    
-    Args:
-        gl_account: GL account code (e.g., "4560-06")
-        category: Optional canonical category for category-level fallback
-    
-    Returns:
-        Tuple of (variance_pct_threshold, variance_dollar_threshold)
-    """
-    config = load_materiality_config()
-    
-    # Check for GL-specific override
-    empirical = config.get("empirical_overrides")
-    if empirical and gl_account in empirical.get("gl_overrides", {}):
-        override = empirical["gl_overrides"][gl_account]
-        return (override["variance_pct"], override["variance_dollar"])
-    
-    # Fall back to category if provided
-    if category:
-        return get_thresholds_for_category(category)
-    
-    # Fall back to global defaults
-    thresholds = config.get("materiality_thresholds", {})
-    return (thresholds.get("variance_pct", 5.0), thresholds.get("variance_dollar", 50000))
+    return _CONFIG_CACHE
 
 
 def get_global_defaults() -> Dict[str, Any]:
-    """Get global default thresholds."""
-    config = load_materiality_config()
-    return config.get("materiality_thresholds", {})
+    """Return the top-level materiality thresholds.
+
+    Returns a dict with at minimum:
+        variance_pct (float)   - percentage threshold (default 5.0)
+        variance_dollar (float) - absolute dollar threshold (default 50000)
+    """
+    cfg = _load_config()
+    thresholds = cfg.get("materiality_thresholds", {})
+    return {
+        "variance_pct": float(thresholds.get("variance_pct", 5.0)),
+        "variance_dollar": float(thresholds.get("variance_dollar", 50_000)),
+        "top_categories_count": int(thresholds.get("top_categories_count", 5)),
+        "cumulative_variance_pct": float(thresholds.get("cumulative_variance_pct", 80.0)),
+        "min_amount": float(thresholds.get("min_amount", 10_000)),
+    }
 
 
-def clear_threshold_cache():
-    """Clear the threshold cache. Useful for testing or reloading."""
-    global _THRESHOLD_CACHE
-    _THRESHOLD_CACHE = None
+def get_thresholds_for_category(category: str) -> Dict[str, Any]:
+    """Return materiality thresholds for a specific analysis category.
 
+    Args:
+        category: One of 'revenue_analysis', 'expense_analysis',
+                  'operational_analysis', or any key in type_thresholds.
+                  Falls back to global defaults if not found.
+
+    Returns:
+        Dict with variance_pct and variance_dollar keys.
+    """
+    cfg = _load_config()
+    type_thresholds: Dict[str, Any] = cfg.get("type_thresholds", {})
+    defaults = get_global_defaults()
+
+    if category in type_thresholds:
+        entry = type_thresholds[category]
+        return {
+            "variance_pct": float(entry.get("variance_pct", defaults["variance_pct"])),
+            "variance_dollar": float(
+                entry.get("variance_dollar", defaults["variance_dollar"])
+            ),
+        }
+
+    return {
+        "variance_pct": defaults["variance_pct"],
+        "variance_dollar": defaults["variance_dollar"],
+    }

@@ -1,0 +1,19 @@
+{
+  "level": 2,
+  "level_name": "terminal",
+  "metric": "amount",
+  "analysis_period": "2025-08",
+  "variance_type": "YOY",
+  "total_variance_dollar": -187500.0,
+  "top_drivers": [
+    {"rank": 1, "item": "TERM-A", "current": -420000.0, "prior": -310000.0, "variance_dollar": -110000.0, "variance_pct": -35.5, "cumulative_pct": 58.7, "exceeds_threshold": true, "materiality": "HIGH"},
+    {"rank": 2, "item": "TERM-B", "current": -195000.0, "prior": -145000.0, "variance_dollar": -50000.0, "variance_pct": -34.5, "cumulative_pct": 85.3, "exceeds_threshold": true, "materiality": "HIGH"},
+    {"rank": 3, "item": "TERM-C", "current": -88000.0, "prior": -73000.0, "variance_dollar": -15000.0, "variance_pct": -20.5, "cumulative_pct": 93.3, "exceeds_threshold": false, "materiality": "LOW"},
+    {"rank": 4, "item": "TERM-D", "current": -44000.0, "prior": -33500.0, "variance_dollar": -10500.0, "variance_pct": -31.3, "cumulative_pct": 98.9, "exceeds_threshold": false, "materiality": "LOW"},
+    {"rank": 5, "item": "TERM-E", "current": -21000.0, "prior": -19000.0, "variance_dollar": -2000.0, "variance_pct": -10.5, "cumulative_pct": 100.0, "exceeds_threshold": false, "materiality": "LOW"}
+  ],
+  "items_analyzed": 5,
+  "variance_explained_pct": 100.0,
+  "is_last_level": false,
+  "is_duplicate": false
+}

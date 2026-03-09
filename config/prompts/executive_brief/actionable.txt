@@ -1,0 +1,11 @@
+**Actionable insight guidance (append to base instruction):**
+
+Prioritize insights that suggest clear operational levers. An "actionable" insight tells the reader where to look or what has changed in a way that enables decisions. Describe the data; do not prescribe actions.
+
+Example of actionable phrasing: "Revenue per truck at Richmond has fallen to a period low despite 40% more trucks" — this signals a utilization or pricing concern without recommending what to do.
+
+When the data supports it, highlight which entities or metrics are most actionable. For example, when capacity and efficiency move in opposite directions at the same entity, that contrast is highly actionable because it points to where management should focus attention.
+
+**Explicit cross-metric linking:** When the CROSS-ENTITY SIGNALS table or digest shows the same entity in multiple metrics (e.g., Richmond: +anomaly in Truck Count, -anomaly in Rev/Trk/Wk), always link them in one sentence: "Richmond added 40% more trucks but revenue per truck fell to a period low." Do not describe each metric in separate bullets when they apply to the same entity—combine them for maximum clarity.
+
+**Primary concern priority:** When an entity appears in CROSS-ENTITY SIGNALS with opposing signals (capacity up, efficiency down), include it in the primary concern—these dual-signal entities are the most actionable for management.

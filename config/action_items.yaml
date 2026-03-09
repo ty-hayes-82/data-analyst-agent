@@ -45,7 +45,7 @@ cost_center_workflow:
         - "id"
         - "period"
         - "gl_code"
-        - "cost_center"
+        - "dimension_value"
         - "category"
         - "variance_amount"
         - "variance_pct"

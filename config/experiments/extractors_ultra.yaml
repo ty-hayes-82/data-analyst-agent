@@ -1,0 +1,165 @@
+# Experiment 2b: Downgrade structured extractors to ultra tier.
+# Hypothesis: Even minimal thinking suffices for schema-constrained JSON extraction.
+# This is the most aggressive downgrade test; any accuracy drop means ultra is too low.
+#
+# All other agents unchanged from baseline.
+
+default_tier: "standard"
+
+model_tiers:
+  lite:
+    model: "gemini-2.5-flash-lite"
+    thinking_level: "none"
+    description: "Lightest model -- ultra-fast for simple structured tasks (no thinking support)"
+
+  ultra:
+    model: "gemini-2.5-flash"
+    thinking_level: "minimal"
+    thinking_budget: 0
+    description: "Flash with thinking disabled -- fastest flash option"
+  
+  fast:
+    model: "gemini-2.5-flash"
+    thinking_level: "low"
+    thinking_budget: 1024
+    description: "Flash with minimal thinking budget -- for structured extraction"
+  
+  standard:
+    model: "gemini-2.5-flash"
+    thinking_level: "medium"
+    description: "Flash default thinking -- balanced for general analysis"
+  
+  advanced:
+    model: "gemini-2.5-flash"
+    thinking_level: "high"
+    thinking_budget: 16000
+    description: "Flash with high thinking budget -- for complex synthesis"
+
+  pro:
+    model: "gemini-2.5-pro"
+    thinking_level: "high"
+    description: "Highest-quality reasoning -- for cross-metric synthesis"
+
+  # --- Gemini 3 tiers (available on vertex-ai-bi-testing, added 2026-02-20) ---
+  gemini3_flash:
+    model: "gemini-3-flash-preview"
+    thinking_budget: 8000
+    description: "Gemini 3 Flash -- next-gen flash, benchmarking in progress"
+
+  gemini3_pro:
+    model: "gemini-3.1-pro-preview"
+    thinking_level: "high"
+    description: "Gemini 3.1 Pro -- next-gen pro, highest quality available"
+
+agents:
+  statistical_insights_agent:
+    tier: "fast"
+    description: "Stats-first analysis with business insights"
+  
+  hierarchical_analysis_agent:
+    tier: "standard"
+    description: "Hierarchical drill-down orchestrator"
+  
+  hierarchy_variance_agent:
+    tier: "fast"
+    description: "Aggregates and ranks items by hierarchy level"
+  
+  seasonal_baseline_agent:
+    tier: "standard"
+    description: "Creates seasonal baselines"
+  
+  report_synthesis_agent:
+    tier: "fast"
+    description: "Report synthesis from structured insight report"
+  
+  output_persistence_agent:
+    tier: "ultra"
+    description: "Saves complete analysis to JSON files"
+  
+  testing_data_agent:
+    tier: "ultra"
+    description: "Testing data loader (CSV) for test mode"
+  
+  alert_scoring_coordinator:
+    tier: "standard"
+    description: "Complete alert lifecycle manager"
+  
+  jira_agent:
+    tier: "fast"
+    description: "Main Jira orchestrator agent"
+  
+  jira_analytics_agent:
+    tier: "fast"
+    description: "Analytics, summaries, counts, and rankings"
+  
+  jira_issues_agent:
+    tier: "ultra"
+    description: "Single-issue details, comments, and attachments"
+  
+  jira_query_agent:
+    tier: "fast"
+    description: "Fetches sets of tickets via JQL or criteria"
+  
+  jira_users_agent:
+    tier: "fast"
+    description: "User discovery and fuzzy lookup"
+  
+  jira_health_agent:
+    tier: "ultra"
+    description: "Readiness, health, and observability checks"
+  
+  jira_learning_agent:
+    tier: "fast"
+    description: "Learning and memory agent"
+  
+  attachment_analyzer_agent:
+    tier: "fast"
+    description: "Attachment analysis with vision capabilities"
+  
+  browser_updater_agent:
+    tier: "fast"
+    description: "Browser-based Jira ticket updater with automation"
+  
+  project_manager_agent:
+    tier: "fast"
+    description: "Intelligent project management analysis and recommendations"
+
+  narrative_agent:
+    tier: "standard"
+    description: "Evaluates and filters insight cards, writes per-metric narrative"
+
+  executive_brief_agent:
+    tier: "pro"
+    description: "Cross-metric synthesis requiring highest-quality reasoning"
+
+  cost_center_iterator:
+    tier: "ultra"
+    description: "Iterates through cost centers for individual analysis"
+    cost_centers: "${cost_centers}"
+  
+  # --- EXPERIMENT 2b CHANGES: both extractors downgraded to ultra ---
+  request_analyzer:
+    tier: "ultra"
+    description: "[EXP-2b] Downgraded from standard to ultra. Testing minimal thinking for JSON extraction."
+  
+  cost_center_extractor:
+    tier: "standard"
+    description: "Extracts cost center numbers from user request"
+  
+  target_extractor:
+    tier: "ultra"
+    description: "[EXP-2b] Downgraded from standard (default) to ultra."
+  
+  financial_data_agent:
+    tier: "standard"
+    description: "Requests P&L data from Account Research DS"
+  
+  ops_metrics_data_agent:
+    tier: "standard"
+    description: "Requests monthly operational metrics from Ops Metrics DS"
+  
+  order_details_data_agent:
+    tier: "standard"
+    description: "Requests order-level detail for contract validation"
+
+

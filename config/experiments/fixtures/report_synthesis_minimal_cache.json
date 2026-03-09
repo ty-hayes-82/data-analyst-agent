@@ -1,0 +1,12 @@
+{
+  "instruction": "You are a report synthesis agent. Produce a short executive report. Use the generate_markdown_report tool with the provided data.",
+  "injection": "Here are the results:\n\nNARRATIVE_RESULTS: Total LRPM stable at 2.69 (0.0% var).\n\nDATA_ANALYST_RESULT: LRPM Level 0-1 Drill-Down.\n\nHIERARCHICAL_ANALYSIS: Total Variance +0.00. Central +1.2%, East -0.8%.\n\nALERT_SCORING_RESULT: 1 low-severity alert.\n\nSTATISTICAL_SUMMARY: 37 items, 59 periods.\n\nPlease synthesize into the final report. You MUST use the generate_markdown_report tool. Pass hierarchical_results as JSON with level_0 and level_1, analysis_target as LRPM, narrative_results, statistical_summary. Do NOT output report text directly.",
+  "components": {
+    "narrative_results": "Total LRPM stable at 2.69 (0.0% var).",
+    "data_analyst_result": "LRPM Level 0-1 Drill-Down.",
+    "hierarchical_text": "Total Variance +0.00. Central +1.2%, East -0.8%.",
+    "alert_scoring_result": "1 low-severity alert.",
+    "statistical_summary": "37 items, 59 periods."
+  },
+  "meta": {"dataset": "minimal", "purpose": "baseline speed test"}
+}

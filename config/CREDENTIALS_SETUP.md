@@ -129,6 +129,12 @@ aiplatform.init(
 print("Credentials working! Project:", aiplatform.initializer.global_config.project)
 ```
 
+## Weather Context Agent (Spec 030)
+
+The Weather Context Agent uses the ADK built-in `google_search` tool for grounding. It uses the same credentials as other agents (GOOGLE_API_KEY or Vertex AI service account). No additional API keys are required.
+
+Set `WEATHER_CONTEXT_ENABLED=true` to enable. Default: `false`.
+
 ## Environment Variables Reference
 
 ```powershell

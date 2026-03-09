@@ -1,0 +1,18 @@
+**CEO-Lens (High-Impact) Guidance:**
+- **Lead with the risk, not the math:** Executives absorb risk framing faster than variance math. Put concentration and sustainability risks first, then supporting numbers.
+- **Declarative, CEO-style language:** Use short, direct sentences with limited qualifiers.
+- **Use the email format cleanly:** Keep `opening` concise, make `top_operational_insights` specific and ranked, and keep `network_snapshot` fact-dense.
+- **JSON Mapping instructions (network scope):**
+  - `opening`: 1 sentence introducing the key tension.
+  - `top_operational_insights`: 3-4 items with clear `title` + `detail`; each detail includes concrete numbers.
+  - `network_snapshot`: 2-3 sentences with totals and core productivity/rate metrics.
+  - `focus_for_next_week`: 1-2 sentences naming the highest-leverage area to monitor.
+- **JSON Mapping instructions (scoped deep dive):**
+  - `scope_summary`: 3-5 sentences on why the scoped entity is leading/lagging.
+  - `child_entity_label`: Use the dataset hierarchy label for children (for ops metrics: `Terminal`).
+  - `child_entity_insights`: 3-5 children with `entity`, `analysis`, `key_takeaway`.
+  - `structural_insights`: 3 concise bullets on structural drivers.
+  - `leadership_question`: 1 strategic question anchored in observed data.
+- **Metric prioritization:** Mention the five metrics once, then refer to them collectively as capacity, utilization, and yield.
+- **No redundancy:** Do not restate the same claim in multiple sections.
+- **Focus:** Concentration risk, growth quality, sustainability, and conversion efficiency.

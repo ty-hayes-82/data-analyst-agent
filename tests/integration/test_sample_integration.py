@@ -12,9 +12,9 @@ from tests.utils.test_helpers import assert_dataframe_structure, assert_csv_form
 
 @pytest.mark.integration
 @pytest.mark.csv_mode
-def test_data_validation_pipeline(mock_pl_data_csv, mock_ops_metrics_csv):
+def test_data_join_pipeline(mock_pl_data_csv, mock_ops_metrics_csv):
     """
-    Test the data validation pipeline:
+    Test the data join pipeline:
     - Load P&L data (CSV)
     - Load ops metrics (CSV)
     - Join them together
@@ -245,7 +245,7 @@ def test_full_data_pipeline_from_csv_to_analysis_ready(
 
     # Step 6: Final validation
     required_columns = [
-        "period", "gl_account", "amount", "cost_center",
+        "period", "gl_account", "amount", "dimension_value",
         "canonical_category", "miles", "stops", "loads",
         "amount_per_mile", "amount_per_stop", "amount_per_load"
     ]

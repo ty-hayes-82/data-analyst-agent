@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Deployment script for P&L Analyst Agent with tracing enabled"""
+"""Deployment script for Data Analyst Agent with tracing enabled"""
 
 import os
 import sys
@@ -29,7 +29,7 @@ from vertexai import agent_engines
 from vertexai.preview.reasoning_engines import AdkApp
 
 # Import the root agent
-from pl_analyst_agent.agent import root_agent
+from data_analyst_agent.agent import root_agent
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("project_id", None, "GCP project ID.")
@@ -66,7 +66,7 @@ def create() -> None:
     remote_agent = agent_engines.create(
         adk_app,
         display_name="pl_analyst_v1",
-        description="P&L Analyst Agent for automated cost center analysis, anomaly detection, and actionable insights",
+        description="Data Analyst Agent for automated cost center analysis, anomaly detection, and actionable insights",
         requirements=[
             "google-adk (>=1.14.1)",
             "google-cloud-aiplatform[agent_engines] (>=1.91.0,<2.0.0)",
@@ -89,7 +89,7 @@ def create() -> None:
             "cloudpickle (>=3.1.1)",
         ],
         extra_packages=[
-            "./pl_analyst_agent",
+            "./data_analyst_agent",
             "./config",
         ],
     )

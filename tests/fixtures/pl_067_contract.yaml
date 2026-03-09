@@ -1,0 +1,39 @@
+name: "PL 067 P&L"
+version: "1.0.0"
+description: "Test fixture contract for PL-067 P&L data (time-series format)"
+
+time:
+  column: "period"
+  frequency: "monthly"
+  format: "%Y-%m"
+  timezone: "UTC"
+  range_months: 24
+
+grain:
+  columns: ["period", "gl_account"]
+  description: "Monthly data by GL account"
+
+metrics:
+  - name: "amount"
+    column: "amount"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    tags: ["revenue", "controllable"]
+
+dimensions:
+  - name: "dimension_value"
+    column: "dimension_value"
+    role: "primary"
+  - name: "canonical_category"
+    column: "canonical_category"
+    role: "secondary"
+
+hierarchies:
+  - name: "pl_hierarchy"
+    description: "P&L drill-down hierarchy: category -> sub-category -> GL detail"
+    children:
+      - "canonical_category"
+      - "level_2"
+      - "level_3"
+      - "gl_account"

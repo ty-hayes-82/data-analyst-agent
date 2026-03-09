@@ -1,0 +1,66 @@
+# Metric display units for Ops Metrics (Tableau) dataset.
+# Used by generate_markdown_report for variance formatting.
+# unit: currency | miles | count | ratio | none
+
+metrics:
+  # Revenue and dollar-denominated
+  "total_revenue":
+    unit: currency
+    suffix: ""
+  "Revenue xFuel":
+    unit: currency
+    suffix: ""
+  "Rev/Trk/Day":
+    unit: currency
+    suffix: ""
+  "TRPM":
+    unit: currency
+    suffix: ""
+  "Rev/Trk/Wk":
+    unit: currency
+    suffix: ""
+  "LRPM":
+    unit: currency
+    suffix: ""
+
+  # Distance
+  "total_miles":
+    unit: miles
+    suffix: "miles"
+  "ld_mi_less_swift_billto":
+    unit: miles
+    suffix: "miles"
+  "dh_miles":
+    unit: miles
+    suffix: "miles"
+  "ordr_miles":
+    unit: miles
+    suffix: "miles"
+  "Avg LOH":
+    unit: miles
+    suffix: "miles"
+  "Miles/Trk/Wk":
+    unit: miles
+    suffix: "miles"
+
+  # Counts
+  "Truck Count":
+    unit: count
+    suffix: "trucks"
+  "truck_count":
+    unit: count
+    suffix: "trucks"
+  "ordr_cnt":
+    unit: count
+    suffix: "orders"
+  "stop_count":
+    unit: count
+    suffix: "stops"
+  "dot_ocrnce_cnt":
+    unit: count
+    suffix: "occurrences"
+
+  # Ratios / Percentages
+  "deadhead_pct":
+    unit: ratio
+    suffix: "%"

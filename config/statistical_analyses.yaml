@@ -1,0 +1,110 @@
+# Statistical analyses configuration
+# ==================================
+# Controls advanced statistical analyses in compute_statistical_summary.
+#
+# Profiles:
+#   full     - enable all tiers
+#   lean     - core + operational only (default)
+#   minimal  - core only
+#   custom   - uses per-tool enabled flags below
+#
+# Runtime overrides:
+#   STATISTICAL_PROFILE=full
+#   STAT_ENABLE_forecast_baseline=true
+#   STAT_DISABLE_distribution_analysis=true
+
+profiles:
+  full:
+    description: "All analyses enabled for deep dives."
+    enable_tiers: [core, operational, advanced, academic]
+  lean:
+    description: "Core + operational analyses only."
+    enable_tiers: [core, operational]
+  minimal:
+    description: "Core-only fastest profile."
+    enable_tiers: [core]
+  custom:
+    description: "Use per-tool enabled flags from this file."
+    enable_tiers: []
+
+active_profile: lean
+
+core:
+  per_item_statistics:
+    enabled: true
+    description: "Per-item avg, std, CV, slope, acceleration, min/max."
+  anomaly_detection:
+    enabled: true
+    description: "Z-score anomaly detection."
+  correlations:
+    enabled: true
+    description: "Pearson correlations on key items."
+  monthly_totals:
+    enabled: true
+    description: "Aggregate monthly totals."
+  delta_attribution:
+    enabled: true
+    description: "Period-over-period attribution."
+  volatility_ranking:
+    enabled: true
+    description: "CV-based volatility ranking."
+
+operational:
+  new_lost_same_store:
+    enabled: true
+    tool_name: new_lost_same_store
+    rationale: "Separates organic change from portfolio churn."
+  concentration_analysis:
+    enabled: true
+    tool_name: concentration_analysis
+    rationale: "Highlights concentration and Pareto dynamics."
+  cross_metric_correlation:
+    enabled: true
+    tool_name: cross_metric_correlation
+    rationale: "Finds cross-KPI relationships."
+  lagged_correlation:
+    enabled: true
+    tool_name: lagged_correlation
+    rationale: "Identifies leading indicators."
+    options:
+      include_granger: false
+  derived_metrics:
+    enabled: true
+    tool_name: derived_metrics
+    rationale: "Computes operational ratios."
+  mad_outliers:
+    enabled: true
+    tool_name: mad_outliers
+    rationale: "Robust outlier detection."
+
+advanced:
+  forecast_baseline:
+    enabled: false
+    tool_name: forecast_baseline
+    rationale: "Useful but slow; enable for deeper forecast investigations."
+  change_points:
+    enabled: false
+    tool_name: change_points
+    rationale: "Useful for structural break analysis."
+  seasonal_decomposition:
+    enabled: false
+    tool_name: seasonal_decomposition
+    rationale: "Useful when seasonal decomposition is required."
+  outlier_impact:
+    enabled: false
+    tool_name: outlier_impact
+    rationale: "Quantifies outlier impact but not always necessary."
+  cross_dimension_analysis:
+    enabled: false
+    tool_name: cross_dimension_analysis
+    rationale: "Auxiliary-dimension interaction analysis."
+
+academic:
+  variance_decomposition:
+    enabled: false
+    tool_name: variance_decomposition
+    rationale: "Research-grade decomposition, often optional for operations."
+  distribution_analysis:
+    enabled: false
+    tool_name: distribution_analysis
+    rationale: "Distribution diagnostics are not always operationally actionable."

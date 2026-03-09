@@ -24,9 +24,9 @@ from io import StringIO
 # ============================================================================
 
 def _import_stat_tool(tool_name: str):
-    """Import a tool from 02_statistical_insights_agent using importlib."""
+    """Import a tool from statistical_insights_agent using importlib."""
     mod = importlib.import_module(
-        f"pl_analyst_agent.sub_agents.02_statistical_insights_agent.tools.{tool_name}"
+        f"data_analyst_agent.sub_agents.statistical_insights_agent.tools.{tool_name}"
     )
     return getattr(mod, tool_name)
 
@@ -36,9 +36,10 @@ def _import_stat_tool(tool_name: str):
 # ============================================================================
 
 def _populate_cache_with_test_data():
-    """Load PL-067 validated data into the data cache so tools can read it."""
+    """Load PL-067 validated data into the data cache and set up AnalysisContext."""
     from tests.fixtures.test_data_loader import TestDataLoader
-    from pl_analyst_agent.sub_agents.data_cache import set_validated_csv, clear_all_caches
+    from data_analyst_agent.sub_agents.data_cache import set_validated_csv, clear_all_caches, set_analysis_context
+    from data_analyst_agent.semantic.models import DatasetContract, AnalysisContext
 
     # Clear any prior state
     clear_all_caches()
@@ -47,17 +48,50 @@ def _populate_cache_with_test_data():
     pl_df = loader.load_pl_067_csv()
     ts_df = loader.convert_to_time_series_format(pl_df)
 
-    # The statistical tools expect an 'account_name' column
+    # Statistical tools expect consistent naming
+    if "item_name" not in ts_df.columns:
+        ts_df["item_name"] = ts_df["gl_account"]
     if "account_name" not in ts_df.columns:
         ts_df["account_name"] = ts_df["gl_account"]
+    if "item" not in ts_df.columns:
+        ts_df["item"] = ts_df["gl_account"]
 
     csv_data = ts_df.to_csv(index=False)
     set_validated_csv(csv_data)
+    
+    print(f"DEBUG: ts_df columns: {ts_df.columns.tolist()}")
+    
+    # Set up mock AnalysisContext (now mandatory)
+    contract_data = {
+        "name": "pl_contract",
+        "version": "1.0",
+        "time": {"column": "period", "format": "%Y-%m", "frequency": "monthly"},
+        "grain": {"columns": ["gl_account"]},
+        "metrics": [{"name": "amount", "column": "amount", "unit": "USD", "direction": "lower_is_better"}],
+        "dimensions": [{"name": "gl_account", "column": "gl_account", "tags": ["account_id"]}],
+        "policies": {
+            "item_classification": {
+                "revenue": {"starts_with": ["3"]}
+            }
+        }
+    }
+    contract = DatasetContract(**contract_data)
+    ctx = AnalysisContext(
+        contract=contract,
+        df=ts_df,
+        target_metric=contract.metrics[0],
+        primary_dimension=contract.dimensions[0],
+        cost_center="067",
+        run_id="test_run"
+    )
+    
+    set_analysis_context(ctx)
+    
     return ts_df
 
 
 def _teardown_cache():
-    from pl_analyst_agent.sub_agents.data_cache import clear_all_caches
+    from data_analyst_agent.sub_agents.data_cache import clear_all_caches
     clear_all_caches()
 
 
@@ -78,8 +112,8 @@ async def test_detect_mad_outliers_structure():
         result = json.loads(result_str)
 
         assert "summary" in result
-        assert "accounts_analyzed" in result["summary"]
-        assert result["summary"]["accounts_analyzed"] > 0
+        assert "items_analyzed" in result["summary"]
+        assert result["summary"]["items_analyzed"] > 0
         assert "total_outliers_detected" in result["summary"]
 
         # mad_outliers list should exist (even if empty)
@@ -91,7 +125,7 @@ async def test_detect_mad_outliers_structure():
         assert len(result["top_outliers"]) <= 15
 
         print(f"[PASS] MAD outliers: {result['summary']['total_outliers_detected']} detected "
-              f"across {result['summary']['accounts_analyzed']} accounts")
+              f"across {result['summary']['items_analyzed']} items")
     finally:
         _teardown_cache()
 
@@ -124,7 +158,7 @@ async def test_detect_mad_outliers_no_nan():
 @pytest.mark.asyncio
 async def test_detect_mad_outliers_empty_cache():
     """Test MAD outlier detection when cache is empty."""
-    from pl_analyst_agent.sub_agents.data_cache import clear_all_caches, _CSV_CACHE_FILE
+    from data_analyst_agent.sub_agents.data_cache import clear_all_caches, _CSV_CACHE_FILE
     clear_all_caches()
     # Also remove the file-based cache so get_validated_csv returns None
     if _CSV_CACHE_FILE.exists():
@@ -155,9 +189,10 @@ async def test_detect_change_points_structure():
         result = json.loads(result_str)
 
         assert "summary" in result
-        # Might be a 'warning' if less than 12 periods per account
+        # The tool uses 'items_analyzed' in success case
         if "warning" not in result:
-            assert "accounts_analyzed" in result["summary"]
+            assert "items_analyzed" in result["summary"]
+            assert result["summary"]["items_analyzed"] > 0
             assert "total_change_points" in result["summary"]
             assert "change_points" in result
             assert isinstance(result["change_points"], list)
@@ -228,7 +263,7 @@ async def test_compute_statistical_summary_structure():
         # Validate top_drivers structure
         assert len(result["top_drivers"]) > 0
         driver = result["top_drivers"][0]
-        assert "account" in driver
+        assert "item" in driver
         assert "avg" in driver
         assert "std" in driver
         assert "cv" in driver
@@ -236,10 +271,10 @@ async def test_compute_statistical_summary_structure():
 
         # Validate summary_stats
         stats = result["summary_stats"]
-        assert stats["total_accounts"] > 0
+        assert stats["total_items"] > 0
         assert stats["total_periods"] > 0
 
-        print(f"[PASS] Statistical summary: {stats['total_accounts']} accounts, "
+        print(f"[PASS] Statistical summary: {stats['total_items']} items, "
               f"{stats['total_periods']} periods, "
               f"{len(result['anomalies'])} anomalies")
     finally:
@@ -259,10 +294,10 @@ async def test_statistical_summary_no_nan_in_drivers():
         result = json.loads(result_str)
 
         for driver in result.get("top_drivers", []):
-            assert not np.isnan(driver["avg"]), f"NaN avg for {driver['account']}"
-            assert not np.isnan(driver["std"]), f"NaN std for {driver['account']}"
-            assert not np.isnan(driver["cv"]), f"NaN cv for {driver['account']}"
-            assert not np.isinf(driver["cv"]), f"Inf cv for {driver['account']}"
+            assert not np.isnan(driver["avg"]), f"NaN avg for {driver.get('item')}"
+            assert not np.isnan(driver["std"]), f"NaN std for {driver.get('item')}"
+            assert not np.isnan(driver["cv"]), f"NaN cv for {driver.get('item')}"
+            assert not np.isinf(driver["cv"]), f"Inf cv for {driver.get('item')}"
 
         print("[PASS] No NaN/Inf in statistical drivers")
     finally:
@@ -274,7 +309,7 @@ async def test_statistical_summary_no_nan_in_drivers():
 @pytest.mark.asyncio
 async def test_statistical_summary_empty_cache():
     """Test statistical summary when cache is empty."""
-    from pl_analyst_agent.sub_agents.data_cache import clear_all_caches, _CSV_CACHE_FILE
+    from data_analyst_agent.sub_agents.data_cache import clear_all_caches, _CSV_CACHE_FILE
     clear_all_caches()
     # Also remove the file-based cache so get_validated_csv returns None
     if _CSV_CACHE_FILE.exists():
@@ -286,6 +321,93 @@ async def test_statistical_summary_empty_cache():
 
     assert "error" in result
     print("[PASS] Empty cache handled gracefully")
+
+
+# ============================================================================
+# Ops Metrics statistical insights tests (Spec 001 + 002)
+# ============================================================================
+
+def _populate_cache_with_ops_metrics_data():
+    """Load ops_metrics sample data into the data cache and set up AnalysisContext."""
+    from tests.fixtures.ops_metrics_contract_fixture import (
+        load_ops_contract,
+        load_ops_line_haul_df,
+    )
+    from data_analyst_agent.sub_agents.data_cache import (
+        set_validated_csv,
+        clear_all_caches,
+        set_analysis_context,
+    )
+    from data_analyst_agent.semantic.models import AnalysisContext
+
+    clear_all_caches()
+
+    contract = load_ops_contract()
+    df = load_ops_line_haul_df()
+
+    csv_data = df.to_csv(index=False)
+    set_validated_csv(csv_data)
+
+    ctx = AnalysisContext(
+        contract=contract,
+        df=df,
+        target_metric=contract.get_metric("total_revenue"),
+        primary_dimension=contract.get_dimension("lob"),
+        run_id="test_ops_stats",
+        max_drill_depth=3,
+    )
+    set_analysis_context(ctx)
+    return df
+
+
+@pytest.mark.unit
+@pytest.mark.ops_metrics
+@pytest.mark.asyncio
+async def test_compute_statistical_summary_ops_metrics():
+    """Statistical summary should work with ops metrics data (multi-metric)."""
+    compute_statistical_summary = _import_stat_tool("compute_statistical_summary")
+    _populate_cache_with_ops_metrics_data()
+
+    try:
+        result_str = await compute_statistical_summary()
+        result = json.loads(result_str)
+
+        assert "error" not in result, f"Got error: {result.get('error')}"
+        assert "top_drivers" in result
+        assert "summary_stats" in result
+
+        stats = result["summary_stats"]
+        assert stats["total_items"] > 0
+        assert stats["total_periods"] > 0
+
+        print(
+            f"[PASS] Ops metrics stats: {stats['total_items']} items, "
+            f"{stats['total_periods']} periods"
+        )
+    finally:
+        _teardown_cache()
+
+
+@pytest.mark.unit
+@pytest.mark.ops_metrics
+@pytest.mark.asyncio
+async def test_detect_mad_outliers_ops_metrics():
+    """MAD outlier detection should work with ops metrics data."""
+    detect_mad_outliers = _import_stat_tool("detect_mad_outliers")
+    _populate_cache_with_ops_metrics_data()
+
+    try:
+        result_str = await detect_mad_outliers()
+        result = json.loads(result_str)
+
+        assert "error" not in result, f"Got error: {result.get('error')}"
+        assert "summary" in result
+        # The tool uses 'items_analyzed' in success case
+        assert "items_analyzed" in result["summary"]
+        assert result["summary"]["items_analyzed"] > 0
+        print(f"[PASS] Ops MAD outliers: {result['summary']['total_outliers_detected']} detected")
+    finally:
+        _teardown_cache()
 
 
 if __name__ == "__main__":

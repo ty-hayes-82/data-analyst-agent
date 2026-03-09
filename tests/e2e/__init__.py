@@ -1,1 +1,1 @@
-"""End-to-end tests for P&L Analyst Agent."""
+"""End-to-end tests for Data Analyst Agent."""

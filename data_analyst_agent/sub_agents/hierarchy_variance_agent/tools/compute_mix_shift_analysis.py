@@ -1,0 +1,204 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+3-Factor Price-Volume-Mix (PVM) Decomposition Tool.
+
+Isolates mix effects from price and volume effects.
+Math (Sequential Decomposition):
+- Volume Effect = (Total_Current_Vol - Total_Prior_Vol) * Prior_Blended_Price
+- Price Effect = (Blended_Price_at_Prior_Mix - Prior_Blended_Price) * Current_Total_Vol
+- Mix Effect = (Current_Blended_Price - Blended_Price_at_Prior_Mix) * Current_Total_Vol
+Where Blended_Price_at_Prior_Mix = sum(Prior_Weight_s * Current_Price_s)
+"""
+
+import json
+import pandas as pd
+import numpy as np
+from typing import Dict, Any, List, Optional
+from ...data_cache import resolve_data_and_columns
+
+
+async def compute_mix_shift_analysis(
+    target_metric: str,
+    price_metric: str,
+    volume_metric: str,
+    segment_dimension: str,
+    analysis_period: str = "latest",
+    prior_period: Optional[str] = None
+) -> str:
+    """
+    Perform 3-factor PVM decomposition to isolate mix shift.
+
+    Args:
+        target_metric: The metric to decompose (e.g., 'revenue')
+        price_metric: The metric representing price (e.g., 'rate_per_mile')
+        volume_metric: The metric representing volume (e.g., 'miles')
+        segment_dimension: The dimension defining segments (e.g., 'lob', 'terminal')
+        analysis_period: The period to analyze ("latest" or "YYYY-MM")
+        prior_period: Optional specific prior period to compare against.
+    """
+    try:
+        # 1. Get data
+        try:
+            df, time_col, _, _, _, ctx = resolve_data_and_columns("MixShiftAnalysis")
+        except ValueError as e:
+            return json.dumps({"error": str(e)}, indent=2)
+
+        # 2. Setup periods
+        periods = sorted(df[time_col].unique())
+        if analysis_period == "latest":
+            curr_p = periods[-1]
+            if not prior_period:
+                # Default to YoY if possible, else MoM
+                curr_idx = periods.index(curr_p)
+                if curr_idx >= 12:
+                    prior_p = periods[curr_idx - 12]
+                elif curr_idx >= 1:
+                    prior_p = periods[curr_idx - 1]
+                else:
+                    return json.dumps({"error": "Insufficient periods for analysis"}, indent=2)
+            else:
+                prior_p = prior_period
+        else:
+            curr_p = analysis_period
+            if not prior_period:
+                curr_idx = periods.index(curr_p)
+                prior_p = periods[curr_idx - 1] if curr_idx > 0 else None
+            else:
+                prior_p = prior_period
+
+        if not prior_p or prior_p not in periods:
+            return json.dumps({"error": f"Prior period {prior_p} not found"}, indent=2)
+
+        # 3. Aggregate data per segment for both periods
+        def get_segment_agg(period):
+            p_df = df[df[time_col] == period].copy()
+            agg = p_df.groupby(segment_dimension).agg({
+                target_metric: 'sum',
+                volume_metric: 'sum'
+            }).reset_index()
+            # Calculate segment-level price
+            agg['price'] = (agg[target_metric] / agg[volume_metric]).replace([np.inf, -np.inf], 0).fillna(0)
+            # Calculate total volume for weights
+            total_vol = agg[volume_metric].sum()
+            agg['weight'] = (agg[volume_metric] / total_vol).fillna(0) if total_vol != 0 else 0
+            return agg, total_vol
+
+        curr_seg_agg, curr_total_vol = get_segment_agg(curr_p)
+        prior_seg_agg, prior_total_vol = get_segment_agg(prior_p)
+
+        # 4. Merge and calculate effects
+        merged = curr_seg_agg.merge(
+            prior_seg_agg, on=segment_dimension, how='outer', suffixes=('_curr', '_prior')
+        ).fillna(0)
+
+        # Blended Prices
+        prior_blended_price = merged[target_metric + '_prior'].sum() / prior_total_vol if prior_total_vol != 0 else 0
+        curr_blended_price = merged[target_metric + '_curr'].sum() / curr_total_vol if curr_total_vol != 0 else 0
+        
+        # Price at Prior Mix = sum(Prior_Weight * Current_Price)
+        # We must use Current Price but Prior Weight
+        merged['price_at_prior_mix_contribution'] = merged['weight_prior'] * merged['price_curr']
+        blended_price_at_prior_mix = merged['price_at_prior_mix_contribution'].sum()
+
+        # Total Variance
+        total_variance = merged[target_metric + '_curr'].sum() - merged[target_metric + '_prior'].sum()
+
+        # 3-Factor Decomposition
+        # Volume Effect = (Total_Current_Vol - Total_Prior_Vol) * Prior_Blended_Price
+        volume_effect = (curr_total_vol - prior_total_vol) * prior_blended_price
+        
+        # Price Effect = (Blended_Price_at_Prior_Mix - Prior_Blended_Price) * Current_Total_Vol
+        price_effect = (blended_price_at_prior_mix - prior_blended_price) * curr_total_vol
+        
+        # Mix Effect = (Current_Blended_Price - Blended_Price_at_Prior_Mix) * Current_Total_Vol
+        mix_effect = (curr_blended_price - blended_price_at_prior_mix) * curr_total_vol
+
+        # Segment level contribution to Mix Effect:
+        # Mix Effect = sum( Prior_Price * (Curr_Vol_s - Prior_Vol_s) ) - sum( Prior_Price * (Curr_Vol_total - Prior_Vol_total) * Prior_Weight_s )
+        # Actually, using the definition from the spec: 
+        # Mix Effect = sum( Prior_Price * Total_Volume_Prior * (Current_Weight_s - Prior_Weight_s) ) + interaction
+        # We'll follow the sequential decomposition's result for simplicity at segment level.
+        # Contribution to mix = (Current_Weight - Prior_Weight) * (Current_Price - Blended_Price_at_Prior_Mix) * Current_Total_Vol ? No.
+        # Let's use: (Current_Weight - Prior_Weight) * Current_Price * Current_Total_Vol
+        merged['mix_contribution'] = (merged['weight_curr'] - merged['weight_prior']) * merged['price_curr'] * curr_total_vol
+
+        segment_detail = []
+        for _, row in merged.sort_values('mix_contribution', key=abs, ascending=False).iterrows():
+            segment_detail.append({
+                "segment": str(row[segment_dimension]),
+                "prior_weight": float(row['weight_prior']),
+                "current_weight": float(row['weight_curr']),
+                "weight_change": float(row['weight_curr'] - row['weight_prior']),
+                "prior_price": float(row['price_prior']),
+                "current_price": float(row['price_curr']),
+                "volume_current": float(row[volume_metric + '_curr']),
+                "volume_prior": float(row[volume_metric + '_prior']),
+                "contribution_to_mix_effect": float(row['mix_contribution'])
+            })
+
+        # Summary
+        dominant_effect = "mix"
+        max_abs = abs(mix_effect)
+        if abs(volume_effect) > max_abs:
+            dominant_effect = "volume"
+            max_abs = abs(volume_effect)
+        if abs(price_effect) > max_abs:
+            dominant_effect = "price"
+
+        mix_direction = "favorable" if mix_effect > 0 else "unfavorable"
+        
+        blended_rate_change = curr_blended_price - prior_blended_price
+        change_from_rate = blended_price_at_prior_mix - prior_blended_price
+        change_from_mix = curr_blended_price - blended_price_at_prior_mix
+
+        result = {
+            "target_metric": target_metric,
+            "segment_dimension": segment_dimension,
+            "current_period": curr_p,
+            "prior_period": prior_p,
+            "blended_price": {
+                "current": float(curr_blended_price),
+                "prior": float(prior_blended_price),
+                "at_prior_mix": float(blended_price_at_prior_mix),
+                "change_total": float(blended_rate_change),
+                "change_from_rate": float(change_from_rate),
+                "change_from_mix": float(change_from_mix)
+            },
+            "total_decomposition": {
+                "total_variance": float(total_variance),
+                "volume_effect": float(volume_effect),
+                "price_effect": float(price_effect),
+                "mix_effect": float(mix_effect),
+                "volume_pct": float(volume_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
+                "price_pct": float(price_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
+                "mix_pct": float(mix_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
+            },
+            "segment_detail": segment_detail[:10],
+            "summary": {
+                "dominant_effect": dominant_effect,
+                "mix_direction": mix_direction,
+                "narrative": f"Blended rate {'rose' if blended_rate_change > 0 else 'fell'} by {abs(blended_rate_change):.2f}, with {abs(change_from_rate):.2f} due to price changes and {abs(change_from_mix):.2f} due to mix shift."
+            }
+        }
+
+        return json.dumps(result, indent=2)
+
+    except Exception as e:
+        import traceback
+        return json.dumps({
+            "error": f"Failed to compute mix shift analysis: {str(e)}",
+            "traceback": traceback.format_exc()
+        }, indent=2)

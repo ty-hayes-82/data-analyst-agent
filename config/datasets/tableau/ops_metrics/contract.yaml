@@ -1,0 +1,241 @@
+name: "Ops Metrics"
+version: "2.1.0"
+display_name: "Operations Metrics"
+target_label: "Metric"
+description: "Operational metrics for transportation and logistics. Data sourced from Tableau Hyper file via local TableauHyperFetcher."
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 50000
+
+presentation:
+  unit: "mixed"
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 10
+  min_scope_share_of_total: 0.01
+  output_format: "both"
+
+data_source:
+  type: "tableau_hyper"
+  tdsx_file: "Ops Metrics DS.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+
+time:
+  column: "cal_dt"
+  frequency: "weekly"
+  format: "%Y-%m-%d"
+  range_months: 24
+
+grain:
+  columns: ["cal_dt", "lob"]
+
+metrics:
+  - name: "total_revenue"
+    column: "total_revenue"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    tags: ["financial", "revenue"]
+  - name: "Revenue xFuel"
+    column: "Revenue xFuel"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    tags: ["financial", "revenue"]
+    pvm_role: "total"
+  - name: "fuel_surcharge"
+    column: "fuel_surcharge"
+    type: "additive"
+    format: "currency"
+    optimization: "neutral"
+    tags: ["financial", "revenue"]
+  - name: "Loaded Miles"
+    column: "Loaded Miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "miles"]
+  - name: "total_miles"
+    column: "total_miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "miles"]
+    pvm_role: "volume"
+  - name: "empty_miles"
+    column: "empty_miles"
+    type: "derived"
+    depends_on: ["total_miles", "Loaded Miles"]
+    format: "float"
+    optimization: "minimize"
+    tags: ["operational", "miles"]
+  - name: "order_count"
+    column: "order_count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+    tags: ["operational", "count"]
+  - name: "ordr_miles"
+    column: "ordr_miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "miles"]
+  - name: "stop_count"
+    column: "stop_count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+    tags: ["operational", "count"]
+  - name: "Truck Count"
+    column: "Truck Count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+    tags: ["operational", "fleet"]
+  - name: "dot_incidents"
+    column: "dot_incidents"
+    type: "additive"
+    format: "integer"
+    optimization: "minimize"
+    tags: ["safety", "incidents"]
+  - name: "Rev/Trk/Day"
+    column: "Rev/Trk/Day"
+    type: "derived"
+    depends_on: ["total_revenue", "Truck Count"]
+    format: "currency"
+    optimization: "maximize"
+    tags: ["operational", "efficiency"]
+  - name: "TRPM"
+    column: "TRPM"
+    type: "derived"
+    depends_on: ["Revenue xFuel", "total_miles"]
+    format: "currency"
+    optimization: "maximize"
+    tags: ["operational", "efficiency"]
+    pvm_role: "price"
+  - name: "Avg LOH"
+    column: "Avg LOH"
+    type: "derived"
+    depends_on: ["ordr_miles", "order_count"]
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "efficiency"]
+  - name: "Miles/Trk/Wk"
+    column: "Miles/Trk/Wk"
+    type: "derived"
+    depends_on: ["total_miles", "Truck Count"]
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "efficiency"]
+  - name: "Rev/Trk/Wk"
+    column: "Rev/Trk/Wk"
+    type: "derived"
+    depends_on: ["total_revenue", "Truck Count"]
+    format: "currency"
+    optimization: "maximize"
+    tags: ["operational", "efficiency"]
+  - name: "LRPM"
+    column: "LRPM"
+    type: "derived"
+    depends_on: ["Revenue xFuel", "Loaded Miles"]
+    format: "currency"
+    optimization: "maximize"
+    tags: ["operational", "efficiency"]
+  - name: "deadhead_pct"
+    column: "deadhead_pct"
+    type: "derived"
+    depends_on: ["total_miles", "Loaded Miles"]
+    format: "percent"
+    optimization: "minimize"
+    tags: ["operational", "efficiency"]
+
+dimensions:
+  - name: "calendar_date"
+    column: "cal_dt"
+    role: "time"
+    description: "Calendar date for the metric period"
+  - name: "lob"
+    column: "lob"
+    role: "primary"
+    description: "Line of Business (e.g., Line Haul, Dedicated, Intermodal)"
+  - name: "region"
+    column: "region"
+    role: "secondary"
+    description: "Geographic region (e.g., West, Central, East)"
+  - name: "terminal"
+    column: "terminal"
+    role: "secondary"
+    description: "Terminal / Division name (physical location)"
+  - name: "driver_leader"
+    column: "driver_leader"
+    role: "secondary"
+    description: "Driver leader / manager code"
+  - name: "fleet_leader"
+    column: "fleet_leader"
+    role: "secondary"
+    description: "Fleet leader / manager code"
+  - name: "dimension_value"
+    column: "dimension_value"
+    role: "secondary"
+    description: "ICC cost center code"
+  - name: "division_code"
+    column: "division_code"
+    role: "secondary"
+    description: "GL division code"
+
+cross_dimensions:
+  - name: "fleet_leader"
+    apply_at_levels: [1, 2]
+    min_sample_size: 5
+    max_cardinality: 50
+  - name: "division_code"
+    apply_at_levels: [1, 2]
+    min_sample_size: 5
+    max_cardinality: 30
+
+hierarchies:
+  - name: "regional_structure"
+    description: "Regional drill-down: LOB -> Region -> Terminal -> Driver Leader"
+    children: ["lob", "region", "terminal", "driver_leader"]
+    level_names:
+      0: "Total"
+      1: "Line of Business"
+      2: "Region"
+      3: "Terminal"
+      4: "Driver Leader"
+  - name: "operational_structure"
+    description: "Primary drill-down: LOB -> Terminal -> Driver Leader"
+    children: ["lob", "terminal", "driver_leader"]
+    level_names:
+      0: "Total"
+      1: "Line of Business"
+      2: "Terminal"
+      3: "Driver Leader"
+  - name: "fleet_structure"
+    description: "Fleet-based drill-down: LOB -> Terminal -> Fleet Leader"
+    children: ["lob", "terminal", "fleet_leader"]
+    level_names:
+      0: "Total"
+      1: "Line of Business"
+      2: "Terminal"
+      3: "Fleet Leader"
+  - name: "legacy_structure"
+    description: "Legacy cost center drill-down"
+    children: ["division_code", "dimension_value"]
+    level_names:
+      0: "Total"
+      1: "Division"
+      2: "Cost Center"
+
+policies:
+  degradation_threshold: 0.10
+  item_classification:
+    company_drivers:
+      values: ["Company"]
+    owner_operators:
+      values: ["Owner Operator"]

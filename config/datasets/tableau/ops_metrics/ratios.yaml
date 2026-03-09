@@ -1,0 +1,87 @@
+# Ops Metrics Ratio Definitions for Miles/Truck Utilization Deep-Dive
+# Used by statistical analysis and hierarchy ranking agents for operational KPIs.
+# v2.1.0: Fixed sql_table and empty_miles references (spec 010-a2a-integration-cleanup).
+#         empty_trf_mi does not exist; empty miles = ttl_trf_mi - ld_trf_mi.
+
+data_source: tableau_ops_metrics_ds_agent
+primary_metric: miles_per_truck
+
+metrics:
+  miles_per_truck:
+    label: "Miles/Truck/Month"
+    formula: "loaded_miles / truck_count"
+    columns: { numerator: ld_trf_mi, denominator: truck_count }
+    direction: higher_is_better
+    thresholds:
+      degradation_pct: 5.0
+      high_severity_pct: 10.0
+    tolerance: 0.05
+
+  # Supporting metrics for drill-down context
+  loaded_miles:
+    label: "Loaded Miles"
+    column: ld_trf_mi
+    aggregation: sum
+    tolerance: 0.01
+  total_miles:
+    label: "Total Miles"
+    column: ttl_trf_mi
+    aggregation: sum
+    tolerance: 0.01
+  empty_miles:
+    label: "Empty Miles"
+    # empty_trf_mi does not exist as a physical column; compute in SQL:
+    #   SUM("ttl_trf_mi") - SUM("ld_trf_mi")
+    derived: true
+    formula: "ttl_trf_mi - ld_trf_mi"
+    columns: { total: ttl_trf_mi, loaded: ld_trf_mi }
+    aggregation: sum
+  truck_count:
+    label: "Truck Count"
+    column: truck_count
+    aggregation: avg
+    tolerance: 0.05
+  deadhead_pct:
+    label: "Deadhead %"
+    # Confirmed formula (spec 009): (ttl_trf_mi - ld_trf_mi) / ttl_trf_mi * 100
+    formula: "(ttl_trf_mi - ld_trf_mi) / ttl_trf_mi * 100"
+    columns: { total: ttl_trf_mi, loaded: ld_trf_mi }
+    direction: lower_is_better
+    thresholds: { degradation_pct: 2.0, high_severity_pct: 5.0 }
+    tolerance: 0.02
+  lrpm:
+    label: "LRPM"
+    # Confirmed formula (spec 009): (ttl_rev_amt - fuel_srchrg_rev_amt) / ld_trf_mi
+    formula: "(total_revenue - fuel_surcharge) / loaded_miles"
+    columns: { revenue: ttl_rev_amt, fuel: fuel_srchrg_rev_amt, miles: ld_trf_mi }
+    direction: higher_is_better
+    thresholds: { degradation_pct: 3.0, high_severity_pct: 7.0 }
+    tolerance: 0.02
+  orders_per_truck:
+    label: "Orders/Truck"
+    formula: "orders / truck_count"
+    columns: { numerator: ordr_cnt, denominator: truck_count }
+    direction: higher_is_better
+    tolerance: 0.05
+  total_revenue:
+    label: "Total Revenue"
+    column: ttl_rev_amt
+  fuel_surcharge:
+    label: "Fuel Surcharge"
+    column: fuel_srchrg_rev_amt
+  order_count:
+    label: "Order Count"
+    column: ordr_cnt
+
+hierarchy:
+  level_2: ops_ln_of_bus_ref_nm  # Line of Business (Line Haul, Dedicated, etc.)
+  level_3: gl_div_nm             # Terminal / Division
+  level_4: drvr_mgr_cd           # Driver Leader
+
+outlier_detection:
+  method: stdev
+  threshold: 1.5
+
+sql_table: '"Extract"."Extract"'
+date_column: cal_dt
+location_column: gl_div_nm

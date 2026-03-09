@@ -48,6 +48,7 @@ hyperd.log
 # Outputs and generated files
 outputs/
 data/output/
+results/
 
 # Deployment artifacts
 .gcloudignore
@@ -61,9 +62,27 @@ temp_extracted/
 **/temp_extracted/
 *.hyper
 
+# Tableau packaged data sources (large binaries, stored locally only)
+# Now stored within config/datasets/ folder
+*.tdsx
+
+# Legacy data folders (no longer used for datasets)
+# data/tableau/
+
 # Test data (if needed, remove this line)
 # data/
 
 # Archive folder (optional - remove if you want to commit it)
 # archive/
+
+# Testing and Cache
+.pytest_cache/
+
+# Local backups and temporary scripts
+*.a2a_backup
+scripts/_*.py
+scripts/*.json
+
+# Data files
+config/datasets/**/*.csv
 

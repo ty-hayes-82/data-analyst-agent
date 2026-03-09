@@ -1,162 +1,172 @@
 # Agent Model Configuration
-# Defines which models to use for different agents
+#
+# Tiers and per-agent assignments. Benchmarked 2026-02-20 via Vertex AI (vertex-ai-bi-testing).
+# All decisions evidence-backed — see specs/012-optimal-model-selection/ and results/.
+#
+# Quick reference:
+#   lite     gemini-3-flash-preview  no thinking  — ultra-fast for simple tasks
+#   ultra    gemini-2.5-flash-lite   no thinking  — ultra-fast fallback
+#   fast     gemini-3-flash-preview  default      — analytical agents needing evidence
+#   standard gemini-3-flash-preview  none         — standard production model
+#   advanced gemini-3-flash-preview  high         — complex reasoning with thinking
+#   pro      gemini-3.1-pro          high         — final analysis and complex synthesis
 
 default_tier: "standard"
 
 model_tiers:
+  lite:
+    model: "gemini-3-flash-preview"
+    thinking_level: "none"
+    description: "Gemini 3 Flash — ultra-fast for simple tasks"
+
   ultra:
-    model: "gemini-2.0-flash-lite"
-    description: "Ultra-fast, lightweight model for simple operations"
-  
-  fast:
     model: "gemini-2.5-flash-lite"
-    description: "Fast, efficient model for simple tasks"
+    thinking_level: "none"
+    description: "Gemini 2.5 Flash Lite — ultra-fast fallback"
+
+  flash_2_5:
+    model: "gemini-2.5-flash"
+    thinking_level: "none"
+    description: "Gemini 2.5 Flash — no thinking"
+
+  flash_2_5_thinking:
+    model: "gemini-2.5-flash"
+    thinking_budget: 8192
+    description: "Gemini 2.5 Flash — with thinking budget"
+
+  fast:
+    model: "gemini-3-flash-preview"
+    thinking_level: "medium"
+    description: "Gemini 3 Flash — default thinking for analytical tasks"
   
   standard:
-    model: "gemini-2.5-flash"
-    description: "Balanced model for general use"
+    model: "gemini-3-flash-preview"
+    thinking_level: "none"
+    description: "Gemini 3 Flash (No Thinking) — best standard model for production"
   
   advanced:
-    model: "gemini-2.5-pro"
-    description: "High-capability model for complex reasoning"
+    model: "gemini-3-flash-preview"
+    thinking_level: "high"
+    thinking_budget: 16000
+    description: "Gemini 3 Flash (Thinking) — high-quality reasoning"
+
+  pro:
+    model: "gemini-3.1-pro-preview"
+    thinking_level: "high"
+    description: "Gemini 3.1 Pro — highest quality for final analysis"
 
 agents:
-  # Core P&L Analyst Agents
-  data_validation_agent:
-    tier: "ultra"
-    description: "Data validation gateway (includes data cleaning and invalid period filtering)"
-  
-  # Analysis Sub-Agents (run in parallel - consolidated from 10 to 6 agents)
+  # --- Extractors: lite — CONFIRMED (Phase 2b, 100% pass, 38-60% faster than flash) ---
+  request_analyzer:
+    tier: "lite"
+    description: "Analyzes user request — schema-constrained, no thinking needed"
+
+  dimension_extractor:
+    tier: "lite"
+    description: "Extracts dimension values — schema-constrained slot-filling"
+
+  # --- Narrative: advanced — CONFIRMED (Phase 3+, 14.5s/4 cards vs fast 18s/2 cards) ---
+  narrative_agent:
+    tier: "advanced"
+    description: "Evaluates insight cards, writes per-metric narrative with causal and statistical evidence"
+
   statistical_insights_agent:
-    tier: "fast"
-    description: "Stats-first analysis with business insights"
-  
-  # Hierarchical Drill-Down Agents
-  data_analyst_agent:
     tier: "standard"
-    description: "Hierarchical drill-down orchestrator (Level 2→3→4)"
-  
-  drill_down_decision_agent:
+    description: "Stats-first analysis (fallback only; replaced by StatisticalInsightCardGenerator when USE_CODE_INSIGHTS=true)"
+
+  hierarchical_analysis_agent:
+    tier: "fast"
+    description: "Hierarchical drill-down orchestrator (Level 2->3->4)"
+
+  hierarchy_variance_agent:
     tier: "standard"
-    description: "LLM-driven drill-down decision maker based on materiality"
-  
-  hierarchy_variance_ranker_agent:
-    tier: "fast"
-    description: "Aggregates and ranks items by hierarchy level"
-  
-  statistical_analysis_agent:
-    tier: "fast"
-    description: "Comprehensive statistics (descriptive stats, variances, period comparisons)"
-  
-  anomaly_detection_agent:
-    tier: "standard"
-    description: "Multi-method anomaly detection (change points, drift, timing swings)"
-  
-  forecasting_agent:
-    tier: "fast"
-    description: "Time series forecasting (baseline and future predictions)"
-  
+    description: "Aggregates and ranks items by hierarchy level (fallback only; replaced by code-based ranker when USE_CODE_INSIGHTS=true)"
+
   seasonal_baseline_agent:
-    tier: "standard"
-    description: "Creates seasonal baselines"
-  
-  ratio_analysis_agent:
     tier: "fast"
-    description: "Performs ratio analysis"
-  
-  visualization_agent:
-    tier: "fast"
-    description: "Creates visualizations"
-  
-  synthesis_agent:
-    tier: "standard"
-    description: "Synthesizes results from all parallel analysis agents"
-  
+    description: "Creates seasonal baselines from STL decomposition"
+
   report_synthesis_agent:
     tier: "standard"
-    description: "Report synthesis from structured insight report (3-level framework)"
-  
-  report_report_synthesis_agent:
-    tier: "standard"
-    description: "Report synthesis from structured insight report (3-level framework)"
-  
-  output_persistence_agent:
-    tier: "ultra"
-    description: "Saves complete analysis to JSON files"
-  
-  testing_data_agent:
-    tier: "ultra"
-    description: "Testing data loader (CSV) for test mode"
-  
-  # Alert and Scoring Agents
+    description: "Report synthesis from structured insight report — gemini-3-flash-preview (no thinking)"
+
   alert_scoring_coordinator:
-    tier: "standard"
-    description: "Complete alert lifecycle manager (extraction, suppression, scoring, prioritization, feedback learning)"
-  
-  # Jira Agents (a2a - not modified per user request)
+    tier: "fast"
+    description: "Complete alert lifecycle manager (extraction, suppression, scoring, prioritization)"
+
+  # --- Executive Brief: pro — CONFIRMED (Phase 4+, 12.1s, richer specifics than standard 17.8s) ---
+  executive_brief_agent:
+    tier: "pro"
+    description: "Cross-metric synthesis executive brief — final analysis tier"
+
+  # --- Code-backed / file I/O agents: lite ---
+  output_persistence_agent:
+    tier: "lite"
+    description: "Saves complete analysis to JSON files (file I/O, no reasoning)"
+
+  testing_data_agent:
+    tier: "lite"
+    description: "Testing data loader (CSV) — code-backed, no LLM reasoning"
+
+  cost_center_iterator:
+    tier: "lite"
+    description: "Iterates through cost centers for individual analysis — code-backed orchestration"
+    cost_centers: "${cost_centers}"
+
+  # --- Jira Agents ---
   jira_agent:
     tier: "fast"
     description: "Main Jira orchestrator agent"
-  
+
   jira_analytics_agent:
     tier: "fast"
     description: "Analytics, summaries, counts, and rankings"
-  
+
   jira_issues_agent:
-    tier: "ultra"
+    tier: "lite"
     description: "Single-issue details, comments, and attachments"
-  
+
   jira_query_agent:
     tier: "fast"
     description: "Fetches sets of tickets via JQL or criteria"
-  
+
   jira_users_agent:
     tier: "fast"
     description: "User discovery and fuzzy lookup"
-  
+
   jira_health_agent:
-    tier: "ultra"
+    tier: "lite"
     description: "Readiness, health, and observability checks"
-  
+
   jira_learning_agent:
     tier: "fast"
     description: "Learning and memory agent"
-  
+
   attachment_analyzer_agent:
     tier: "fast"
     description: "Attachment analysis with vision capabilities"
-  
+
   browser_updater_agent:
     tier: "fast"
     description: "Browser-based Jira ticket updater with automation"
-  
+
   project_manager_agent:
     tier: "fast"
     description: "Intelligent project management analysis and recommendations"
 
-  cost_center_iterator:
-    tier: "ultra"
-    description: "Iterates through cost centers for individual analysis"
-    cost_centers: "${cost_centers}"
-  
-  # Main P&L Analyst Workflow Agents
-  request_analyzer:
-    tier: "standard"
-    description: "Analyzes user request to determine GL accounts and analysis type"
-  
+  # --- P&L Analyst Agents ---
   cost_center_extractor:
-    tier: "standard"
+    tier: "lite"
     description: "Extracts cost center numbers from user request"
-  
-  financial_data_agent:
-    tier: "standard"
-    description: "Requests P&L data from Account Research DS"
-  
-  ops_metrics_data_agent:
-    tier: "standard"
-    description: "Requests monthly operational metrics from Ops Metrics DS"
-  
-  order_details_data_agent:
-    tier: "standard"
-    description: "Requests order-level detail for contract validation"
 
+  financial_data_agent:
+    tier: "fast"
+    description: "Requests P&L data from Account Research DS"
+
+  ops_metrics_data_agent:
+    tier: "fast"
+    description: "Requests monthly operational metrics from Ops Metrics DS"
+
+  order_details_data_agent:
+    tier: "fast"
+    description: "Requests order-level detail for contract validation"

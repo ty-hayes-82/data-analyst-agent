@@ -1,0 +1,180 @@
+# Optimal Model Configuration — CONFIRMED
+#
+# All tiers benchmarked via Vertex AI (service account: vertex-ai-bi-testing, location=global).
+# Evidence in results/benchmark_extractors/, results/benchmark_narrative/, results/benchmark_executive/
+#
+# Key decisions (2026-02-20):
+#   Extractors    : lite  (flash-lite)      — PASS 100%, RA 1.7s / DE 0.5s. 38-60% faster than ultra/flash.
+#   Narrative     : gemini3_flash           — PASS 100%, 14.5s, 4 cards (vs fast=18s/2 cards). Adds causal analysis.
+#   Executive     : gemini3_flash           — PASS 100%, 12.1s, 6/6 fields. More specific than standard (17.8s).
+#   Analytical    : fast  (budget=1024)     — Proven tier for seasonal/hierarchy/synthesis (gemini3 not yet benchmarked for these).
+#   Code-backed   : lite  (flash-lite)      — No LLM reasoning, fastest model is fine.
+#   gemini3_pro   : not selected            — Slower with no quality gain over gemini3_flash for tested tasks.
+#
+# Model availability (vertex-ai-bi-testing project, 2026-02-20):
+#   gemini-2.5-flash-lite  gemini-2.5-flash  gemini-2.5-pro
+#   gemini-3-flash-preview  gemini-3-pro-preview  gemini-3.1-pro-preview
+
+default_tier: "standard"
+
+model_tiers:
+  lite:
+    model: "gemini-2.5-flash-lite"
+    thinking_level: "none"
+    description: "Lightest model — ultra-fast for simple structured tasks (no thinking support)"
+
+  ultra:
+    model: "gemini-2.5-flash"
+    thinking_level: "minimal"
+    thinking_budget: 0
+    description: "Flash with thinking disabled — kept for reference; superseded by lite for most tasks"
+  
+  fast:
+    model: "gemini-2.5-flash"
+    thinking_level: "low"
+    thinking_budget: 1024
+    description: "Flash with minimal thinking budget — analytical tasks requiring statistical evidence"
+  
+  standard:
+    model: "gemini-2.5-flash"
+    thinking_level: "medium"
+    description: "Flash default thinking — cross-metric synthesis and executive reasoning"
+  
+  advanced:
+    model: "gemini-2.5-flash"
+    thinking_level: "high"
+    thinking_budget: 16000
+    description: "Flash high thinking — kept for reference; not optimal for any current agent"
+
+  pro:
+    model: "gemini-2.5-pro"
+    thinking_level: "high"
+    description: "Highest-quality reasoning — tested, slower and shorter than standard for executive brief"
+
+  # --- Gemini 3 tiers (available on vertex-ai-bi-testing, added 2026-02-20) ---
+  gemini3_flash:
+    model: "gemini-3-flash-preview"
+    thinking_budget: 8000
+    description: "Gemini 3 Flash -- next-gen flash, benchmarking in progress"
+
+  gemini3_pro:
+    model: "gemini-3.1-pro-preview"
+    thinking_level: "high"
+    description: "Gemini 3.1 Pro -- next-gen pro, highest quality available"
+
+agents:
+  # --- Extractors: CONFIRMED lite (Phase 2b, 100% pass) ---
+  request_analyzer:
+    tier: "lite"                  # CONFIRMED: 1.7s, PASS 100%. 38% faster than ultra (2.8s).
+    description: "Analyzes user request — schema-constrained, no thinking needed"
+
+  dimension_extractor:
+    tier: "lite"                  # CONFIRMED: 0.5s, PASS 100%. 60% faster than ultra (1.2s).
+    description: "Extracts dimension values — schema-constrained slot-filling"
+
+  # --- Narrative: CONFIRMED gemini3_flash ---
+  narrative_agent:
+    tier: "gemini3_flash"         # CONFIRMED: 14.5s, 4 cards, causal analysis. fast=18s/2 cards. gemini3_flash is faster AND richer.
+    description: "Evaluates insight cards, writes per-metric narrative with causal and statistical evidence"
+
+  statistical_insights_agent:
+    tier: "lite"                  # Replaced by USE_CODE_INSIGHTS=true in production; tier is fallback only
+    description: "Stats-first analysis (fallback only; replaced by StatisticalInsightCardGenerator)"
+  
+  hierarchical_analysis_agent:
+    tier: "fast"                  # Complex hierarchy orchestration — needs some thinking
+    description: "Hierarchical drill-down orchestrator"
+  
+  hierarchy_variance_agent:
+    tier: "lite"                  # Replaced by code-based ranker when USE_CODE_INSIGHTS=true
+    description: "Aggregates and ranks items by hierarchy level (fallback only)"
+  
+  seasonal_baseline_agent:
+    tier: "fast"                  # STL interpretation — fast budget is appropriate
+    description: "Creates seasonal baselines from STL decomposition"
+  
+  report_synthesis_agent:
+    tier: "fast"                  # Produces user-facing text — fast provides coherent formatting
+    description: "Report synthesis from structured insight report"
+  
+  alert_scoring_coordinator:
+    tier: "fast"                  # Alert pattern analysis — fast budget is appropriate
+    description: "Alert lifecycle: extraction, suppression, scoring, prioritization"
+
+  # --- Executive Brief: CONFIRMED gemini3_flash ---
+  executive_brief_agent:
+    tier: "gemini3_flash"         # CONFIRMED: 12.1s, 6/6 fields, richer specifics (identifies rate acceleration, anchors).
+                                  # standard=17.8s/279w. gemini3_flash: faster + more actionable insights.
+    description: "Cross-metric synthesis executive brief"
+
+  # --- Code-backed / file I/O agents: lite ---
+  output_persistence_agent:
+    tier: "lite"
+    description: "Saves complete analysis to JSON files (file I/O, no reasoning)"
+  
+  testing_data_agent:
+    tier: "lite"
+    description: "Testing data loader (CSV) — code-backed, no LLM reasoning"
+
+  cost_center_iterator:
+    tier: "lite"
+    description: "Iterates through cost centers — code-backed orchestration"
+    cost_centers: "${cost_centers}"
+
+  # --- Jira agents ---
+  jira_agent:
+    tier: "fast"
+    description: "Main Jira orchestrator"
+  
+  jira_analytics_agent:
+    tier: "fast"
+    description: "Analytics, summaries, counts, rankings"
+  
+  jira_issues_agent:
+    tier: "lite"
+    description: "Single-issue details, comments, attachments"
+  
+  jira_query_agent:
+    tier: "fast"
+    description: "Fetches sets of tickets via JQL"
+  
+  jira_users_agent:
+    tier: "fast"
+    description: "User discovery and fuzzy lookup"
+  
+  jira_health_agent:
+    tier: "lite"
+    description: "Readiness, health, and observability checks"
+  
+  jira_learning_agent:
+    tier: "fast"
+    description: "Learning and memory agent"
+  
+  attachment_analyzer_agent:
+    tier: "fast"
+    description: "Attachment analysis with vision capabilities"
+  
+  browser_updater_agent:
+    tier: "fast"
+    description: "Browser-based Jira ticket updater"
+  
+  project_manager_agent:
+    tier: "fast"
+    description: "Project management analysis and recommendations"
+
+  # --- P&L Analyst agents ---
+  cost_center_extractor:
+    tier: "lite"
+    description: "Extracts cost center numbers from user request"
+  
+  financial_data_agent:
+    tier: "fast"
+    description: "Requests P&L data from Account Research DS"
+  
+  ops_metrics_data_agent:
+    tier: "fast"
+    description: "Requests monthly operational metrics from Ops Metrics DS"
+  
+  order_details_data_agent:
+    tier: "fast"
+    description: "Requests order-level detail for contract validation"

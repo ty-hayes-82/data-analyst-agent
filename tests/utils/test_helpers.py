@@ -1,5 +1,5 @@
 """
-Test helper utilities for P&L Analyst Agent testing.
+Test helper utilities for Data Analyst Agent testing.
 
 Provides common functions for:
 - Mock data generation
@@ -50,7 +50,7 @@ def generate_mock_pl_data(
                 "period": period,
                 "gl_account": gl,
                 "amount": float(amount),
-                "cost_center": cost_center
+                "dimension_value": cost_center
             })
 
     return pd.DataFrame(data)
@@ -80,7 +80,7 @@ def generate_mock_ops_metrics(
             "miles": float(np.random.randint(80000, 120000)),
             "stops": float(np.random.randint(2000, 4000)),
             "loads": float(np.random.randint(1500, 3500)),
-            "cost_center": cost_center
+            "dimension_value": cost_center
         })
 
     return pd.DataFrame(data)
@@ -300,10 +300,10 @@ def create_mock_session_state(
     start_date = end_date - timedelta(days=730)
 
     state = {
-        "cost_center": cost_center,
+        "dimension_value": cost_center,
         "current_cost_center": cost_center,
-        "pl_query_start_date": start_date.strftime("%Y-%m"),
-        "pl_query_end_date": end_date.strftime("%Y-%m"),
+        "primary_query_start_date": start_date.strftime("%Y-%m"),
+        "primary_query_end_date": end_date.strftime("%Y-%m"),
         "current_level": 2,
     }
 
@@ -311,8 +311,8 @@ def create_mock_session_state(
         pl_df = generate_mock_pl_data(cost_center)
         ops_df = generate_mock_ops_metrics(cost_center)
 
-        state["pl_data_csv"] = pl_df.to_csv(index=False)
-        state["ops_metrics_csv"] = ops_df.to_csv(index=False)
+        state["primary_data_csv"] = pl_df.to_csv(index=False)
+        state["supplementary_data_csv"] = ops_df.to_csv(index=False)
 
     return state
 

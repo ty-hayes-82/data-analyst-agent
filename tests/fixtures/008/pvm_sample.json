@@ -1,0 +1,33 @@
+{
+  "target_metric": "amount",
+  "dimension": "terminal",
+  "current_period": "2025-08",
+  "prior_period": "2024-08",
+  "total_volume_impact": -62000.0,
+  "total_price_impact": -125500.0,
+  "total_variance": -187500.0,
+  "top_drivers": [
+    {
+      "item": "TERM-A",
+      "total_variance": -110000.0,
+      "volume_impact": -38000.0,
+      "price_impact": -72000.0,
+      "residual": 0.0,
+      "curr_vol": 1850.0,
+      "prior_vol": 2100.0,
+      "curr_price": 227.03,
+      "prior_price": 147.62
+    },
+    {
+      "item": "TERM-B",
+      "total_variance": -50000.0,
+      "volume_impact": -18000.0,
+      "price_impact": -32000.0,
+      "residual": 0.0,
+      "curr_vol": 920.0,
+      "prior_vol": 1040.0,
+      "curr_price": 211.96,
+      "prior_price": 139.42
+    }
+  ]
+}

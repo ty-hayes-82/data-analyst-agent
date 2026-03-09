@@ -23,6 +23,18 @@ materiality_thresholds:
   # Minimum dollar amount to consider a GL/category material
   min_amount: 10000
 
+# Variance thresholds for specific analysis types
+type_thresholds:
+  revenue_analysis:
+    variance_pct: 3.0       # Revenue is usually more sensitive
+    variance_dollar: 100000
+  expense_analysis:
+    variance_pct: 5.0
+    variance_dollar: 50000
+  operational_analysis:
+    variance_pct: 7.0       # Ops metrics can be more volatile
+    variance_dollar: 0      # Usually use percent for ops
+
 # Per-unit variance thresholds (for operational metrics)
 per_unit_thresholds:
   # Cost per mile variance (±10%)

@@ -1,0 +1,32 @@
+# Ratio metrics for validation_ops: aggregate-then-derive.
+# Metric names (metric_name) must match the "Metric" column in validation data exactly.
+# numerator_metric and denominator_metric are exact metric names from the same source.
+# Period and level totals = sum(numerator) / sum(denominator); do not sum or average the ratio column.
+#
+# Resolving columns: when loading data, use metric_filter=[numerator_metric, denominator_metric]
+# to get two series; pivot to (grain, period) and compute ratio per period/level.
+
+# Minimum share of network denominator for a terminal-period to be material.
+# Terminal-periods below this share of the network total (for that period)
+# are excluded from per-terminal stats, averages, and anomaly detection.
+materiality_min_share: 0.005
+
+ratio_metrics:
+  - metric_name: "Rev/Trk/Wk"
+    numerator_metric: "Revenue xFuel"
+    denominator_metric: "Truck Count"
+  - metric_name: "LRPM"
+    numerator_metric: "Revenue xFuel"
+    denominator_metric: "Loaded Miles"
+  - metric_name: "TRPM"
+    numerator_metric: "Revenue xFuel"
+    denominator_metric: "Total Miles"
+  - metric_name: "Total Miles/Trk/Wk"
+    numerator_metric: "Total Miles"
+    denominator_metric: "Truck Count"
+  # Deadhead % = 100 * (Total Miles - Loaded Miles) / Total Miles; requires derived numerator
+  # Add when we support formula-based ratio (empty_miles = total_miles - loaded_miles)
+  # - metric_name: "Deadhead %"
+  #   numerator_metric: "Empty Miles"
+  #   denominator_metric: "Total Miles"
+  #   formula: "100 * numerator / denominator"

@@ -1,0 +1,87 @@
+name: "Validation Ops"
+version: "1.0.0"
+display_name: "Validation Operations Metrics"
+target_label: "Metric"
+description: >
+  Weekly operational KPIs for ~60 terminals across multiple regions.
+  Sourced from data/validation_data.csv (wide-format TSV, transformed to long format
+  by the ValidationDataLoader). Covers truck counts, revenue/truck, miles, LRPM,
+  turnover, and safety metrics at weekly grain.
+
+materiality:
+  variance_pct: 10.0
+  variance_absolute: 100
+
+presentation:
+  unit: "mixed"
+
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 1
+  max_scope_entities: 10
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/validation_data.csv"
+
+time:
+  column: "week_ending"
+  frequency: "weekly"
+  format: "%Y-%m-%d"
+  range_months: 15
+
+grain:
+  columns: ["week_ending", "terminal"]
+
+metrics:
+  - name: "value"
+    column: "value"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "generic"]
+    description: >
+      Generic numeric value for the selected metric. Filter rows by the 'metric'
+      dimension to isolate a specific KPI (e.g. Truck Count, Rev/Trk/Wk, LRPM).
+
+dimensions:
+  - name: "terminal"
+    column: "terminal"
+    role: "primary"
+    description: "Terminal / physical location name (e.g. Albuquerque, Troutdale)"
+  - name: "region"
+    column: "region"
+    role: "secondary"
+    description: "Geographic region containing the terminal (e.g. Central, West)"
+  - name: "metric"
+    column: "metric"
+    role: "secondary"
+    description: >
+      KPI name as it appears in the source data (e.g. Truck Count, Rev/Trk/Wk,
+      LRPM, Turnover %, DOT CPMM). Filter to a specific value before analysis
+      to ensure all rows measure the same thing.
+  - name: "week_ending"
+    column: "week_ending"
+    role: "time"
+    description: "Week-ending date (Saturday) for the reporting period"
+
+hierarchies:
+  - name: "operational_structure"
+    description: "Geographic drill-down: Region -> Terminal"
+    children: ["region", "terminal"]
+    level_names:
+      0: "Total"
+      1: "Region"
+      2: "Terminal"
+
+capabilities:
+  - "weekly trend analysis across terminals"
+  - "cross-terminal performance comparison"
+  - "regional aggregation and drill-down"
+  - "metric-specific filtering (Truck Count, Revenue, Miles, LRPM, Turnover)"
+  - "anomaly and change-point detection in weekly KPIs"
+  - "partial-week handling for latest reporting period"
+
+policies:
+  degradation_threshold: 0.15

@@ -1,0 +1,62 @@
+source:
+  type: "tableau_hyper"
+  format: "long"
+
+hyper:
+  tdsx_file: "Account Research DS.tdsx"
+  tdsx_path: "."
+  default_table: "Extract.Extract"
+  extract_dir: "temp_extracted/account_research"
+
+filter_columns:
+  lob: "LOB"
+  lob_name: "gl_ln_of_bus_nm"
+  year: "THYEAR"
+  month: "THMNTH"
+  cost_center: "GL_CC"
+  division: "DIV"
+  account_number: "Account Nbr"
+
+aggregation:
+  period_type: "month_end"
+  year_column: "THYEAR"
+  month_column: "THMNTH"
+  period_alias: "period_end_date"
+
+  group_by_columns:
+    - "THYEAR"
+    - "THMNTH"
+    - "CMPNY"
+    - "DIV"
+    - "gl_div_nm"
+    - "GL_CC"
+    - "gl_cst_ctr_nm"
+    - "LOB"
+    - "gl_ln_of_bus_nm"
+    - "Account Nbr"
+    - "CTDESC"
+
+  sum_columns:
+    - "TXFAMT"
+
+column_mapping:
+  period_end_date: "period"
+  DIV: "division"
+  GL_CC: "dimension_value"
+  LOB: "line_of_business"
+  "Account Nbr": "gl_account"
+  TXFAMT: "amount"
+
+date_parsing:
+  source_column: "period"
+  input_format: "%Y-%m-%d"
+  output_column: "period"
+  output_format: "%Y-%m"
+
+output_columns:
+  - "division"
+  - "dimension_value"
+  - "line_of_business"
+  - "gl_account"
+  - "period"
+  - "amount"

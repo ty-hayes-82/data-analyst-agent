@@ -1,0 +1,118 @@
+{
+  "_description": "Pre-computed analysis inputs for narrative_agent benchmark. Represents a realistic Albuquerque Truck Count analysis over 26 weeks.",
+
+  "statistical_summary": {
+    "metric": "Truck Count",
+    "dimension_value": "Albuquerque",
+    "period": "2025-08-02 to 2026-02-15",
+    "total_weeks": 26,
+    "current_value": 28.0,
+    "prior_week_value": 31.0,
+    "wow_change": -3.0,
+    "wow_change_pct": -9.68,
+    "yoy_change": -5.0,
+    "yoy_change_pct": -15.15,
+    "mean": 32.4,
+    "median": 33.0,
+    "std_dev": 3.8,
+    "min": 24.0,
+    "max": 40.0,
+    "trend_direction": "declining",
+    "trend_slope": -0.31,
+    "trend_r_squared": 0.74,
+    "anomalies": [
+      {
+        "week_ending": "2025-12-27",
+        "value": 24.0,
+        "z_score": -2.21,
+        "type": "low_outlier",
+        "note": "Holiday week — expected seasonal low"
+      },
+      {
+        "week_ending": "2026-01-04",
+        "value": 39.0,
+        "z_score": 1.74,
+        "type": "high_outlier",
+        "note": "Post-holiday recovery spike"
+      }
+    ],
+    "change_points": [
+      {
+        "week_ending": "2025-11-01",
+        "type": "level_shift",
+        "before_mean": 35.2,
+        "after_mean": 30.1,
+        "magnitude": -5.1,
+        "magnitude_pct": -14.5
+      }
+    ],
+    "correlations": {
+      "Revenue/Trk/Wk": 0.82,
+      "Loaded Miles/Trk/Wk": 0.76,
+      "Turnover %": -0.44
+    }
+  },
+
+  "data_analyst_result": {
+    "level_results": {
+      "level_0": {
+        "insight_cards": [
+          {
+            "title": "Albuquerque Truck Count in Sustained Decline",
+            "what_changed": "Truck Count fell from 35 to 28 over 26 weeks (-20%). Most recent week: 28, down 3 WoW (-9.7%).",
+            "why": "A level shift detected around Nov 1, 2025 dropped the mean from 35.2 to 30.1. Turnover correlation (-0.44) suggests driver attrition may be a contributing factor.",
+            "evidence": {
+              "trend_slope": -0.31,
+              "trend_r_squared": 0.74,
+              "change_point_date": "2025-11-01",
+              "change_point_magnitude_pct": -14.5,
+              "materiality_weight": 0.68,
+              "impact_score": 0.61
+            },
+            "priority": "high",
+            "root_cause": "volume",
+            "tags": ["trend", "change_point", "wow", "yoy"]
+          },
+          {
+            "title": "Post-Holiday Recovery Did Not Sustain",
+            "what_changed": "After a post-holiday spike to 39 trucks (Jan 4), count dropped back to 28 by Feb 15 — below the Nov shift baseline.",
+            "why": "The Jan 4 outlier appears to be a one-time recovery. The downward trend resumed immediately after, suggesting structural capacity reduction rather than seasonal effect.",
+            "evidence": {
+              "holiday_week_value": 24.0,
+              "recovery_spike_value": 39.0,
+              "current_value": 28.0,
+              "materiality_weight": 0.68,
+              "impact_score": 0.44
+            },
+            "priority": "medium",
+            "root_cause": "one-time",
+            "tags": ["anomaly", "seasonality", "trend"]
+          }
+        ],
+        "top_items": [
+          {"item": "Albuquerque", "variance_dollar": -5.0, "variance_pct": -15.15, "materiality": "HIGH"}
+        ],
+        "total_variance_dollar": -5.0,
+        "variance_explained_pct": 100.0
+      }
+    }
+  },
+
+  "seasonal_baseline_result": {
+    "available": true,
+    "method": "STL",
+    "seasonal_component_strength": 0.38,
+    "trend_component_strength": 0.74,
+    "adjusted_current": 29.4,
+    "adjusted_prior_week": 32.1,
+    "adjusted_wow_change": -2.7,
+    "adjusted_wow_change_pct": -8.4,
+    "interpretation": "After removing the seasonal pattern (strength=0.38), the trend decline remains significant. The Nov 2025 level shift is not seasonal in origin — it persists in the seasonally-adjusted series.",
+    "holiday_weeks_identified": ["2025-12-27", "2026-01-01"]
+  },
+
+  "analysis_target": "Albuquerque",
+  "metric_name": "Truck Count",
+  "dataset_display_name": "Validation Operations Metrics",
+  "period": "2025-08-02 to 2026-02-15"
+}

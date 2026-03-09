@@ -1,5 +1,5 @@
 """
-Test data loader for P&L Analyst Agent testing.
+Test data loader for Data Analyst Agent testing.
 
 Loads real test data from the PL-067-REVENUE-ONLY.csv file
 and provides utilities for working with it.
@@ -12,7 +12,7 @@ from typing import Dict, Any
 
 
 class TestDataLoader:
-    """Loads and manages test data for P&L Analyst Agent tests."""
+    """Loads and manages test data for Data Analyst Agent tests."""
 
     def __init__(self):
         """Initialize the test data loader."""
@@ -92,7 +92,7 @@ class TestDataLoader:
         df_melted['gl_account'] = df_melted['Account Nbr']
 
         # Add cost_center
-        df_melted['cost_center'] = df_melted['GL_CC'].astype(str)
+        df_melted['dimension_value'] = df_melted['GL_CC'].astype(str)
 
         # Add canonical_category (use level_1)
         df_melted['canonical_category'] = df_melted['level_1']
@@ -102,7 +102,7 @@ class TestDataLoader:
             'period',
             'gl_account',
             'amount',
-            'cost_center',
+            'dimension_value',
             'canonical_category',
             'level_1',
             'level_2',
@@ -155,7 +155,7 @@ class TestDataLoader:
                 'miles': float(np.random.randint(80000, 120000)),
                 'stops': float(np.random.randint(2000, 4000)),
                 'loads': float(np.random.randint(1500, 3500)),
-                'cost_center': '067'
+                'dimension_value': '067'
             })
 
         return pd.DataFrame(data)

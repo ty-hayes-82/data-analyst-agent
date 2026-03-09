@@ -1,0 +1,143 @@
+# Experiment 3a: Downgrade all analytical interpreters to fast.
+# Tests narrative_agent and seasonal_baseline_agent at fast tier.
+# If quality passes, this is the cheapest interpreter configuration.
+#
+# Extractors remain at baseline (standard) to isolate the interpreter variable.
+
+default_tier: "standard"
+
+model_tiers:
+  lite:
+    model: "gemini-2.5-flash-lite"
+    thinking_level: "none"
+    description: "Lightest model -- ultra-fast for simple structured tasks (no thinking support)"
+
+  ultra:
+    model: "gemini-2.5-flash"
+    thinking_level: "minimal"
+    thinking_budget: 0
+    description: "Flash with thinking disabled -- fastest flash option"
+  
+  fast:
+    model: "gemini-2.5-flash"
+    thinking_level: "low"
+    thinking_budget: 1024
+    description: "Flash with minimal thinking budget -- for structured extraction"
+  
+  standard:
+    model: "gemini-2.5-flash"
+    thinking_level: "medium"
+    description: "Flash default thinking -- balanced for general analysis"
+  
+  advanced:
+    model: "gemini-2.5-flash"
+    thinking_level: "high"
+    thinking_budget: 16000
+    description: "Flash with high thinking budget -- for complex synthesis"
+
+  pro:
+    model: "gemini-2.5-pro"
+    thinking_level: "high"
+    description: "Highest-quality reasoning -- for cross-metric synthesis"
+
+  # --- Gemini 3 tiers (available on vertex-ai-bi-testing, added 2026-02-20) ---
+  gemini3_flash:
+    model: "gemini-3-flash-preview"
+    thinking_budget: 8000
+    description: "Gemini 3 Flash -- next-gen flash, benchmarking in progress"
+
+  gemini3_pro:
+    model: "gemini-3.1-pro-preview"
+    thinking_level: "high"
+    description: "Gemini 3.1 Pro -- next-gen pro, highest quality available"
+
+agents:
+  statistical_insights_agent:
+    tier: "fast"
+    description: "Stats-first analysis with business insights"
+  
+  hierarchical_analysis_agent:
+    tier: "standard"
+    description: "Hierarchical drill-down orchestrator"
+  
+  hierarchy_variance_agent:
+    tier: "fast"
+    description: "Aggregates and ranks items by hierarchy level"
+  
+  # --- EXPERIMENT 3a CHANGE: seasonal_baseline downgraded to fast ---
+  seasonal_baseline_agent:
+    tier: "fast"
+    description: "[EXP-3a] Downgraded from standard. STL decomposition result is structured; interpretation may be shallower."
+  
+  # report_synthesis_agent already at fast — confirming it stays acceptable
+  report_synthesis_agent:
+    tier: "fast"
+    description: "Report synthesis — template-driven, fast confirmed acceptable"
+  
+  output_persistence_agent:
+    tier: "ultra"
+    description: "Saves complete analysis to JSON files"
+  
+  testing_data_agent:
+    tier: "ultra"
+    description: "Testing data loader (CSV) for test mode"
+  
+  alert_scoring_coordinator:
+    tier: "standard"
+    description: "Complete alert lifecycle manager"
+  
+  jira_agent:
+    tier: "fast"
+  jira_analytics_agent:
+    tier: "fast"
+  jira_issues_agent:
+    tier: "ultra"
+  jira_query_agent:
+    tier: "fast"
+  jira_users_agent:
+    tier: "fast"
+  jira_health_agent:
+    tier: "ultra"
+  jira_learning_agent:
+    tier: "fast"
+  attachment_analyzer_agent:
+    tier: "fast"
+  browser_updater_agent:
+    tier: "fast"
+  project_manager_agent:
+    tier: "fast"
+
+  # --- EXPERIMENT 3a CHANGE: narrative_agent downgraded to fast ---
+  narrative_agent:
+    tier: "fast"
+    description: "[EXP-3a] Downgraded from standard. Testing whether low thinking produces acceptable insight cards."
+
+  executive_brief_agent:
+    tier: "pro"
+    description: "Cross-metric synthesis — unchanged"
+
+  cost_center_iterator:
+    tier: "ultra"
+    cost_centers: "${cost_centers}"
+  
+  request_analyzer:
+    tier: "standard"
+    description: "Baseline — unchanged"
+  
+  cost_center_extractor:
+    tier: "standard"
+  
+  target_extractor:
+    tier: "standard"
+    description: "Baseline — unchanged"
+  
+  financial_data_agent:
+    tier: "standard"
+  
+  ops_metrics_data_agent:
+    tier: "standard"
+  
+  order_details_data_agent:
+    tier: "standard"
+
+

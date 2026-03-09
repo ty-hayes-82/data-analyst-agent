@@ -1,0 +1,15 @@
+# Agent Dataset Configuration
+# ============================
+# Set active_dataset to the folder name under config/datasets/ that the pipeline
+# should use. This is the single source of truth for dataset selection.
+#
+# Override at runtime without editing this file:
+#   export ACTIVE_DATASET=ops_metrics
+#
+# Available datasets:
+#   account_research  - P&L analysis, GL transactions, cost center drill-down
+#   ops_metrics       - Operational efficiency, miles/truck, fuel, driver KPIs
+#   order_dispatch    - Order-level detail, billing, tolls, entity revenue
+#   validation_ops    - Weekly terminal KPIs from validation_data.csv (TEST MODE only)
+
+active_dataset: ops_metrics

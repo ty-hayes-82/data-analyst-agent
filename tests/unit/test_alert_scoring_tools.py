@@ -21,8 +21,8 @@ def _make_mock_statistical_summary() -> dict:
         "anomalies": [
             {
                 "period": "2025-07",
-                "account": "3100-00",
-                "account_name": "Mileage Revenue",
+                "item": "3100-00",
+                "item_name": "Mileage Revenue",
                 "value": -750000.0,
                 "z_score": 2.8,
                 "avg": -645000.0,
@@ -30,8 +30,8 @@ def _make_mock_statistical_summary() -> dict:
             },
             {
                 "period": "2025-08",
-                "account": "3200-00",
-                "account_name": "Fuel Surcharge Revenue",
+                "item": "3200-00",
+                "item_name": "Fuel Surcharge Revenue",
                 "value": -180000.0,
                 "z_score": 2.3,
                 "avg": -120000.0,
@@ -40,22 +40,22 @@ def _make_mock_statistical_summary() -> dict:
         ],
         "most_volatile": [
             {
-                "account": "3115-00",
-                "account_name": "Load/Unload",
+                "item": "3115-00",
+                "item_name": "Load/Unload",
                 "avg": -15000.0,
                 "std": 12000.0,
                 "cv": 0.8
             },
             {
-                "account": "3120-00",
-                "account_name": "Stop-Offs",
+                "item": "3120-00",
+                "item_name": "Stop-Offs",
                 "avg": -8000.0,
                 "std": 2000.0,
                 "cv": 0.25  # Below threshold, should NOT generate alert
             },
         ],
         "top_drivers": [
-            {"account": "3100-00", "account_name": "Mileage Revenue", "avg": -645000.0, "std": 37500.0, "cv": 0.058}
+            {"item": "3100-00", "item_name": "Mileage Revenue", "avg": -645000.0, "std": 37500.0, "cv": 0.058}
         ],
         "summary_stats": {
             "total_accounts": 10,
@@ -85,7 +85,7 @@ async def test_extract_alerts_structure():
     assert "alerts" in result
     assert "config" in result
     assert "metadata" in result
-    assert result["metadata"]["cost_center"] == "067"
+    assert result["metadata"]["dimension_value"] == "067"
     assert len(result["alerts"]) > 0
 
     print(f"[PASS] Extracted {len(result['alerts'])} alerts")
@@ -113,7 +113,7 @@ async def test_extract_alerts_from_anomalies():
     for alert in anomaly_alerts:
         assert "id" in alert
         assert "period" in alert
-        assert "gl_code" in alert
+        assert "item_id" in alert
         assert "variance_amount" in alert
         assert "variance_pct" in alert
         assert "signals" in alert
@@ -142,9 +142,9 @@ async def test_extract_alerts_volatility_threshold():
 
     # 3115-00 has CV=0.8 (above 0.5 threshold) - should have alert
     # 3120-00 has CV=0.25 (below 0.5 threshold) - should NOT have alert
-    gl_codes_with_vol = [a["gl_code"] for a in vol_alerts]
-    assert "3115-00" in gl_codes_with_vol
-    assert "3120-00" not in gl_codes_with_vol
+    item_ids_with_vol = [a["item_id"] for a in vol_alerts]
+    assert "3115-00" in item_ids_with_vol
+    assert "3120-00" not in item_ids_with_vol
 
     print(f"[PASS] Volatility threshold correctly applied: {len(vol_alerts)} volatility alerts")
 
@@ -184,8 +184,8 @@ async def test_score_alerts_structure():
             {
                 "id": "2025-07-3100-00-anomaly",
                 "period": "2025-07",
-                "gl_code": "3100-00",
-                "cost_center": "067",
+                "item_id": "3100-00",
+                "dimension_value": "067",
                 "category": "financial_variance",
                 "variance_amount": 105000.0,
                 "variance_pct": 16.3,

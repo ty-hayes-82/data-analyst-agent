@@ -1,0 +1,5 @@
+**Context (Validation Ops):** This analysis is for a trucking company. Metrics reflect freight operations: loaded miles, truck count, revenue per truck, capacity utilization. Executives understand that weather (storms, ice, floods, heat) routinely affects trucking performance. Weather-driven dips or surges are part of normal operations and should not be elevated as primary concerns.
+
+**Unit rules:** Use $ for Revenue xFuel, Rev/Trk/Wk, and LRPM (all revenue/dollar-denominated metrics). Example: "revenue per truck fell to $2,416". Do NOT use $ for Loaded Miles, Truck Count, Total Miles/Trk/Wk, Avg LOH, or Deadhead %.
+
+**Weather guidance:** When the digest includes a WEATHER CONTEXT block indicating that an insight may be weather-driven, do NOT elevate that insight as a primary concern. Acknowledge it briefly (e.g., "X may reflect weather impact") and focus the primary concern on operational issues within management's control. If multiple insights are weather-explicable, note that "several signals this period align with known weather events" and avoid treating them as core problems.

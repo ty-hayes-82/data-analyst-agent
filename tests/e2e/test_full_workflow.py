@@ -1,5 +1,5 @@
 """
-End-to-end workflow test for P&L Analyst Agent.
+End-to-end workflow test for Data Analyst Agent.
 
 This test validates the complete analysis workflow from data ingestion
 through final output persistence, testing all 7 agent phases in sequence.
@@ -44,7 +44,7 @@ def test_complete_analysis_workflow_csv_mode(
         monkeypatch: pytest monkeypatch fixture
     """
     # Configure test environment
-    monkeypatch.setenv("PL_ANALYST_TEST_MODE", "true")
+    monkeypatch.setenv("DATA_ANALYST_TEST_MODE", "true")
     monkeypatch.setenv("PHASE_LOGGING_ENABLED", "true")
     monkeypatch.setenv("PHASE_LOG_DIRECTORY", str(temp_output_dir / "logs"))
 
@@ -117,7 +117,7 @@ def test_complete_analysis_workflow_csv_mode(
 
     # Simulate report structure
     report_structure = {
-        "cost_center": mock_cost_center,
+        "dimension_value": mock_cost_center,
         "analysis_date": pd.Timestamp.now().isoformat(),
         "summary": {
             "total_pl": float(level1_total),
@@ -172,7 +172,7 @@ def test_complete_analysis_workflow_csv_mode(
             "alerts": alerts,
             "metadata": {
                 "test_mode": True,
-                "cost_center": mock_cost_center
+                "dimension_value": mock_cost_center
             }
         }, f, indent=2)
 
@@ -215,7 +215,7 @@ def test_complete_analysis_workflow_csv_mode(
     assert "report" in saved_data
     assert "alerts" in saved_data
     assert "metadata" in saved_data
-    assert saved_data["metadata"]["cost_center"] == mock_cost_center
+    assert saved_data["metadata"]["dimension_value"] == mock_cost_center
 
     print(f"[E2E] PASS Complete workflow validated successfully!")
     print(f"[E2E] Output location: {output_file}")
@@ -236,7 +236,7 @@ def test_workflow_error_handling(mock_cost_center, monkeypatch, temp_output_dir)
     """
     print(f"\n[E2E] Testing error handling")
 
-    monkeypatch.setenv("PL_ANALYST_TEST_MODE", "true")
+    monkeypatch.setenv("DATA_ANALYST_TEST_MODE", "true")
 
     # Test 1: Empty dataframe handling
     empty_df = pd.DataFrame()
@@ -258,28 +258,116 @@ def test_workflow_error_handling(mock_cost_center, monkeypatch, temp_output_dir)
 
 
 @pytest.mark.e2e
-@pytest.mark.skipif(
-    os.getenv("PL_ANALYST_TEST_MODE", "true").lower() != "false",
-    reason="Requires production mode with Tableau A2A server"
-)
-def test_production_workflow_with_tableau(mock_cost_center):
+@pytest.mark.ops_metrics
+@pytest.mark.csv_mode
+def test_live_mode_ops_metrics_offline(temp_output_dir):
     """
-    Test the complete workflow in production mode with Tableau A2A agents.
-
-    This test requires:
-    - PL_ANALYST_TEST_MODE=false
-    - A2A server running with Tableau agents
-    - Valid database connections
-
-    This test is skipped in CSV mode and CI environments.
+    Test the ops metrics analysis workflow using local sample data.
+    Validates that all required report sections can be produced.
     """
-    pytest.skip("Production mode testing requires manual setup with Tableau")
+    from tests.fixtures.ops_metrics_contract_fixture import (
+        load_ops_contract,
+        load_ops_line_haul_df,
+    )
 
-    # This would test the real workflow with:
-    # - Real Tableau data via A2A
-    # - Real database queries
-    # - Full agent orchestration
-    # - Performance timing
+    contract = load_ops_contract()
+    df = load_ops_line_haul_df()
 
-    print(f"\n[E2E] Production workflow test for cost center {mock_cost_center}")
-    # Implementation would go here when ready for production testing
+    # Validate data basics
+    assert len(df) >= 10, "Need sufficient data for analysis"
+    assert "ttl_rev_amt" in df.columns
+    assert "cal_dt" in df.columns
+
+    # Build report structure
+    periods = sorted(df["cal_dt"].unique())
+    monthly = df.groupby("cal_dt")["ttl_rev_amt"].sum().sort_index()
+
+    report_sections = {
+        "executive_summary": {
+            "contract": contract.name,
+            "total_revenue": float(monthly.sum()),
+            "period_range": f"{periods[0]} to {periods[-1]}",
+            "periods_analyzed": len(periods),
+        },
+        "detailed_analysis": {
+            "monthly_totals": {str(k): float(v) for k, v in monthly.items()},
+        },
+        "recommendations": [
+            "Monitor revenue trends for sustained growth.",
+            "Investigate any period-over-period declines.",
+        ],
+    }
+
+    # Verify all sections present
+    assert "executive_summary" in report_sections
+    assert "detailed_analysis" in report_sections
+    assert "recommendations" in report_sections
+    assert report_sections["executive_summary"]["total_revenue"] > 0
+    assert len(report_sections["recommendations"]) > 0
+
+    # Persist
+    import json
+    output_file = temp_output_dir / "ops_workflow_report.json"
+    with open(output_file, "w") as f:
+        json.dump(report_sections, f, indent=2)
+
+    assert output_file.exists()
+    print(f"[E2E] Ops workflow report: {len(periods)} periods, "
+          f"revenue={report_sections['executive_summary']['total_revenue']:,.0f}")
+
+
+@pytest.mark.e2e
+@pytest.mark.requires_a2a
+@pytest.mark.ops_metrics
+@pytest.mark.slow
+def test_report_contains_all_sections_live(a2a_client, ops_metrics_contract, temp_output_dir):
+    """
+    Live test: fetch data from A2A, verify report can include
+    executive summary, detailed analysis, and recommendations.
+    """
+    table = '"Extract"."Extract"'
+    sql = (
+        f'SELECT "cal_dt", '
+        f'SUM(CAST("ttl_rev_amt" AS FLOAT)) AS ttl_rev_amt, '
+        f'SUM(CAST("ld_trf_mi" AS FLOAT)) AS ld_trf_mi '
+        f"FROM {table} "
+        f'WHERE "empty_call_dt" >= DATE \'2025-10-01\' '
+        f'AND "empty_call_dt" <= DATE \'2026-02-09\' '
+        f'GROUP BY "cal_dt" '
+        f"ORDER BY \"cal_dt\" LIMIT 100"
+    )
+
+    resp = a2a_client.send_message(
+        f'Execute this SQL using run_sql_query_tool with '
+        f'sql_query exactly as below, limit=200, output_format="json". '
+        f'Return ONLY the raw JSON.\n\n{sql}'
+    )
+    raw = a2a_client.extract_text(resp)
+
+    from data_analyst_agent.sub_agents.a2a_response_normalizer import A2aResponseNormalizer
+    normalizer = A2aResponseNormalizer(ops_metrics_contract)
+    csv_out = normalizer.normalize_response(raw)
+
+    try:
+        df = pd.read_csv(pd.io.common.StringIO(csv_out))
+    except Exception:
+        pytest.skip("Could not parse live data as CSV")
+
+    if len(df) == 0:
+        pytest.skip("A2A returned empty dataset")
+
+    rev_col = next((c for c in ["ttl_rev_amt", "total_rev"] if c in df.columns), None)
+    if rev_col is None:
+        pytest.skip(f"Revenue column not found: {list(df.columns)}")
+
+    report = {
+        "executive_summary": f"Total revenue: ${df[rev_col].sum():,.0f}",
+        "detailed_analysis": f"{len(df)} data points fetched",
+        "recommendations": "Continue monitoring operational metrics.",
+    }
+
+    for section in ("executive_summary", "detailed_analysis", "recommendations"):
+        assert section in report
+        assert report[section]
+
+    print(f"[E2E-LIVE] Report sections verified with {len(df)} rows")

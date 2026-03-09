@@ -1,0 +1,130 @@
+# Experiment 3b: narrative_agent stays at standard; seasonal_baseline downgraded to fast.
+# Isolates the seasonal_baseline variable while keeping narrative quality at baseline.
+# Useful if 3a shows narrative quality drops — confirms seasonal_baseline is the safe downgrade.
+
+default_tier: "standard"
+
+model_tiers:
+  lite:
+    model: "gemini-2.5-flash-lite"
+    thinking_level: "none"
+    description: "Lightest model -- ultra-fast for simple structured tasks (no thinking support)"
+
+  ultra:
+    model: "gemini-2.5-flash"
+    thinking_level: "minimal"
+    thinking_budget: 0
+    description: "Flash with thinking disabled -- fastest flash option"
+  
+  fast:
+    model: "gemini-2.5-flash"
+    thinking_level: "low"
+    thinking_budget: 1024
+    description: "Flash with minimal thinking budget -- for structured extraction"
+  
+  standard:
+    model: "gemini-2.5-flash"
+    thinking_level: "medium"
+    description: "Flash default thinking -- balanced for general analysis"
+  
+  advanced:
+    model: "gemini-2.5-flash"
+    thinking_level: "high"
+    thinking_budget: 16000
+    description: "Flash with high thinking budget -- for complex synthesis"
+
+  pro:
+    model: "gemini-2.5-pro"
+    thinking_level: "high"
+    description: "Highest-quality reasoning -- for cross-metric synthesis"
+
+  # --- Gemini 3 tiers (available on vertex-ai-bi-testing, added 2026-02-20) ---
+  gemini3_flash:
+    model: "gemini-3-flash-preview"
+    thinking_budget: 8000
+    description: "Gemini 3 Flash -- next-gen flash, benchmarking in progress"
+
+  gemini3_pro:
+    model: "gemini-3.1-pro-preview"
+    thinking_level: "high"
+    description: "Gemini 3.1 Pro -- next-gen pro, highest quality available"
+
+agents:
+  statistical_insights_agent:
+    tier: "fast"
+  
+  hierarchical_analysis_agent:
+    tier: "standard"
+  
+  hierarchy_variance_agent:
+    tier: "fast"
+  
+  # --- EXPERIMENT 3b CHANGE: seasonal_baseline downgraded to fast ---
+  seasonal_baseline_agent:
+    tier: "fast"
+    description: "[EXP-3b] Downgraded to fast. Narrative stays at standard to isolate this variable."
+  
+  report_synthesis_agent:
+    tier: "fast"
+  
+  output_persistence_agent:
+    tier: "ultra"
+  
+  testing_data_agent:
+    tier: "ultra"
+  
+  alert_scoring_coordinator:
+    tier: "standard"
+  
+  jira_agent:
+    tier: "fast"
+  jira_analytics_agent:
+    tier: "fast"
+  jira_issues_agent:
+    tier: "ultra"
+  jira_query_agent:
+    tier: "fast"
+  jira_users_agent:
+    tier: "fast"
+  jira_health_agent:
+    tier: "ultra"
+  jira_learning_agent:
+    tier: "fast"
+  attachment_analyzer_agent:
+    tier: "fast"
+  browser_updater_agent:
+    tier: "fast"
+  project_manager_agent:
+    tier: "fast"
+
+  # narrative_agent unchanged at standard
+  narrative_agent:
+    tier: "standard"
+    description: "Baseline — unchanged to isolate seasonal_baseline variable"
+
+  executive_brief_agent:
+    tier: "pro"
+
+  cost_center_iterator:
+    tier: "ultra"
+    cost_centers: "${cost_centers}"
+  
+  request_analyzer:
+    tier: "standard"
+  
+  cost_center_extractor:
+    tier: "standard"
+  
+  target_extractor:
+    tier: "standard"
+  
+  financial_data_agent:
+    tier: "standard"
+  
+  ops_metrics_data_agent:
+    tier: "standard"
+  
+  order_details_data_agent:
+    tier: "standard"
+
+

@@ -30,6 +30,25 @@ _OPS_CONFIG_CACHE: Optional[Dict[str, Any]] = None
 _PL_CONFIG_CACHE: Optional[Dict[str, Any]] = None
 
 
+def _resolve_ops_config_path() -> Path:
+    """
+    Resolve the ops metrics ratios config path.
+
+    Priority:
+    1. config/datasets/<active_dataset>/ratios.yaml
+    """
+    from config.dataset_resolver import get_dataset_path_optional
+
+    dataset_path = get_dataset_path_optional("ratios.yaml")
+    if dataset_path is not None:
+        return dataset_path
+
+    raise FileNotFoundError(
+        "[ratios_config_loader] ratios.yaml not found. "
+        "Expected at config/datasets/<active_dataset>/ratios.yaml."
+    )
+
+
 def load_ops_metrics_config() -> Dict[str, Any]:
     """
     Load ops metrics ratios configuration.
@@ -42,7 +61,7 @@ def load_ops_metrics_config() -> Dict[str, Any]:
     if _OPS_CONFIG_CACHE is not None:
         return _OPS_CONFIG_CACHE
 
-    config_path = Path(__file__).parent / "ops_metrics_ratios_config.yaml"
+    config_path = _resolve_ops_config_path()
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 

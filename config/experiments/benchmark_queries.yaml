@@ -1,0 +1,25 @@
+# Benchmark queries for model selection experiments.
+# Three queries chosen to represent distinct complexity levels:
+#   Q1: Single metric, single known terminal  -> tests basic extraction + analysis
+#   Q2: Multi-metric, regional scope          -> tests multi-target extraction + parallel analysis
+#   Q3: Broad sweep across all terminals      -> maximum pipeline load, tests executive brief most severely
+
+queries:
+  - id: Q1
+    label: "Single metric, single terminal"
+    text: "Analyze Truck Count trends for Albuquerque over the last 26 weeks"
+    expected_metrics: ["Truck Count"]
+    expected_dimension: "terminal"
+
+  - id: Q2
+    label: "Multi-metric, single region"
+    text: "Analyze Revenue per Truck per Week and Total Miles per Truck per Week for Central region"
+    expected_metrics: ["Revenue per Truck per Week", "Total Miles per Truck per Week"]
+    expected_dimension: "region"
+
+  - id: Q3
+    label: "Broad analysis, all terminals"
+    text: "Analyze all key operational metrics across all terminals for the last 13 weeks"
+    expected_metrics: []
+    expected_dimension: "terminal"
+    extractor_test: false    # Too open-ended for extraction accuracy checks; used in full-pipeline only

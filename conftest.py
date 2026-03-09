@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures and configuration for P&L Analyst Agent testing.
+Shared pytest fixtures and configuration for Data Analyst Agent testing.
 
 This module provides reusable fixtures for all test phases:
 - Mock data generation
@@ -54,7 +54,7 @@ def temp_output_dir():
 @pytest.fixture(scope="function", autouse=True)
 def setup_test_environment(monkeypatch):
     """Set up test environment variables."""
-    monkeypatch.setenv("PL_ANALYST_TEST_MODE", "true")
+    monkeypatch.setenv("DATA_ANALYST_TEST_MODE", "true")
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
     yield
 
@@ -82,12 +82,12 @@ def mock_date_ranges() -> Dict[str, str]:
     start_date = end_date - timedelta(days=730)  # 24 months
 
     return {
-        "pl_query_start_date": start_date.strftime("%Y-%m"),
-        "pl_query_end_date": end_date.strftime("%Y-%m"),
-        "ops_metrics_query_start_date": start_date.strftime("%Y-%m"),
-        "ops_metrics_query_end_date": end_date.strftime("%Y-%m"),
-        "order_query_start_date": (end_date - timedelta(days=90)).strftime("%Y-%m"),
-        "order_query_end_date": end_date.strftime("%Y-%m"),
+        "primary_query_start_date": start_date.strftime("%Y-%m"),
+        "primary_query_end_date": end_date.strftime("%Y-%m"),
+        "supplementary_query_start_date": start_date.strftime("%Y-%m"),
+        "supplementary_query_end_date": end_date.strftime("%Y-%m"),
+        "detail_query_start_date": (end_date - timedelta(days=90)).strftime("%Y-%m"),
+        "detail_query_end_date": end_date.strftime("%Y-%m"),
     }
 
 
@@ -276,11 +276,11 @@ def populated_session_state(
 ):
     """Create a session with populated state for testing."""
     mock_session.state = {
-        "cost_center": mock_cost_center,
+        "dimension_value": mock_cost_center,
         "current_cost_center": mock_cost_center,
         **mock_date_ranges,
-        "pl_data_csv": mock_pl_data_csv,
-        "ops_metrics_csv": mock_ops_metrics_csv,
+        "primary_data_csv": mock_pl_data_csv,
+        "supplementary_data_csv": mock_ops_metrics_csv,
         "validated_pl_data_csv": mock_validated_pl_data_csv,
         "current_level": 2,
     }
@@ -306,7 +306,7 @@ def create_mock_output_files(mock_output_files, mock_synthesis_result, mock_aler
     """Create mock output files for testing."""
     # JSON output
     json_data = {
-        "cost_center": "067",
+        "dimension_value": "067",
         "timeframe": {"start": "2023-01", "end": "2024-12"},
         "executive_summary": "Mock summary",
         "synthesis_result": mock_synthesis_result,

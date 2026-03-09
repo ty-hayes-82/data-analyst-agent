@@ -1,0 +1,93 @@
+name: "Account Research"
+version: "1.0.0"
+display_name: "Account Research (P&L)"
+target_label: "Cost Center"
+description: "GL transaction data for P&L analysis"
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 50000
+
+presentation:
+  unit: "USD"
+  currency_symbol: "$"
+
+reporting:
+  max_drill_depth: 4
+  executive_brief_drill_levels: 1
+  max_scope_entities: 10
+  output_format: "pdf"
+
+data_source:
+  type: "tableau_hyper"
+  tdsx_file: "Account Research DS.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+
+time:
+  column: "period"
+  frequency: "monthly"
+  format: "%Y-%m"
+  range_months: 24
+
+grain:
+  columns: ["period", "GL_CC", "Account Nbr"]
+
+metrics:
+  - name: "amount"
+    column: "TXFAMT"
+    type: "additive"
+    format: "currency"
+    optimization: "minimize"
+    tags: ["financial", "expense"]
+    description: "Transaction amount in USD"
+
+dimensions:
+  - name: "division"
+    column: "DIV"
+    role: "secondary"
+    description: "Division code"
+  - name: "dimension_value"
+    column: "GL_CC"
+    role: "primary"
+    description: "Cost Center code"
+  - name: "line_of_business"
+    column: "LOB"
+    role: "secondary"
+    description: "Line of Business code"
+  - name: "gl_account"
+    column: "Account Nbr"
+    role: "secondary"
+    tags: ["account_id"]
+    description: "GL Account number"
+  - name: "division_name"
+    column: "gl_div_nm"
+    role: "secondary"
+  - name: "cost_center_name"
+    column: "gl_cst_ctr_nm"
+    role: "secondary"
+
+hierarchies:
+  - name: "gl_structure"
+    children: ["division", "dimension_value", "line_of_business", "gl_account"]
+    level_names:
+      0: "Total"
+      1: "Division"
+      2: "Cost Center"
+      3: "Line of Business"
+      4: "GL Account"
+
+policies:
+  item_classification:
+    revenue:
+      starts_with: "3"
+    cost_of_sales:
+      starts_with: "4"
+    operating_expense:
+      starts_with: ["5", "6"]
+    other_income_expense:
+      starts_with: "7"
+  sign_correction:
+    - column: "Account Nbr"
+      starts_with: "3"
+      multiplier: -1

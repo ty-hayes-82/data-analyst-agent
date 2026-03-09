@@ -26,12 +26,12 @@ def test_load_test_data(mock_pl_data_df):
     # Verify required columns exist
     assert_dataframe_structure(
         mock_pl_data_df,
-        required_columns=["period", "gl_account", "amount", "cost_center"],
+        required_columns=["period", "gl_account", "amount", "dimension_value"],
         min_rows=1
     )
 
     # Verify cost center is 067
-    assert (mock_pl_data_df["cost_center"] == "67").all()
+    assert (mock_pl_data_df["dimension_value"] == "67").all()
 
     print(f"[PASS] Loaded {len(mock_pl_data_df)} rows of test data")
 
@@ -64,7 +64,7 @@ def test_ops_metrics_data(mock_ops_metrics_df):
     # Verify required columns
     assert_dataframe_structure(
         mock_ops_metrics_df,
-        required_columns=["period", "miles", "stops", "loads", "cost_center"],
+        required_columns=["period", "miles", "stops", "loads", "dimension_value"],
         min_rows=1
     )
 
@@ -106,12 +106,12 @@ def test_date_ranges_fixture(mock_date_ranges):
     assert_json_structure(
         mock_date_ranges,
         required_keys=[
-            "pl_query_start_date",
-            "pl_query_end_date",
-            "ops_metrics_query_start_date",
-            "ops_metrics_query_end_date",
-            "order_query_start_date",
-            "order_query_end_date",
+            "primary_query_start_date",
+            "primary_query_end_date",
+            "supplementary_query_start_date",
+            "supplementary_query_end_date",
+            "detail_query_start_date",
+            "detail_query_end_date",
         ]
     )
 
@@ -122,7 +122,7 @@ def test_date_ranges_fixture(mock_date_ranges):
     for key, value in mock_date_ranges.items():
         assert date_pattern.match(value), f"{key} has invalid format: {value}"
 
-    print(f"[PASS] Date ranges valid: {mock_date_ranges['pl_query_start_date']} to {mock_date_ranges['pl_query_end_date']}")
+    print(f"[PASS] Date ranges valid: {mock_date_ranges['primary_query_start_date']} to {mock_date_ranges['primary_query_end_date']}")
 
 
 @pytest.mark.unit
@@ -147,21 +147,21 @@ def test_populated_session_state(populated_session_state):
     state = populated_session_state.state
 
     # Verify required keys
-    assert "cost_center" in state
+    assert "dimension_value" in state
     assert "current_cost_center" in state
-    assert "pl_data_csv" in state
-    assert "ops_metrics_csv" in state
+    assert "primary_data_csv" in state
+    assert "supplementary_data_csv" in state
     assert "validated_pl_data_csv" in state
 
     # Verify cost center
-    assert state["cost_center"] == "067"
+    assert state["dimension_value"] == "067"
 
     # Verify data is CSV format
-    assert_csv_format_valid(state["pl_data_csv"])
-    assert_csv_format_valid(state["ops_metrics_csv"])
+    assert_csv_format_valid(state["primary_data_csv"])
+    assert_csv_format_valid(state["supplementary_data_csv"])
     assert_csv_format_valid(state["validated_pl_data_csv"])
 
-    print(f"[PASS] Session state populated for cost center: {state['cost_center']}")
+    print(f"[PASS] Session state populated for cost center: {state['dimension_value']}")
 
 
 @pytest.mark.unit
