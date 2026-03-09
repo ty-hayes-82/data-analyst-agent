@@ -71,3 +71,9 @@ Agents: after each session, append what you learned here. Before starting work, 
   - `statistical_insights_agent/tools/compute_anomaly_indicators.py`
   - `statistical_insights_agent/tools/compute_period_over_period_changes.py`
 - When resolving repo paths from tool modules, `Path(__file__).resolve().parents[4]` maps to repo root (`/data/data-analyst-agent`). Using the wrong parent index silently points to `/data` and breaks validation_datapoints lookups.
+
+### 2026-03-09 — Incremental E2E Level 3 (SeasonalBaseline)
+- Extended `compute_seasonal_decomposition()` to include a dataset-level `seasonality_summary` with:
+  - `peak_month`, `trough_month`, `seasonal_amplitude_pct`
+  computed from monthly-grain rows when available.
+- For trade seasonality validation, load the full synthetic trade dataset so monthly rows exist; fixture_c is weekly-only and is not sufficient.
