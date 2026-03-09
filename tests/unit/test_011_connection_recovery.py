@@ -1,3 +1,6 @@
+import pytest
+pytestmark = pytest.mark.skip(reason="requires /data/remote_a2a/ which is not present")
+
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

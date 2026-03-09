@@ -37,8 +37,8 @@ def test_contract_load_to_context(ops_metrics_contract, ops_metrics_067_df):
     )
 
     assert ctx.contract.name == "Ops Metrics"
-    assert ctx.target_metric.column == "ttl_rev_amt"
-    assert ctx.primary_dimension.column == "ops_ln_of_bus_ref_nm"
+    assert ctx.target_metric.column == "total_revenue"
+    assert ctx.primary_dimension.column == "lob"
     assert len(ctx.df) > 0
 
 

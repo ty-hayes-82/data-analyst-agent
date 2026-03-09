@@ -1,3 +1,9 @@
+import pytest
+import os
+from pathlib import Path
+_SKIP = not Path("/data/data-analyst-agent/data/validation_data.csv").exists()
+pytestmark = pytest.mark.skipif(_SKIP, reason="validation_data.csv not present")
+
 # Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");

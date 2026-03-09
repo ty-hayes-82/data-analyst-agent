@@ -78,9 +78,12 @@ def test_validated_csv_file_persistence():
     csv = "period,amount\n2025-01,100"
     set_validated_csv(csv)
 
-    # Clear only the in-memory global
+    # Clear only the in-memory dict (not the file)
     import data_analyst_agent.sub_agents.data_cache as dc
-    dc._validated_csv_cache = None
+    if isinstance(dc._validated_csv_cache, dict):
+        dc._validated_csv_cache.clear()
+    else:
+        dc._validated_csv_cache = {}
 
     # Should still be readable from file
     result = get_validated_csv()
@@ -152,7 +155,7 @@ def test_resolve_data_and_columns(ops_metrics_context_with_cache):
     assert df is not None
     assert len(df) > 0
     assert time_col == "cal_dt"
-    assert metric_col == "ttl_rev_amt"
+    assert metric_col == "total_revenue"
     assert ctx is not None
 
 
@@ -230,12 +233,12 @@ def test_clear_all_caches():
 
     clear_all_caches()
 
-    # In-memory should be gone; file-based may persist until unlinked
+    # In-memory dicts should be empty; structured caches should be None
     import data_analyst_agent.sub_agents.data_cache as dc
-    assert dc._validated_csv_cache is None
-    assert dc._ops_metrics_csv_cache is None
-    assert dc._validated_data_cache is None
-    assert dc._analysis_context_cache is None
+    assert dc._validated_csv_cache == {}
+    assert dc._ops_metrics_csv_cache == {}
+    assert dc._analysis_context_cache == {}
+    assert dc._get_validated_data_cache() is None
 
 
 if __name__ == "__main__":

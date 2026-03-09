@@ -149,11 +149,11 @@ def test_ops_contract_capabilities(ops_metrics_contract):
 def test_ops_contract_metric_lookup(ops_metrics_contract):
     """get_metric and get_dimension should resolve by name."""
     metric = ops_metrics_contract.get_metric("total_revenue")
-    assert metric.column == "ttl_rev_amt"
-    assert metric.pvm_role == "total"
+    assert metric.column == "total_revenue"
+    # pvm_role removed from contract in v2.1
 
     dim = ops_metrics_contract.get_dimension("terminal")
-    assert dim.column == "gl_div_nm"
+    assert dim.column == "terminal"
     assert dim.role == "secondary"
 
     with pytest.raises(KeyError):

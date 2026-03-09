@@ -256,6 +256,10 @@ def set_validated_csv(csv_data: str, session_id: Optional[str] = None) -> None:
     """Store primary data CSV in both global cache and file."""
     global _validated_csv_cache
     
+    # Defensive: reinitialize if external code set this to None
+    if not isinstance(_validated_csv_cache, dict):
+        _validated_csv_cache = {}
+    
     # If no session_id provided, try to detect from ContextVar
     if not session_id:
         session_id = current_session_id.get() or "default"
@@ -420,9 +424,25 @@ def clear_validated_data() -> None:
 def clear_all_caches() -> None:
     """Clear all caches."""
     global _analysis_context_cache, _validated_csv_cache, _ops_metrics_csv_cache
-    _validated_csv_cache.clear()
-    _ops_metrics_csv_cache.clear()
-    _analysis_context_cache.clear()
+    # Defensive: reinitialize if external code set these to None
+    if not isinstance(_validated_csv_cache, dict):
+        _validated_csv_cache = {}
+    else:
+        _validated_csv_cache.clear()
+    if not isinstance(_ops_metrics_csv_cache, dict):
+        _ops_metrics_csv_cache = {}
+    else:
+        _ops_metrics_csv_cache.clear()
+    if not isinstance(_analysis_context_cache, dict):
+        _analysis_context_cache = {}
+    else:
+        _analysis_context_cache.clear()
+    # Re-sync the registry so future imports stay consistent
+    registry = sys.modules.get(_REGISTRY_KEY)
+    if isinstance(registry, dict):
+        registry['validated_csv'] = _validated_csv_cache
+        registry['ops_metrics_csv'] = _ops_metrics_csv_cache
+        registry['analysis_context'] = _analysis_context_cache
     _set_validated_data_cache(None)
     _set_supplementary_csv_cache(None)
     try:
