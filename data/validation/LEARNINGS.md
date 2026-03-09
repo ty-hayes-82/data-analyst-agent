@@ -65,3 +65,9 @@ Agents: after each session, append what you learned here. Before starting work, 
 ### 2026-03-09 — Incremental E2E Level 1 (HierarchyVariance)
 - `compute_level_statistics()` output driver keys use `variance_dollar` (not `abs_variance`). Use the tool’s schema when writing downstream assertions.
 - For `trade_data`, `hierarchy_name="full_hierarchy"` + `level=1` corresponds to the **Flow** level (imports/exports).
+
+### 2026-03-09 — Incremental E2E Level 2 (StatisticalInsights)
+- Added deterministic tools for trade fixture E2E:
+  - `statistical_insights_agent/tools/compute_anomaly_indicators.py`
+  - `statistical_insights_agent/tools/compute_period_over_period_changes.py`
+- When resolving repo paths from tool modules, `Path(__file__).resolve().parents[4]` maps to repo root (`/data/data-analyst-agent`). Using the wrong parent index silently points to `/data` and breaks validation_datapoints lookups.
