@@ -77,3 +77,7 @@ Agents: after each session, append what you learned here. Before starting work, 
   - `peak_month`, `trough_month`, `seasonal_amplitude_pct`
   computed from monthly-grain rows when available.
 - For trade seasonality validation, load the full synthetic trade dataset so monthly rows exist; fixture_c is weekly-only and is not sufficient.
+
+### 2026-03-09 — Incremental E2E Level 4 (Narrative)
+- Added deterministic narrative tool `narrative_agent/tools/generate_narrative_summary.py` so E2E can validate narrative wiring without invoking the LLM-based ADK agent.
+- Narrative assertions should key off stable keywords (e.g., “shock/tariff”, “seasonality”) rather than brittle exact strings.
