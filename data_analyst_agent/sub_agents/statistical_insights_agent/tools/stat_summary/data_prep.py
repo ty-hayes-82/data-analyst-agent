@@ -1,35 +1,25 @@
-"""Input preparation for statistical summary."""
+"""Input preparation helpers for statistical summary."""
 
 from __future__ import annotations
 
-from typing import Any, Tuple
 import os
-import time
-import pandas as pd
-import numpy as np
+from typing import Any, Tuple
 
-from ....semantic.lag_utils import resolve_effective_latest_period, get_effective_lag_or_default
+import numpy as np
+import pandas as pd
+
+from .....semantic.lag_utils import get_effective_lag_or_default, resolve_effective_latest_period
 from ..stat_summary.state import SummaryState
 
 
-def resolve_inputs(resolve_data_and_columns, ctx) -> Tuple[SummaryState, dict[str, Any]]:
-    t_resolve_start = time.perf_counter()
+def prepare_state(resolve_data_and_columns) -> Tuple[SummaryState, dict[str, Any]]:
     df, time_col, metric_col, grain_col, name_col, ctx = resolve_data_and_columns("StatisticalSummary")
-    print(
-        f"[StatisticalSummary] [TIMER] resolve_data_and_columns: {time.perf_counter() - t_resolve_start:.2f}s",
-        flush=True,
-    )
-
     df[metric_col] = pd.to_numeric(df[metric_col], errors="coerce").fillna(0)
 
     current_metric_name = _resolve_target_metric(df, ctx)
     if current_metric_name and "metric" in df.columns and df["metric"].nunique() > 1:
         metric_matches = df["metric"].str.strip() == current_metric_name
         if metric_matches.any():
-            print(
-                f"[StatisticalSummary] Filtering input data to target metric: '{current_metric_name}'",
-                flush=True,
-            )
             df = df[metric_matches].copy()
 
     names_map = dict(zip(df[grain_col], df[name_col]))
@@ -42,13 +32,17 @@ def resolve_inputs(resolve_data_and_columns, ctx) -> Tuple[SummaryState, dict[st
     )
     pivot = pivot.reindex(sorted(pivot.columns), axis=1)
 
-    _apply_materiality_filters(df, pivot, ctx, current_metric_name)
+    _apply_materiality_filter(df, pivot, ctx, current_metric_name, grain_col, time_col)
 
     periods = sorted(pivot.columns)
     lag = get_effective_lag_or_default(ctx.contract, ctx.target_metric) if ctx and ctx.contract and ctx.target_metric else 0
     effective_latest, lag_window = resolve_effective_latest_period(periods, lag)
     latest_period = str(effective_latest) if effective_latest else "N/A"
-    temporal_grain = _resolve_temporal_grain(ctx)
+
+    temporal_grain = "monthly"
+    ctx_temporal_grain = getattr(ctx, "temporal_grain", None) if ctx else None
+    if isinstance(ctx_temporal_grain, str) and ctx_temporal_grain:
+        temporal_grain = ctx_temporal_grain
     period_unit = "week" if temporal_grain == "weekly" else "month"
 
     try:
@@ -85,11 +79,7 @@ def resolve_inputs(resolve_data_and_columns, ctx) -> Tuple[SummaryState, dict[st
         contribution_share=contribution_share,
     )
 
-    metadata = {
-        "df": df,
-        "names_map": names_map,
-    }
-    return state, metadata
+    return state, {"names_map": names_map}
 
 
 def _resolve_target_metric(df: pd.DataFrame, ctx) -> str | None:
@@ -115,11 +105,12 @@ def _resolve_target_metric(df: pd.DataFrame, ctx) -> str | None:
     return current_metric_name
 
 
-def _apply_materiality_filters(df, pivot, ctx, metric_name):
+def _apply_materiality_filter(df, pivot, ctx, metric_name, grain_col, time_col):
     if not (ctx and ctx.contract and metric_name and "metric" in df.columns):
         return
     try:
         from ..ratio_metrics_config import get_ratio_config_for_metric as _get_rc
+        from .....tools.validation_data_loader import load_validation_data
 
         ratio_cfg = _get_rc(ctx.contract, metric_name)
         if not ratio_cfg:
@@ -128,16 +119,12 @@ def _apply_materiality_filters(df, pivot, ctx, metric_name):
         denom_metric = ratio_cfg.get("denominator_metric")
         if not min_share or not denom_metric:
             return
-
-        from ....tools.validation_data_loader import load_validation_data
-
         _exclude_partial = os.environ.get("DATA_ANALYST_EXCLUDE_PARTIAL_WEEK", "false").lower() == "true"
         denom_df = load_validation_data(metric_filter=[denom_metric], exclude_partial_week=_exclude_partial)
         if denom_df.empty:
             return
-
-        _gcol = df.columns.name if df.columns.name else pivot.index.name or "terminal"
-        _tcol = pivot.columns.name or "week_ending"
+        _gcol = grain_col if grain_col in denom_df.columns else "terminal"
+        _tcol = time_col if time_col in denom_df.columns else "week_ending"
         denom_df["value"] = pd.to_numeric(denom_df["value"], errors="coerce").fillna(0)
         net_denom = denom_df.groupby(_tcol)["value"].sum()
         grain_vals = set(df[_gcol].astype(str).unique())
@@ -155,14 +142,6 @@ def _apply_materiality_filters(df, pivot, ctx, metric_name):
                     pivot.at[term, col] = float("nan")
     except Exception:
         pass
-
-
-def _resolve_temporal_grain(ctx) -> str:
-    if ctx and isinstance(getattr(ctx, "temporal_grain", None), str):
-        grain = ctx.temporal_grain.strip().lower()
-        if grain in {"weekly", "monthly"}:
-            return grain
-    return "monthly"
 
 
 def _compute_pattern_labels(pivot: pd.DataFrame, latest_period: str) -> dict[str, str]:
