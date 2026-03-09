@@ -2,22 +2,58 @@
 
 Strategy: validate the pipeline one agent at a time, building state incrementally.
 
-Per Ty's instruction, we implement Level 0 first and only proceed once it passes.
+Per Ty's instruction:
+- Implement Level N only after Level N-1 is green.
+- Fix underlying agent code when a level fails (don’t bandaid the test).
+
+Status:
+- Level 0: ✅
+- Level 1: in progress
 """
 
 from __future__ import annotations
 
+import json
 from io import StringIO
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from data_analyst_agent.sub_agents.data_cache import clear_all_caches, get_validated_csv, set_validated_csv
+from data_analyst_agent.sub_agents.data_cache import (
+    clear_all_caches,
+    get_validated_csv,
+    set_analysis_context,
+    set_validated_csv,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_C_PATH = REPO_ROOT / "data" / "validation" / "fixture_c_minimal_lax_8542.csv"
+TRADE_CONTRACT_PATH = REPO_ROOT / "config" / "datasets" / "csv" / "trade_data" / "contract.yaml"
+VALIDATION_PATH = REPO_ROOT / "data" / "validation" / "validation_datapoints.json"
+
+
+def _load_fixture_c_and_prime_cache() -> pd.DataFrame:
+    """Level 0 shared setup: load fixture_c and prime data_cache + AnalysisContext."""
+    from data_analyst_agent.semantic.models import AnalysisContext, DatasetContract
+
+    df = pd.read_csv(FIXTURE_C_PATH)
+    set_validated_csv(df.to_csv(index=False))
+
+    contract = DatasetContract.from_yaml(str(TRADE_CONTRACT_PATH))
+    contract._source_path = str(TRADE_CONTRACT_PATH)
+
+    ctx = AnalysisContext(
+        contract=contract,
+        df=df,
+        target_metric=contract.get_metric("trade_value_usd"),
+        primary_dimension=contract.get_dimension("flow"),
+        run_id="e2e-incremental-fixture-c",
+        max_drill_depth=5,
+    )
+    set_analysis_context(ctx)
+    return df
 
 
 @pytest.mark.e2e
@@ -28,10 +64,8 @@ class TestLevel0_DataLoading:
         """Load fixture_c via data_cache.set_validated_csv() and assert integrity."""
         clear_all_caches()
         try:
-            df = pd.read_csv(FIXTURE_C_PATH)
+            df = _load_fixture_c_and_prime_cache()
             assert len(df) > 0
-
-            set_validated_csv(df.to_csv(index=False))
 
             cached = get_validated_csv()
             assert cached, "Expected validated CSV to be present in cache"
@@ -62,5 +96,51 @@ class TestLevel0_DataLoading:
             }
             missing = required_cols - set(cached_df.columns)
             assert not missing, f"Missing required columns: {sorted(missing)}"
+        finally:
+            clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+@pytest.mark.csv_mode
+class TestLevel1_HierarchyVariance:
+    @pytest.mark.asyncio
+    async def test_compute_level_statistics_non_empty(self) -> None:
+        """Call hierarchy_variance_agent tool directly and assert structure."""
+        from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_statistics import (
+            compute_level_statistics,
+        )
+
+        clear_all_caches()
+        try:
+            _load_fixture_c_and_prime_cache()
+
+            # Use the anomaly window end as a stable analysis period for fixture_c
+            validation = json.loads(VALIDATION_PATH.read_text())
+            scenario = next(
+                s
+                for s in validation["anomaly_scenarios"]
+                if s["scenario_id"] == "A1" and s["grain"] == "weekly"
+            )
+            analysis_period = scenario["last_period"]
+
+            # Level 1 == Flow in full_hierarchy (Flow -> Region -> State -> Port -> HS2 -> HS4)
+            result_json = await compute_level_statistics(
+                level=1,
+                analysis_period=analysis_period,
+                variance_type="yoy",
+                top_n=10,
+                hierarchy_name="full_hierarchy",
+            )
+            result = json.loads(result_json)
+
+            assert "error" not in result, result
+            assert isinstance(result.get("top_drivers"), list)
+            assert len(result["top_drivers"]) >= 1
+
+            first = result["top_drivers"][0]
+            # Minimal structural expectations for downstream stages
+            for k in ("item", "current", "prior", "variance_dollar", "variance_pct"):
+                assert k in first
         finally:
             clear_all_caches()
