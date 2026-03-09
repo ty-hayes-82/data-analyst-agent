@@ -32,14 +32,13 @@ from data_analyst_agent.sub_agents.data_cache import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_C_PATH = REPO_ROOT / "data" / "validation" / "fixture_c_minimal_lax_8542.csv"
 TRADE_CONTRACT_PATH = REPO_ROOT / "config" / "datasets" / "csv" / "trade_data" / "contract.yaml"
+TRADE_DATA_PATH = REPO_ROOT / "data" / "synthetic" / "synthetic_hierarchical_trade_dataset_250k.csv"
 VALIDATION_PATH = REPO_ROOT / "data" / "validation" / "validation_datapoints.json"
 
 
-def _load_fixture_c_and_prime_cache() -> pd.DataFrame:
-    """Level 0 shared setup: load fixture_c and prime data_cache + AnalysisContext."""
+def _prime_cache(df: pd.DataFrame, run_id: str) -> None:
     from data_analyst_agent.semantic.models import AnalysisContext, DatasetContract
 
-    df = pd.read_csv(FIXTURE_C_PATH)
     set_validated_csv(df.to_csv(index=False))
 
     contract = DatasetContract.from_yaml(str(TRADE_CONTRACT_PATH))
@@ -50,10 +49,23 @@ def _load_fixture_c_and_prime_cache() -> pd.DataFrame:
         df=df,
         target_metric=contract.get_metric("trade_value_usd"),
         primary_dimension=contract.get_dimension("flow"),
-        run_id="e2e-incremental-fixture-c",
+        run_id=run_id,
         max_drill_depth=5,
     )
     set_analysis_context(ctx)
+
+
+def _load_fixture_c_and_prime_cache() -> pd.DataFrame:
+    """Load fixture_c and prime caches (A1 anomaly fixture)."""
+    df = pd.read_csv(FIXTURE_C_PATH)
+    _prime_cache(df, run_id="e2e-incremental-fixture-c")
+    return df
+
+
+def _load_full_trade_dataset_and_prime_cache() -> pd.DataFrame:
+    """Load the full synthetic trade dataset and prime caches (seasonality baseline)."""
+    df = pd.read_csv(TRADE_DATA_PATH)
+    _prime_cache(df, run_id="e2e-incremental-full-trade")
     return df
 
 
@@ -192,5 +204,34 @@ class TestLevel2_StatisticalInsights:
             assert a1["deviation_pct"] == pytest.approx(scenario["deviation_pct"], abs=3)
 
             assert changes["deviation_pct"] == pytest.approx(scenario["deviation_pct"], abs=3)
+        finally:
+            clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+@pytest.mark.csv_mode
+class TestLevel3_SeasonalBaseline:
+    @pytest.mark.asyncio
+    async def test_peak_trough_months_match_validation(self) -> None:
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_seasonal_decomposition import (
+            compute_seasonal_decomposition,
+        )
+
+        clear_all_caches()
+        try:
+            _load_full_trade_dataset_and_prime_cache()
+
+            validation = json.loads(VALIDATION_PATH.read_text())["seasonal_pattern"]
+
+            seasonal = json.loads(await compute_seasonal_decomposition())
+            assert "error" not in seasonal, seasonal
+
+            summary = seasonal.get("seasonality_summary") or {}
+            assert summary, "Expected seasonality_summary in compute_seasonal_decomposition output"
+
+            assert summary["peak_month"] == validation["peak_month"]
+            assert summary["trough_month"] == validation["trough_month"]
+            assert summary["seasonal_amplitude_pct"] == pytest.approx(validation["seasonal_amplitude_pct"], abs=0.5)
         finally:
             clear_all_caches()

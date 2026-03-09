@@ -173,11 +173,36 @@ async def compute_seasonal_decomposition(pre_resolved: Optional[dict] = None) ->
         )
         strongest_seasonal = seasonal_results_sorted[:5]
         
+        # Dataset-level month seasonality summary (used by incremental E2E)
+        seasonality_summary = {}
+        try:
+            monthly_df = df.copy()
+            if "grain" in monthly_df.columns:
+                monthly_df = monthly_df[monthly_df["grain"] == "monthly"].copy()
+
+            if not monthly_df.empty:
+                if "month" not in monthly_df.columns:
+                    monthly_df["month"] = pd.to_datetime(monthly_df[time_col], errors="coerce").dt.month
+
+                monthly_avgs = monthly_df.groupby("month")[metric_col].mean()
+                if not monthly_avgs.empty:
+                    peak_month = int(monthly_avgs.idxmax())
+                    trough_month = int(monthly_avgs.idxmin())
+                    amplitude_pct = float((monthly_avgs.max() - monthly_avgs.min()) / monthly_avgs.mean() * 100) if monthly_avgs.mean() else 0.0
+                    seasonality_summary = {
+                        "peak_month": peak_month,
+                        "trough_month": trough_month,
+                        "seasonal_amplitude_pct": amplitude_pct,
+                    }
+        except Exception:
+            seasonality_summary = {}
+
         result = {
             "seasonal_analysis": seasonal_results,
             "residual_anomalies": all_residual_anomalies,
             "top_anomalies": top_anomalies,
             "strongest_seasonal_items": strongest_seasonal,
+            "seasonality_summary": seasonality_summary,
             "summary": {
                 "items_analyzed": items_analyzed,
                 "total_periods": periods_available,
