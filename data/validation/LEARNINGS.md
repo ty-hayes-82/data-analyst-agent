@@ -81,3 +81,7 @@ Agents: after each session, append what you learned here. Before starting work, 
 ### 2026-03-09 — Incremental E2E Level 4 (Narrative)
 - Added deterministic narrative tool `narrative_agent/tools/generate_narrative_summary.py` so E2E can validate narrative wiring without invoking the LLM-based ADK agent.
 - Narrative assertions should key off stable keywords (e.g., “shock/tariff”, “seasonality”) rather than brittle exact strings.
+
+### 2026-03-09 — Incremental E2E Level 5 (AlertScoring)
+- `extract_alerts_from_analysis()` previously ignored the `synthesis` param; for incremental E2E we added a fallback that parses `synthesis` JSON containing `{"anomalies": [...]}` and emits `trade_anomaly` alerts.
+- Ensure emitted alerts include a top-level `severity` field so downstream suppression/scoring pipelines have stable schema.
