@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-09T22:49:27
+**Last updated:** 2026-03-09T22:55:58
 
 ## Current State
-- **Unit Tests:** 265 passed, 1 failed, 0 errors
+- **Unit Tests:** 266 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 174 files, 26,453 lines, **51 files >200L**
-- **Largest:** sub_agents/hierarchical_analysis_agent/agent.py (763L)
-- **Commit:** `b2eef66 test(e2e): insight quality classes4-5 narr`
+- **Codebase:** 181 files, 26,475 lines, **50 files >200L**
+- **Largest:** sub_agents/statistical_insights_agent/tools/compute_cross_dimension_analysis.py (605L)
+- **Commit:** `9c13da2 test: align narrative keywords with new su`
 
 ## Progress Over Time
 
@@ -33,9 +33,11 @@
 | 18 | 22:39 | `c3335a1` | 263 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 | 19 | 22:41 | `699690c` | 264 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
 | 20 | 22:49 | `b2eef66` | 265 | 1 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
+| 21 | 22:53 | `9c13da2` | 266 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchical_a |
+| 22 | 22:55 | `9c13da2` | 266 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
 
 ## Cumulative Improvement
-- Tests: 247 → **265** (+18)
-- Failures: 0 → **1**
-- Files >200L: 50 → **51** (+1)
-- Iterations: 20
+- Tests: 247 → **266** (+19)
+- Failures: 0 → **0**
+- Files >200L: 50 → **50** (+0)
+- Iterations: 22
