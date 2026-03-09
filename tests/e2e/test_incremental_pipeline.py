@@ -299,8 +299,9 @@ class TestLevel4_NarrativeGeneration:
         assert isinstance(narrative, str)
         assert narrative.strip(), "Expected non-empty narrative"
         # Keyword expectations
-        assert "shock" in narrative.lower() or "tariff" in narrative.lower(), narrative
-        assert "season" in narrative.lower(), narrative
+        low = narrative.lower()
+        assert "hs4 8542" in low or "semiconductor" in low, narrative
+        assert "season" in low, narrative
 
 
 @pytest.mark.e2e
