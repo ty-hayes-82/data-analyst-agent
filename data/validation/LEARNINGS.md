@@ -32,3 +32,13 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Pydantic BaseAgent subclasses require optional fields (like `alert_agent`) to use `Field(..., default=None, exclude=True)` or they raise ValidationError at import time.
 - Importing from the new modules happens at module import, so ensure every dependency (e.g., `Field`) is imported locally or `pytest` will fail during collection.
 - `scripts/track_results.py` re-runs the full suite + trade e2e and writes SCOREBOARD/iteration_results; run it after each commit so the metrics reflect the latest refactor.
+
+### 2026-03-09 — Statistical card builders
+- Keep `tools/card_builders.py` as a re-export shim so existing imports keep working while the actual builders live under `tools/card_builder_modules/`.
+- Group the builders by concern (anomaly, trend, portfolio, correlation, variance) to keep each file <200 lines and make future rewrites targeted.
+- Direct `pytest` runs currently error out on four modules that rely on `google.adk`; the errors are expected until we land the lightweight stubs.
+
+### 2026-03-09 — Card builder facade
+- `card_builders.py` now re-exports the existing `card_builder_modules` to keep imports stable while shrinking the file from 940→11 lines.
+- TestMode shims live in `core_agents.test_mode`; importing `AnalysisContextInitializer` in tests no longer pulls in undefined classes.
+- After each refactor run `.venv/bin/python -m pytest --tb=short` (system `/usr/local/bin/python` still lacks google.adk) and then `python scripts/track_results.py` to keep SCOREBOARD/iteration logs in sync.
