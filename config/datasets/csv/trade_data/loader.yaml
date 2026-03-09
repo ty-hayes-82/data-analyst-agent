@@ -1,0 +1,26 @@
+source:
+  file: "data/synthetic/synthetic_hierarchical_trade_dataset_250k.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+sort_columns: ["grain", "period_end", "flow", "region", "state", "port_code", "hs2", "hs4"]
+
+output_columns:
+  - "grain"
+  - "period_end"
+  - "flow"
+  - "region"
+  - "state"
+  - "state_name"
+  - "port_code"
+  - "port_name"
+  - "hs2"
+  - "hs2_name"
+  - "hs4"
+  - "hs4_name"
+  - "trade_value_usd"
+  - "volume_units"
+  - "year"
+  - "month"
+  - "iso_week"

@@ -1,0 +1,1009 @@
+grain,period_end,flow,region,state,state_name,port_code,port_name,hs2,hs2_name,hs4,hs4_name,trade_value_usd,volume_units,anomaly_flag,scenario_id,anomaly_type,anomaly_direction,anomaly_severity,ground_truth_insight,hierarchy_path,hierarchy_depth,year,month,iso_week
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5880806.54,5005.87,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5604135.28,4623.88,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4512740.16,421.78,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4864093.74,438.93,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5181277.49,1190.85,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5014301.0,1138.58,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5567657.49,950.87,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5087737.07,904.46,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5450639.99,659.21,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5993231.99,752.55,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6596411.18,1047.25,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,1,5
+monthly,2019-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5433393.0,888.0,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,1,5
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5945680.25,5177.07,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6327684.35,5219.48,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5326586.1,476.96,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5004338.91,477.42,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4650165.74,1066.94,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5657684.33,1224.53,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5653668.15,1000.66,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5296633.9,942.27,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5831255.59,698.32,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6436433.31,817.14,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6347780.72,1064.72,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,2,9
+monthly,2019-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5752876.69,875.76,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,2,9
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6134313.15,5012.88,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5482805.87,4576.67,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5100097.34,427.46,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4915669.51,426.5,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4811402.78,1026.27,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5045534.5,1139.15,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4918650.39,933.78,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5473710.83,944.79,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6010937.42,674.24,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6776124.8,830.36,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6579945.32,1046.28,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,3,13
+monthly,2019-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5979460.92,898.87,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,3,13
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6423060.05,5359.94,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6016221.62,5173.23,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4936355.16,445.47,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5393540.13,497.47,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5329485.14,1235.33,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4921438.24,1035.25,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5743150.65,925.81,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4896319.88,910.95,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5861355.47,684.21,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6522843.98,771.13,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6014599.59,1004.49,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,4,18
+monthly,2019-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5623609.8,953.95,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,4,18
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6232771.69,5147.24,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6065473.56,5300.65,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4407321.4,376.77,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5113695.56,440.98,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5306125.21,1249.95,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5136587.9,1044.27,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5734229.62,1046.0,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4712265.18,884.06,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6050804.88,783.33,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6532260.46,785.31,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7195233.01,1103.04,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,5,22
+monthly,2019-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5859185.39,931.8,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,5,22
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6045695.88,4817.29,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6331544.05,5684.75,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4939456.24,439.55,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4870313.74,432.44,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5034988.09,1181.42,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5565671.51,1239.68,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5588531.09,933.75,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5341492.06,960.06,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5723983.8,669.31,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6283522.25,741.59,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6443747.14,1066.48,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,6,26
+monthly,2019-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5986350.37,937.77,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,6,26
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5331085.69,4545.77,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5815066.47,4763.05,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4733622.08,427.24,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4798722.15,428.4,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5044467.27,1062.46,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4893821.51,1142.87,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5711839.72,1015.14,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4844130.6,819.13,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5434997.96,642.04,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5917127.93,695.69,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6555605.87,1033.43,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,7,31
+monthly,2019-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5185499.87,865.02,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,7,31
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5893361.36,5069.13,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5151600.04,4200.86,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4253026.01,392.88,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4664587.84,439.54,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4658531.96,990.2,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5059334.27,1122.83,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4760411.14,793.39,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4680480.11,797.71,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5186374.35,629.88,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6154732.39,747.68,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6178957.88,1012.57,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,8,35
+monthly,2019-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,4854723.51,734.09,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,8,35
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5213951.74,4287.58,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,4940727.28,3901.87,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4404336.97,415.35,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4111709.39,367.0,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4554786.84,995.13,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4281121.98,959.63,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4462009.88,814.37,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4289291.14,747.03,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,4943252.05,637.42,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5694990.25,674.0,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5279366.66,840.84,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,9,40
+monthly,2019-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,4650072.31,733.23,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,9,40
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5043254.31,4402.79,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5227122.59,4319.65,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4300018.96,408.05,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4054893.55,365.07,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4410506.95,977.56,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4318007.6,937.14,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4707519.81,857.99,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4075829.98,712.9,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,4982970.78,610.18,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5729270.78,712.0,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5083789.72,885.23,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,10,44
+monthly,2019-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,4680822.49,712.1,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,10,44
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5132705.82,4493.21,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5212431.13,4533.18,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4203044.57,367.63,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4354781.9,400.52,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,3944413.88,942.58,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4491053.07,971.09,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4170409.83,765.49,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4144926.42,773.75,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5136280.25,664.09,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5198530.59,629.16,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5321147.51,868.7,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,11,48
+monthly,2019-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,4528704.91,715.48,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,11,48
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5489996.3,4596.96,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5338694.18,4288.55,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4598992.23,415.51,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4704714.88,456.84,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4364511.86,916.67,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4843024.93,1070.93,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5056125.83,933.2,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4502047.57,828.36,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5715658.18,662.44,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6149524.0,707.84,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5864470.61,902.34,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2019,12,1
+monthly,2019-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5210704.47,856.71,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2019,12,1
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6253331.39,5613.28,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5882653.94,4865.96,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4550216.05,406.87,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5040065.06,463.67,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5106422.68,1096.11,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5475504.5,1244.94,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4888065.72,875.24,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5232001.49,1004.11,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6026177.77,719.41,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6284375.69,763.76,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6369304.55,1033.28,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,1,5
+monthly,2020-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5510720.75,898.88,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,1,5
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6185457.76,5207.04,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6584989.94,5279.85,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5083663.64,462.5,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5085124.96,453.13,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5138215.43,1109.92,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5431519.94,1124.42,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5776500.87,1012.99,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4883050.43,894.92,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6506347.11,781.19,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6827638.63,804.44,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6593824.66,1049.97,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,2,9
+monthly,2020-02-29,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6095926.41,957.2,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,2,9
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6261711.42,5421.39,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6516505.67,5522.63,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4921192.57,430.82,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5470986.09,467.87,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5078424.64,1048.73,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5166744.45,1161.04,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5747003.79,1066.45,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5317935.72,968.79,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6466361.2,758.47,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6521066.05,789.1,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6667198.8,1046.42,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,3,14
+monthly,2020-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6033098.26,992.63,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,3,14
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6595337.71,5801.11,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6891497.51,5826.17,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4822659.83,435.75,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5159050.39,493.87,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5537921.25,1264.2,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5861623.97,1330.07,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5210354.18,992.77,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5575231.7,1077.95,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6535769.15,824.25,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6924153.5,857.45,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6781368.18,1093.96,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,4,18
+monthly,2020-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5667068.82,889.75,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,4,18
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6047978.56,4767.05,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5952350.08,5153.87,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5342005.26,509.18,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5400187.49,493.69,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5300289.36,1193.39,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5696613.87,1255.06,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5776392.39,1081.49,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5441969.46,1002.33,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6338488.57,730.88,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6587233.6,763.49,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7168761.15,1211.95,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,5,22
+monthly,2020-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6252423.36,1058.76,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,5,22
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6213449.33,5241.95,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5674784.49,4789.06,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5106989.02,492.92,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5250980.97,486.88,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5066440.73,1096.82,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5622394.28,1163.77,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5445393.42,977.68,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4948255.07,935.56,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6134196.99,705.96,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6579666.77,801.45,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7247568.85,1168.46,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,6,27
+monthly,2020-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5608827.35,956.77,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,6,27
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6272600.96,5380.98,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5578151.96,4800.4,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4983860.6,440.91,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4943381.71,437.67,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5100566.38,1064.17,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5628602.18,1259.33,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5278042.57,951.41,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4609758.83,838.2,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5809038.57,724.54,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6421885.76,738.55,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7037032.72,1086.08,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,7,31
+monthly,2020-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5626172.31,896.42,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,7,31
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5436365.29,4531.51,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5511656.19,4436.11,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4628683.88,411.66,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4822775.68,444.43,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4713587.33,1082.89,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4779359.61,1010.67,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5088411.49,896.57,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4613319.44,836.26,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5369767.8,674.9,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6167341.62,795.1,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5997836.01,919.61,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,8,36
+monthly,2020-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5327048.7,836.76,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,8,36
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5486722.98,4776.15,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5322479.04,4506.33,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4234920.77,383.78,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4462136.36,396.34,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4169458.62,939.87,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4522686.08,1030.49,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4948292.83,834.5,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4859018.0,874.87,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5252083.82,652.8,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6325873.55,726.62,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5658889.13,950.47,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,9,40
+monthly,2020-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5012473.46,778.23,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,9,40
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5138387.2,4254.23,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,4816607.2,4033.12,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4287008.59,374.67,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4553855.06,402.7,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4417550.68,990.63,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4711015.21,993.41,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4705323.54,830.29,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4337129.84,759.63,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,4761473.9,558.34,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5499422.98,672.07,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5443852.98,847.94,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,10,44
+monthly,2020-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5097692.25,855.95,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,10,44
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,4595082.7,4085.0,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5363441.51,4688.4,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4443556.06,395.03,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4994968.78,450.75,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4064179.77,950.3,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4525666.48,915.7,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4856462.31,862.96,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4596946.07,802.03,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5029370.51,594.2,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5466212.2,616.15,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5638749.68,884.09,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,11,49
+monthly,2020-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,4976445.86,762.93,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,11,49
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5190380.79,4484.82,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5416254.02,4660.74,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4727037.22,426.95,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4466713.08,417.17,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5042499.31,1211.77,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4820748.62,1071.5,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5111400.1,847.93,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4594276.27,814.53,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5736553.32,700.37,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6637223.53,768.7,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6449808.23,1064.56,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2020,12,53
+monthly,2020-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5741914.45,887.52,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2020,12,53
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6022674.78,5025.61,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6519576.84,5604.46,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5156839.21,464.76,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5204010.6,491.6,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5011808.55,1045.02,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5711422.37,1389.13,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5913056.05,1048.87,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5537936.91,1035.56,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5908220.58,688.99,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7102279.87,875.55,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6995653.15,1131.29,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,1,4
+monthly,2021-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6023587.97,1003.71,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,1,4
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6155222.89,5097.76,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6529469.35,6065.82,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5350657.64,497.9,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5489683.84,475.5,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5466444.21,1213.94,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5625842.63,1239.39,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5796129.27,1004.65,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5570177.74,990.08,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6503602.04,739.52,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6497032.4,833.89,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7076072.85,1095.78,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,2,8
+monthly,2021-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6045362.1,983.07,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,2,8
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6660898.98,5706.81,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6073900.78,4933.63,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5168097.4,468.07,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5176376.37,418.71,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5809587.83,1351.28,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5392048.5,1167.23,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5927816.72,1128.71,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5606608.66,995.06,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6173090.06,741.66,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7248655.32,886.06,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6984606.77,1102.89,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,3,13
+monthly,2021-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6087279.66,1025.42,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,3,13
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6719871.01,5829.15,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6386676.59,5494.11,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5587650.61,470.4,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5578936.23,538.65,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5261029.4,1106.8,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5929895.25,1238.0,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5652848.82,1041.27,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5389041.37,931.25,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6710029.07,738.05,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7311863.66,860.94,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7350718.69,1172.01,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,4,17
+monthly,2021-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5885080.67,911.2,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,4,17
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6807827.59,6117.7,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6560366.85,5489.98,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5476520.9,481.11,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5498617.74,488.84,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5387843.78,1151.8,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6110092.87,1383.36,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5344913.28,947.96,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5451391.33,987.31,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6322625.06,752.23,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6835322.04,745.98,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6881882.09,1091.54,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,5,22
+monthly,2021-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6055238.94,1003.5,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,5,22
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6753992.43,5857.02,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7120327.44,6438.62,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5204901.52,490.29,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5514919.66,511.28,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5728020.07,1408.06,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5580914.15,1346.32,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5898162.26,982.62,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5432859.9,952.21,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6312136.87,787.04,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7210256.91,894.35,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6421533.5,991.97,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,6,26
+monthly,2021-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5858476.52,924.52,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,6,26
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6479189.11,5354.2,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6541591.58,5605.92,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5496170.58,466.88,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5070432.95,429.35,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5463996.76,1215.53,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5570939.66,1198.12,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5227097.82,937.94,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5652703.16,1012.78,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6279723.25,707.19,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6996233.27,807.14,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6569881.74,1018.42,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,7,30
+monthly,2021-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5696479.21,947.84,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,7,30
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5755818.93,4772.29,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5966184.03,4946.87,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4907437.67,439.06,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4532762.95,411.78,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4667476.28,951.62,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4742300.56,1093.43,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5565645.76,1035.47,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5102846.92,937.98,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5760278.79,650.21,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6714075.97,801.05,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6301404.41,1052.32,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,8,35
+monthly,2021-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5659460.34,949.31,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,8,35
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5159998.7,4313.59,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6013367.77,5016.49,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4232967.85,417.81,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,3884967.15,361.51,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4527546.83,1002.67,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4770239.08,1047.81,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4778170.89,881.69,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4367610.95,757.78,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5526327.76,649.58,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6095980.63,775.49,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5252532.21,770.22,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,9,39
+monthly,2021-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5314814.67,908.98,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,9,39
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5150177.39,4425.87,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5476653.78,4443.59,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4030801.1,364.93,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4621272.38,401.19,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4135611.0,932.81,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4464932.84,1033.36,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4254941.79,721.66,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4907051.54,886.74,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5262779.66,638.89,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5796772.08,672.35,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5774909.48,883.03,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,10,43
+monthly,2021-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5179854.15,820.89,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,10,43
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5242625.67,4346.41,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5460537.94,4782.35,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4500532.6,415.25,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4407376.11,391.89,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4563145.22,943.34,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4380023.51,1012.02,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5000587.45,892.29,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4332075.15,775.47,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5203219.11,632.64,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6016046.14,720.58,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5583751.8,919.66,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,11,48
+monthly,2021-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5134661.43,798.14,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,11,48
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5892602.17,5055.43,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5722159.46,4713.34,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4754876.36,465.4,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5138347.34,506.49,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4773536.47,1004.29,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5279156.16,1157.47,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5126383.9,944.99,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5168209.82,880.36,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5916225.7,672.15,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6374336.92,751.93,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6226046.87,999.88,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2021,12,52
+monthly,2021-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5594831.49,886.23,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2021,12,52
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6247709.5,5150.24,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6298067.33,5263.11,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5303553.67,454.11,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4988233.38,450.11,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5716332.51,1276.52,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5263292.87,1153.88,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5956370.27,1062.42,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5163275.44,934.67,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6216069.22,743.54,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7004541.42,878.07,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6985571.04,1204.32,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,1,5
+monthly,2022-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6068906.49,926.46,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,1,5
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6527457.38,5355.36,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6199278.82,4992.22,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5197236.06,459.52,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5658549.99,521.89,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5789699.51,1269.81,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5638305.9,1304.54,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5458532.6,1006.4,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5384218.14,968.71,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6844720.48,769.8,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7208039.15,935.57,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7180709.89,1145.16,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,2,9
+monthly,2022-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6414437.23,909.56,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,2,9
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6637513.54,5460.0,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6805927.38,6024.11,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5238433.64,474.15,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5426548.07,499.47,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4715636.95,1065.13,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5978833.97,1293.02,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5945579.7,1076.06,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5793497.04,1048.28,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7002853.38,840.82,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6428830.59,749.63,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7427071.48,1168.9,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,3,13
+monthly,2022-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6250373.09,1013.11,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,3,13
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6880045.14,5848.84,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6564768.07,5892.7,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5257151.59,475.79,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5355337.98,468.09,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5379853.66,1129.07,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5813366.35,1271.99,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6568626.61,1196.65,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5746336.75,1046.8,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5886749.76,694.95,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7035620.02,895.59,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7002761.18,1182.61,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,4,17
+monthly,2022-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6369772.48,962.77,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,4,17
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6713946.98,5812.34,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6665115.71,5547.17,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5606972.85,508.97,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5986503.86,568.7,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5102952.49,1161.53,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5951057.69,1249.76,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6216355.76,1142.71,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5530361.08,1013.73,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5727106.11,717.33,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6947002.83,773.36,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6816445.72,1161.71,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,5,22
+monthly,2022-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6541171.47,1105.79,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,5,22
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6632358.01,5785.88,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6102140.71,4973.3,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5200761.41,480.0,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5307441.24,488.23,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5212367.2,1174.13,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6307847.66,1359.65,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6075134.56,1071.16,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5207415.19,870.26,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6276785.93,797.78,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7681664.83,925.4,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7199299.83,1157.73,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,6,26
+monthly,2022-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6641237.86,1089.65,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,6,26
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6714919.33,5238.38,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6719863.36,5630.09,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5650845.74,520.94,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5436828.7,456.7,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5275510.72,1099.69,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5605342.79,1242.86,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5834189.18,1011.71,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5420171.06,955.59,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6433567.18,753.06,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7969171.74,993.42,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6856280.76,1062.04,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,7,30
+monthly,2022-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6097218.89,968.8,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,7,30
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5805385.3,5170.65,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6027731.4,5455.39,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4791663.09,444.78,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5379038.26,489.97,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5244656.64,1153.97,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5649160.37,1211.11,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5303839.84,968.22,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5000765.45,868.55,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6230289.44,735.8,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6438659.19,781.51,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6156176.59,1016.71,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,8,35
+monthly,2022-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5890153.96,1020.13,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,8,35
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5474213.62,4870.42,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5487590.38,4529.16,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4748122.39,448.56,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5290414.51,456.19,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4648535.88,927.67,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4892996.65,1098.49,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4872078.87,845.92,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4777319.65,858.23,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5471375.17,663.24,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6110518.44,717.43,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6138666.83,993.09,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,9,39
+monthly,2022-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5386364.23,839.89,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,9,39
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5672239.6,5089.54,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5152012.0,4432.6,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4594484.09,425.6,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4269403.49,413.18,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4435163.47,1018.95,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4710938.97,1031.04,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4917468.91,970.97,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4948340.43,865.53,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5468165.55,671.89,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6094180.28,722.88,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,5612585.28,898.73,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,10,44
+monthly,2022-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5394010.76,829.29,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,10,44
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5656614.85,4778.72,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5495606.46,4865.36,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4443000.67,408.16,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5068632.85,488.42,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4700714.79,995.68,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5192150.75,1217.18,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5057124.16,951.95,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4369208.95,858.12,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5644727.21,663.46,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6247849.78,816.56,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6152587.68,913.33,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,11,48
+monthly,2022-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5096417.62,794.85,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,11,48
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6262372.43,5300.3,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6373914.88,5354.73,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4935696.51,457.88,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5313472.4,511.22,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5054862.44,1079.12,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5113217.68,1085.42,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5230296.18,896.89,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5163492.51,942.13,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6228100.78,781.65,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6612873.21,784.27,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6689600.79,1092.74,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2022,12,52
+monthly,2022-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5904473.72,1015.44,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2022,12,52
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6893355.45,6128.4,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6127690.22,5171.32,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5098915.41,457.97,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5552319.19,516.71,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5757090.66,1208.6,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6168328.8,1392.13,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6333557.71,1231.0,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5642614.04,1018.97,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6861014.5,840.41,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7121762.32,821.02,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7269922.91,1215.23,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,1,5
+monthly,2023-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6385719.32,1007.25,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,1,5
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6672541.17,5646.8,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6918761.45,5657.83,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5538813.85,505.34,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5550273.84,517.44,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5834249.13,1267.23,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5961598.63,1223.12,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6162156.79,1107.04,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5752286.6,961.71,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6550705.42,806.13,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7674002.1,898.89,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7688226.69,1213.93,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,2,9
+monthly,2023-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6677015.34,1038.88,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,2,9
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6650816.44,5452.68,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6934735.66,5726.01,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5829169.2,532.71,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5210231.69,453.77,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5693170.61,1217.54,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6344106.98,1466.23,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5944737.29,1065.54,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5621488.64,983.5,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6822659.11,840.77,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7692594.04,931.41,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7712735.01,1234.01,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,3,13
+monthly,2023-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6234536.11,929.01,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,3,13
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7037240.34,5970.25,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7261061.9,6242.19,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5776260.86,518.71,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5433077.36,495.63,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6022911.17,1320.54,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6144398.71,1308.89,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6194837.97,1122.95,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5665514.2,1040.41,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6991387.67,772.48,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7742769.12,884.37,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7401730.27,1247.25,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,4,17
+monthly,2023-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6397748.26,1035.61,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,4,17
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7158176.71,5847.52,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7215367.66,6077.47,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5605835.53,517.84,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5928581.07,540.09,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5741786.05,1203.5,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6351516.57,1409.44,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6343280.96,1130.79,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5941577.61,1106.62,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6223030.78,783.38,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7825427.83,917.8,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7503746.42,1160.87,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,5,22
+monthly,2023-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6528950.37,1097.23,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,5,22
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6967943.26,6099.3,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7223948.11,6584.85,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5349328.27,486.04,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5759010.42,518.32,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5511164.61,1220.72,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6305758.72,1355.48,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6229390.78,1159.34,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5956184.83,1045.04,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7536475.45,828.51,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7325005.34,886.84,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7664251.97,1213.97,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,6,26
+monthly,2023-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6709225.52,1107.78,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,6,26
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7176793.48,5648.54,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6548779.09,5688.39,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5223193.64,501.98,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5682584.92,503.47,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5767715.58,1303.52,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6439685.0,1421.55,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5499096.64,986.98,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5675978.76,1060.08,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6379868.72,725.67,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7003319.85,857.35,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7148363.92,1117.84,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,7,31
+monthly,2023-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6157702.57,925.89,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,7,31
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5772928.38,5033.49,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6147868.69,5503.14,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5139283.74,466.21,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5090062.83,429.94,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4970947.81,1142.32,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5570935.09,1309.4,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6030149.33,1109.44,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4846316.59,839.41,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6516018.66,789.55,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7276419.24,908.78,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6401108.95,911.36,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,8,35
+monthly,2023-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5842958.64,948.19,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,8,35
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5688726.49,4904.2,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6105257.81,5075.46,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4914309.06,438.08,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4985975.47,460.53,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4912572.23,1016.95,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5509395.04,1146.01,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5653399.35,1100.28,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4579291.48,797.1,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6008066.2,671.95,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6332142.48,751.59,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6124218.34,999.39,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,9,39
+monthly,2023-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5349571.22,904.15,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,9,39
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5721236.18,5293.7,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5777391.05,4771.82,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4504644.78,411.16,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4643170.45,434.16,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4522157.98,977.13,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5189891.6,1120.85,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5041320.17,944.04,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5192085.99,991.65,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5749019.0,645.22,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,5873454.93,700.14,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6138303.39,978.63,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,10,44
+monthly,2023-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5480497.07,905.93,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,10,44
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5832636.99,4612.69,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5639627.02,5239.08,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5116307.92,477.1,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4829478.63,419.88,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4800785.37,987.28,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5180666.07,1096.42,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5232811.15,948.19,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4949545.94,895.53,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5758276.26,674.8,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6459765.36,778.06,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6323967.29,976.69,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,11,48
+monthly,2023-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5193118.11,798.95,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,11,48
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6365166.41,5505.79,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6402837.64,5733.3,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5143320.28,467.34,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5272039.18,476.91,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5103804.81,1066.34,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5547518.91,1198.32,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5837142.38,992.48,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5150228.79,914.05,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6237743.43,728.34,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6875982.68,821.02,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6560540.24,1127.81,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2023,12,52
+monthly,2023-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5839352.0,878.69,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2023,12,52
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6724035.75,5479.53,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7203861.16,6538.31,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5493483.01,502.12,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5903835.95,502.08,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5118467.93,1115.14,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5999375.54,1298.03,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5863134.84,1018.6,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5537906.65,1025.71,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7012628.07,865.43,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7630105.11,887.17,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7131461.83,1139.21,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,1,5
+monthly,2024-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6775361.19,1072.33,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,1,5
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7148693.66,6171.62,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7338816.97,6415.12,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5740115.15,495.66,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5948765.26,546.67,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6240575.16,1348.45,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6817140.08,1517.97,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6815166.01,1176.57,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5700520.44,1060.23,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6824567.84,867.23,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7331928.81,855.9,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,8116662.63,1315.78,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,2,9
+monthly,2024-02-29,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6822270.89,1089.83,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,2,9
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7005753.27,6099.27,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7354931.95,5865.02,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5773684.74,531.37,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6073380.08,536.09,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6104336.64,1303.15,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6314880.87,1474.11,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6675726.8,1170.98,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5695809.14,1015.19,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7906079.75,913.42,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7748990.91,918.66,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7843923.58,1239.84,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,3,13
+monthly,2024-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,7069418.06,1039.44,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,3,13
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,9403341.0,7606.32,1,B1,surge,positive,high,"Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas.",exports > South > TX > HOU > 27 > 2710,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,9396910.68,7595.84,1,B1,surge,positive,high,"Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas.",exports > South > TX > HOU > 27 > 2711,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,6048054.69,535.52,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5958644.83,530.38,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5419758.88,1199.09,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5800937.48,1268.44,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6184047.16,1100.0,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5507663.71,981.34,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6848210.07,789.15,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7728127.11,834.0,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7583391.39,1234.15,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,4,18
+monthly,2024-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6259777.24,973.72,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,4,18
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,8631565.26,7450.51,1,B1,surge,positive,high,"Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas.",exports > South > TX > HOU > 27 > 2710,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,9840501.41,7384.8,1,B1,surge,positive,high,"Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas.",exports > South > TX > HOU > 27 > 2711,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,6024613.75,541.74,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5216170.43,483.28,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6286244.37,1317.18,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6134224.17,1289.52,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6721859.22,1302.14,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5642277.0,1070.0,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7374054.27,870.97,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,8008099.43,1032.24,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7634128.81,1211.08,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,5,22
+monthly,2024-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,7042161.39,1127.34,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,5,22
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,8088035.72,6921.56,1,B1,surge,positive,high,"Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas.",exports > South > TX > HOU > 27 > 2710,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,10048616.79,8554.94,1,B1,surge,positive,high,"Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas.",exports > South > TX > HOU > 27 > 2711,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5849855.03,526.13,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5798552.87,559.63,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5923363.99,1327.27,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6505939.78,1468.76,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5739373.81,991.52,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,6232031.99,1250.55,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6828232.34,866.03,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7462330.25,909.4,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7573189.55,1235.56,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,6,26
+monthly,2024-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6339385.02,946.01,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,6,26
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7175295.16,5700.24,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6783829.03,5633.27,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5270079.94,497.69,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5841086.24,523.84,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5879725.41,1288.22,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5999900.96,1372.17,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6104071.92,1053.9,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5689568.35,1021.74,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6976890.13,836.96,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7490772.11,890.83,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7226187.55,1119.7,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,7,31
+monthly,2024-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6533715.38,1026.48,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,7,31
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6312167.88,5130.39,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6152799.31,5194.69,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5193329.56,476.37,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5346626.62,480.7,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5382657.32,1101.36,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6005252.7,1301.17,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5914598.52,1055.29,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4943359.76,865.44,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6359377.59,782.45,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6799907.2,804.51,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7231332.13,1134.9,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,8,35
+monthly,2024-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5659014.57,906.54,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,8,35
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5797194.68,4994.26,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6181450.68,4926.26,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5177820.29,458.43,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5257368.42,440.67,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5136757.72,1155.76,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5458673.48,1128.88,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5489147.53,910.82,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4927845.35,899.55,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6225142.58,769.46,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7107629.97,873.3,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6400583.05,1026.36,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,9,40
+monthly,2024-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5708414.81,897.05,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,9,40
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5863633.14,5510.68,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5744881.67,4984.47,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4631508.44,414.8,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4974760.78,455.29,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4915168.92,1065.71,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,4942412.52,1100.92,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5440598.47,955.45,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4824744.09,868.14,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6392900.1,748.98,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6354416.85,778.02,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6311156.05,1059.72,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,10,44
+monthly,2024-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5666982.5,861.83,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,10,44
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5599963.18,4396.88,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5878863.79,4884.7,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5058645.96,439.73,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5128694.44,488.75,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4637176.63,1023.83,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5043222.27,1181.26,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5446493.77,953.52,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4594316.96,776.41,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5664466.85,692.98,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6557687.62,770.52,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6326860.74,982.48,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,11,48
+monthly,2024-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5516324.44,880.69,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,11,48
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6197602.64,5148.08,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6361787.83,5313.9,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5131985.99,457.86,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5257274.98,483.01,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5212234.36,1092.14,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5046730.7,1096.08,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5860330.65,975.86,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,4971369.4,999.25,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6479229.14,762.78,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7531803.2,943.45,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6848098.64,1164.4,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2024,12,1
+monthly,2024-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5833015.2,907.85,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2024,12,1
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6586859.14,5736.11,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7616788.04,6409.11,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,6003555.24,546.12,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6111364.14,501.51,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5841522.53,1324.23,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6444522.74,1412.69,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6487189.64,1140.82,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5651089.67,1019.5,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6548626.75,789.1,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7409759.07,865.76,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7370884.57,1250.64,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,1,5
+monthly,2025-01-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,7147928.16,1222.58,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,1,5
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7404945.65,6022.08,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7767006.72,6060.73,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5885355.7,514.49,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6178200.46,546.23,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5722709.89,1263.52,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6752789.04,1464.2,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6719453.59,1151.32,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5424608.82,950.74,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6942951.42,862.87,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7783867.3,938.6,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,8394719.02,1363.75,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,2,9
+monthly,2025-02-28,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,7046466.97,1129.92,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,2,9
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7592997.11,6589.45,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7203631.98,5939.62,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,6179764.33,524.67,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6390344.12,567.68,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6161602.34,1400.79,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6771077.68,1434.91,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6684482.96,1270.05,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,6070774.84,1162.78,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7462334.62,927.58,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,8020182.91,989.77,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,8166984.32,1299.78,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,3,14
+monthly,2025-03-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,7172900.47,1091.54,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,3,14
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7398975.46,6246.97,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7072669.88,5914.1,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5885311.15,506.18,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6226281.22,592.35,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5966734.06,1230.46,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6637317.5,1543.28,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6607131.0,1173.59,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,6016292.09,1118.43,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7678356.39,901.51,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,8082520.96,972.85,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7346871.97,1074.33,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,4,18
+monthly,2025-04-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6703077.39,1083.01,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,4,18
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7085069.49,5897.15,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7160727.48,5872.38,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5439963.03,477.49,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6170767.88,585.47,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6575182.22,1481.49,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6691904.86,1477.76,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6461972.84,1139.84,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,6096130.98,1060.54,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7608764.18,897.39,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,8483870.06,1079.59,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,8504243.31,1402.34,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,5,22
+monthly,2025-05-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6984418.14,1055.5,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,5,22
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7908027.4,7010.99,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7351759.71,6272.79,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5687283.15,517.43,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,6049637.84,525.61,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,6014947.57,1396.23,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6526473.17,1427.92,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,6585002.29,1216.57,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5952872.12,1043.38,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,7266228.14,875.25,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,8476108.47,1070.3,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7325776.38,1172.61,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,6,27
+monthly,2025-06-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6415318.54,985.26,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,6,27
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,7401796.8,5854.36,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,7096793.3,6369.11,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5985854.38,503.39,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5658079.95,481.42,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5731348.08,1279.55,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6086392.67,1296.68,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5707761.67,1164.66,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,6037292.0,1107.28,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6680814.99,887.17,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,8031178.78,961.43,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7510737.77,1217.57,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,7,31
+monthly,2025-07-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,6534768.45,1030.28,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,7,31
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6227026.96,4900.57,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6701727.06,5692.97,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5037694.6,439.13,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5410771.83,527.76,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5390677.91,1169.81,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6294572.72,1412.44,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5554679.22,979.77,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5791409.39,1094.6,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6598267.1,719.84,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7282877.13,880.7,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7158194.66,1111.14,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,8,35
+monthly,2025-08-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5930047.33,967.45,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,8,35
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5594360.73,4970.45,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,5927096.92,5016.74,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4854041.98,443.02,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5400346.84,507.41,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5170001.43,1196.12,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5444871.15,1119.7,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,4993436.15,842.0,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5415304.26,967.76,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6054158.84,754.87,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6696713.95,900.14,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6576587.64,1058.48,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,9,40
+monthly,2025-09-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5428853.13,810.11,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,9,40
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,5878153.79,4771.56,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6200716.48,5202.77,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5181936.38,463.44,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,4829269.68,439.88,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4975905.51,1132.13,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5623901.66,1255.44,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5172912.31,857.91,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5028212.64,902.47,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5389658.04,650.85,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6899976.78,809.3,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6688612.05,1113.98,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,10,44
+monthly,2025-10-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5673793.35,920.28,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,10,44
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6475890.85,5051.73,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6139953.45,5256.0,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,4821557.41,427.27,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5314507.02,515.15,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,4867696.94,1097.27,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,5723854.16,1264.84,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5555029.47,1021.19,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5081626.03,905.13,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,5534026.4,662.57,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,6839641.41,857.18,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,7083214.48,1138.61,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,11,48
+monthly,2025-11-30,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5616807.59,901.65,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,11,48
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2710,Refined petroleum,6074318.83,5297.6,0,,,,,,exports > South > TX > HOU > 27 > 2710,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,27,Energy,2711,Natural gas,6356296.21,5396.62,0,,,,,,exports > South > TX > HOU > 27 > 2711,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3002,Biotech products,5806473.51,524.0,0,,,,,,exports > South > TX > HOU > 30 > 3002,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,30,Pharma,3004,Medicaments,5409971.22,524.08,0,,,,,,exports > South > TX > HOU > 30 > 3004,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3901,Polymers of ethylene,5632945.75,1258.22,0,,,,,,exports > South > TX > HOU > 39 > 3901,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,39,Plastics,3923,Plastic packaging,6078927.05,1426.13,0,,,,,,exports > South > TX > HOU > 39 > 3923,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8409,Engine parts,5991524.56,1093.17,0,,,,,,exports > South > TX > HOU > 84 > 8409,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,84,Machinery,8471,Computers,5258022.87,935.36,0,,,,,,exports > South > TX > HOU > 84 > 8471,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8517,Telecom equipment,6795474.13,793.94,0,,,,,,exports > South > TX > HOU > 85 > 8517,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,85,Electronics,8542,Semiconductors,7738708.24,836.97,0,,,,,,exports > South > TX > HOU > 85 > 8542,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8703,Passenger vehicles,6986176.51,1215.62,0,,,,,,exports > South > TX > HOU > 87 > 8703,6,2025,12,1
+monthly,2025-12-31,exports,South,TX,Texas,HOU,Houston,87,Vehicles,8708,Auto parts,5743568.6,857.53,0,,,,,,exports > South > TX > HOU > 87 > 8708,6,2025,12,1

@@ -52,7 +52,22 @@ def _get_cache_registry() -> dict:
     else:
         # Defensive check for required keys (tests sometimes set registry to {})
         required_keys = {"validated_csv", "ops_metrics_csv", "analysis_context", "session_id_var"}
+        needs_reset = False
         if not required_keys.issubset(registry.keys()):
+            needs_reset = True
+        else:
+            dict_requirements = {
+                "validated_csv": dict,
+                "ops_metrics_csv": dict,
+                "analysis_context": dict,
+            }
+            for key, expected in dict_requirements.items():
+                if not isinstance(registry.get(key), expected):
+                    needs_reset = True
+                    break
+            if not isinstance(registry.get("session_id_var"), contextvars.ContextVar):
+                needs_reset = True
+        if needs_reset:
             registry = _create_cache_registry()
             sys.modules[_REGISTRY_KEY] = registry
     return registry

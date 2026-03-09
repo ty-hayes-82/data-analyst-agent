@@ -1,0 +1,336 @@
+{
+  "total_yoy_variance": {
+    "description": "Total trade value YoY variance 2024 vs 2023 (weekly grain)",
+    "y2024_total": 45566042370.11,
+    "y2023_total": 45010005563.37,
+    "variance_pct": 1.24,
+    "expected_direction": "positive (annual growth trend of 3.5%)"
+  },
+  "flow_imports_yoy": {
+    "y2024": 24663014599.68,
+    "y2023": 24353476228.29,
+    "variance_pct": 1.27
+  },
+  "flow_exports_yoy": {
+    "y2024": 20903027770.43,
+    "y2023": 20656529335.08,
+    "variance_pct": 1.19
+  },
+  "region_variance_ranking": [
+    {
+      "region": "West",
+      "y2024": 14021450079.0,
+      "y2023": 13856597797.67,
+      "abs_variance": 164852281.33,
+      "variance_pct": 1.19
+    },
+    {
+      "region": "South",
+      "y2024": 12026613221.46,
+      "y2023": 11886419706.81,
+      "abs_variance": 140193514.65,
+      "variance_pct": 1.18
+    },
+    {
+      "region": "Northeast",
+      "y2024": 9149799864.91,
+      "y2023": 9011743602.07,
+      "abs_variance": 138056262.84,
+      "variance_pct": 1.53
+    },
+    {
+      "region": "Midwest",
+      "y2024": 10368179204.74,
+      "y2023": 10255244456.82,
+      "abs_variance": 112934747.92,
+      "variance_pct": 1.1
+    }
+  ],
+  "state_variance_in_top_region": {
+    "region": "West",
+    "states": [
+      {
+        "state": "CA",
+        "y2024": 8066180634.78,
+        "y2023": 7964242951.27,
+        "abs_variance": 101937683.51,
+        "variance_pct": 1.28
+      },
+      {
+        "state": "WA",
+        "y2024": 5955269444.22,
+        "y2023": 5892354846.4,
+        "abs_variance": 62914597.82,
+        "variance_pct": 1.07
+      }
+    ]
+  },
+  "anomaly_scenarios": [
+    {
+      "scenario_id": "A1",
+      "grain": "monthly",
+      "anomaly_type": "volume_drop",
+      "direction": "negative",
+      "severity": "high",
+      "rows_impacted": 2,
+      "first_period": "2022-09-30",
+      "last_period": "2022-10-31",
+      "avg_anomaly_value": 5573356.6,
+      "avg_baseline_value": 9328499.56,
+      "deviation_pct": -40.25,
+      "ground_truth_insight": "Tariff-style shock: West imports, California, Los Angeles, HS4 8542 semiconductors dropped sharply in Sep-Oct 2022."
+    },
+    {
+      "scenario_id": "A1",
+      "grain": "weekly",
+      "anomaly_type": "volume_drop",
+      "direction": "negative",
+      "severity": "high",
+      "rows_impacted": 9,
+      "first_period": "2022-09-04",
+      "last_period": "2022-10-30",
+      "avg_anomaly_value": 1342747.8,
+      "avg_baseline_value": 2415857.56,
+      "deviation_pct": -44.42,
+      "ground_truth_insight": "Tariff-style shock: West imports, California, Los Angeles, HS4 8542 semiconductors dropped sharply for 8 weeks."
+    },
+    {
+      "scenario_id": "B1",
+      "grain": "monthly",
+      "anomaly_type": "surge",
+      "direction": "positive",
+      "severity": "high",
+      "rows_impacted": 6,
+      "first_period": "2024-04-30",
+      "last_period": "2024-06-30",
+      "avg_anomaly_value": 9234828.48,
+      "avg_baseline_value": 6228684.63,
+      "deviation_pct": 48.26,
+      "ground_truth_insight": "Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas."
+    },
+    {
+      "scenario_id": "B1",
+      "grain": "weekly",
+      "anomaly_type": "surge",
+      "direction": "positive",
+      "severity": "high",
+      "rows_impacted": 26,
+      "first_period": "2024-04-07",
+      "last_period": "2024-06-30",
+      "avg_anomaly_value": 2403757.05,
+      "avg_baseline_value": 1615499.13,
+      "deviation_pct": 48.79,
+      "ground_truth_insight": "Energy export surge: Texas Houston exports accelerated in Q2 2024, led by HS2 27 and strongest in HS4 2711 natural gas."
+    },
+    {
+      "scenario_id": "C1",
+      "grain": "monthly",
+      "anomaly_type": "weather_disruption",
+      "direction": "negative",
+      "severity": "medium",
+      "rows_impacted": 16,
+      "first_period": "2023-01-31",
+      "last_period": "2023-02-28",
+      "avg_anomaly_value": 4288402.71,
+      "avg_baseline_value": 4254186.66,
+      "deviation_pct": 0.8,
+      "ground_truth_insight": "Weather disruption: Northeast/Newark throughput fell across pharma and electronics in Jan-Feb 2023."
+    },
+    {
+      "scenario_id": "C1",
+      "grain": "weekly",
+      "anomaly_type": "weather_disruption",
+      "direction": "negative",
+      "severity": "medium",
+      "rows_impacted": 56,
+      "first_period": "2023-01-08",
+      "last_period": "2023-02-19",
+      "avg_anomaly_value": 1014848.12,
+      "avg_baseline_value": 1106655.27,
+      "deviation_pct": -8.3,
+      "ground_truth_insight": "Weather disruption: Northeast/Newark throughput fell across pharma and electronics during Jan-Feb 2023."
+    },
+    {
+      "scenario_id": "D1",
+      "grain": "monthly",
+      "anomaly_type": "rebound",
+      "direction": "positive",
+      "severity": "medium",
+      "rows_impacted": 8,
+      "first_period": "2021-07-31",
+      "last_period": "2021-08-31",
+      "avg_anomaly_value": 5910263.32,
+      "avg_baseline_value": 4588585.19,
+      "deviation_pct": 28.8,
+      "ground_truth_insight": "Supply normalization rebound: Midwest Chicago machinery volumes recovered in Jul-Aug 2021."
+    },
+    {
+      "scenario_id": "D1",
+      "grain": "weekly",
+      "anomaly_type": "rebound",
+      "direction": "positive",
+      "severity": "medium",
+      "rows_impacted": 36,
+      "first_period": "2021-07-04",
+      "last_period": "2021-08-29",
+      "avg_anomaly_value": 1505858.74,
+      "avg_baseline_value": 1186027.11,
+      "deviation_pct": 26.97,
+      "ground_truth_insight": "Supply normalization rebound: Midwest Chicago machinery volumes recovered in Jul-Aug 2021."
+    },
+    {
+      "scenario_id": "E1",
+      "grain": "monthly",
+      "anomaly_type": "shutdown",
+      "direction": "negative",
+      "severity": "high",
+      "rows_impacted": 9,
+      "first_period": "2020-03-31",
+      "last_period": "2020-05-31",
+      "avg_anomaly_value": 2956125.9,
+      "avg_baseline_value": 5039635.99,
+      "deviation_pct": -41.34,
+      "ground_truth_insight": "Manufacturing shutdown: Michigan export auto parts volumes fell materially in spring 2020."
+    },
+    {
+      "scenario_id": "E1",
+      "grain": "weekly",
+      "anomaly_type": "shutdown",
+      "direction": "negative",
+      "severity": "high",
+      "rows_impacted": 30,
+      "first_period": "2020-03-29",
+      "last_period": "2020-05-31",
+      "avg_anomaly_value": 728476.86,
+      "avg_baseline_value": 1313183.05,
+      "deviation_pct": -44.53,
+      "ground_truth_insight": "Manufacturing shutdown: Michigan export auto parts volumes fell materially in spring 2020."
+    },
+    {
+      "scenario_id": "F1",
+      "grain": "monthly",
+      "anomaly_type": "demand_shift",
+      "direction": "positive",
+      "severity": "medium",
+      "rows_impacted": 18,
+      "first_period": "2025-02-28",
+      "last_period": "2025-04-30",
+      "avg_anomaly_value": 7141961.01,
+      "avg_baseline_value": 4906727.01,
+      "deviation_pct": 45.55,
+      "ground_truth_insight": "Packaging demand shift: Florida plastics imports increased in spring 2025."
+    },
+    {
+      "scenario_id": "F1",
+      "grain": "weekly",
+      "anomaly_type": "demand_shift",
+      "direction": "positive",
+      "severity": "medium",
+      "rows_impacted": 78,
+      "first_period": "2025-02-02",
+      "last_period": "2025-04-27",
+      "avg_anomaly_value": 1884009.36,
+      "avg_baseline_value": 1282976.33,
+      "deviation_pct": 46.85,
+      "ground_truth_insight": "Packaging demand shift: Florida plastics imports increased in spring 2025."
+    }
+  ],
+  "seasonal_pattern": {
+    "description": "Monthly seasonality in trade values",
+    "peak_month": 3,
+    "trough_month": 10,
+    "seasonal_amplitude_pct": 20.15,
+    "monthly_averages": {
+      "1": 5663841.07,
+      "2": 5851203.4,
+      "3": 5895672.66,
+      "4": 5888727.81,
+      "5": 5891937.24,
+      "6": 5855010.24,
+      "7": 5662789.67,
+      "8": 5310016.02,
+      "9": 4943991.68,
+      "10": 4787683.46,
+      "11": 4940450.18,
+      "12": 5307226.33
+    }
+  },
+  "aggregation_checks": {
+    "total_rows": 258624,
+    "weekly_rows": 210240,
+    "monthly_rows": 48384,
+    "total_trade_value": 566799852430.89,
+    "weekly_trade_value": 300693699793.67,
+    "monthly_trade_value": 266106152637.22,
+    "unique_flows": [
+      "exports",
+      "imports"
+    ],
+    "unique_regions": [
+      "Midwest",
+      "Northeast",
+      "South",
+      "West"
+    ],
+    "unique_states": [
+      "CA",
+      "FL",
+      "IL",
+      "MI",
+      "NY",
+      "PA",
+      "TX",
+      "WA"
+    ],
+    "unique_ports": [
+      "ABE",
+      "BUF",
+      "CHI",
+      "DAL",
+      "DET",
+      "ELP",
+      "EVE",
+      "GRR",
+      "HOU",
+      "JAX",
+      "LAX",
+      "LGB",
+      "MIA",
+      "NWK",
+      "NYC",
+      "OAK",
+      "PEO",
+      "PHL",
+      "PIT",
+      "RFD",
+      "SAG",
+      "SEA",
+      "TAC",
+      "TPA"
+    ],
+    "unique_hs2": [
+      27,
+      30,
+      39,
+      84,
+      85,
+      87
+    ],
+    "unique_hs4": [
+      2710,
+      2711,
+      3002,
+      3004,
+      3901,
+      3923,
+      8409,
+      8471,
+      8517,
+      8542,
+      8703,
+      8708
+    ],
+    "anomaly_rows": 294,
+    "non_anomaly_rows": 258330
+  }
+}

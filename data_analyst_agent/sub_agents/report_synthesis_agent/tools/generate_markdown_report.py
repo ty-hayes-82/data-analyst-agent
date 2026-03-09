@@ -259,11 +259,12 @@ from data_analyst_agent.utils.env_utils import parse_bool_env
 
 async def generate_markdown_report(
     hierarchical_results: str,
-    analysis_target: str,
+    analysis_target: Optional[str] = None,
     analysis_period: Optional[str] = None,
     statistical_summary: Optional[str] = None,
     narrative_results: Optional[str] = None,
     target_label: Optional[str] = None,
+    cost_center: Optional[str] = None,
 ) -> str:
     """
     Generate executive 1-pager in Markdown format.
@@ -274,17 +275,19 @@ async def generate_markdown_report(
 
     Args:
         hierarchical_results: JSON string with hierarchical analysis results
-        analysis_target: Analysis target identification (e.g. metric or cost center)
+        analysis_target: Optional analysis target identification (e.g., metric name)
         analysis_period: Optional analysis period
         statistical_summary: Optional JSON string with statistical analysis including
             utilization ratios, degradation alerts, outliers, and trend data
         narrative_results: Optional JSON string from narrative agent
         target_label: Dataset-specific label for the target (from contract)
+        cost_center: Optional friendly identifier (overrides analysis_target in output)
 
     Returns:
         Markdown-formatted report string
     """
     try:
+        target_name = cost_center or analysis_target or "unknown"
         # Parse hierarchical results — handles list, dict, and normalised formats.
         # List: [{"level": 0, ...}, {"level": 1, ...}] — normalised to level_N dict.
         # Dict: {"level_0": {...}, "level_1": {...}} or {"HIERARCHICAL_LEVEL_0": {...}}.
@@ -329,12 +332,14 @@ async def generate_markdown_report(
         short_delta_label = "WoW" if temporal_grain == "weekly" else "MoM"
 
         # Build markdown report
-        label = target_label or "Analysis"
+        label = target_label or "P&L Analysis"
         md = []
-        md.append(f"# {label} Report - {analysis_target}")
+        md.append(f"# {label} Report - {target_name}")
         md.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         if analysis_period:
             md.append(f"**Period:** {analysis_period}")
+        if cost_center:
+            md.append(f"**Cost Center {target_name}**")
         md.append("")
 
         # === EXECUTIVE SUMMARY ===
@@ -346,7 +351,7 @@ async def generate_markdown_report(
             md.append("")
 
         # Get top-level summary from the shallowest level
-        unit = _resolve_unit(analysis_target or "")
+        unit = _resolve_unit(target_name or "")
         
         # Detect lag metadata
         lag_meta = None
@@ -369,7 +374,7 @@ async def generate_markdown_report(
             lvl0_data = level_analyses.get(f"level_{shallowest_level}", {})
             total_var = lvl0_data.get("total_variance_dollar", 0)
             if total_var:
-                md.append(f"- **Total Variance:** {_format_variance(total_var, unit, analysis_target)}")
+                md.append(f"- **Total Variance:** {_format_variance(total_var, unit, target_name)}")
         
         if lag_meta:
             lag_p = lag_meta.get("lag_periods", 0)
@@ -474,7 +479,7 @@ async def generate_markdown_report(
         # Omit full section when REPORT_CONDENSED=1 (Exec Summary already has depth)
         condensed = parse_bool_env(os.environ.get("REPORT_CONDENSED", "0"))
         if not condensed:
-            md.append("## Hierarchical Variance Analysis")
+            md.append("## Hierarchical Drill-Down Path")
             md.append("")
             md.append(f"Analysis Path: **{drill_down_path}**")
             md.append("")
@@ -489,7 +494,7 @@ async def generate_markdown_report(
 
                 md.append(f"### Level {level}: {level_name}")
                 if total_var:
-                    md.append(f"- **Total Variance:** {_format_variance(total_var, unit, analysis_target)}")
+                    md.append(f"- **Total Variance:** {_format_variance(total_var, unit, target_name)}")
 
                 # Show insight cards from hierarchy agent (skip zero-variance)
                 cards = [c for c in _collect_insight_cards(level_data) if not _is_skip_card(c)]
@@ -504,7 +509,7 @@ async def generate_markdown_report(
                             line += f" — {w}"
                         md.append(line)
                 elif total_var:
-                    md.append(f"- Total: {_format_variance(total_var, unit, analysis_target)}")
+                    md.append(f"- Total: {_format_variance(total_var, unit, target_name)}")
                 md.append("")
 
         # === INDEPENDENT LEVEL FINDINGS (spec 035) ===
@@ -636,6 +641,25 @@ async def generate_markdown_report(
         util_outliers = stats_data.get("utilization_outliers", [])
         util_summary = stats_data.get("utilization_summary", {})
         trend_analysis = util_summary.get("trend_analysis", {})
+
+        md.append("## Recommended Actions")
+        md.append("")
+        actions_added = False
+        narrative_actions = narrative_data.get("recommended_actions") if isinstance(narrative_data, dict) else None
+        if isinstance(narrative_actions, list):
+            for action in narrative_actions[:5]:
+                if action:
+                    md.append(f"- {action}")
+                    actions_added = True
+        if not actions_added:
+            for card in final_cards:
+                action = card.get("now_what") or card.get("recommended_action")
+                if action:
+                    md.append(f"- {action}")
+                    actions_added = True
+            if not actions_added:
+                md.append("- Continue monitoring key drivers and validate mitigation plans.")
+        md.append("")
 
         if util_ratios:
             md.append("## Operational Efficiency Dashboard")

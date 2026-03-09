@@ -20,11 +20,15 @@ import json
 from typing import Any
 
 
+_VOLATILITY_ALERT_THRESHOLD = 0.5
+
+
 async def extract_alerts_from_analysis(
     statistical_summary: str = "",
     statistical_insights_result: str = "",
     synthesis: str = "",
-    analysis_target: str = "unknown"
+    analysis_target: str = "unknown",
+    cost_center: str | None = None,
 ) -> str:
     """Extract alerts from analysis results text.
     
@@ -36,12 +40,14 @@ async def extract_alerts_from_analysis(
         statistical_insights_result: Output from statistical_insights_agent (LLM insights)
         synthesis: Output from synthesis_agent
         analysis_target: Analysis target being analyzed
+        cost_center: Optional friendly identifier (used when analysis_target is generic)
         
     Returns:
         JSON string with alerts array and config for the alert_scoring_agent
     """
     try:
-        print(f"[extract_alerts_from_analysis] Starting extraction for {analysis_target}...", flush=True)
+        target_name = cost_center or analysis_target
+        print(f"[extract_alerts_from_analysis] Starting extraction for {target_name}...", flush=True)
         alerts = []
         
         stats_data = {}
@@ -101,7 +107,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": item_id,
                 "item_name": item_name,
-                "dimension_value": analysis_target,
+                "dimension_value": target_name,
                 "category": "statistical_anomaly",
                 "variance_amount": round(variance_amount, 2),
                 "variance_pct": round(variance_pct, 2),
@@ -139,13 +145,13 @@ async def extract_alerts_from_analysis(
             item_name = driver.get('item_name', item_id)
             cv = driver.get('cv', 0)
             
-            if cv > 0.2:  # loose filter; ranking handles prioritization
+            if cv >= _VOLATILITY_ALERT_THRESHOLD:
                 alert = {
                     "id": f"{item_id}-high-volatility",
                     "period": "multi-period",
                     "item_id": item_id,
                     "item_name": item_name,
-                    "dimension_value": analysis_target,
+                    "dimension_value": target_name,
                     "category": "volatility",
                     "variance_amount": 0,
                     "variance_pct": 0,
@@ -194,7 +200,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": item_id,
                 "item_name": item_name,
-                "dimension_value": analysis_target,
+                "dimension_value": target_name,
                 "category": "structural_break",
                 "variance_amount": round(mag_dollar, 2),
                 "variance_pct": round(mag_pct, 2),
@@ -242,7 +248,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": metric,
                 "item_name": label,
-                "dimension_value": analysis_target,
+                "dimension_value": target_name,
                 "category": "utilization_degradation",
                 "variance_amount": round(abs(current_val - baseline_val), 4),
                 "variance_pct": round(abs(variance_pct), 2),
@@ -285,7 +291,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": metric,
                 "item_name": _outlier_label,
-                "dimension_value": analysis_target,
+                "dimension_value": target_name,
                 "category": "utilization_outlier",
                 "variance_amount": round(abs(value - mean_val), 4),
                 "variance_pct": round(abs((value - mean_val) / mean_val * 100), 2) if mean_val != 0 else 0,
@@ -327,7 +333,7 @@ async def extract_alerts_from_analysis(
                 "min_score_threshold": 0.05
             },
             "metadata": {
-                "dimension_value": str(analysis_target),
+                "dimension_value": str(target_name),
                 "extracted_at": str(__import__('datetime').datetime.now()),
                 "total_alerts": len(alerts),
                 "source": "statistical_summary"
@@ -339,7 +345,7 @@ async def extract_alerts_from_analysis(
         output_dir = Path("outputs")
         output_dir.mkdir(exist_ok=True)
         # Sanitize target for filename
-        safe_target = str(analysis_target).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
+        safe_target = str(target_name).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
         payload_file = output_dir / f"alerts_payload_{safe_target}.json"
         
         print(f"[extract_alerts_from_analysis] Attempting to save alert payload to: {payload_file}", flush=True)

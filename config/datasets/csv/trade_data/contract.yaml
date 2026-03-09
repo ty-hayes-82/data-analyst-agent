@@ -1,0 +1,143 @@
+name: "Trade Data"
+version: "1.0.0"
+display_name: "Hierarchical Trade Analysis"
+target_label: "Metric"
+description: >
+  Synthetic hierarchical trade dataset with 258K rows covering US imports/exports
+  across 6 hierarchy levels (flow -> region -> state -> port -> hs2 -> hs4).
+  Both weekly and monthly grains. Contains 6 embedded anomaly scenarios for
+  validation: tariff shocks, energy surges, weather disruptions, supply rebounds,
+  manufacturing shutdowns, and demand shifts.
+
+materiality:
+  variance_pct: 8.0
+  variance_absolute: 50000
+
+presentation:
+  unit: "USD"
+
+reporting:
+  max_drill_depth: 5
+  executive_brief_drill_levels: 3
+  max_scope_entities: 20
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/synthetic/synthetic_hierarchical_trade_dataset_250k.csv"
+
+time:
+  column: "period_end"
+  frequency: "weekly"
+  format: "%Y-%m-%d"
+  range_months: 84
+
+grain:
+  columns: ["period_end", "flow", "region", "state", "port_code", "hs2", "hs4"]
+
+metrics:
+  - name: "trade_value_usd"
+    column: "trade_value_usd"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    tags: ["financial", "trade", "value"]
+    description: "Trade value in USD for the given flow/hierarchy/period combination"
+  - name: "volume_units"
+    column: "volume_units"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    tags: ["operational", "volume"]
+    description: "Physical volume units traded"
+
+dimensions:
+  - name: "grain"
+    column: "grain"
+    role: "secondary"
+    description: "Temporal grain: weekly or monthly"
+  - name: "flow"
+    column: "flow"
+    role: "primary"
+    description: "Trade flow direction: imports or exports"
+  - name: "region"
+    column: "region"
+    role: "secondary"
+    description: "US geographic region (West, South, Midwest, Northeast)"
+  - name: "state"
+    column: "state"
+    role: "secondary"
+    description: "US state abbreviation (CA, TX, NY, etc.)"
+  - name: "state_name"
+    column: "state_name"
+    role: "secondary"
+    description: "Full state name"
+  - name: "port_code"
+    column: "port_code"
+    role: "secondary"
+    description: "Port/entry point code (LAX, HOU, NYC, etc.)"
+  - name: "port_name"
+    column: "port_name"
+    role: "secondary"
+    description: "Full port/entry point name"
+  - name: "hs2"
+    column: "hs2"
+    role: "secondary"
+    description: "HS2 commodity code (27=Energy, 84=Machinery, 85=Electronics, etc.)"
+  - name: "hs2_name"
+    column: "hs2_name"
+    role: "secondary"
+    description: "HS2 commodity category name"
+  - name: "hs4"
+    column: "hs4"
+    role: "secondary"
+    description: "HS4 commodity sub-code (more granular than HS2)"
+  - name: "hs4_name"
+    column: "hs4_name"
+    role: "secondary"
+    description: "HS4 commodity sub-category name"
+  - name: "period_end"
+    column: "period_end"
+    role: "time"
+    description: "Period end date (week-ending Sunday or month-end)"
+
+hierarchies:
+  - name: "geographic"
+    description: "Geographic drill-down: Region -> State -> Port"
+    children: ["region", "state", "port_code"]
+    level_names:
+      0: "Total"
+      1: "Region"
+      2: "State"
+      3: "Port"
+  - name: "commodity"
+    description: "Commodity drill-down: HS2 Category -> HS4 Sub-category"
+    children: ["hs2", "hs4"]
+    level_names:
+      0: "Total"
+      1: "HS2 Category"
+      2: "HS4 Sub-category"
+  - name: "full_hierarchy"
+    description: "Complete drill path: Flow -> Region -> State -> Port -> HS2 -> HS4"
+    children: ["flow", "region", "state", "port_code", "hs2", "hs4"]
+    level_names:
+      0: "Total"
+      1: "Flow"
+      2: "Region"
+      3: "State"
+      4: "Port"
+      5: "HS2 Category"
+      6: "HS4 Sub-category"
+
+capabilities:
+  - "weekly and monthly trend analysis across trade flows"
+  - "geographic drill-down from region to state to port"
+  - "commodity hierarchy analysis (HS2 to HS4)"
+  - "cross-dimensional analysis (geographic x commodity)"
+  - "anomaly detection across 6 embedded scenarios"
+  - "import vs export comparative analysis"
+  - "seasonal pattern detection with 7 years of history"
+  - "variance analysis at every hierarchy level"
+
+policies:
+  degradation_threshold: 0.12
