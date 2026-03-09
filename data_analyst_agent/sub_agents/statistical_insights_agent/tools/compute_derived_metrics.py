@@ -106,8 +106,8 @@ def _aggregate_then_ratio_series(
     denom_series = sub[denom_key]
     agg_df = pd.DataFrame({
         time_col: df[time_col].values,
-        "_num": pd.to_numeric(num_series.values, errors="coerce").fillna(0),
-        "_den": pd.to_numeric(denom_series.values, errors="coerce").fillna(0),
+        "_num": pd.to_numeric(num_series, errors="coerce").fillna(0),
+        "_den": pd.to_numeric(denom_series, errors="coerce").fillna(0),
     })
     period_agg = agg_df.groupby(time_col).agg({"_num": "sum", "_den": "sum"}).reset_index()
     period_agg["_ratio"] = period_agg["_num"] / period_agg["_den"].replace(0, np.nan)
@@ -164,6 +164,7 @@ def _compute_derived_series(
     df: pd.DataFrame,
     contract: Any,
     time_col: str,
+    ctx: Any | None = None,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Compute all derived metrics from the contract.
@@ -197,6 +198,18 @@ def _compute_derived_series(
                 flush=True,
             )
             series = pd.to_numeric(df[metric.name], errors="coerce").fillna(0.0)
+            series_df = pd.DataFrame({
+                time_col: df[time_col].values,
+                metric.name: series.values,
+            })
+            period_vals = (
+                series_df.groupby(time_col)[metric.name]
+                .mean()
+                .reset_index()
+                .sort_values(time_col)
+            )
+            values_list = period_vals[metric.name].tolist()
+            periods_list = period_vals[time_col].tolist()
         elif getattr(metric, "computed_by", None) == "a2a_agent":
             # Marked as pre-computed but column is missing -- warn and skip
             print(
@@ -234,12 +247,16 @@ def _compute_derived_series(
         trend_pct: Optional[float] = None
         
         lag = 0
-        if ctx and ctx.contract:
+        if ctx and getattr(ctx, "contract", None):
             lag = ctx.contract.get_effective_lag(metric)
-            
-        effective_latest, lag_window = resolve_effective_latest_period(periods_list, lag)
+        if periods_list:
+            effective_latest, lag_window = resolve_effective_latest_period(periods_list, lag)
+        else:
+            effective_latest, lag_window = None, []
         
         try:
+            if effective_latest is None:
+                raise ValueError("no periods")
             latest_idx = periods_list.index(effective_latest)
             latest = values_list[latest_idx]
             prior = values_list[latest_idx - 1] if latest_idx > 0 else 0
@@ -345,7 +362,7 @@ async def compute_derived_metrics(supplementary_data_available: bool = True, pre
                 "summary": {"metrics_computed": 0, "degradation_count": 0, "periods_analyzed": periods_available},
             }, indent=2)
 
-        ratios, alerts = _compute_derived_series(df, ctx.contract, time_col)
+        ratios, alerts = _compute_derived_series(df, ctx.contract, time_col, ctx=ctx)
 
         return json.dumps({
             "derived_metrics": ratios,
