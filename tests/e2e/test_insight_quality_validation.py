@@ -179,3 +179,31 @@ class TestVarianceAttributionAccuracy:
         assert imports_pct == pytest.approx(1.27, abs=0.5)
         assert exports_pct == pytest.approx(1.19, abs=0.5)
         assert imports_pct > exports_pct
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+class TestSeasonalPatternAccuracy:
+    @pytest.mark.asyncio
+    async def test_seasonality_matches_ground_truth(self) -> None:
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_seasonal_decomposition import (
+            compute_seasonal_decomposition,
+        )
+
+        validation = _load_validation()["seasonal_pattern"]
+
+        df = _load_full_trade_df()
+        clear_all_caches()
+        try:
+            _prime_cache(df, run_id="e2e-seasonality-full")
+            seasonal = json.loads(await compute_seasonal_decomposition())
+            assert "error" not in seasonal, seasonal
+
+            summary = seasonal.get("seasonality_summary") or {}
+            assert summary
+
+            assert summary["peak_month"] == validation["peak_month"]
+            assert summary["trough_month"] == validation["trough_month"]
+            assert summary["seasonal_amplitude_pct"] == pytest.approx(validation["seasonal_amplitude_pct"], abs=2.0)
+        finally:
+            clear_all_caches()
