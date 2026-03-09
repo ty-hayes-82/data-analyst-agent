@@ -291,7 +291,13 @@ async def generate_markdown_report(
         # Parse hierarchical results — handles list, dict, and normalised formats.
         # List: [{"level": 0, ...}, {"level": 1, ...}] — normalised to level_N dict.
         # Dict: {"level_0": {...}, "level_1": {...}} or {"HIERARCHICAL_LEVEL_0": {...}}.
-        raw = _parse_json_safe(hierarchical_results)
+        if isinstance(hierarchical_results, str):
+            try:
+                raw = json.loads(hierarchical_results)
+            except (json.JSONDecodeError, ValueError) as exc:
+                return f"# Error Generating Report\n\nError: Unable to parse hierarchical_results ({exc})"
+        else:
+            raw = hierarchical_results
         results = _normalize_hierarchical_results(raw)
 
         if isinstance(raw, dict) and "level_analyses" in raw:
@@ -391,6 +397,7 @@ async def generate_markdown_report(
         # tag, omit hierarchy-derived cards from Insight Cards to avoid duplication.
         priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         all_cards = list(narrative_cards) if narrative_cards else []
+        final_cards: list[dict] = []
         if narrative_cards or level_analyses:
             try:
                 max_primary = max(3, min(int(os.environ.get("MAX_TOP_CRITICAL_INSIGHTS", "5")), 10))
@@ -644,21 +651,21 @@ async def generate_markdown_report(
 
         md.append("## Recommended Actions")
         md.append("")
-        actions_added = False
+        actions: list[str] = []
         narrative_actions = narrative_data.get("recommended_actions") if isinstance(narrative_data, dict) else None
         if isinstance(narrative_actions, list):
-            for action in narrative_actions[:5]:
-                if action:
-                    md.append(f"- {action}")
-                    actions_added = True
-        if not actions_added:
+            actions.extend([a for a in narrative_actions[:5] if a])
+        if not actions and final_cards:
             for card in final_cards:
                 action = card.get("now_what") or card.get("recommended_action")
                 if action:
-                    md.append(f"- {action}")
-                    actions_added = True
-            if not actions_added:
-                md.append("- Continue monitoring key drivers and validate mitigation plans.")
+                    actions.append(action)
+                if len(actions) >= 5:
+                    break
+        if not actions:
+            actions.append("Investigate top variance drivers and validate mitigation plans.")
+        for idx, action in enumerate(actions, start=1):
+            md.append(f"{idx}. {action}")
         md.append("")
 
         if util_ratios:
