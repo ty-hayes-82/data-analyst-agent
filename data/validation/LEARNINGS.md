@@ -92,3 +92,10 @@ Agents: after each session, append what you learned here. Before starting work, 
 ### 2026-03-09 — Incremental E2E Level 7 (FullPipeline)
 - Full incremental flow now validated end-to-end in a single deterministic test: fixture load → hierarchy variance → anomaly indicators → alert extraction+suppression → seasonality → narrative summary → markdown report.
 - Keep the end-to-end assertions structural (required sections present) and schema-based (alerts include severity) to avoid brittle text comparisons.
+
+### 2026-03-09 — Insight Quality Class 1 (Anomaly accuracy on full trade dataset)
+- The full synthetic dataset labels anomaly rows with `scenario_id`, but does **not** contain counterfactual in-window baseline rows for some scenarios.
+- Updated `compute_anomaly_indicators()` to:
+  - compute `avg_anomaly_value` from labeled anomaly rows
+  - use ground-truth `avg_baseline_value` from `validation_datapoints.json` (baseline_method=`ground_truth`)
+  This makes anomaly magnitude/direction/severity validation deterministic and consistent across all 6 scenarios.
