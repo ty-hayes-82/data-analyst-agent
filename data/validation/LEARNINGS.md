@@ -99,3 +99,7 @@ Agents: after each session, append what you learned here. Before starting work, 
   - compute `avg_anomaly_value` from labeled anomaly rows
   - use ground-truth `avg_baseline_value` from `validation_datapoints.json` (baseline_method=`ground_truth`)
   This makes anomaly magnitude/direction/severity validation deterministic and consistent across all 6 scenarios.
+
+### 2026-03-09 — Insight Quality Class 2 (Variance attribution)
+- `compute_level_statistics()` originally interprets YoY as a single-period lag (latest week vs same week last year), which does not match the validation datapoints based on full-year totals.
+- Added `analysis_period="YYYY"` support for `variance_type="yoy"` to compute **full-year totals** (new internal mode: `yoy_full_year`). This enables deterministic region/state driver validation for 2024 vs 2023.
