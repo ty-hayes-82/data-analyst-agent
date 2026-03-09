@@ -8,7 +8,8 @@ Per Ty's instruction:
 
 Status:
 - Level 0: ✅
-- Level 1: in progress
+- Level 1: ✅
+- Level 2: in progress
 """
 
 from __future__ import annotations
@@ -142,5 +143,54 @@ class TestLevel1_HierarchyVariance:
             # Minimal structural expectations for downstream stages
             for k in ("item", "current", "prior", "variance_dollar", "variance_pct"):
                 assert k in first
+        finally:
+            clear_all_caches()
+
+
+@pytest.mark.e2e
+@pytest.mark.trade_data
+@pytest.mark.csv_mode
+class TestLevel2_StatisticalInsights:
+    @pytest.mark.asyncio
+    async def test_anomaly_a1_detected_matches_validation(self) -> None:
+        """Run statistical insight tools and assert A1 anomaly matches validation."""
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_anomaly_indicators import (
+            compute_anomaly_indicators,
+        )
+        from data_analyst_agent.sub_agents.statistical_insights_agent.tools.compute_period_over_period_changes import (
+            compute_period_over_period_changes,
+        )
+
+        clear_all_caches()
+        try:
+            _load_fixture_c_and_prime_cache()
+
+            validation = json.loads(VALIDATION_PATH.read_text())
+            scenario = next(
+                s
+                for s in validation["anomaly_scenarios"]
+                if s["scenario_id"] == "A1" and s["grain"] == "weekly"
+            )
+
+            changes = json.loads(await compute_period_over_period_changes())
+            assert "error" not in changes, changes
+
+            anomalies_payload = json.loads(await compute_anomaly_indicators())
+            assert "error" not in anomalies_payload, anomalies_payload
+            anomalies = anomalies_payload.get("anomalies") or []
+            assert anomalies, "Expected at least one anomaly summary"
+
+            a1 = next(a for a in anomalies if a.get("scenario_id") == "A1")
+
+            # Match the validation datapoints (allow small drift due to fixture minimalism)
+            assert a1["rows_impacted"] == scenario["rows_impacted"]
+            assert a1["first_period"] == scenario["first_period"]
+            assert a1["last_period"] == scenario["last_period"]
+
+            assert a1["avg_anomaly_value"] == pytest.approx(scenario["avg_anomaly_value"], rel=0.01)
+            assert a1["avg_baseline_value"] == pytest.approx(scenario["avg_baseline_value"], rel=0.05)
+            assert a1["deviation_pct"] == pytest.approx(scenario["deviation_pct"], abs=3)
+
+            assert changes["deviation_pct"] == pytest.approx(scenario["deviation_pct"], abs=3)
         finally:
             clear_all_caches()
