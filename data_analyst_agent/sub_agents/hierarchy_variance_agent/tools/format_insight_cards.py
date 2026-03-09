@@ -39,6 +39,12 @@ def _max_cards_per_level() -> int:
 
 MAX_CARDS_PER_LEVEL = 15  # Legacy default; _max_cards_per_level() used at runtime
 MIN_DRILL_IMPACT_SCORE = 0.15  # top insight must beat this to justify drill-down
+MIN_VARIANCE_DOLLAR = 50_000.0
+HIGH_VARIANCE_DOLLAR = 200_000.0
+CRITICAL_VARIANCE_DOLLAR = 500_000.0
+MIN_VARIANCE_PCT = 5.0
+HIGH_VARIANCE_PCT = 10.0
+CRITICAL_VARIANCE_PCT = 20.0
 
 
 # ---------------------------------------------------------------------------
@@ -70,12 +76,29 @@ def _composite_score(mag: float, mat: float, variance_dollar: float,
     return round(min(raw, 1.0), 4)
 
 
-def _priority_label(score: float) -> str:
+def _priority_from_score(score: float) -> str:
     if score >= 0.5:
         return "critical"
     if score >= 0.3:
         return "high"
     if score >= 0.15:
+        return "medium"
+    return "low"
+
+
+def _is_material_variance(var_dollar: float, var_pct: float | None) -> bool:
+    pct_val = abs(var_pct) if var_pct is not None else 0.0
+    return abs(var_dollar) >= MIN_VARIANCE_DOLLAR or pct_val >= MIN_VARIANCE_PCT
+
+
+def _priority_from_variance(var_dollar: float, var_pct: float | None) -> str:
+    pct_val = abs(var_pct) if var_pct is not None else 0.0
+    abs_dollar = abs(var_dollar)
+    if pct_val >= CRITICAL_VARIANCE_PCT or abs_dollar >= CRITICAL_VARIANCE_DOLLAR:
+        return "critical"
+    if pct_val >= HIGH_VARIANCE_PCT or abs_dollar >= HIGH_VARIANCE_DOLLAR:
+        return "high"
+    if pct_val >= MIN_VARIANCE_PCT or abs_dollar >= MIN_VARIANCE_DOLLAR:
         return "medium"
     return "low"
 
@@ -150,7 +173,7 @@ def format_hierarchy_insight_cards(
                     "change_from_rate": round(blended.get("change_from_rate", 0), 4),
                 },
                 "now_what": "Investigate if shift toward different segments is intentional strategy or organic churn.",
-                "priority": _priority_label(score),
+                "priority": _priority_from_score(score),
                 "impact_score": score,
                 "materiality_weight": 1.0,
                 "tags": ["mix_shift", "hierarchy"],
@@ -165,6 +188,9 @@ def format_hierarchy_insight_cards(
         var_dollar = driver.get("variance_dollar", 0.0)
         var_pct = driver.get("variance_pct")  # May be None
         is_new = bool(driver.get("is_new_from_zero", False))
+
+        if not _is_material_variance(var_dollar, var_pct):
+            continue
         item = str(driver.get("item", ""))
         current = driver.get("current", 0.0)
         prior = driver.get("prior", 0.0)
@@ -184,6 +210,7 @@ def format_hierarchy_insight_cards(
             
         mat = _materiality_weight(current, total_current)
         score = _composite_score(mag, mat, var_dollar, total_variance)
+        priority_label = _priority_from_variance(var_dollar, var_pct)
 
         evidence: dict[str, Any] = {
             "variance_dollar": round(var_dollar, 2),
@@ -261,7 +288,7 @@ def format_hierarchy_insight_cards(
                 if not is_last_level
                 else "Review detail-level data for this item."
             ),
-            "priority": _priority_label(score),
+            "priority": priority_label,
             "impact_score": score,
             "materiality_weight": round(mat, 3),
             "tags": ["hierarchy", "variance"] + (["pvm"] if pvm_row else []) + (["mix_shift"] if mix_row else []),
@@ -310,14 +337,14 @@ def should_continue_drilling(
     is_duplicate = level_result.get("is_duplicate", False)
 
     if is_last_level:
-        return {"action": "STOP", "reasoning": "Reached end of hierarchy.",
+        return {"action": "STOP", "reasoning": "Reached last level of the hierarchy.",
                 "material_variances": [], "next_level": None}
 
     if is_duplicate:
         return {"action": "STOP", "reasoning": f"Level {current_level} is a duplicate.",
                 "material_variances": [], "next_level": None}
 
-    if current_level >= max_depth:
+    if current_level >= max_depth - 1:
         return {"action": "STOP", "reasoning": f"Reached max drill depth ({max_depth}).",
                 "material_variances": [], "next_level": None}
 
@@ -325,7 +352,10 @@ def should_continue_drilling(
     high_impact_items = [
         c.get("title", "").split(": ", 1)[-1]
         for c in insight_cards
-        if c.get("impact_score", 0.0) >= MIN_DRILL_IMPACT_SCORE
+        if (
+            c.get("impact_score", 0.0) >= MIN_DRILL_IMPACT_SCORE
+            or str(c.get("priority", "")).lower() in {"high", "critical"}
+        )
     ]
 
     if high_impact_items:
