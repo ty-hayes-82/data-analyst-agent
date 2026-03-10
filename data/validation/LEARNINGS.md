@@ -121,6 +121,11 @@ Agents: after each session, append what you learned here. Before starting work, 
 - `InMemorySessionService.create_session()` is async; tests should use `create_session_sync()`.
 - `data_fetch_workflow` for `ACTIVE_DATASET=trade_data` populates `session.state["primary_data_csv"]` with the full CSV content and can be validated via header columns (no A2A server needed).
 
+### 2026-03-09 — ADK Integration Classes 4-5 (Analysis pipeline + Full orchestration)
+- Added global LLM stub in `test_adk_integration.py` that patches `google.adk.agents.llm_agent.Agent.run_async` to emit deterministic `state_delta` for planner/narrative/report synthesis (no external API calls).
+- Root orchestration bug fix: `ParallelDimensionTargetAgent` pipeline builder in `core_agents/targets.py` was missing imports (`SequentialAgent`, `TimedAgentWrapper`). Fixed so the per-target pipeline can actually instantiate.
+- Executive brief cache helper `_write_executive_brief_cache` had a signature mismatch; made it backward-compatible to accept `outputs_dir=...` call sites.
+
 ### 2026-03-09 — ADK Integration Class 2 (Session state flow)
 - When running agents directly via `agent.run_async(InvocationContext)`, state updates are emitted via `EventActions(state_delta=...)`. The app runner normally applies these deltas.
 - The integration tests now mimic runner behavior by applying `state_delta` onto `session.state` during the event loop so ContractLoader/DateInitializer state writes are observable.

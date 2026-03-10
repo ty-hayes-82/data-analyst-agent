@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-09T23:34:34
+**Last updated:** 2026-03-10T00:01:22
 
 ## Current State
-- **Unit Tests:** 269 passed, 0 failed, 0 errors
+- **Unit Tests:** 271 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 181 files, 26,475 lines, **50 files >200L**
-- **Largest:** sub_agents/statistical_insights_agent/tools/compute_cross_dimension_analysis.py (605L)
-- **Commit:** `05747aa test(e2e): adk integration class3 data fet`
+- **Codebase:** 189 files, 26,620 lines, **50 files >200L**
+- **Largest:** sub_agents/hierarchy_variance_agent/tools/compute_level_statistics.py (603L)
+- **Commit:** `d8acd3d fix: adk orchestration integration (target`
 
 ## Progress Over Time
 
@@ -38,9 +38,10 @@
 | 23 | 23:26 | `1522d21` | 267 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
 | 24 | 23:33 | `a902d8f` | 268 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
 | 25 | 23:34 | `05747aa` | 269 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
+| 26 | 00:01 | `d8acd3d` | 271 | 0 | 0 | 5/5 | 50 | sub_agents/hierarchy_vari |
 
 ## Cumulative Improvement
-- Tests: 247 → **269** (+22)
+- Tests: 247 → **271** (+24)
 - Failures: 0 → **0**
 - Files >200L: 50 → **50** (+0)
-- Iterations: 25
+- Iterations: 26
