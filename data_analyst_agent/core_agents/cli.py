@@ -11,6 +11,24 @@ from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 
 
+def _infer_primary_dimension(contract):
+    if not contract or not getattr(contract, 'dimensions', None):
+        return 'network'
+    primary = next((d for d in contract.dimensions if getattr(d, 'role', None) == 'primary'), None)
+    return getattr(primary, 'name', None) or contract.dimensions[0].name
+
+
+def _infer_total_label(contract):
+    if not contract:
+        return 'Total'
+    hierarchies = getattr(contract, 'hierarchies', None) or []
+    for hierarchy in hierarchies:
+        level_names = getattr(hierarchy, 'level_names', {}) or {}
+        label = level_names.get(0)
+        if label:
+            return label
+    return 'Total'
+
 
 class CLIParameterInjector(BaseAgent):
     """Injects CLI-provided parameters into session state."""
@@ -89,8 +107,10 @@ class CLIParameterInjector(BaseAgent):
         if hierarchy_filters:
             state_delta["hierarchy_filters"] = hierarchy_filters
 
-        primary_dim = dim or "terminal"
-        primary_val = dim_val or "Total"
+        inferred_dim = _infer_primary_dimension(contract)
+        inferred_total = _infer_total_label(contract)
+        primary_dim = dim or inferred_dim
+        primary_val = dim_val or inferred_total
         focus = f"CLI analysis of {', '.join(metrics)}" if metrics else "CLI analysis"
         if analysis_focus:
             focus = f"{focus} (focus={', '.join(analysis_focus)})"

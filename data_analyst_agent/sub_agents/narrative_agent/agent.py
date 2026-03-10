@@ -12,6 +12,51 @@ from google.genai.types import Content, Part
 from .prompt import NARRATIVE_AGENT_INSTRUCTION
 from config.model_loader import get_agent_model, get_agent_thinking_config
 
+
+def _safe_int_env(var: str, default: int) -> int:
+    try:
+        return max(1, int(os.environ.get(var, default)))
+    except (TypeError, ValueError):
+        return default
+
+
+MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 8)
+MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 8)
+MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 4)
+MAX_NARRATIVE_INDEPENDENT_CARDS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CARDS", 2)
+
+
+def _slim_insight_cards(cards, limit: int):
+    trimmed = []
+    for card in cards or []:
+        if not isinstance(card, dict):
+            continue
+        evidence = card.get("evidence") or {}
+        trimmed.append(
+            {
+                "title": card.get("title") or card.get("item") or "",
+                "what_changed": card.get("what_changed") or card.get("summary") or "",
+                "why": card.get("why") or "",
+                "priority": card.get("priority") or "",
+                "variance_dollar": evidence.get("variance_dollar", card.get("variance_dollar")),
+                "variance_pct": evidence.get("variance_pct", card.get("variance_pct")),
+            }
+        )
+    return trimmed[:limit]
+
+
+def _compress_analysis_block(raw_value, limit: int) -> str:
+    if not raw_value:
+        return ""
+    try:
+        payload = json.loads(raw_value) if isinstance(raw_value, str) else dict(raw_value)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return raw_value
+    cards = payload.get("insight_cards")
+    payload["insight_cards"] = _slim_insight_cards(cards, limit)
+    return json.dumps(payload, indent=2)
+
+
 _base_agent = Agent(
     model=get_agent_model("narrative_agent"),
     name="narrative_agent",
@@ -106,7 +151,7 @@ class NarrativeWrapper(BaseAgent):
                 )
                 slim_drivers = [
                     {k: d.get(k) for k in ("item", "avg", "slope_3mo", "slope_3mo_p_value", "share_of_total", "anomaly_latest") if k in d}
-                    for d in _drivers_sorted
+                    for d in _drivers_sorted[:MAX_NARRATIVE_TOP_DRIVERS]
                 ]
                 # Slim anomalies: recency-first (last N periods), then by |z_score|; cap at 12
                 _anomalies = stats_dict.get("anomalies") or []
@@ -126,7 +171,7 @@ class NarrativeWrapper(BaseAgent):
                 )
                 slim_anomalies = [
                     {k: a.get(k) for k in ("item", "value", "z_score", "period") if k in a}
-                    for a in _sorted[:12]
+                    for a in _sorted[:MAX_NARRATIVE_ANOMALIES]
                 ]
                 slim_stats = {
                     "summary_stats": stats_dict.get("summary_stats"),
@@ -149,16 +194,20 @@ class NarrativeWrapper(BaseAgent):
         level_parts = []
         for lvl in range(5):
             val = state.get(f"level_{lvl}_analysis")
-            if val:
-                level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{val}")
+            if not val:
+                continue
+            compressed = _compress_analysis_block(val, MAX_NARRATIVE_HIERARCHY_CARDS)
+            level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{compressed}")
         hierarchical_text = "\n\n".join(level_parts) if level_parts else "(none)"
 
         # Collect independent flat-scan findings (only present when INDEPENDENT_LEVEL_ANALYSIS=true)
         independent_parts = []
         for lvl in range(1, 5):
             val = state.get(f"independent_level_{lvl}_analysis")
-            if val:
-                independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{val}")
+            if not val:
+                continue
+            compressed = _compress_analysis_block(val, MAX_NARRATIVE_INDEPENDENT_CARDS)
+            independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{compressed}")
         independent_text = "\n\n".join(independent_parts) if independent_parts else ""
 
         independent_section = (

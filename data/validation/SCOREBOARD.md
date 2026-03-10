@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T17:51:57
+**Last updated:** 2026-03-10T19:48:26
 
 ## Current State
-- **Unit Tests:** 247 passed, 0 failed, 0 errors
+- **Unit Tests:** 213 passed, 7 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 188 files, 26,705 lines, **51 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (665L)
-- **Commit:** `f6bc9b0 fix: proper error handling in submitRun an`
+- **Codebase:** 188 files, 26,884 lines, **51 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (744L)
+- **Commit:** `7b369d2 chore: tighten executive brief JSON prompt`
 
 ## Progress Over Time
 
@@ -141,9 +141,13 @@
 | 126 | 17:40 | `34a5edd` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 127 | 17:41 | `34a5edd` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 128 | 17:51 | `f6bc9b0` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 129 | 19:00 | `5262234` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 130 | 19:20 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 131 | 19:29 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 132 | 19:48 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **247** (+0)
-- Failures: 0 → **0**
+- Tests: 247 → **213** (+-34)
+- Failures: 0 → **7**
 - Files >200L: 50 → **51** (+1)
-- Iterations: 128
+- Iterations: 132

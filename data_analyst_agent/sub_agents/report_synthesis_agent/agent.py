@@ -132,6 +132,43 @@ def _slim_alert(alert: dict) -> dict:
     }
 
 
+def _safe_int_env(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.environ.get(name, default)))
+    except (TypeError, ValueError):
+        return default
+
+
+_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 5)
+_MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 3)
+_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 8)
+_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 5)
+
+
+def _slim_narrative_payload(raw: str | dict | None) -> str:
+    """Trim narrative_results to the essentials to reduce prompt size."""
+    if not raw:
+        return ""
+    try:
+        payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return raw if isinstance(raw, str) else json.dumps(raw, indent=2)
+
+    cards = payload.get("insight_cards")
+    if isinstance(cards, list) and cards:
+        payload["insight_cards"] = [_slim_card(card) for card in cards[:_MAX_REPORT_NARRATIVE_CARDS]]
+
+    actions = payload.get("recommended_actions")
+    if isinstance(actions, list) and len(actions) > _MAX_REPORT_ACTIONS:
+        payload["recommended_actions"] = actions[:_MAX_REPORT_ACTIONS]
+
+    summary = payload.get("narrative_summary")
+    if isinstance(summary, str) and len(summary) > 600:
+        payload["narrative_summary"] = summary[:600].rstrip() + " …"
+
+    return json.dumps(payload, indent=2)
+
+
 class ReportSynthesisWrapper(BaseAgent):
     """Wrapper to add debug logging for report synthesis agent."""
     
@@ -210,8 +247,8 @@ class ReportSynthesisWrapper(BaseAgent):
                             "temporal_grain": temporal_grain,
                             "period_unit": period_unit
                         },
-                        "top_drivers": (stats_dict.get("enhanced_top_drivers") or stats_dict.get("top_drivers") or [])[:10],
-                        "anomalies": (stats_dict.get("anomalies") or [])[:5],
+                        "top_drivers": (stats_dict.get("enhanced_top_drivers") or stats_dict.get("top_drivers") or [])[:MAX_STATS_TOP_DRIVERS],
+                        "anomalies": (stats_dict.get("anomalies") or [])[:MAX_STATS_ANOMALIES],
                         "correlations": correlations_list[:3],
                         "dq_flags": stats_dict.get("dq_flags"),
                         "metadata": {
@@ -224,7 +261,11 @@ class ReportSynthesisWrapper(BaseAgent):
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-            narrative_results = state.get("narrative_results") or state.get("narrative_result") or "No narrative results available."
+            raw_narrative = state.get("narrative_results") or state.get("narrative_result")
+            if raw_narrative:
+                narrative_results = _slim_narrative_payload(raw_narrative)
+            else:
+                narrative_results = "No narrative results available."
             raw_da_result = state.get("data_analyst_result") or ""
             data_analyst_result = raw_da_result
 

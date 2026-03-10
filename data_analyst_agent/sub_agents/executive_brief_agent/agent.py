@@ -170,19 +170,89 @@ def _build_brief_response_schema() -> types.Schema:
 EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
 
 
-def _derive_scope_level_labels(contract: Any | None) -> dict[int, str]:
+NETWORK_SECTION_CONTRACT = [
+    {"title": "Opening", "mode": "content"},
+    {"title": "Top Operational Insights", "mode": "insights"},
+    {"title": "Network Snapshot", "mode": "content"},
+    {"title": "Focus For Next Week", "mode": "content"},
+    {"title": "Leadership Question", "mode": "content"},
+]
+
+SCOPED_SECTION_CONTRACT = [
+    {"title": "Opening", "mode": "content"},
+    {"title": "Scope Summary", "mode": "content"},
+    {"title": "Child Entity Insights", "mode": "insights"},
+    {"title": "Structural Insights", "mode": "insights"},
+    {"title": "Leadership Question", "mode": "content"},
+]
+
+
+def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]]) -> dict:
+    """Ensure the LLM JSON matches the required section titles/order."""
+    header = brief.setdefault("header", {})
+    header["title"] = str(header.get("title") or "").strip()
+    header["summary"] = str(header.get("summary") or "").strip()
+
+    body = brief.setdefault("body", {})
+    existing_sections = {}
+    for raw in body.get("sections", []) or []:
+        if isinstance(raw, dict):
+            title = str(raw.get("title") or "").strip()
+            if title:
+                existing_sections[title] = raw
+
+    normalized = []
+    for spec in section_contract:
+        title = spec["title"]
+        src = existing_sections.get(title, {})
+        content = str(src.get("content") or "").strip()
+        insights_raw = src.get("insights") if isinstance(src, dict) else None
+        insights: list[dict[str, str]] = []
+        if isinstance(insights_raw, list):
+            for item in insights_raw:
+                if not isinstance(item, dict):
+                    continue
+                insights.append(
+                    {
+                        "title": str(item.get("title") or "").strip(),
+                        "details": str(item.get("details") or "").strip(),
+                    }
+                )
+        mode = spec.get("mode", "content")
+        normalized.append(
+            {
+                "title": title,
+                "content": content if mode != "insights" else content or "",
+                "insights": insights if mode != "content" else [],
+            }
+        )
+
+    body["sections"] = normalized
+    return brief
+
+
+def _derive_scope_level_labels(contract: Any | None, preferred_name: str | None = None) -> dict[int, str]:
     labels: dict[int, str] = {}
     if not contract:
         return labels
     hierarchies = getattr(contract, "hierarchies", None) or []
+    env_override = os.environ.get("EXECUTIVE_BRIEF_SCOPE_HIERARCHY")
+    normalized_targets = []
+    for candidate in (preferred_name, env_override):
+        if candidate:
+            normalized_targets.append(str(candidate).strip().lower())
     preferred = None
-    for hierarchy in hierarchies:
-        name = str(getattr(hierarchy, "name", "")).lower()
-        if name == "full_hierarchy":
-            preferred = hierarchy
+    for target in normalized_targets:
+        preferred = next((h for h in hierarchies if str(getattr(h, "name", "")).lower() == target), None)
+        if preferred:
             break
+    if preferred is None and getattr(contract, "reporting", None):
+        cfg_name = getattr(contract.reporting, "executive_brief_scope_hierarchy", None)
+        if cfg_name:
+            target = str(cfg_name).strip().lower()
+            preferred = next((h for h in hierarchies if str(getattr(h, "name", "")).lower() == target), None)
     if preferred is None and hierarchies:
-        preferred = hierarchies[0]
+        preferred = max(hierarchies, key=lambda h: len(getattr(h, "children", []) or []))
     if not preferred:
         return labels
     level_names = getattr(preferred, "level_names", {}) or {}
@@ -216,6 +286,7 @@ async def _llm_generate_brief(
     user_message: str,
     thinking_config: Any,
     digest: str = "",
+    section_contract: list[dict[str, str]] | None = None,
 ) -> tuple[dict, str]:
     """Call the LLM to generate a brief JSON. Returns (brief_data_dict, brief_markdown)."""
     import asyncio
@@ -259,6 +330,11 @@ async def _llm_generate_brief(
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     brief_data = json.loads(raw)
+    if section_contract:
+        brief_data = _apply_section_contract(brief_data, section_contract)
+    else:
+        brief_data.setdefault("header", {})
+        brief_data.setdefault("body", {}).setdefault("sections", [])
     return brief_data, _format_brief_with_fallback(brief_data, digest)
 
 
@@ -445,7 +521,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"{focus_preamble_text}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
-            f"Use the above 'reference_period_end' as the date in your JSON 'subject'.\n\n"
+            f"Use the above 'reference_period_end' when writing header.title.\n\n"
             f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
             f"{digest}\n\n"
             f"{weather_block}"
@@ -476,6 +552,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 user_message=user_message,
                 thinking_config=thinking_config,
                 digest=digest,
+                section_contract=NETWORK_SECTION_CONTRACT,
             )
 
             brief_filename = "brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md"
@@ -492,7 +569,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
             scoped_briefs: dict[str, dict[str, str]] = {}
             scoped_digests_map: dict[str, str] = {}
-            scope_level_labels = _derive_scope_level_labels(contract)
+            hierarchy_hint = ctx.session.state.get("selected_hierarchy") or ctx.session.state.get("hierarchy_name")
+            scope_level_labels = _derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
 
             if drill_levels >= 1 and json_data:
                 print(f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs")
@@ -537,7 +615,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             metric_count=len(reports),
                             analysis_period=analysis_period,
                             scope_preamble=scope_preamble,
-                            dataset_specific_append=load_dataset_specific_append(),
+                            dataset_specific_append=load_dataset_specific_append() + contract_context,
                             prompt_variant_append=load_prompt_variant(
                                 os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")
                             ),
@@ -545,7 +623,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         scoped_user_message = (
                             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
                             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
-                            f"Use the above 'reference_period_end' as the date in your JSON 'subject'.\n\n"
+                            f"Use the above 'reference_period_end' when writing header.title.\n\n"
                             f"Here are the individual metric analysis summaries for {analysis_period}, scoped to {entity}.\n\n"
                             f"{scoped_digest}\n\n"
                             "Generate the executive brief JSON as instructed. Focus exclusively on this scope."
@@ -558,6 +636,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 user_message=scoped_user_message,
                                 thinking_config=thinking_config,
                                 digest=scoped_digest,
+                                section_contract=SCOPED_SECTION_CONTRACT,
                             )
                             safe_entity = _sanitize_entity_name(entity)
                             scoped_filename = (

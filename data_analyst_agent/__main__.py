@@ -3,7 +3,7 @@
 Supports two invocation modes:
 
   CLI parameter mode:
-    python -m data_analyst_agent --dataset validation_ops \\
+    python -m data_analyst_agent --dataset trade_data \\
         --metrics "Truck Count,Rev/Trk/Wk" --dimension region \\
         --dimension-value Central
 
@@ -38,10 +38,10 @@ parser = argparse.ArgumentParser(
     epilog="""\
 examples:
   # Single metric analysis:
-  python -m data_analyst_agent --dataset validation_ops --metrics "Truck Count"
+  python -m data_analyst_agent --dataset trade_data --metrics "Truck Count"
 
   # Multi-metric with dimension filter:
-  python -m data_analyst_agent --dataset validation_ops \\
+  python -m data_analyst_agent --dataset trade_data \\
       --metrics "Truck Count,Rev/Trk/Wk" --dimension region --dimension-value Central
 
   # Interactive mode (guided menus):
@@ -53,7 +53,7 @@ examples:
 )
 
 parser.add_argument("--dataset", default=None, metavar="NAME",
-                     help="Dataset folder name (e.g. validation_ops)")
+                     help="Dataset folder name (e.g. trade_data)")
 parser.add_argument("--metrics", default=None, metavar="M1,M2",
                      help="Comma-separated metric names (required unless --interactive)")
 parser.add_argument("--dimension", default=None, metavar="DIM",
@@ -71,7 +71,7 @@ parser.add_argument("--exclude-partial-week", action="store_true",
 
 # Legacy compat
 parser.add_argument("--validation", action="store_true",
-                     help="Shorthand for --dataset validation_ops")
+                     help="Shorthand for --dataset trade_data")
 parser.add_argument("--metric", default=None,
                      help="(Legacy) Same as --metrics")
 
@@ -111,7 +111,7 @@ if not args.metrics:
     parser.error(
         "--metrics is required (or use --interactive).\n\n"
         "Example:\n"
-        "  python -m data_analyst_agent --dataset validation_ops --metrics \"Truck Count\"\n"
+        "  python -m data_analyst_agent --dataset trade_data --metrics \"Truck Count\"\n"
         "  python -m data_analyst_agent --interactive"
     )
 

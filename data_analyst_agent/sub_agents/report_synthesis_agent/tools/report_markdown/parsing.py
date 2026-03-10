@@ -6,6 +6,11 @@ import json
 from typing import Any, Dict, List
 
 
+def _default_level_name(level_num: int) -> str:
+    """Fallback label when hierarchy metadata omits level names."""
+    return "Total" if level_num <= 0 else f"Level {level_num}"
+
+
 def parse_json_safe(raw: Any) -> Any:
     """Parse JSON if string; otherwise return dict/list or empty dict."""
     if isinstance(raw, str):
@@ -22,7 +27,7 @@ def _convert_level_list_to_dict(val: list, level_num: int) -> dict:
         return {
             "insight_cards": [],
             "total_variance_dollar": 0,
-            "level_name": "Region" if level_num == 1 else f"Level {level_num}",
+            "level_name": _default_level_name(level_num),
         }
 
     first = items[0]
@@ -33,7 +38,7 @@ def _convert_level_list_to_dict(val: list, level_num: int) -> dict:
                 (d.get("evidence") or {}).get("variance_dollar", d.get("variance", d.get("variance_dollar", 0)))
                 for d in items
             ),
-            "level_name": "Region" if level_num == 1 else f"Level {level_num}",
+            "level_name": _default_level_name(level_num),
         }
 
     return {
@@ -46,7 +51,7 @@ def _convert_level_list_to_dict(val: list, level_num: int) -> dict:
             for d in items
         ],
         "total_variance_dollar": sum(d.get("variance", d.get("variance_dollar", 0)) for d in items),
-        "level_name": "Region" if level_num == 1 else f"Level {level_num}",
+        "level_name": _default_level_name(level_num),
     }
 
 

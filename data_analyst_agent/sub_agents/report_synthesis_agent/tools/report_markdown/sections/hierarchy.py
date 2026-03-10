@@ -7,7 +7,12 @@ from typing import List
 from ..formatting import format_variance, is_skip_card
 from ..parsing import collect_insight_cards
 
-_LEVEL_LABEL_MAP = {0: "Total (All Terminals)", 1: "Region", 2: "Terminal", 3: "Sub-Terminal"}
+
+def _resolve_level_name(level_data: dict, level_idx: int) -> str:
+    raw = str(level_data.get("level_name", "")).strip() if isinstance(level_data, dict) else ""
+    if raw:
+        return raw
+    return "Total" if level_idx == 0 else f"Level {level_idx}"
 
 
 def build_hierarchy_section(
@@ -27,7 +32,7 @@ def build_hierarchy_section(
     for level in levels_analyzed:
         level_key = f"level_{level}"
         level_data = level_analyses.get(level_key, {})
-        level_name = level_data.get("level_name") or _LEVEL_LABEL_MAP.get(level, f"Level {level}")
+        level_name = _resolve_level_name(level_data, level)
         total_var = level_data.get("total_variance_dollar", 0)
 
         lines.append(f"### Level {level}: {level_name}")
