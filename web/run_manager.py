@@ -13,7 +13,13 @@ from typing import Any
 
 RUNS_FILE = Path(__file__).resolve().parent / "runs.json"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-PYTHON = str(PROJECT_ROOT / ".venv" / "bin" / "python")
+import sys as _sys
+import platform as _platform
+
+if _platform.system() == "Windows":
+    PYTHON = str(PROJECT_ROOT / ".venv" / "Scripts" / "python.exe")
+else:
+    PYTHON = str(PROJECT_ROOT / ".venv" / "bin" / "python")
 
 
 def _load_runs() -> list[dict]:
