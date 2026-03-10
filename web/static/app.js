@@ -95,11 +95,16 @@ async function submitRun() {
   const metrics = [...document.querySelectorAll('input[name="metric"]:checked')].map(c => c.value);
   const hierarchy = document.querySelector('input[name="hierarchy"]:checked')?.value || '';
 
+  const focusChecks = [...document.querySelectorAll('input[name="focus"]:checked')].map(c => c.value);
+  const customFocus = document.getElementById('custom-focus')?.value?.trim() || '';
+
   const body = {
     dataset_id: sel.value,
     dataset_name: sel.options[sel.selectedIndex].dataset.name || sel.value,
     metrics,
     hierarchy,
+    analysis_focus: focusChecks,
+    custom_focus: customFocus,
     max_drill_depth: parseInt(document.getElementById('max-depth').value) || 3,
     start_date: document.getElementById('start-date').value,
     end_date: document.getElementById('end-date').value,
@@ -144,6 +149,7 @@ function pollRun(runId) {
         <div class="info-card"><div class="label">Dataset</div><div class="value">${run.dataset_name}</div></div>
         <div class="info-card"><div class="label">Elapsed</div><div class="value">${elapsed}s</div></div>
         <div class="info-card"><div class="label">Metrics</div><div class="value">${(run.metrics || []).join(', ') || 'all'}</div></div>
+        ${run.analysis_focus && run.analysis_focus.length ? `<div class="info-card"><div class="label">Focus</div><div class="value">${run.analysis_focus.map(f => f.replace(/_/g, ' ')).join(', ')}</div></div>` : ''}
       </div>
       ${run.status !== 'running' ? `<div class="actions"><button class="btn" onclick="viewResults('${run.id}')">View Results</button></div>` : ''}
       <h3>Live Log</h3>

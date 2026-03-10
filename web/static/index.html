@@ -49,6 +49,26 @@
           </div>
         </div>
 
+
+        <div class="form-group full">
+          <label>Analysis Focus</label>
+          <div class="checkbox-group" id="focus-group">
+            <label><input type="checkbox" name="focus" value="recent_weekly_trends" checked> Recent Weekly Trends</label>
+            <label><input type="checkbox" name="focus" value="recent_monthly_trends" checked> Recent Monthly Trends</label>
+            <label><input type="checkbox" name="focus" value="anomaly_detection"> Anomaly Detection</label>
+            <label><input type="checkbox" name="focus" value="revenue_gap_analysis"> Revenue Gap / Missed Billing</label>
+            <label><input type="checkbox" name="focus" value="seasonal_patterns"> Seasonal Patterns</label>
+            <label><input type="checkbox" name="focus" value="yoy_comparison"> Year-over-Year Comparison</label>
+            <label><input type="checkbox" name="focus" value="forecasting"> Trend Forecasting</label>
+            <label><input type="checkbox" name="focus" value="outlier_investigation"> Outlier Investigation</label>
+          </div>
+        </div>
+
+        <div class="form-group full">
+          <label for="custom-focus">Custom Analysis Direction <span style="color:#8b949e">(optional)</span></label>
+          <input type="text" id="custom-focus" placeholder="e.g., Find billing anomalies in Q4 where revenue dropped but volume stayed flat">
+        </div>
+
         <div class="form-group">
           <label for="start-date">Start Date</label>
           <input type="date" id="start-date">

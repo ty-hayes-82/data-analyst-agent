@@ -69,6 +69,8 @@ def start_run(params: dict[str, Any]) -> dict:
     start_date = params.get("start_date", "")
     end_date = params.get("end_date", "")
     dataset_name = params.get("dataset_name", "analysis")
+    analysis_focus = params.get("analysis_focus", [])
+    custom_focus = params.get("custom_focus", "")
 
     # Create output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -88,12 +90,32 @@ def start_run(params: dict[str, Any]) -> dict:
         env["DATA_ANALYST_START_DATE"] = start_date
     if end_date:
         env["DATA_ANALYST_END_DATE"] = end_date
+    if analysis_focus:
+        env["DATA_ANALYST_FOCUS"] = ",".join(analysis_focus)
+    if custom_focus:
+        env["DATA_ANALYST_CUSTOM_FOCUS"] = custom_focus
     env["DATA_ANALYST_OUTPUT_DIR"] = output_dir
     env["ACTIVE_DATASET"] = dataset_id.split("/")[-1] if "/" in dataset_id else dataset_id
 
-    # Build query
+    # Build query with focus context
     metric_str = " and ".join(metrics) if metrics else "all metrics"
-    query = f"Analyze {metric_str}"
+    focus_labels = {
+        "recent_weekly_trends": "recent weekly trends",
+        "recent_monthly_trends": "recent monthly trends",
+        "anomaly_detection": "anomalies and unusual patterns",
+        "revenue_gap_analysis": "revenue gaps, missed billing, and billing anomalies",
+        "seasonal_patterns": "seasonal patterns and cyclical behavior",
+        "yoy_comparison": "year-over-year comparisons and changes",
+        "forecasting": "trend forecasting and projections",
+        "outlier_investigation": "outlier investigation and root cause analysis",
+    }
+    focus_parts = [focus_labels.get(f, f.replace("_", " ")) for f in analysis_focus]
+    focus_str = ""
+    if focus_parts:
+        focus_str = " Focus on: " + ", ".join(focus_parts) + "."
+    if custom_focus:
+        focus_str += f" Additional direction: {custom_focus}"
+    query = f"Analyze {metric_str}.{focus_str}"
 
     # Launch subprocess
     log_path = Path(output_dir) / "run.log"
@@ -114,6 +136,8 @@ def start_run(params: dict[str, Any]) -> dict:
         "dataset_name": dataset_name,
         "metrics": metrics,
         "hierarchy": hierarchy,
+        "analysis_focus": analysis_focus,
+        "custom_focus": custom_focus,
         "max_drill_depth": max_drill_depth,
         "start_date": start_date,
         "end_date": end_date,

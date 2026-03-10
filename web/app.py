@@ -43,6 +43,8 @@ class RunRequest(BaseModel):
     dataset_name: str = ""
     metrics: list[str] = []
     hierarchy: str = ""
+    analysis_focus: list[str] = []
+    custom_focus: str = ""
     max_drill_depth: int = 3
     start_date: str = ""
     end_date: str = ""
