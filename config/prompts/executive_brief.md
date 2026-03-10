@@ -75,48 +75,88 @@ Your job is to synthesize the operating story across metrics and entities, not r
 - Do not use parentheses for deltas. Use explicit +/− signs.
 
 **Output rules — return ONLY valid JSON (no markdown fences):**
-- Return only keys defined in the selected shape. Do not add extra keys.
-- Do not use null values.
-- All field values must be plain strings unless the shape explicitly requires arrays/objects.
+- Return only the keys described below. Do not add extra keys or nulls.
+- All values must be strings unless an array/dictionary is explicitly required.
 - Match period labeling to analysis_period (Week Ending vs Month Ending).
-- If scope is network/global, return the NETWORK EMAIL SHAPE below.
-- If scope is a non-network entity (for example a region like West), return the SCOPED DEEP-DIVE SHAPE below.
+- The JSON must follow the `header` + `body.sections` schema that the renderer expects. Missing sections cause a fallback to the raw digest, so populate every required section.
 
-NETWORK EMAIL SHAPE:
+NETWORK (GLOBAL) SHAPE — ALWAYS USE THESE SECTION TITLES:
 {{
-  "subject": "[REFERENCE_PERIOD] – [3-8 word headline]",
-  "opening": "1 short sentence introducing the top operational takeaway.",
-  "top_operational_insights": [
-    {{
-      "title": "Short headline insight",
-      "detail": "2-4 sentences with specific evidence and numbers."
-    }}
-  ],
-  "network_snapshot": "2-3 sentences with aggregate network totals, metric coverage, and concentration signals where relevant.",
-  "focus_for_next_week": "1-2 sentences with the highest-priority action focus implied by current data.",
-  "signoff_name": "Ty"
+  "header": {{
+    "title": "[REFERENCE_PERIOD] – [3-8 word headline]",
+    "summary": "One sentence top takeaway referencing the comparison baseline."
+  }},
+  "body": {{
+    "sections": [
+      {{
+        "title": "Opening",
+        "content": "1 sentence introducing the top operating takeaway and timeframe."
+      }},
+      {{
+        "title": "Top Operational Insights",
+        "insights": [
+          {{
+            "title": "Short headline insight",
+            "details": "2-4 sentences with specific evidence, metrics, and the named baseline."
+          }}
+        ]
+      }},
+      {{
+        "title": "Network Snapshot",
+        "content": "2-3 sentences covering aggregate totals, metric coverage, and concentration/contradiction patterns."
+      }},
+      {{
+        "title": "Focus For Next Week",
+        "content": "1-2 sentences describing the action focus implied by current data."
+      }},
+      {{
+        "title": "Leadership Question",
+        "content": "One decision-relevant question tied to an explicit tradeoff or risk."
+      }}
+    ]
+  }}
 }}
 
-SCOPED DEEP-DIVE SHAPE:
+SCOPED DEEP-DIVE SHAPE — SECTION TITLES MUST MATCH EXACTLY:
 {{
-  "subject": "[REFERENCE_PERIOD] – [Scope Entity] Deep Dive",
-  "opening": "1 short sentence with the top scoped takeaway.",
-  "scope_summary": "3-5 sentences explaining why this scoped entity is leading/lagging, with specific figures and metric coverage.",
-  "child_entity_label": "Label for child entities in this dataset hierarchy (for example, terminal, district, branch).",
-  "child_entity_insights": [
-    {{
-      "entity": "Child entity name",
-      "analysis": "2-4 sentences explaining how this child contributed to the parent result.",
-      "key_takeaway": "Single sentence takeaway."
-    }}
-  ],
-  "structural_insights": [
-    "Structural factor #1",
-    "Structural factor #2",
-    "Structural factor #3"
-  ],
-  "leadership_question": "One strategic, decision-relevant question tied to a concrete tradeoff or risk in the data.",
-  "signoff_name": "Ty"
+  "header": {{
+    "title": "[REFERENCE_PERIOD] – [Scope Entity] Deep Dive",
+    "summary": "One sentence on why this scoped entity is leading/lagging vs the named baseline."
+  }},
+  "body": {{
+    "sections": [
+      {{
+        "title": "Opening",
+        "content": "1 sentence scoped takeaway with timeframe and baseline."
+      }},
+      {{
+        "title": "Scope Summary",
+        "content": "3-5 sentences explaining performance drivers with specific figures and coverage of every metric."
+      }},
+      {{
+        "title": "Child Entity Insights",
+        "insights": [
+          {{
+            "title": "Child entity name",
+            "details": "2-4 sentences explaining contribution mechanics and baseline comparisons."
+          }}
+        ]
+      }},
+      {{
+        "title": "Structural Insights",
+        "insights": [
+          {{
+            "title": "Structural factor #1",
+            "details": "Explain the structural driver and its impact."
+          }}
+        ]
+      }},
+      {{
+        "title": "Leadership Question",
+        "content": "One strategic question tied to a concrete tradeoff or risk in the scoped data."
+      }}
+    ]
+  }}
 }}
 
 **Scoped deep-dive selection logic:**

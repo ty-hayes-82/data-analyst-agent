@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from typing import AsyncGenerator
 from google.adk.agents.llm_agent import Agent
 from google.adk.agents.base_agent import BaseAgent
@@ -163,11 +164,15 @@ class NarrativeWrapper(BaseAgent):
 
         # DEBUG: Save prompt to file for optimization review
         try:
-            os.makedirs("outputs/debug", exist_ok=True)
-            with open(f"outputs/debug/narrative_prompt_{ctx.session.state.get('current_analysis_target', 'unknown').replace('/', '_')}.txt", "w", encoding="utf-8") as f:
+            safe_target = ctx.session.state.get('current_analysis_target', 'unknown').replace('/', '_')
+            output_dir = ctx.session.state.get('output_dir')
+            debug_dir = Path(output_dir) / "debug" if output_dir else Path("outputs") / "debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            prompt_path = debug_dir / f"narrative_prompt_{safe_target}.txt"
+            with open(prompt_path, "w", encoding="utf-8") as f:
                 f.write(f"--- INSTRUCTION ---\n{self.wrapped_agent.instruction}\n\n")
                 f.write(f"--- INJECTION ---\n{injection}\n")
-            print(f"[NarrativeAgent] DEBUG: Saved prompt to outputs/debug/narrative_prompt.txt")
+            print(f"[NarrativeAgent] DEBUG: Saved prompt to {prompt_path}")
         except Exception as e:
             print(f"[NarrativeAgent] DEBUG ERROR: Failed to save prompt: {e}")
 

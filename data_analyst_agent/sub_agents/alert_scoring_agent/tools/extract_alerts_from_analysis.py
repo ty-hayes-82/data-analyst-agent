@@ -17,6 +17,7 @@ Extract Alerts From Analysis tool for alert_scoring_coordinator_agent.
 """
 
 import json
+import os
 from typing import Any
 
 
@@ -372,8 +373,17 @@ async def extract_alerts_from_analysis(
         
         # Save payload to file for debugging
         from pathlib import Path
-        output_dir = Path("outputs")
-        output_dir.mkdir(exist_ok=True)
+        base_output_dir = os.getenv("DATA_ANALYST_OUTPUT_DIR")
+        if base_output_dir:
+            output_dir = Path(base_output_dir) / "alerts"
+        else:
+            output_dir = Path("outputs") / "alerts"
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            fallback = Path("outputs") / f"user_{os.getenv('USER', 'node')}" / "alerts"
+            fallback.mkdir(parents=True, exist_ok=True)
+            output_dir = fallback
         # Sanitize target for filename
         safe_target = str(target_name).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
         payload_file = output_dir / f"alerts_payload_{safe_target}.json"

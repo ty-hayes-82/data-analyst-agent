@@ -256,12 +256,32 @@ class _OutputDirInitializer(BaseAgent):
         contract = ctx.session.state.get("dataset_contract")
         ds = getattr(contract, "name", "unknown").replace(" ", "_").lower() if contract else "unknown"
         ts = _dt.now().strftime("%Y%m%d_%H%M%S")
-        run_dir = str(_P("outputs") / ds / ts)
-        _P(run_dir).mkdir(parents=True, exist_ok=True)
+        preferred_dir = _P("outputs") / ds / ts
+        run_dir_path = preferred_dir
+        state_delta = {}
+        try:
+            run_dir_path.mkdir(parents=True, exist_ok=True)
+        except PermissionError as exc:
+            fallback_dir = (
+                _P("outputs")
+                / f"user_{_os.getenv('USER', 'node')}"
+                / ds
+                / ts
+            )
+            fallback_dir.mkdir(parents=True, exist_ok=True)
+            run_dir_path = fallback_dir
+            error_msg = (
+                f"Permission denied for {preferred_dir}. "
+                f"Fell back to {run_dir_path}."
+            )
+            print(f"[OutputDir] WARNING: {error_msg}")
+            state_delta["output_dir_initializer_error"] = error_msg
+        run_dir = str(run_dir_path)
         _os.environ["DATA_ANALYST_OUTPUT_DIR"] = run_dir
         print(f"[OutputDir] Set DATA_ANALYST_OUTPUT_DIR={run_dir}")
+        state_delta["output_dir"] = run_dir
         yield _Ev(invocation_id=ctx.invocation_id, author=self.name, actions=_EA(
-            state_delta={"output_dir": run_dir}
+            state_delta=state_delta
         ))
 
 root_sub_agents = [
