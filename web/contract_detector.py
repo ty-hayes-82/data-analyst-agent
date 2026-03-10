@@ -23,6 +23,10 @@ from typing import Any
 import yaml
 
 
+CURRENCY_SYMBOLS = ("$", "€", "£")
+CURRENCY_NAME_HINTS = ("revenue", "sales", "usd", "amount", "cost", "price", "gmv")
+PERCENT_NAME_HINTS = ("pct", "percent", "ratio", "rate", "margin")
+
 # Date formats to try, ordered by specificity
 DATE_FORMATS = [
     ("%Y-%m-%d %H:%M:%S", "datetime"),
@@ -37,6 +41,16 @@ DATE_FORMATS = [
     ("%Y-%m", "month"),
     ("%Y", "year"),
 ]
+
+
+def _clean_numeric_token(value: str) -> str:
+    if value is None:
+        return ""
+    cleaned = value.replace(",", "").strip()
+    for sym in CURRENCY_SYMBOLS:
+        cleaned = cleaned.replace(sym, "")
+    cleaned = cleaned.replace("%", "")
+    return cleaned.strip()
 
 
 def _sample_rows(file_path: str, max_rows: int = 5000) -> tuple[list[str], list[dict]]:
@@ -70,7 +84,10 @@ def _try_parse_date(value: str) -> tuple[str, str] | None:
 def _is_numeric(value: str) -> bool:
     """Check if a string is numeric (int or float)."""
     try:
-        float(value.replace(",", ""))
+        cleaned = _clean_numeric_token(value)
+        if not cleaned:
+            return False
+        float(cleaned)
         return True
     except (ValueError, AttributeError):
         return False
@@ -117,11 +134,17 @@ def _detect_column_types(headers: list[str], rows: list[dict]) -> dict[str, dict
         numeric_ratio = numeric_count / len(sample) if sample else 0
 
         if numeric_ratio > 0.8:
+            name_lower = col.lower()
+            currency_hits = sum(1 for v in sample if v.strip().startswith(CURRENCY_SYMBOLS))
+            percent_hits = sum(1 for v in sample if v.strip().endswith("%"))
+            is_currency = (currency_hits / len(sample) > 0.3) or any(h in name_lower for h in CURRENCY_NAME_HINTS)
+            is_percentage = (percent_hits / len(sample) > 0.3) or any(h in name_lower for h in PERCENT_NAME_HINTS)
+
             # Parse actual values for stats
             nums = []
             for v in values[:2000]:
                 try:
-                    nums.append(float(v.replace(",", "")))
+                    nums.append(float(_clean_numeric_token(v)))
                 except (ValueError, AttributeError):
                     pass
 
@@ -136,6 +159,8 @@ def _detect_column_types(headers: list[str], rows: list[dict]) -> dict[str, dict
                     is_ratio = True
                 elif 0 <= mn and mx <= 100 and statistics.stdev(nums) < 30 if len(nums) > 1 else False:
                     is_ratio = True
+            if is_percentage:
+                is_ratio = True
 
             # Detect if it could be an ID (integers with high cardinality, no pattern)
             unique_ratio = len(set(values[:1000])) / min(len(values), 1000)
@@ -155,6 +180,8 @@ def _detect_column_types(headers: list[str], rows: list[dict]) -> dict[str, dict
                 "max": max(nums) if nums else 0,
                 "mean": statistics.mean(nums) if nums else 0,
                 "unique_count": len(set(str(int(n)) if is_integer else str(n) for n in nums[:2000])),
+                "is_currency": is_currency,
+                "is_percentage": is_percentage,
             }
             continue
 
@@ -211,6 +238,30 @@ def _detect_frequency(rows: list[dict], time_col: str, time_format: str) -> str:
         return "unknown"
 
 
+def _geo_rank(name: str) -> int:
+    if not name:
+        return 999
+    nl = name.lower()
+    rank_order = [
+        ("continent", 0),
+        ("region", 1),
+        ("country", 2),
+        ("nation", 2),
+        ("state", 3),
+        ("province", 3),
+        ("county", 4),
+        ("district", 4),
+        ("city", 5),
+        ("metro", 5),
+        ("zip", 6),
+        ("postal", 6),
+    ]
+    for token, rank in rank_order:
+        if token in nl:
+            return rank
+    return 999
+
+
 def _detect_hierarchies(col_types: dict, rows: list[dict]) -> list[dict]:
     """Detect potential hierarchical relationships between categorical columns."""
     categoricals = [
@@ -263,6 +314,24 @@ def _detect_hierarchies(col_types: dict, rows: list[dict]) -> list[dict]:
                 "level_names": {i: (col if i > 0 else "Total") for i, col in enumerate(["Total"] + chain)},
             })
             used.update(chain)
+
+    # Geo-aware fallback if parent-child detection failed
+    if not hierarchies:
+        geo_candidates = [col for col, _ in categoricals if _geo_rank(col) < 999]
+        geo_candidates = sorted(geo_candidates, key=_geo_rank)
+        chain: list[str] = []
+        for col in geo_candidates:
+            if col not in chain:
+                chain.append(col)
+            if len(chain) >= 4:
+                break
+        if len(chain) >= 2:
+            hierarchies.append({
+                "name": "by_" + chain[0].lower().replace(" ", "_"),
+                "description": f"Drill-down: {' -> '.join(chain)}",
+                "children": chain,
+                "level_names": {i: (col if i > 0 else "Total") for i, col in enumerate(["Total"] + chain)},
+            })
 
     # If no natural hierarchy found, create a flat one from top categoricals
     if not hierarchies and len(categoricals) >= 2:
@@ -318,7 +387,17 @@ def detect_contract(file_path: str) -> dict[str, Any]:
             continue  # Skip likely ID columns
 
         metric_type = "ratio" if info.get("subtype") == "ratio" else "additive"
-        fmt = "integer" if info.get("is_integer") else ("currency" if info.get("mean", 0) > 100 and not info.get("has_negatives") else "float")
+        if info.get("is_percentage"):
+            metric_type = "ratio"
+
+        if info.get("is_currency"):
+            fmt = "currency"
+        elif info.get("is_percentage"):
+            fmt = "percentage"
+        elif info.get("is_integer"):
+            fmt = "integer"
+        else:
+            fmt = "float"
 
         metrics.append({
             "name": col.lower().replace(" ", "_"),
