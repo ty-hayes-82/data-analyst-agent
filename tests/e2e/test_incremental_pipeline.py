@@ -300,7 +300,8 @@ class TestLevel4_NarrativeGeneration:
         assert narrative.strip(), "Expected non-empty narrative"
         # Keyword expectations
         low = narrative.lower()
-        assert "hs4 8542" in low or "semiconductor" in low, narrative
+        assert ("electronics" in low) or ("hs2=85" in low) or ("hs2 85" in low), narrative
+        assert ("region=west" in low) or ("state_name=california" in low) or ("region west" in low), narrative
         assert "season" in low, narrative
 
 
