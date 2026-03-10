@@ -20,6 +20,20 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 DATASETS_DIR = CONFIG_DIR / "datasets"
 
 
+def _dataset_exists(name: str) -> bool:
+    candidates = [
+        DATASETS_DIR / name,
+        DATASETS_DIR / "csv" / name,
+        DATASETS_DIR / "tableau" / name,
+    ]
+    return any(path.exists() for path in candidates)
+
+
+OPS_DATASET_AVAILABLE = _dataset_exists("ops_metrics")
+ACCOUNT_DATASET_AVAILABLE = _dataset_exists("account_research")
+ORDER_DISPATCH_AVAILABLE = _dataset_exists("order_dispatch")
+
+
 # ---------------------------------------------------------------------------
 # T032: get_active_dataset reads from agent_config.yaml
 # ---------------------------------------------------------------------------
@@ -75,15 +89,15 @@ def test_active_dataset_env_var_overrides_yaml():
 
 
 @pytest.mark.unit
-def test_active_dataset_env_var_order_dispatch():
-    """ACTIVE_DATASET env var works for any valid dataset name."""
+def test_active_dataset_env_var_trade_data():
+    """ACTIVE_DATASET env var works for the trade_data dataset."""
     from config.dataset_resolver import get_active_dataset, clear_dataset_cache
 
     clear_dataset_cache()
-    with patch.dict(os.environ, {"ACTIVE_DATASET": "order_dispatch"}):
+    with patch.dict(os.environ, {"ACTIVE_DATASET": "trade_data"}):
         result = get_active_dataset()
 
-    assert result == "order_dispatch"
+    assert result == "trade_data"
     clear_dataset_cache()
 
 
@@ -108,16 +122,16 @@ def test_get_dataset_path_resolves_existing_file():
 
 
 @pytest.mark.unit
-def test_get_dataset_path_for_ops_metrics():
-    """get_dataset_path works when ACTIVE_DATASET=ops_metrics."""
+def test_get_dataset_path_for_trade_data():
+    """get_dataset_path works when ACTIVE_DATASET=trade_data."""
     from config.dataset_resolver import get_dataset_path, clear_dataset_cache
 
     clear_dataset_cache()
-    with patch.dict(os.environ, {"ACTIVE_DATASET": "ops_metrics"}):
+    with patch.dict(os.environ, {"ACTIVE_DATASET": "trade_data"}):
         path = get_dataset_path("contract.yaml")
 
     assert path.exists()
-    assert "ops_metrics" in str(path)
+    assert "trade_data" in str(path)
     clear_dataset_cache()
 
 
@@ -127,13 +141,13 @@ def test_get_dataset_path_raises_for_missing_file():
     from config.dataset_resolver import get_dataset_path, clear_dataset_cache
 
     clear_dataset_cache()
-    with patch.dict(os.environ, {"ACTIVE_DATASET": "account_research"}):
+    with patch.dict(os.environ, {"ACTIVE_DATASET": "trade_data"}):
         with pytest.raises(FileNotFoundError) as exc_info:
             get_dataset_path("nonexistent_file_xyz.yaml")
 
     error_msg = str(exc_info.value)
     assert "nonexistent_file_xyz.yaml" in error_msg, "Error should mention the filename"
-    assert "account_research" in error_msg, "Error should mention the dataset name"
+    assert "trade_data" in error_msg, "Error should mention the dataset name"
     clear_dataset_cache()
 
 
@@ -143,7 +157,7 @@ def test_get_dataset_path_optional_returns_none_for_missing():
     from config.dataset_resolver import get_dataset_path_optional, clear_dataset_cache
 
     clear_dataset_cache()
-    with patch.dict(os.environ, {"ACTIVE_DATASET": "account_research"}):
+    with patch.dict(os.environ, {"ACTIVE_DATASET": "trade_data"}):
         result = get_dataset_path_optional("definitely_not_a_real_file.yaml")
 
     assert result is None
@@ -156,7 +170,7 @@ def test_get_dataset_path_optional_returns_path_when_exists():
     from config.dataset_resolver import get_dataset_path_optional, clear_dataset_cache
 
     clear_dataset_cache()
-    with patch.dict(os.environ, {"ACTIVE_DATASET": "account_research"}):
+    with patch.dict(os.environ, {"ACTIVE_DATASET": "trade_data"}):
         result = get_dataset_path_optional("contract.yaml")
 
     assert result is not None
@@ -215,6 +229,8 @@ async def test_contract_loader_respects_active_dataset_env_var():
     """
     ContractLoader should load the ops_metrics contract when ACTIVE_DATASET=ops_metrics.
     """
+    if not OPS_DATASET_AVAILABLE:
+        pytest.skip("ops_metrics dataset not available in this workspace")
     from google.adk.sessions.in_memory_session_service import InMemorySessionService
     from google.adk.agents.invocation_context import InvocationContext
     from data_analyst_agent.agent import ContractLoader
@@ -249,14 +265,29 @@ async def test_contract_loader_respects_active_dataset_env_var():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.unit
-def test_all_dataset_folders_have_contract():
-    """Every folder under config/datasets/ must contain a contract.yaml."""
-    dataset_dirs = [d for d in DATASETS_DIR.iterdir() if d.is_dir() and d.name not in ("csv", "tableau")]
-    assert len(dataset_dirs) >= 3, "Expected at least 3 dataset folders"
+def test_trade_dataset_contract_exists():
+    """The trade_data dataset must provide contract and loader configs."""
+    trade_dir = DATASETS_DIR / "csv" / "trade_data"
+    contract = trade_dir / "contract.yaml"
+    loader = trade_dir / "loader.yaml"
+    assert contract.exists(), f"Missing trade_data contract: {contract}"
+    assert loader.exists(), f"Missing trade_data loader: {loader}"
 
-    for ds_dir in dataset_dirs:
-        contract = ds_dir / "contract.yaml"
-        assert contract.exists(), f"Missing contract.yaml in {ds_dir.name}"
+@pytest.mark.unit
+def test_no_unused_dataset_dirs_remain():
+    """Ensure no legacy dataset directories linger after cleanup."""
+    csv_root = DATASETS_DIR / "csv"
+    names = sorted([d.name for d in csv_root.iterdir() if d.is_dir()]) if csv_root.exists() else []
+    # Core datasets that must exist
+    required = {"trade_data"}
+    # Known public datasets (may or may not be present)
+    known = {"trade_data", "covid_us_counties", "covid_us_counties_v2", "owid_co2_emissions",
+             "co2_global_regions", "worldbank_population", "worldbank_population_regions",
+             "global_temperature", "toll_data", "validation_ops"}
+    assert required.issubset(set(names)), f"Missing required datasets: {required - set(names)}"
+    unknown = set(names) - known
+    assert not unknown, f"Unknown dataset directories: {sorted(unknown)}"
+
 
 
 @pytest.mark.unit

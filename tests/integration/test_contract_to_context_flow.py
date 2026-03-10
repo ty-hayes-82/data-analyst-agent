@@ -46,7 +46,7 @@ def test_all_contracts_loadable():
     """Every dataset folder under config/datasets/ should have a loadable contract.yaml."""
     from data_analyst_agent.semantic.models import DatasetContract
 
-    contract_files = list(DATASETS_DIR.glob("*/contract.yaml"))
+    contract_files = list(DATASETS_DIR.glob("**/contract.yaml"))
     assert len(contract_files) >= 3, "Expected at least 3 dataset contract files"
 
     for path in contract_files:
