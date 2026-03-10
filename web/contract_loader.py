@@ -13,6 +13,7 @@ DATASETS_DIR = Path(__file__).resolve().parent.parent / "config" / "datasets"
 def list_datasets() -> list[dict[str, Any]]:
     """Walk config/datasets/ and return metadata for every contract.yaml found."""
     results = []
+    seen_names: set[str] = set()
     for root, _dirs, files in os.walk(DATASETS_DIR):
         if "contract.yaml" in files:
             rel = Path(root).relative_to(DATASETS_DIR)
@@ -20,10 +21,16 @@ def list_datasets() -> list[dict[str, Any]]:
             try:
                 with open(contract_path, encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
+                dataset_id = str(rel).replace("\\", "/")
+                name = data.get("name", str(rel))
+                # Deduplicate by name (handles alias/symlink layout)
+                if name in seen_names:
+                    continue
+                seen_names.add(name)
                 results.append({
-                    "id": str(rel).replace("\\", "/"),
-                    "name": data.get("name", str(rel)),
-                    "display_name": data.get("display_name", data.get("name", str(rel))),
+                    "id": dataset_id,
+                    "name": name,
+                    "display_name": data.get("display_name", name),
                     "path": str(contract_path),
                 })
             except Exception:
@@ -33,7 +40,13 @@ def list_datasets() -> list[dict[str, Any]]:
 
 def load_contract(dataset_id: str) -> dict[str, Any]:
     """Load a contract.yaml by dataset ID (relative path under config/datasets/)."""
-    contract_path = DATASETS_DIR / dataset_id / "contract.yaml"
+    # Security: prevent path traversal
+    if ".." in dataset_id or dataset_id.startswith("/") or dataset_id.startswith("\\"):
+        raise FileNotFoundError(f"Invalid dataset ID: {dataset_id}")
+    contract_path = (DATASETS_DIR / dataset_id / "contract.yaml").resolve()
+    # Ensure resolved path is still under DATASETS_DIR
+    if not str(contract_path).startswith(str(DATASETS_DIR.resolve())):
+        raise FileNotFoundError(f"Invalid dataset ID: {dataset_id}")
     if not contract_path.exists():
         raise FileNotFoundError(f"No contract at {contract_path}")
     with open(contract_path, encoding="utf-8") as f:

@@ -5,6 +5,7 @@ import json
 import os
 import signal
 import subprocess
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -71,7 +72,7 @@ def start_run(params: dict[str, Any]) -> dict:
 
     # Create output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_name = dataset_name.replace(" ", "_").lower()
+    safe_name = re.sub(r"[^a-z0-9_-]", "", dataset_name.replace(" ", "_").lower())
     output_dir = str(PROJECT_ROOT / "outputs" / safe_name / timestamp)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -202,8 +203,14 @@ def get_file_content(run_id: str, filename: str) -> tuple[str, str]:
     run = get_run(run_id)
     if not run:
         raise FileNotFoundError("Run not found")
-    file_path = Path(run["output_dir"]) / filename
-    if not file_path.exists() or ".." in filename:
+    # Security: sanitize filename and ensure it stays inside output dir
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise FileNotFoundError("Invalid filename")
+    output_dir = Path(run["output_dir"]).resolve()
+    file_path = (output_dir / filename).resolve()
+    if not str(file_path).startswith(str(output_dir)):
+        raise FileNotFoundError("Invalid filename")
+    if not file_path.exists():
         raise FileNotFoundError("File not found")
 
     if file_path.suffix == ".pdf":

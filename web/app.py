@@ -92,6 +92,10 @@ async def api_run_file(run_id: str, filename: str):
         try:
             import markdown
             html = markdown.markdown(content, extensions=["tables", "fenced_code"])
+            # Sanitize: strip script/iframe/object tags
+            import re as _re
+            html = _re.sub(r"<(script|iframe|object|embed|form|input)[^>]*>.*?</\1>", "", html, flags=_re.DOTALL | _re.IGNORECASE)
+            html = _re.sub(r"<(script|iframe|object|embed|form|input)[^>]*/?>", "", html, flags=_re.IGNORECASE)
             return HTMLResponse(f"""<!doctype html><html><head>
                 <style>body{{font-family:system-ui;max-width:800px;margin:2em auto;padding:0 1em;color:#e0e0e0;background:#1a1a2e}}
                 table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #333;padding:6px 10px;text-align:left}}
