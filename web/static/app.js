@@ -491,5 +491,307 @@ function resetUpload() {
   document.getElementById('file-input').value = '';
 }
 
+
+// --- Hierarchy Editor ---
+let hierarchyEditorOpen = false;
+let currentHierarchyLevels = [];
+let hierarchyFilterCache = {};
+
+function renderHierarchyEditor(contract) {
+  const sel = document.getElementById('hierarchy-select');
+  const editBtn = document.getElementById('edit-hierarchy-btn');
+  const filterDiv = document.getElementById('hierarchy-filters');
+
+  sel.innerHTML = '';
+  (contract.hierarchies || []).forEach((h, i) => {
+    const levels = (h.children || []).join(' \u2192 ');
+    sel.innerHTML += `<option value="${h.name}" ${i === 0 ? 'selected' : ''}>${h.name} (${levels})</option>`;
+  });
+
+  editBtn.style.display = contract.hierarchies?.length ? 'inline-block' : 'none';
+
+  hierarchyEditorOpen = false;
+  document.getElementById('hierarchy-level-editor').style.display = 'none';
+  hierarchyFilterCache = {};
+
+  if (contract.hierarchies?.length) {
+    setHierarchyLevels(contract.hierarchies[0], contract);
+  }
+
+  sel.onchange = () => {
+    const h = (contract.hierarchies || []).find(x => x.name === sel.value);
+    if (h) {
+      setHierarchyLevels(h, contract);
+      renderHierarchyLevelsList(currentContract);
+      renderHierarchyFilters();
+    }
+  };
+
+  renderHierarchyFilters();
+}
+
+function setHierarchyLevels(hierarchy, contract) {
+  const dims = contract.dimensions || [];
+  currentHierarchyLevels = (hierarchy.children || []).map(childName => {
+    const dim = dims.find(d => d.name === childName || d.column === childName);
+    return {
+      name: dim ? dim.name : childName,
+      column: dim ? dim.column : childName,
+      description: dim ? dim.description : ''
+    };
+  });
+  hierarchyFilterCache = {};
+}
+
+function toggleHierarchyEditor() {
+  hierarchyEditorOpen = !hierarchyEditorOpen;
+  const editor = document.getElementById('hierarchy-level-editor');
+  editor.style.display = hierarchyEditorOpen ? 'block' : 'none';
+  if (hierarchyEditorOpen) {
+    renderHierarchyLevelsList(currentContract);
+  }
+}
+
+function renderHierarchyLevelsList(contract) {
+  const list = document.getElementById('hierarchy-levels-list');
+  const usedCols = new Set(currentHierarchyLevels.map(l => l.column));
+
+  list.innerHTML = currentHierarchyLevels.map((level, i) => `
+    <div class="hierarchy-level-item" draggable="true" data-index="${i}"
+         ondragstart="onLevelDragStart(event)" ondragover="onLevelDragOver(event)"
+         ondrop="onLevelDrop(event)" ondragend="onLevelDragEnd(event)">
+      <span class="level-number">${i + 1}</span>
+      <span class="level-name">${escapeHtml(level.name)}</span>
+      <span class="level-col">${escapeHtml(level.column)}</span>
+      <button class="btn-remove" onclick="removeHierarchyLevel(${i})" title="Remove level">&times;</button>
+    </div>
+  `).join('');
+
+  const allDims = (contract?.dimensions || []).filter(d => d.role !== 'time' && !usedCols.has(d.column));
+  const availDiv = document.getElementById('available-dimensions');
+  const availList = document.getElementById('available-dims-list');
+
+  if (allDims.length) {
+    availDiv.style.display = 'block';
+    availList.innerHTML = allDims.map(d =>
+      `<span class="dim-chip" onclick="addDimensionToHierarchy('${d.name}', '${d.column}', '${(d.description || '').replace(/'/g, "\\'")}')" title="${escapeHtml(d.description || '')}">${escapeHtml(d.name)}</span>`
+    ).join('');
+  } else {
+    availDiv.style.display = 'none';
+  }
+}
+
+function addDimensionToHierarchy(name, column, description) {
+  currentHierarchyLevels.push({ name, column, description });
+  renderHierarchyLevelsList(currentContract);
+  renderHierarchyFilters();
+}
+
+function removeHierarchyLevel(index) {
+  const removed = currentHierarchyLevels.splice(index, 1)[0];
+  if (removed) delete hierarchyFilterCache[removed.column];
+  renderHierarchyLevelsList(currentContract);
+  renderHierarchyFilters();
+}
+
+function addHierarchyLevel() {
+  document.getElementById('available-dimensions').style.display = 'block';
+}
+
+let dragIndex = null;
+function onLevelDragStart(e) {
+  dragIndex = parseInt(e.target.closest('.hierarchy-level-item').dataset.index);
+  e.target.closest('.hierarchy-level-item').classList.add('dragging');
+}
+function onLevelDragOver(e) { e.preventDefault(); }
+function onLevelDrop(e) {
+  e.preventDefault();
+  const dropIndex = parseInt(e.target.closest('.hierarchy-level-item').dataset.index);
+  if (dragIndex !== null && dragIndex !== dropIndex) {
+    const [moved] = currentHierarchyLevels.splice(dragIndex, 1);
+    currentHierarchyLevels.splice(dropIndex, 0, moved);
+    renderHierarchyLevelsList(currentContract);
+  }
+}
+function onLevelDragEnd(e) {
+  dragIndex = null;
+  document.querySelectorAll('.hierarchy-level-item').forEach(el => el.classList.remove('dragging'));
+}
+
+// --- Hierarchy Filters ---
+async function renderHierarchyFilters() {
+  const container = document.getElementById('hierarchy-filter-levels');
+  const wrapper = document.getElementById('hierarchy-filters');
+
+  if (!currentHierarchyLevels.length || !currentContract) {
+    wrapper.style.display = 'none';
+    return;
+  }
+
+  wrapper.style.display = 'block';
+  container.innerHTML = currentHierarchyLevels.map((level, i) => {
+    const cached = hierarchyFilterCache[level.column];
+    const activeCount = cached?.selected ? cached.selected.size : 0;
+    const totalCount = cached?.values ? cached.values.length : '...';
+    const badge = activeCount > 0 ? `<span class="filter-active-badge">${activeCount} selected</span>` : '';
+    return `
+      <div class="hierarchy-filter-level" id="filter-level-${i}">
+        <div class="filter-header" onclick="toggleFilterLevel(${i}, '${level.column}')">
+          <span class="filter-title">${escapeHtml(level.name)}${badge}</span>
+          <span>
+            <span class="filter-count">${totalCount} values</span>
+            <span class="filter-toggle">&#9660;</span>
+          </span>
+        </div>
+        <div class="filter-body" id="filter-body-${i}">
+          <input type="text" class="filter-search" placeholder="Search values..." oninput="filterSearchValues(${i}, '${level.column}', this.value)">
+          <div class="filter-values" id="filter-values-${i}">Loading...</div>
+          <div class="filter-actions">
+            <button onclick="selectAllFilter(${i}, '${level.column}')">Select All</button>
+            <button onclick="deselectAllFilter(${i}, '${level.column}')">Deselect All</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function toggleFilterLevel(index, column) {
+  const el = document.getElementById(`filter-level-${index}`);
+  const isExpanded = el.classList.contains('expanded');
+
+  if (isExpanded) {
+    el.classList.remove('expanded');
+    return;
+  }
+
+  el.classList.add('expanded');
+
+  if (!hierarchyFilterCache[column]) {
+    const datasetId = document.getElementById('dataset-select').value;
+    try {
+      const res = await fetch(`/api/datasets/${datasetId}/dimension-values/${column}`);
+      if (res.ok) {
+        const data = await res.json();
+        hierarchyFilterCache[column] = {
+          values: data.values,
+          selected: new Set(),
+          truncated: data.truncated
+        };
+      } else {
+        hierarchyFilterCache[column] = { values: [], selected: new Set(), truncated: false };
+      }
+    } catch {
+      hierarchyFilterCache[column] = { values: [], selected: new Set(), truncated: false };
+    }
+    renderFilterCount(index, column);
+  }
+
+  renderFilterValues(index, column);
+}
+
+function renderFilterValues(index, column, searchTerm) {
+  const cache = hierarchyFilterCache[column];
+  if (!cache) return;
+
+  const container = document.getElementById(`filter-values-${index}`);
+  let values = cache.values;
+  if (searchTerm) {
+    const lower = searchTerm.toLowerCase();
+    values = values.filter(v => v.toLowerCase().includes(lower));
+  }
+
+  if (values.length === 0) {
+    container.innerHTML = '<span style="color:#8b949e;font-size:0.85em">No values found</span>';
+    return;
+  }
+
+  const shown = values.slice(0, 200);
+  container.innerHTML = shown.map(v => {
+    const checked = cache.selected.size === 0 || cache.selected.has(v) ? 'checked' : '';
+    const safeV = v.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    return `<label><input type="checkbox" ${checked} onchange="onFilterValueChange('${safeV}', '${column}', this.checked, ${index})"> ${escapeHtml(v)}</label>`;
+  }).join('');
+
+  if (values.length > 200) {
+    container.innerHTML += `<span style="color:#8b949e;font-size:0.8em;width:100%;display:block;margin-top:0.5em">Showing 200 of ${values.length} — use search to narrow</span>`;
+  }
+}
+
+function onFilterValueChange(value, column, checked, index) {
+  const cache = hierarchyFilterCache[column];
+  if (!cache) return;
+
+  if (cache.selected.size === 0 && !checked) {
+    cache.values.forEach(v => { if (v !== value) cache.selected.add(v); });
+  } else if (checked) {
+    cache.selected.add(value);
+    if (cache.selected.size === cache.values.length) {
+      cache.selected.clear();
+    }
+  } else {
+    cache.selected.delete(value);
+  }
+
+  renderFilterCount(index, column);
+}
+
+function renderFilterCount(index, column) {
+  const cache = hierarchyFilterCache[column];
+  if (!cache) return;
+
+  const titleEl = document.querySelector(`#filter-level-${index} .filter-title`);
+  const countEl = document.querySelector(`#filter-level-${index} .filter-count`);
+  const level = currentHierarchyLevels[index];
+
+  countEl.textContent = `${cache.values.length} values`;
+
+  const badge = cache.selected.size > 0 && cache.selected.size < cache.values.length
+    ? `<span class="filter-active-badge">${cache.selected.size} of ${cache.values.length}</span>`
+    : '';
+  titleEl.innerHTML = `${escapeHtml(level.name)}${badge}`;
+}
+
+function filterSearchValues(index, column, term) {
+  renderFilterValues(index, column, term);
+}
+
+function selectAllFilter(index, column) {
+  const cache = hierarchyFilterCache[column];
+  if (!cache) return;
+  cache.selected.clear();
+  renderFilterValues(index, column);
+  renderFilterCount(index, column);
+}
+
+function deselectAllFilter(index, column) {
+  const cache = hierarchyFilterCache[column];
+  if (!cache) return;
+  cache.selected = new Set(['__none__']);
+  renderFilterValues(index, column);
+  renderFilterCount(index, column);
+}
+
+function clearAllFilters() {
+  hierarchyFilterCache = {};
+  renderHierarchyFilters();
+}
+
+function getCustomHierarchyLevels() {
+  if (!hierarchyEditorOpen || !currentHierarchyLevels.length) return [];
+  return currentHierarchyLevels.map(l => l.column);
+}
+
+function getHierarchyFilters() {
+  const filters = {};
+  for (const [column, cache] of Object.entries(hierarchyFilterCache)) {
+    if (cache.selected.size > 0 && !cache.selected.has('__none__')) {
+      filters[column] = [...cache.selected];
+    }
+  }
+  return filters;
+}
+
+
 // --- Init ---
 loadDatasets();
