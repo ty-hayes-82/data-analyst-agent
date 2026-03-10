@@ -2,7 +2,6 @@
 
 from .loaders import (
     AnalysisContextInitializer,
-    ConditionalOrderDetailsFetchAgent,
     ContractLoader,
     DateInitializer,
 )
@@ -14,7 +13,6 @@ from .targets import ParallelDimensionTargetAgent, TargetIteratorAgent
 
 __all__ = [
     "AnalysisContextInitializer",
-    "ConditionalOrderDetailsFetchAgent",
     "ContractLoader",
     "DateInitializer",
     "CLIParameterInjector",

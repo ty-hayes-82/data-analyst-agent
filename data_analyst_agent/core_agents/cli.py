@@ -10,7 +10,6 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 
-from ..tools import iterate_analysis_targets  # re-exported for typing elsewhere
 
 
 class CLIParameterInjector(BaseAgent):
