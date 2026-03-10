@@ -33,6 +33,13 @@ import contextvars
 
 # Use a registry in sys.modules to survive multiple imports of this module
 _REGISTRY_KEY = "_data_analyst_cache_registry"
+_REQUIRED_REGISTRY_KEYS = {
+    "validated_csv",
+    "analysis_context",
+    "validated_data",
+    "supplementary_csv",
+    "session_id_var",
+}
 
 def _create_cache_registry() -> dict:
     return {
@@ -51,7 +58,7 @@ def _get_cache_registry() -> dict:
     else:
         # Defensive check for required keys (tests sometimes set registry to {})
         needs_reset = False
-        if not required_keys.issubset(registry.keys()):
+        if not _REQUIRED_REGISTRY_KEYS.issubset(registry.keys()):
             needs_reset = True
         else:
             dict_requirements = {
@@ -89,15 +96,33 @@ def _set_supplementary_csv_cache(val):
     sys.modules[_REGISTRY_KEY]['supplementary_csv'] = val
 
 
-# Use a fixed temp file path for the session
-_CACHE_DIR = Path(tempfile.gettempdir()) / "data_analyst_cache"
+
+def _resolve_cache_dir() -> Path:
+    """Determine a cache directory writable by the current user."""
+    env_override = os.getenv("DATA_ANALYST_CACHE_DIR")
+    if env_override:
+        return Path(env_override).expanduser()
+
+    base_tmp = Path(tempfile.gettempdir())
+    suffix = "data_analyst_cache"
+    try:
+        uid = os.getuid()
+    except AttributeError:  # Windows compatibility
+        uid = None
+    if uid is not None:
+        suffix = f"{suffix}_{uid}"
+    return base_tmp / suffix
+
+
+# Use a temp path namespaced per-user to avoid permission conflicts with root-owned files
+_CACHE_DIR = _resolve_cache_dir()
 _CSV_CACHE_FILE = _CACHE_DIR / "primary_data_csv.csv"
 _DATA_CACHE_FILE = _CACHE_DIR / "primary_data.json"
 _SUPPLEMENTARY_CACHE_FILE = _CACHE_DIR / "supplementary_data_csv.csv"
 _CONTEXT_CACHE_FILE = _CACHE_DIR / "analysis_context.json"
 
 # Ensure cache directory exists
-_CACHE_DIR.mkdir(exist_ok=True)
+_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # === Analysis Context Cache ===

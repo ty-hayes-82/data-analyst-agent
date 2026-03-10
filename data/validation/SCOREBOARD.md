@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T00:19:02
+**Last updated:** 2026-03-10T03:01:05
 
 ## Current State
 - **Unit Tests:** 236 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 187 files, 26,012 lines, **48 files >200L**
-- **Largest:** sub_agents/hierarchy_variance_agent/tools/level_stats/core.py (609L)
-- **Commit:** `3f1e770 chore: update validation scoreboard`
+- **Codebase:** 187 files, 25,745 lines, **49 files >200L**
+- **Largest:** utils/phase_logger.py (546L)
+- **Commit:** `b7eec20 fix: normalize metric name matching in exe`
 
 ## Progress Over Time
 
@@ -42,9 +42,12 @@
 | 27 | 00:04 | `5186c69` | 271 | 0 | 0 | 5/5 | 51 | data_analyst_agent/sub_ag |
 | 28 | 00:14 | `246a21c` | 271 | 0 | 0 | 5/5 | 50 | sub_agents/hierarchy_vari |
 | 29 | 00:19 | `3f1e770` | 236 | 0 | 0 | 5/5 | 48 | sub_agents/hierarchy_vari |
+| 30 | 01:03 | `557d904` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 31 | 01:20 | `557d904` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 32 | 03:01 | `b7eec20` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 
 ## Cumulative Improvement
 - Tests: 247 → **236** (+-11)
 - Failures: 0 → **0**
-- Files >200L: 50 → **48** (-2)
-- Iterations: 29
+- Files >200L: 50 → **49** (-1)
+- Iterations: 32

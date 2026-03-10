@@ -139,3 +139,20 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Running the full suite via `/usr/local/bin/python` still dies in four modules that import `google.adk` classes; until the ADK stubs are vendored (or the dependency is installed), expect those collection errors even if the rest of the suite is green.
 - `tests/e2e/test_trade_data_e2e.py` continues to pass 5/5 checks in ~0.4s and uses `fixture_c` + `validation_datapoints.json` to validate anomaly magnitude/direction, so rerun it whenever anomaly logic changes.
 - `scripts/track_results.py` runs the suite via the repo venv (`.venv/bin/python`) and only targets `tests/`, so SCOREBOARD.md may show all green even when repo-root pytest fails earlier in collection; reconcile the discrepancy before declaring victory.
+
+### 2026-03-10 — Level stats modularization
+- Split compute_level_statistics helpers into hierarchy/materiality/period/ratio modules; core orchestrator now reads like 150 lines and matches SOUL guidance.
+- Ratio aggregation logic now reusable and uses default aggregation fallback cleanly, preventing future 600-line blobs.
+- pytest still blocks on google.adk imports (expected 4 collection errors); reran scripts/track_results.py to keep SCOREBOARD current.
+
+### 2026-03-10 — Reviewer audit (google.adk import regressions)
+- Repo-root `python -m pytest` currently **fails collection with 4 errors** because several packages import `google.adk` at import-time:
+  - `data_analyst_agent/utils/__init__.py` eagerly imports `safe_parallel_wrapper` → `google.adk.agents.base_agent.BaseAgent`.
+  - `data_analyst_agent/sub_agents/*/__init__.py` eagerly imports `.agent` (e.g., planner_agent, hierarchy_variance_agent) which imports `google.adk`.
+- Fix pattern: make these imports **lazy/optional** (wrap in `try/except ModuleNotFoundError`, or remove agent imports from `__init__.py`) so tool modules + non-ADK utilities remain importable without installing ADK.
+- This discrepancy can be masked if `scripts/track_results.py` only runs a subset of tests; ensure the canonical test command matches what SCOREBOARD reports.
+
+### 2026-03-10 — Tester E2E 01:19 UTC run
+- Full-suite command (`/usr/local/bin/python -m pytest --tb=short -q`) still halts at collection with the same four `google.adk` import errors (planner, hierarchy variance, temporal grain, output manager). Until we vendor ADK shims, repo-root pytest cannot go green.
+- `tests/e2e/test_trade_data_e2e.py` continues to pass 5/5 checks in ~0.5s; slowest assertion is the YoY variance validation at ~0.38s.
+- `scripts/track_results.py` shells out to `.venv/bin/python` for pytest runs and then enumerates every `.py` file with `find ... | wc -l`; expect a short pause before it prints the SCOREBOARD summary—let it finish rather than Ctrl+C.
