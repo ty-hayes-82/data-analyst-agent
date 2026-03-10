@@ -56,6 +56,69 @@ from .scope_utils import (
     _sanitize_entity_name,
 )
 
+
+def _ensure_card_titles(card_list: list[dict[str, Any]] | None, prefix: str) -> None:
+    if not isinstance(card_list, list):
+        return
+    for idx, card in enumerate(card_list, 1):
+        if not isinstance(card, dict):
+            continue
+        title = (card.get("title") or "").strip()
+        if title:
+            continue
+        fallback = (
+            card.get("item")
+            or card.get("item_name")
+            or card.get("level_name")
+            or card.get("dimension_value")
+            or card.get("what_changed")
+            or prefix
+        )
+        fallback = str(fallback).strip() or prefix
+        suffix = f" (Insight {idx})" if idx > 1 else ""
+        card["title"] = f"{prefix}: {fallback}{suffix}" if prefix and not fallback.lower().startswith(prefix.lower()) else f"{fallback}{suffix}".strip()
+
+
+def _ensure_block_titles(block: Any, prefix: str) -> Any:
+    was_str = isinstance(block, str)
+    data = block
+    if was_str:
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            return block
+    if isinstance(data, dict):
+        _ensure_card_titles(data.get("insight_cards"), prefix)
+    return json.dumps(data) if was_str else data
+
+
+def _backfill_missing_titles(json_data: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    for metric_name, payload in json_data.items():
+        prefix = str(metric_name).strip() or "Insight"
+        narrative = payload.get("narrative_results")
+        if narrative:
+            payload["narrative_results"] = _ensure_block_titles(narrative, prefix)
+        hier = payload.get("hierarchical_analysis")
+        if isinstance(hier, dict):
+            for key in list(hier.keys()):
+                block = hier.get(key)
+                if isinstance(block, (dict, str)):
+                    hier[key] = _ensure_block_titles(block, f"{prefix} {key}")
+            indep = hier.get("independent_level_results")
+            if isinstance(indep, dict):
+                for key in list(indep.keys()):
+                    block = indep.get(key)
+                    if isinstance(block, (dict, str)):
+                        indep[key] = _ensure_block_titles(block, f"{prefix} {key}")
+        analysis = payload.get("analysis")
+        if isinstance(analysis, dict):
+            _ensure_card_titles(analysis.get("insight_cards"), prefix)
+            alert_block = analysis.get("alert_scoring") or {}
+            if isinstance(alert_block, dict):
+                _ensure_card_titles(alert_block.get("top_alerts"), f"{prefix} Alert")
+    return json_data
+
+
 def _build_brief_response_schema() -> types.Schema:
     insight_schema = types.Schema(
         type=types.Type.OBJECT,
@@ -250,6 +313,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         if extracted_targets:
             requested = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
             json_data = {k: v for k, v in json_data.items() if k.replace(" ", "_").lower() in requested}
+        if json_data:
+            json_data = _backfill_missing_titles(json_data)
 
         focus_modes = ctx.session.state.get("analysis_focus") or []
         custom_focus = ctx.session.state.get("custom_focus") or ""
