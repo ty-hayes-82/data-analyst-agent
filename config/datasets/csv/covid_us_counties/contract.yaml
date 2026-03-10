@@ -1,0 +1,86 @@
+name: COVID-19 US Counties
+version: 1.0.0
+display_name: COVID-19 US County-Level Cases & Deaths
+target_label: Metric
+description: Daily COVID-19 case and death counts for US counties from the New York
+  Times dataset. Covers Jan 2020 through 2023 with geographic hierarchy from state
+  to county.
+materiality:
+  variance_pct: 10.0
+  variance_absolute: 100
+presentation:
+  unit: count
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: pdf
+data_source:
+  type: csv
+  file: data/public/us_counties_covid_sampled.csv
+time:
+  column: date
+  frequency: daily
+  format: '%Y-%m-%d'
+  range_months: 36
+grain:
+  columns:
+  - date
+  - state
+  - county
+metrics:
+- name: cases
+  column: cases
+  type: additive
+  format: integer
+  optimization: minimize
+  tags:
+  - health
+  - covid
+  - cases
+  description: Cumulative confirmed COVID-19 cases
+- name: deaths
+  column: deaths
+  type: additive
+  format: integer
+  optimization: minimize
+  tags:
+  - health
+  - covid
+  - deaths
+  description: Cumulative confirmed COVID-19 deaths
+dimensions:
+- name: state
+  column: state
+  role: primary
+  description: US state name
+- name: county
+  column: county
+  role: secondary
+  description: US county name
+- name: fips
+  column: fips
+  role: secondary
+  description: FIPS county code
+- name: date
+  column: date
+  role: time
+  description: Date of observation
+hierarchies:
+- name: geographic
+  description: 'Geographic drill-down: State -> County'
+  children:
+  - state
+  - county
+  level_names:
+    0: Total
+    1: State
+    2: County
+capabilities:
+- daily case/death trend analysis across US counties
+- geographic drill-down from state to county level
+- anomaly detection for case surges and waves
+- state-level comparative analysis
+- pandemic wave pattern detection
+policies:
+  degradation_threshold: 0.15

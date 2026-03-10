@@ -1,0 +1,66 @@
+name: Global Temperature Anomaly
+version: 1.0.0
+display_name: Global Monthly Temperature Anomaly (1850-2024)
+target_label: Metric
+description: Monthly global mean surface temperature anomaly from GCAG and GISTEMP
+  sources. Two independent measurement sources provide overlapping coverage from 1850
+  to present.
+materiality:
+  variance_pct: 15.0
+  variance_absolute: 0.1
+presentation:
+  unit: degrees C
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 2
+  max_scope_entities: 10
+  output_format: pdf
+data_source:
+  type: csv
+  file: data/public/global_temp_monthly.csv
+time:
+  column: Year
+  frequency: monthly
+  format: '%Y-%m'
+  range_months: 2088
+grain:
+  columns:
+  - Year
+  - Source
+metrics:
+- name: temperature_anomaly
+  column: Mean
+  type: non_additive
+  format: float
+  optimization: minimize
+  tags:
+  - climate
+  - temperature
+  - anomaly
+  description: Global mean temperature anomaly in degrees Celsius relative to 1951-1980
+    baseline
+dimensions:
+- name: source
+  column: Source
+  role: primary
+  description: Temperature measurement source (GCAG or GISTEMP)
+- name: year
+  column: Year
+  role: time
+  description: Year-month of observation
+hierarchies:
+- name: by_source
+  description: Compare temperature sources
+  children:
+  - source
+  level_names:
+    0: Global
+    1: Source
+capabilities:
+- monthly temperature anomaly trend analysis
+- comparison between GCAG and GISTEMP measurement sources
+- long-term climate trend detection over 170+ years
+- seasonal pattern analysis
+- warming acceleration detection
+policies:
+  degradation_threshold: 0.2

@@ -1,0 +1,7 @@
+type: csv
+file: data/public/global_temp_monthly.csv
+encoding: utf-8
+date_columns:
+- Year
+numeric_columns:
+- Mean

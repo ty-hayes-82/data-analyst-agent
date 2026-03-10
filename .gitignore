@@ -86,3 +86,6 @@ scripts/*.json
 # Data files
 config/datasets/**/*.csv
 
+data/public/us_counties_covid.csv
+data/public/us_counties_covid.csv
+*.csv.bak
