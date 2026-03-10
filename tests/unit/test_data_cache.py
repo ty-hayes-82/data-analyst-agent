@@ -31,7 +31,6 @@ from data_analyst_agent.sub_agents.data_cache import (
     get_validated_metadata,
     clear_all_caches,
     _CSV_CACHE_FILE,
-    _OPS_CACHE_FILE,
     _CONTEXT_CACHE_FILE,
 )
 
@@ -45,12 +44,12 @@ def _clean_caches():
     """Ensure every test starts and ends with a clean cache."""
     clear_all_caches()
     # Also remove file artefacts
-    for f in (_CSV_CACHE_FILE, _OPS_CACHE_FILE, _CONTEXT_CACHE_FILE):
+    for f in (_CSV_CACHE_FILE, _CONTEXT_CACHE_FILE):
         if f.exists():
             f.unlink()
     yield
     clear_all_caches()
-    for f in (_CSV_CACHE_FILE, _OPS_CACHE_FILE, _CONTEXT_CACHE_FILE):
+    for f in (_CSV_CACHE_FILE, _CONTEXT_CACHE_FILE):
         if f.exists():
             f.unlink()
 
@@ -236,7 +235,6 @@ def test_clear_all_caches():
     # In-memory dicts should be empty; structured caches should be None
     import data_analyst_agent.sub_agents.data_cache as dc
     assert dc._validated_csv_cache == {}
-    assert dc._ops_metrics_csv_cache == {}
     assert dc._analysis_context_cache == {}
     assert dc._get_validated_data_cache() is None
 

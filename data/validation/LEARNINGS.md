@@ -134,3 +134,8 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Split hierarchical_analysis_agent/agent.py into dedicated modules (logging, decisions, initialization, cross-dimension, independent scan, finalization) to keep each under 200 lines and simplify future edits.
 - Centralized feature flags (USE_CODE_INSIGHTS, CROSS_DIMENSION_ANALYSIS, INDEPENDENT_LEVEL_ANALYSIS) inside settings.py so helpers can import shared toggles without circulars.
 - After modularizing, keep agent.py focused on wiring: re-export root_agent and loop objects so existing imports (tests + pipeline) keep working.
+
+### 2026-03-10 — Tester E2E follow-up
+- Running the full suite via `/usr/local/bin/python` still dies in four modules that import `google.adk` classes; until the ADK stubs are vendored (or the dependency is installed), expect those collection errors even if the rest of the suite is green.
+- `tests/e2e/test_trade_data_e2e.py` continues to pass 5/5 checks in ~0.4s and uses `fixture_c` + `validation_datapoints.json` to validate anomaly magnitude/direction, so rerun it whenever anomaly logic changes.
+- `scripts/track_results.py` runs the suite via the repo venv (`.venv/bin/python`) and only targets `tests/`, so SCOREBOARD.md may show all green even when repo-root pytest fails earlier in collection; reconcile the discrepancy before declaring victory.

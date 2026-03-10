@@ -29,7 +29,6 @@ Workflow:
 2. Analysis Pipeline:
    a) Data Fetch:
       - DateInitializer: Calculates date ranges from contract time configuration
-      - ContractDrivenDataFetcher: Retrieves data from the agent specified in the contract
       - A2aNormalizerAgent: Normalizes and validates fetched data
 
    b) Processing & Analysis:
@@ -104,20 +103,15 @@ from .core_agents.loaders import (
     DateInitializer,
     ConditionalOrderDetailsFetchAgent,
 )
-from .core_agents.proxy import DataSourceProxyAgent
 from .core_agents.cli import CLIParameterInjector
 from .core_agents.test_mode import TestModeValidationAgent, TestModeReportSynthesisAgent
-from .core_agents.fetchers import ContractDrivenDataFetcher, UniversalDataFetcher
+from .core_agents.fetchers import UniversalDataFetcher
 from .core_agents.alerting import ConditionalAlertScoringAgent
 from .core_agents.targets import TargetIteratorAgent, ParallelDimensionTargetAgent
 import os
 
 # Authentication and environment setup is handled by config module
 from .semantic.models import DatasetContract, AnalysisContext
-from .semantic.quality import DataQualityGate
-import uuid
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -159,20 +153,9 @@ if VALIDATION_CSV_MODE:
 # --- Helper Agents (Simple Operations Using Tools) ---
 
 
-
-
-
-
-
-
 # --- Workflow Orchestration ---
 
 # TEST MODE pass-through validation agent (applies sign corrections from contract)
-
-
-
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -262,13 +245,6 @@ target_analysis_pipeline = SequentialAgent(
 print(f"[INIT] target_analysis_pipeline sub_agents: {[a.name for a in target_analysis_pipeline.sub_agents]}")
 
 
-
-
-
-
-
-
-
 # Root Agent: Dynamic analyst workflow
 
 from .sub_agents.executive_brief_agent.agent import CrossMetricExecutiveBriefAgent
@@ -307,7 +283,6 @@ async def run_analysis(query: str):
     from google.adk.agents.invocation_context import InvocationContext
     from google.adk.agents.run_config import RunConfig
     from google.adk.sessions.in_memory_session_service import InMemorySessionService
-    import uuid
     import os
     
     # --- PRE-FLIGHT AUTH CHECK (T031) ---

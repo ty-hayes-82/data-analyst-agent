@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T00:14:11
+**Last updated:** 2026-03-10T00:19:02
 
 ## Current State
-- **Unit Tests:** 271 passed, 0 failed, 0 errors
+- **Unit Tests:** 236 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 190 files, 26,655 lines, **50 files >200L**
+- **Codebase:** 187 files, 26,012 lines, **48 files >200L**
 - **Largest:** sub_agents/hierarchy_variance_agent/tools/level_stats/core.py (609L)
-- **Commit:** `246a21c refactor: split compute level statistics c`
+- **Commit:** `3f1e770 chore: update validation scoreboard`
 
 ## Progress Over Time
 
@@ -41,9 +41,10 @@
 | 26 | 00:01 | `d8acd3d` | 271 | 0 | 0 | 5/5 | 50 | sub_agents/hierarchy_vari |
 | 27 | 00:04 | `5186c69` | 271 | 0 | 0 | 5/5 | 51 | data_analyst_agent/sub_ag |
 | 28 | 00:14 | `246a21c` | 271 | 0 | 0 | 5/5 | 50 | sub_agents/hierarchy_vari |
+| 29 | 00:19 | `3f1e770` | 236 | 0 | 0 | 5/5 | 48 | sub_agents/hierarchy_vari |
 
 ## Cumulative Improvement
-- Tests: 247 → **271** (+24)
+- Tests: 247 → **236** (+-11)
 - Failures: 0 → **0**
-- Files >200L: 50 → **50** (+0)
-- Iterations: 28
+- Files >200L: 50 → **48** (-2)
+- Iterations: 29

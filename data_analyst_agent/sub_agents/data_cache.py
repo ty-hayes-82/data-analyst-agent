@@ -37,7 +37,6 @@ _REGISTRY_KEY = "_data_analyst_cache_registry"
 def _create_cache_registry() -> dict:
     return {
         'validated_csv': {},
-        'ops_metrics_csv': {},
         'analysis_context': {},
         'validated_data': None,
         'supplementary_csv': None,
@@ -51,14 +50,12 @@ def _get_cache_registry() -> dict:
         sys.modules[_REGISTRY_KEY] = registry
     else:
         # Defensive check for required keys (tests sometimes set registry to {})
-        required_keys = {"validated_csv", "ops_metrics_csv", "analysis_context", "session_id_var"}
         needs_reset = False
         if not required_keys.issubset(registry.keys()):
             needs_reset = True
         else:
             dict_requirements = {
                 "validated_csv": dict,
-                "ops_metrics_csv": dict,
                 "analysis_context": dict,
             }
             for key, expected in dict_requirements.items():
@@ -77,7 +74,6 @@ sys.modules[_REGISTRY_KEY] = _get_cache_registry()
 _cache_registry = sys.modules[_REGISTRY_KEY]
 current_session_id = _cache_registry['session_id_var']
 _validated_csv_cache = _cache_registry['validated_csv']
-_ops_metrics_csv_cache = _cache_registry['ops_metrics_csv']
 _analysis_context_cache = _cache_registry['analysis_context']
 
 def _get_validated_data_cache():
@@ -98,7 +94,6 @@ _CACHE_DIR = Path(tempfile.gettempdir()) / "data_analyst_cache"
 _CSV_CACHE_FILE = _CACHE_DIR / "primary_data_csv.csv"
 _DATA_CACHE_FILE = _CACHE_DIR / "primary_data.json"
 _SUPPLEMENTARY_CACHE_FILE = _CACHE_DIR / "supplementary_data_csv.csv"
-_OPS_CACHE_FILE = _CACHE_DIR / "ops_metrics_csv.csv"   # secondary ops cache (alias kept for tests)
 _CONTEXT_CACHE_FILE = _CACHE_DIR / "analysis_context.json"
 
 # Ensure cache directory exists
@@ -423,16 +418,12 @@ def clear_validated_data() -> None:
 
 def clear_all_caches() -> None:
     """Clear all caches."""
-    global _analysis_context_cache, _validated_csv_cache, _ops_metrics_csv_cache
+    global _analysis_context_cache, _validated_csv_cache
     # Defensive: reinitialize if external code set these to None
     if not isinstance(_validated_csv_cache, dict):
         _validated_csv_cache = {}
     else:
         _validated_csv_cache.clear()
-    if not isinstance(_ops_metrics_csv_cache, dict):
-        _ops_metrics_csv_cache = {}
-    else:
-        _ops_metrics_csv_cache.clear()
     if not isinstance(_analysis_context_cache, dict):
         _analysis_context_cache = {}
     else:
@@ -441,7 +432,6 @@ def clear_all_caches() -> None:
     registry = sys.modules.get(_REGISTRY_KEY)
     if isinstance(registry, dict):
         registry['validated_csv'] = _validated_csv_cache
-        registry['ops_metrics_csv'] = _ops_metrics_csv_cache
         registry['analysis_context'] = _analysis_context_cache
     _set_validated_data_cache(None)
     _set_supplementary_csv_cache(None)
