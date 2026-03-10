@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Analyst Agent</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <h1>Data Analyst Agent</h1>
+      <div class="tabs">
+        <button class="tab active" data-tab="new-analysis">New Analysis</button>
+        <button class="tab" data-tab="monitor">Monitor</button>
+        <button class="tab" data-tab="history">History</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- New Analysis -->
+    <div id="new-analysis" class="section active">
+      <h2>Configure Analysis</h2>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label for="dataset-select">Dataset</label>
+          <select id="dataset-select"><option value="">Loading datasets...</option></select>
+        </div>
+
+        <div class="form-group full" id="dataset-info" style="display:none">
+          <div class="info-card">
+            <div class="label">Description</div>
+            <div class="value" id="dataset-description"></div>
+          </div>
+        </div>
+
+        <div class="form-group full">
+          <label>Metrics</label>
+          <div class="checkbox-group" id="metrics-group">
+            <span style="color:#8b949e">Select a dataset first</span>
+          </div>
+        </div>
+
+        <div class="form-group full">
+          <label>Hierarchy</label>
+          <div class="radio-group" id="hierarchy-group">
+            <span style="color:#8b949e">Select a dataset first</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="start-date">Start Date</label>
+          <input type="date" id="start-date">
+        </div>
+        <div class="form-group">
+          <label for="end-date">End Date</label>
+          <input type="date" id="end-date">
+        </div>
+
+        <div class="form-group">
+          <label for="max-depth">Max Drill Depth</label>
+          <input type="number" id="max-depth" min="1" max="10" value="3">
+        </div>
+        <div class="form-group">
+          <label>Frequency</label>
+          <input type="text" id="frequency" disabled>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="run-btn" disabled>Run Analysis</button>
+      </div>
+    </div>
+
+    <!-- Monitor -->
+    <div id="monitor" class="section">
+      <h2>Run Monitor</h2>
+      <div id="monitor-content">
+        <p style="color:#8b949e">No active run. Start an analysis first.</p>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div id="history" class="section">
+      <h2>Run History</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Dataset</th><th>Metrics</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="7" style="color:#8b949e">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Results (shown in-place of history when viewing a run) -->
+    <div id="results" class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h2>Run Results</h2>
+        <button class="btn btn-secondary" onclick="showTab('history')">Back to History</button>
+      </div>
+      <div class="info-grid" id="results-info"></div>
+      <h3>Output Files</h3>
+      <ul class="file-list" id="results-files"></ul>
+      <div id="result-content" class="result-content" style="display:none"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
