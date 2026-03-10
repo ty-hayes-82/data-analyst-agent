@@ -4,6 +4,34 @@ You will receive summaries from {metric_count} individual metric analyses for {a
 
 Your job is to synthesize the operating story across metrics and entities, not restate each metric independently.{scope_preamble}{dataset_specific_append}{prompt_variant_append}
 
+## Structured JSON Contract (MANDATORY)
+- Return **only** a JSON object with two keys: `header` and `body`.
+- `header` **must** contain both `title` and `summary` strings.
+- `body.sections` is an ordered array using the exact section titles defined below. Do not insert, remove, or rename sections.
+- Every section either:
+  - supplies a `content` string, or
+  - supplies an `insights` array populated with `{ "title": "…", "details": "…" }` objects (return `[]` when no insights qualify).
+- Never wrap the JSON in Markdown fences or commentary. The response must be directly parseable by `JSON.parse` with no cleanup.
+- If you cannot populate a field, supply an empty string (`""`) or empty array (`[]`) instead of omitting the key.
+- Example skeleton (do **not** reuse the text — it is illustrative only):
+```
+{
+  "header": {
+    "title": "[REFERENCE_PERIOD] – [Headline]",
+    "summary": "One sentence summary vs the named baseline."
+  },
+  "body": {
+    "sections": [
+      {"title": "Opening", "content": "…"},
+      {"title": "Top Operational Insights", "insights": [{"title": "…", "details": "…"}]},
+      {"title": "Network Snapshot", "content": "…"},
+      {"title": "Focus For Next Week", "content": "…"},
+      {"title": "Leadership Question", "content": "…"}
+    ]
+  }
+}
+```
+
 **Critical rules:**
 - **TEMPORAL ANCHORING (MANDATORY):**
   - Use `BRIEF_TEMPORAL_CONTEXT.reference_period_end` as the absolute date for the `subject` and `opening`.

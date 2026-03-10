@@ -1,135 +1,95 @@
-# Reviewer Audit Learnings (cron: reviewer-audit-001)
+# Reviewer Audit Learnings — 2026-03-10
 
-Date: 2026-03-10 (UTC)
-Scope: `git diff HEAD~10..HEAD`
+Scope: last 10 commits (`HEAD~10..HEAD`). Focused on: regression risk, contract compliance, trade-data hardcoding, unused imports, and prompt token efficiency.
 
-## Commit window reviewed
-```
-8f7186e harden: 5 fixes for dataset-agnostic pipeline reliability
-d9e0cbe chore: log 2026-03-10 13:46 iter
-3af1a29 chore: log 2026-03-10 13:31 iter
-3413c69 chore: log 2026-03-10 13:16 iter
-be5b2eb chore: log 2026-03-10 13:01 iter
-ade327e chore: log 2026-03-10 12:46 iter
-cbb0aca chore: log 2026-03-10 12:31 iter
-addbb9a chore: log 2026-03-10 12:16 iter
-b54d8cf chore: log 2026-03-10 12:01 iter
-658ab9a chore: log 2026-03-10 11:31 iter
-```
+## 1) Last 10 commits — quality review
+Commits:
+- 5befeb3 test: sync incremental narrative keywords with contract
+- da3329d test: align narrative assertions with contract terms
+- a4b2448 fix: backfill missing insight titles for executive brief
+- 5ceb9d4 feat: enhance contract detector currency/percent and hierarchies
+- d442d14 feat: surface analysis focus in narrative and brief
+- a13ea9d feat: wire analysis focus into planner and stats
+- 3bb30d8 feat: persist analysis focus directives in state
+- b2b4dbe feat: contract-aware alert extraction
+- 246cece refactor: contract-driven narrative dimension hints
+- b346924 fix: enable csv datasets and harden exec brief
 
-Files changed (stat):
-- `data_analyst_agent/agent.py` (+30)
-- `data_analyst_agent/core_agents/cli.py` (+10)
-- `data_analyst_agent/utils/timing_utils.py` (+12)
-- `data_analyst_agent/sub_agents/executive_brief_agent/agent.py` (+16/-?)
-- `data_analyst_agent/sub_agents/executive_brief_agent/prompt_utils.py` (+15)
-- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_level_statistics.py` (+29/-?)
-- validation scoreboard/log churn + tiny e2e assert update
+### Critical (must fix before merge)
+None found in this commit range.
 
----
+### Warnings (fix soon)
+- **`data_analyst_agent/sub_agents/executive_brief_agent/agent.py`**
+  - File grew by ~179 LOC in this range and is trending “monolith-y”. The new helpers are useful (schema, title backfills, scope labels), but this file is now doing *prompt rendering + schema definition + post-processing + scope logic*.
+  - Action: consider splitting (e.g., `schema.py`, `title_backfill.py`, `instruction_format.py`) to reduce merge-conflict risk.
 
-## Critical (fix before relying on results)
+- **`data_analyst_agent/core_agents/cli.py`**
+  - `analysis_focus`/`custom_focus` are now always written into session state (even empty), whereas previously they were conditionally set. That’s probably fine, but it changes behavior for runs where upstream has populated focus earlier and CLI injector runs later.
+  - Action: confirm the intended precedence. If CLI should not clobber pre-set focus, gate updates on env presence.
 
-### 1) Error swallowing can produce silently-wrong downstream outputs
-- `data_analyst_agent/utils/timing_utils.py` (new `except Exception` in `TimedAgentWrapper.run_async`)
-  - Current behavior: any wrapped agent exception is converted into an `Event` with `state_delta={"<agent>_error": "..."}` and the pipeline continues.
-  - Risk: downstream agents run with partial/missing session state (classic cascading failure mode) and produce plausible-but-wrong narratives/reports.
-  - Fix suggestion:
-    - Decide: do we want the pipeline to *halt* on certain stages (ContractLoader/DataFetcher/AnalysisContext), vs continue only for non-critical stages?
-    - At minimum: set a shared `fatal_error` flag + stop the sequential pipeline (or raise) for critical stages.
-    - Also consider recording a structured error payload (type/stage/traceback) instead of just `str(exc)`.
+- **`data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/data_prep.py` + `.../anomaly_signals.py` + `.../result_builder.py`**
+  - Focus directives now influence statistical thresholds (e.g., z-threshold, focus_periods). Good capability, but it is easy to make results unstable across runs if focus inputs are noisy.
+  - Action: ensure focus settings are deterministic for a given request (normalize list already added—good) and add guardrails (min/max bounds).
 
----
+### Observations
+- Contract-aware dimension labeling work is headed in the right direction:
+  - `extract_alerts_from_analysis(..., contract=...)` now uses contract-derived dimension labels and target display names.
+  - Narrative summary builder now uses contract dimensions/hierarchies where available, with dataset-agnostic fallback heuristics.
 
-## Warning (fix soon)
-
-### 2) Executive brief fallback formatting is extremely brittle / hard to maintain
-- `data_analyst_agent/sub_agents/executive_brief_agent/prompt_utils.py:109-113`
-  - `_format_brief_with_fallback()` uses `strftime(chr(37) + "Y-" + ...)` to build the format string.
-  - This *works* (valid Python inside f-string expression), but it’s opaque and looks like a quoting bug at a glance.
-  - Fix suggestion: replace with the normal literal `"%Y-%m-%d %H:%M UTC"` (same as `_format_brief()` uses earlier in the file).
-
-### 3) Output dir initializer: OK idea, but make sure contract + session state assumptions hold
-- `data_analyst_agent/agent.py` (new `_OutputDirInitializer`)
-  - Good: enforces a per-run output directory and sets `DATA_ANALYST_OUTPUT_DIR`.
-  - Watch-outs:
-    - It pulls `dataset_contract` from `ctx.session.state`; if ContractLoader fails (see “error swallowing” above), this defaults to `unknown` and still creates directories.
-    - It yields an empty event when already set; may be fine, but consider always setting `state_delta["output_dir"]` even if env already set (for consistency).
-
-### 4) Contract-metric fallback: good change, but check types / serialization expectations
-- `data_analyst_agent/core_agents/cli.py`
-  - New fallback sets `extracted_targets_raw` to a JSON list of contract metrics when CLI env doesn’t specify metrics.
-  - Ensure downstream expects metric **names** not objects; the list comprehension handles dict + objects, but if contract metric entries have different shapes, you may get `str(m)` noise.
-
----
-
-## Hardcoded trade-data assumptions (dataset-agnostic risk)
-
+## 2) Hardcoded trade-data assumptions (grep audit)
 Command used:
-```
-grep -rn "trade_value\|hs2\|hs4\|port_code\|region\|imports\|exports" data_analyst_agent/ --include="*.py" | grep -v __pycache__ | grep -v test | grep -v contract.yaml
-```
+`grep -RIn "trade_value|hs2|hs4|port_code|region|imports|exports" data_analyst_agent/ --include="*.py" | grep -v __pycache__ | grep -v -i test`
 
-High-risk / non-contract-driven items to address:
+### Flagged items (not clearly contract-driven)
+- **`data_analyst_agent/sub_agents/executive_brief_agent/scope_utils.py`**
+  - `_filter_alerts_for_scope()` checks `alert.get("region")` directly.
+  - Risk: assumes alerts have a `region` field (trade/ops-specific). For other datasets, this should be derived from contract dimension roles / the alert’s `dimension_value` / `item_name` conventions.
+  - Action: refactor to be contract-driven (e.g., look up primary dimension name from contract; or avoid dimension-specific fields entirely).
 
-1) `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_anomaly_indicators.py:1+`
-   - File explicitly targets “trade_data synthetic benchmark”.
-   - It hardcodes scenario-specific HS4 filters:
-     - `scenario_id == "B1" ... hs4 == 2711` (and similar for D1/A1/E1)
-   - This is not contract-driven; if this tool runs for any non-trade dataset, the narrative example extraction becomes nonsense.
-   - Fix options:
-     - Gate execution: only run when `contract.name == "trade_data"` (or a `contract.validation_profile == "trade_scenarios"`).
-     - Move under a clearly validation-only package and ensure production pipeline cannot call it.
-     - Replace with contract-driven “example row selection” rules (dimensions list from contract).
+- **`data_analyst_agent/sub_agents/validation_csv_fetcher.py`** (validation-only path)
+  - Uses `primary_dimension` default of `"terminal"` and filters `region/terminal` explicitly.
+  - This is acceptable *if and only if* it is strictly scoped to the `validation_ops` dataset mode. Document that it is intentionally dataset-specific and not used for general contract-driven datasets.
 
-2) `data_analyst_agent/sub_agents/narrative_agent/tools/generate_narrative_summary.py`
-   - Uses keys like `port_code`, `port_name`, `hs2`, `hs4`, `region` *from example dicts*.
-   - This is slightly safer because it uses `ex.get()` and builds a label only if present, but it still bakes in trade terminology.
-   - Fix suggestion: build location/commodity labels based on contract dimensions (e.g., from `contract.dimensions` / `contract.hierarchies`) and/or include a mapping in contract metadata.
+- **`data_analyst_agent/tools/validation_data_loader.py`** (validation-only path)
+  - Hardcodes `_ID_COLS = ["Region", "Terminal", "Metric"]` and output columns `region/terminal/metric/week_ending/value`.
+  - Again, acceptable if confined to validation CSV support, but it is not contract-driven.
 
-3) Validation-specific loaders and fetchers assume `region`/`terminal` columns
-   - `data_analyst_agent/tools/validation_data_loader.py` and `data_analyst_agent/tools/config_data_loader.py`
-   - `data_analyst_agent/sub_agents/validation_csv_fetcher.py` / `config_csv_fetcher.py`
-   - Likely OK *if strictly test/validation-only*, but confirm these tools are never invoked for real datasets without matching contract.
+### Likely acceptable / informational
+- `data_analyst_agent/__main__.py` includes example CLI usage with `--dimension region`.
+- `data_analyst_agent/utils/dimension_filters.py` contains phrases like “all regions”. (If this is intended to be dataset-agnostic, consider making it role-based rather than name-based.)
 
----
+## 3) Unused imports (spot check)
+No linter is installed (ruff/pyflakes not available), so I ran a small AST-based heuristic on *changed files only*.
 
-## Unused imports (spot-check, high-confidence)
+### High-confidence unused imports
+- **`data_analyst_agent/sub_agents/executive_brief_agent/agent.py`**
+  - `from datetime import timezone` appears unused.
+  - `from prompt_utils import _format_brief` appears unused (but `_format_brief_with_fallback` is used).
 
-Note: I ran a lightweight AST-based unused-import detector. It produces many false positives for re-export-only `__init__.py` modules and some `__future__` patterns. The following are *high-confidence* and worth cleaning:
+- **`data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/data_prep.py`**
+  - `import numpy as np` appears unused.
 
-- `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py:19` → `import os` appears unused.
-- `data_analyst_agent/sub_agents/executive_brief_agent/agent.py:20` → `from datetime import timezone` appears unused.
-- `data_analyst_agent/tools/config_data_loader.py:22` → `import os` appears unused.
+- **`web/contract_detector.py`**
+  - `import math` appears unused.
+  - `from collections import Counter, defaultdict` appear unused.
 
-If you want to enforce this systematically, add a linter (ruff/pyflakes) to CI; current environment didn’t have `ruff` installed (`python -m ruff` failed).
+Note: `from __future__ import annotations` was flagged by the heuristic as “unused” but that’s a false positive; it is fine.
 
----
-
-## Prompt token efficiency (over 3000 chars)
-
+## 4) Prompt token efficiency (character budget audit)
 Command used:
-```
-wc -c config/prompts/executive_brief.md \
-      data_analyst_agent/sub_agents/narrative_agent/prompt.py \
-      data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py
-```
+`wc -c config/prompts/executive_brief.md data_analyst_agent/sub_agents/narrative_agent/prompt.py data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py`
 
-Results:
-- `config/prompts/executive_brief.md` → **7846 chars** (OVER 3000)
-- `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` → **6022 chars** (OVER 3000)
-- `data_analyst_agent/sub_agents/narrative_agent/prompt.py` → 2562 chars (OK)
+Results (flagging any > 3000 chars):
+- **10884** `config/prompts/executive_brief.md`  ✅ FLAG (over 3000)
+- 1880 `data_analyst_agent/sub_agents/narrative_agent/prompt.py`
+- **6022** `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` ✅ FLAG (over 3000)
 
-Recommendations:
-- Prefer moving long static instructions into markdown templates and referencing them once (you’re already doing this in report_synthesis with `config/prompts/report_synthesis.md`—good). If the template is long, consider:
-  - Splitting into: “system rules” (short) + “format/schema” (short JSON schema) + “examples” (optional, only loaded in debug/validation mode).
-  - Avoid repeating global rules in multiple prompts (centralize in a shared snippet included by multiple prompts).
-- For `executive_brief.md`: trim redundant admonitions and move examples to an opt-in variant.
+Actions:
+- Executive brief prompt is very long; consider extracting repeated policy text into a compact rubric, or moving large static examples into a “debug variant” controlled by env (`EXECUTIVE_BRIEF_PROMPT_VARIANT`).
+- Report synthesis prompt similarly: remove redundant instructions, and prefer short schema-driven guidance where possible.
 
----
-
-## Summary: what to do next (actionable)
-1) Decide pipeline failure policy: which stages must halt on exception; implement consistent `fatal_error` / stop behavior (don’t silently continue for core stages).
-2) Gate or quarantine trade-specific tools (`compute_anomaly_indicators`, trade terms in narrative summary) behind contract flags.
-3) Remove a few obvious unused imports and consider adding ruff/pyflakes to CI to keep this from regressing.
-4) Reduce prompt sizes >3000 chars; keep examples optional.
+## 5) Suggested next actions (dev agent checklist)
+1. Remove unused imports (agent.py timezone + _format_brief; data_prep numpy; contract_detector math/Counter/defaultdict).
+2. Make `scope_utils.py` stop reading `alert.region` directly; use contract-driven dimension semantics or generic `dimension_value`.
+3. Decide precedence rules for `analysis_focus/custom_focus` injection in `CLIParameterInjector` (avoid clobbering upstream state if unintended).
+4. Reduce prompt sizes for `executive_brief.md` and `report_synthesis_agent/prompt.py` (target <3000 chars each).
