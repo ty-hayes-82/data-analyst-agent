@@ -55,8 +55,6 @@ class TargetIteratorAgent(BaseAgent):
         ctx.session.state["phase_logger"] = phase_logger
 
         ctx.session.state["current_analysis_target"] = target
-        ctx.session.state["dimension_value"] = target
-        ctx.session.state["primary_target_value"] = target
 
         yield Event(
             invocation_id=ctx.invocation_id,
@@ -66,8 +64,6 @@ class TargetIteratorAgent(BaseAgent):
                     "target_loop_state": new_state,
                     "target_loop_complete": False,
                     "current_analysis_target": target,
-                    "dimension_value": target,
-                    "primary_target_value": target,
                 }
             ),
         )
@@ -131,8 +127,6 @@ class ParallelDimensionTargetAgent(BaseAgent):
                     run_config=inner_ctx.run_config or RunConfig(),
                 )
                 new_ctx.session.state["current_analysis_target"] = self.target_val
-                new_ctx.session.state["dimension_value"] = self.target_val
-                new_ctx.session.state["primary_target_value"] = self.target_val
                 new_ctx.session.state["phase_logger"] = PhaseLogger(dimension_value=self.target_val)
                 try:
                     async for event in self.inner_pipeline.run_async(new_ctx):

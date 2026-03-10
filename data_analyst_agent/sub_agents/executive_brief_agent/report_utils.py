@@ -132,7 +132,12 @@ def _collect_metric_json_data(outputs_dir: Path) -> dict[str, dict[str, Any]]:
             payload = json.loads(json_file.read_text(encoding="utf-8", errors="replace"))
         except json.JSONDecodeError:
             continue
-        metric_name = payload.get("metric")
+        metric_name = (
+            payload.get("metric")
+            or payload.get("dimension_value")
+            or payload.get("analysis_target")
+            or payload.get("target_label")
+        )
         if metric_name:
             data[str(metric_name)] = payload
     return data

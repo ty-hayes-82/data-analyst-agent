@@ -7,9 +7,7 @@
 #   export ACTIVE_DATASET=ops_metrics
 #
 # Available datasets:
-#   account_research  - P&L analysis, GL transactions, cost center drill-down
-#   ops_metrics       - Operational efficiency, miles/truck, fuel, driver KPIs
-#   order_dispatch    - Order-level detail, billing, tolls, entity revenue
-#   validation_ops    - Weekly terminal KPIs from validation_data.csv (TEST MODE only)
+#   trade_data      - Synthetic hierarchical trade dataset (default and CI target)
+#   validation_ops  - Legacy ops KPIs used for test fixtures only
 
 active_dataset: trade_data

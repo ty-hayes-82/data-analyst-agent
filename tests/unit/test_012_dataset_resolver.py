@@ -284,10 +284,14 @@ def test_dataset_contracts_are_present():
     assert dataset_dirs, "No dataset directories found under config/datasets/csv"
 
     names = sorted(d.name for d in dataset_dirs)
+    allowed = {"trade_data", "validation_ops"}
     assert "trade_data" in names, "trade_data dataset is required"
 
-    missing_contract = [d.name for d in dataset_dirs if not (d / "contract.yaml").exists()]
-    missing_loader = [d.name for d in dataset_dirs if not (d / "loader.yaml").exists()]
+    unexpected = sorted(set(names) - allowed)
+    assert not unexpected, f"Unexpected dataset directories present: {unexpected}"
+
+    missing_contract = [d.name for d in dataset_dirs if d.name in allowed and not (d / "contract.yaml").exists()]
+    missing_loader = [d.name for d in dataset_dirs if d.name in allowed and not (d / "loader.yaml").exists()]
 
     assert not missing_contract, f"Datasets missing contract.yaml: {missing_contract}"
     assert not missing_loader, f"Datasets missing loader.yaml: {missing_loader}"

@@ -87,7 +87,6 @@ class CLIParameterInjector(BaseAgent):
             state_delta["target_loop_state"] = {"target_index": -1}
             state_delta["target_loop_complete"] = False
 
-
         # Custom hierarchy levels and filters (web UI hierarchy editor)
         hierarchy_name = os.environ.get("DATA_ANALYST_HIERARCHY", "")
         hierarchy_levels_raw = os.environ.get("DATA_ANALYST_HIERARCHY_LEVELS", "")
@@ -111,6 +110,12 @@ class CLIParameterInjector(BaseAgent):
         inferred_total = _infer_total_label(contract)
         primary_dim = dim or inferred_dim
         primary_val = dim_val or inferred_total
+
+        if primary_dim:
+            state_delta["dimension"] = primary_dim
+        if primary_val:
+            state_delta["dimension_value"] = primary_val
+
         focus = f"CLI analysis of {', '.join(metrics)}" if metrics else "CLI analysis"
         if analysis_focus:
             focus = f"{focus} (focus={', '.join(analysis_focus)})"
