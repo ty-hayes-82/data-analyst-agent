@@ -75,12 +75,15 @@ async def compute_period_over_period_changes() -> str:
             "pct_change": pct_change,
         }
 
-        # Optional: if anomaly_flag exists, compute flagged vs baseline deltas.
+        # Optional: contract-driven fixture flag support (synthetic datasets)
         # Back-compat: expose `avg_anomaly_value`/`avg_baseline_value`/`deviation_pct`.
-        if "anomaly_flag" in df.columns:
+        contract = getattr(ctx, "contract", None)
+        validation_cfg = getattr(contract, "validation", {}) if contract else {}
+        anomaly_flag_col = validation_cfg.get("anomaly_flag_column")
+        if anomaly_flag_col and anomaly_flag_col in df.columns:
             try:
-                flagged = df[df["anomaly_flag"].astype(int) == 1]
-                baseline = df[df["anomaly_flag"].astype(int) == 0]
+                flagged = df[df[anomaly_flag_col].astype(int) == 1]
+                baseline = df[df[anomaly_flag_col].astype(int) == 0]
                 f_avg = float(flagged[metric_col].mean()) if not flagged.empty else 0.0
                 b_avg = float(baseline[metric_col].mean()) if not baseline.empty else 0.0
                 f_pct = ((f_avg - b_avg) / b_avg * 100.0) if b_avg else 0.0

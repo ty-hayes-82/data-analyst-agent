@@ -129,27 +129,45 @@ async def compute_anomaly_indicators() -> str:
         out: dict = {"anomalies": anomalies_out}
 
         # Optional: labeled scenario summaries (synthetic datasets)
-        # Back-compat: if scenario_id/grain exist, populate `anomalies` with scenario rows
-        # (historically consumed by incremental E2E), and expose time-series z-score flags
-        # under `time_series_anomalies`.
-        if "scenario_id" in df.columns and "grain" in df.columns:
+        # Contract-driven: only enabled when contract.validation declares the columns.
+        # When enabled, populate `anomalies` with scenario rows (historically consumed by
+        # incremental E2E), and expose time-series z-score flags under `time_series_anomalies`.
+        contract = getattr(ctx, "contract", None)
+        validation_cfg = getattr(contract, "validation", {}) if contract else {}
+        scenario_col = validation_cfg.get("scenario_id_column")
+        # Use the contract's grain dimension column if present; allow override via validation.
+        grain_dim_col = None
+        try:
+            if contract and getattr(contract, "dimensions", None):
+                for d in contract.dimensions:
+                    if getattr(d, "name", None) == "grain":
+                        grain_dim_col = getattr(d, "column", None)
+                        break
+        except Exception:
+            grain_dim_col = None
+        grain_col_validation = validation_cfg.get("grain_column")
+        grain_col_for_group = grain_col_validation or grain_dim_col
+
+        if scenario_col and grain_col_for_group and scenario_col in df.columns and grain_col_for_group in df.columns:
             # Optional: enrich from validation datapoints if present (synthetic benchmarks)
             validation_lookup: dict[tuple[str, str], dict] = {}
             try:
                 from pathlib import Path
 
-                repo_root = Path(__file__).resolve().parents[4]
-                validation_path = repo_root / "data" / "validation" / "validation_datapoints.json"
-                if validation_path.exists():
-                    payload = json.loads(validation_path.read_text())
-                    for s in payload.get("anomaly_scenarios") or []:
-                        if isinstance(s, dict) and s.get("scenario_id") and s.get("grain"):
-                            validation_lookup[(str(s["scenario_id"]), str(s["grain"]))] = s
+                datapoints_file = validation_cfg.get("datapoints_file")
+                if datapoints_file:
+                    repo_root = Path(__file__).resolve().parents[4]
+                    validation_path = repo_root / str(datapoints_file)
+                    if validation_path.exists():
+                        payload = json.loads(validation_path.read_text())
+                        for s in payload.get("anomaly_scenarios") or []:
+                            if isinstance(s, dict) and s.get("scenario_id") and s.get("grain"):
+                                validation_lookup[(str(s["scenario_id"]), str(s["grain"]))] = s
             except Exception:
                 validation_lookup = {}
 
             scenario_summaries: list[dict] = []
-            for (sid, gr), g in df.groupby(["scenario_id", "grain"], dropna=True):
+            for (sid, gr), g in df.groupby([scenario_col, grain_col_for_group], dropna=True):
                 if g.empty:
                     continue
                 sid_s = str(sid) if sid is not None else "unknown"

@@ -19,6 +19,46 @@ from typing import Dict, List, Any
 from unittest.mock import Mock, MagicMock
 import tempfile
 import shutil
+import asyncio
+
+
+@pytest.fixture(scope="function")
+def event_loop():
+    """Create and close an event loop per test to avoid ResourceWarning leaks (Py3.13)."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        yield loop
+        # Best-effort cleanup
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        except Exception:
+            pass
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
+
+
+def _close_stray_event_loop() -> None:
+    try:
+        loop = asyncio.get_event_loop()
+    except Exception:
+        return
+    if loop and not loop.is_closed():
+        try:
+            loop.close()
+        except Exception:
+            pass
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Close any stray default event loop created by pytest-asyncio/plugin internals."""
+    _close_stray_event_loop()
+
+
+def pytest_unconfigure(config):
+    """Run as late as possible, before pytest final cleanup, to avoid ResourceWarnings."""
+    _close_stray_event_loop()
 
 # ============================================================================
 # Path and Environment Fixtures

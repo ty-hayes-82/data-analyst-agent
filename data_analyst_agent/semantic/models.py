@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional, Literal, Union, Any
-from pydantic import BaseModel, Field, field_validator, validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 import yaml
 import pandas as pd
 from datetime import datetime
@@ -38,7 +38,8 @@ class MetricDefinition(BaseModel):
         )
     )
 
-    @validator("lag_periods")
+    @field_validator("lag_periods")
+    @classmethod
     def _validate_lag_periods(cls, v):
         if v is not None and v < 0:
             raise ValueError("lag_periods must be >= 0")
@@ -142,6 +143,10 @@ class DatasetContract(BaseModel):
     presentation: Dict[str, Any] = Field(default_factory=dict, description="Rules for display, sign correction, and units")
     reporting: ReportingConfig = Field(default_factory=ReportingConfig, description="Report generation and analysis depth settings")
     policies: Dict[str, Any] = Field(default_factory=dict, description="Domain-specific rules")
+    validation: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional dataset-specific validation/fixture configuration (contract-driven).",
+    )
     
     # Internal mappings for fast lookup
     _metric_map: Dict[str, MetricDefinition] = {}

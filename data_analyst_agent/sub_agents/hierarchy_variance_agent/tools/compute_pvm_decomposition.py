@@ -28,7 +28,7 @@ import json
 import pandas as pd
 import numpy as np
 from typing import Dict, Any, List, Optional
-from ...data_cache import resolve_data_and_columns
+from data_analyst_agent.sub_agents.data_cache import resolve_data_and_columns
 
 
 async def compute_pvm_decomposition(

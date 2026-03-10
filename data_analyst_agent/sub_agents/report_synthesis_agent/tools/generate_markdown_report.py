@@ -8,9 +8,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from data_analyst_agent.utils.env_utils import parse_bool_env
 
-from .report_markdown.formatting import resolve_unit
-from .report_markdown.parsing import normalize_hierarchical_results, parse_json_safe
-from .report_markdown.sections import (
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import resolve_unit
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.parsing import (
+    normalize_hierarchical_results,
+    parse_json_safe,
+)
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.sections import (
     build_cross_dimension_section,
     build_data_quality_section,
     build_executive_summary_section,

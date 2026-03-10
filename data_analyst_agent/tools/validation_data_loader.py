@@ -27,7 +27,7 @@ validation_ops DatasetContract:
 
 import os
 from pathlib import Path
-from typing import List, Optional, Union, Dict
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -57,6 +57,7 @@ def load_validation_data(
     region_filter: Optional[str] = None,
     terminal_filter: Optional[str] = None,
     metric_filter: Optional[Union[str, List[str]]] = None,
+    dimension_filters: Optional[Dict[str, Any]] = None,
     exclude_partial_week: bool = False,
 ) -> pd.DataFrame:
     """Read and transform validation_data.csv from wide to long format.
@@ -78,6 +79,9 @@ def load_validation_data(
                        - A comma-separated string: split on commas, then treated
                          as a list for exact matching (e.g. "Truck Count,Total Miles").
                        Pass None (default) to load all 56 metrics.
+        dimension_filters: Optional mapping of column -> value(s). Values may be
+                           scalars or iterables and are matched case-insensitively.
+                           Entries here take precedence over region/terminal args.
         exclude_partial_week: If True, drop the final (partial) week column
                               before melting so it never appears in the output.
 
@@ -159,12 +163,18 @@ def load_validation_data(
     # --- Apply filters to the (cached or newly loaded) full long-format DF ---
     df = full_df.copy()
 
-    if region_filter:
-        mask = df["region"].str.strip().str.lower() == region_filter.lower()
-        df = df[mask]
-    if terminal_filter:
-        mask = df["terminal"].str.strip().str.lower() == terminal_filter.lower()
-        df = df[mask]
+    combined_filters: Dict[str, Any] = {}
+    if dimension_filters:
+        for key, value in dimension_filters.items():
+            if value is None:
+                continue
+            combined_filters[str(key)] = value
+    if region_filter and "region" not in combined_filters:
+        combined_filters["region"] = region_filter
+    if terminal_filter and "terminal" not in combined_filters:
+        combined_filters["terminal"] = terminal_filter
+
+    df = _apply_dimension_filters(df, combined_filters)
     if metric_filter:
         if isinstance(metric_filter, list):
             # Exact match against any item in the list (case-insensitive)
@@ -182,7 +192,7 @@ def load_validation_data(
         df = df[mask]
 
     if df.empty:
-        return pd.DataFrame(columns=["region", "terminal", "metric", "week_ending", "value"])
+        return df.reset_index(drop=True)
 
     print(
         f"[validation_data_loader] Returning {len(df):,} filtered rows "
@@ -244,3 +254,41 @@ def _clean_values(series: pd.Series) -> pd.Series:
     # Treat dash and empty string as missing
     cleaned = cleaned.replace({"- ": None, "-": None, "": None, "nan": None})
     return pd.to_numeric(cleaned, errors="coerce")
+
+
+def _coerce_filter_values(value: Any) -> set[str]:
+    if value is None:
+        return set()
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return {normalized} if normalized else set()
+    if isinstance(value, (list, tuple, set)):
+        return {
+            str(item).strip().lower()
+            for item in value
+            if str(item).strip()
+        }
+    normalized = str(value).strip().lower()
+    return {normalized} if normalized else set()
+
+
+def _apply_dimension_filters(df: pd.DataFrame, filters: Dict[str, Any]) -> pd.DataFrame:
+    if not filters:
+        return df
+
+    work = df
+    for column, raw_value in filters.items():
+        if column not in work.columns:
+            print(f"[validation_data_loader] Filter column '{column}' not in DataFrame; skipping")
+            continue
+        targets = _coerce_filter_values(raw_value)
+        if not targets:
+            continue
+        series = work[column].astype(str).str.strip().str.lower()
+        if len(targets) == 1:
+            target = next(iter(targets))
+            mask = series == target
+        else:
+            mask = series.isin(targets)
+        work = work[mask]
+    return work

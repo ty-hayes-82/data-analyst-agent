@@ -6,7 +6,7 @@ from typing import Optional
 
 from data_analyst_agent.sub_agents.data_cache import resolve_data_and_columns  # re-export for legacy patch sites
 
-from .level_stats import core as _core
+from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.level_stats import core as _core
 
 
 async def compute_level_statistics(
