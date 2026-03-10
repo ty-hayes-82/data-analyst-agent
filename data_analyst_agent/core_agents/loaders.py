@@ -114,6 +114,15 @@ class AnalysisContextInitializer(BaseAgent):
                             f"[AnalysisContextInitializer] Filtered in-memory data for {filter_column}='{filter_value}': {before_count} -> {len(filtered_df)} rows"
                         )
                     df = filtered_df
+            # Apply hierarchy filters (multi-value from web UI)
+            hierarchy_filters = ctx.session.state.get("hierarchy_filters", {})
+            if hierarchy_filters and isinstance(hierarchy_filters, dict):
+                for filter_col, filter_values in hierarchy_filters.items():
+                    if filter_col in df.columns and isinstance(filter_values, list) and filter_values:
+                        before = len(df)
+                        df = df[df[filter_col].astype(str).isin([str(v) for v in filter_values])]
+                        print(f"[AnalysisContextInitializer] Hierarchy filter {filter_col} in {filter_values}: {before} -> {len(df)} rows")
+
         except Exception as e:
             print(f"[AnalysisContextInitializer] ERROR: Failed to parse CSV: {e}")
             yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())

@@ -95,6 +95,47 @@ async def api_confirm_contract(req: ConfirmContractRequest):
         raise HTTPException(500, f"Save failed: {str(e)}")
 
 
+
+
+# ---- Dimension Values API ----
+
+@app.get("/api/datasets/{dataset_id:path}/dimension-values/{column}")
+async def api_dimension_values(dataset_id: str, column: str):
+    """Return unique values for a dimension column in a dataset."""
+    import re as _re
+    if not _re.match(r'^[a-zA-Z0-9_]+$', column):
+        raise HTTPException(400, "Invalid column name")
+    try:
+        contract = contract_loader.load_contract(dataset_id)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+    valid_columns = {d["column"] for d in contract.get("dimensions", [])}
+    if column not in valid_columns:
+        raise HTTPException(400, f"Column '{column}' is not a dimension in this dataset")
+
+    data_source = contract.get("data_source", {})
+    file_path = data_source.get("file", "")
+    if not file_path:
+        raise HTTPException(400, "No data file configured for this dataset")
+
+    from pathlib import Path as _Path
+    project_root = _Path(__file__).resolve().parent.parent
+    full_path = (project_root / file_path).resolve()
+    if not full_path.exists():
+        raise HTTPException(404, "Data file not found")
+
+    try:
+        import pandas as pd
+        df = pd.read_csv(str(full_path), usecols=[column], dtype=str)
+        values = sorted(df[column].dropna().unique().tolist())
+        truncated = len(values) > 500
+        if truncated:
+            values = values[:500]
+        return {"column": column, "values": values, "total": len(values), "truncated": truncated}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read dimension values: {str(e)}")
+
 # ---- Run APIs ----
 
 class RunRequest(BaseModel):
@@ -102,6 +143,8 @@ class RunRequest(BaseModel):
     dataset_name: str = ""
     metrics: list[str] = []
     hierarchy: str = ""
+    hierarchy_levels: list[str] = []
+    hierarchy_filters: dict[str, list[str]] = {}
     analysis_focus: list[str] = []
     custom_focus: str = ""
     max_drill_depth: int = 3

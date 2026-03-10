@@ -45,8 +45,35 @@
 
         <div class="form-group full">
           <label>Hierarchy</label>
-          <div class="radio-group" id="hierarchy-group">
-            <span style="color:#8b949e">Select a dataset first</span>
+          <div class="hierarchy-editor" id="hierarchy-editor">
+            <div class="hierarchy-select-row">
+              <select id="hierarchy-select">
+                <option value="">Select a dataset first</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" id="edit-hierarchy-btn" style="display:none" onclick="toggleHierarchyEditor()">Edit Levels</button>
+            </div>
+
+            <!-- Hierarchy level editor (hidden by default) -->
+            <div id="hierarchy-level-editor" style="display:none">
+              <div class="hierarchy-levels-header">
+                <span class="label">Drill-down levels (drag to reorder)</span>
+                <button class="btn btn-secondary btn-sm" onclick="addHierarchyLevel()">+ Add Level</button>
+              </div>
+              <div id="hierarchy-levels-list" class="hierarchy-levels-list"></div>
+              <div id="available-dimensions" class="available-dimensions" style="display:none">
+                <span class="label">Available dimensions:</span>
+                <div id="available-dims-list"></div>
+              </div>
+            </div>
+
+            <!-- Hierarchy filters (shown when hierarchy is selected) -->
+            <div id="hierarchy-filters" style="display:none">
+              <div class="hierarchy-filters-header">
+                <span class="label">Filter by hierarchy level values</span>
+                <button class="btn btn-secondary btn-sm" onclick="clearAllFilters()">Clear All</button>
+              </div>
+              <div id="hierarchy-filter-levels"></div>
+            </div>
           </div>
         </div>
 

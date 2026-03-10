@@ -69,6 +69,26 @@ class CLIParameterInjector(BaseAgent):
             state_delta["target_loop_state"] = {"target_index": -1}
             state_delta["target_loop_complete"] = False
 
+
+        # Custom hierarchy levels and filters (web UI hierarchy editor)
+        hierarchy_name = os.environ.get("DATA_ANALYST_HIERARCHY", "")
+        hierarchy_levels_raw = os.environ.get("DATA_ANALYST_HIERARCHY_LEVELS", "")
+        hierarchy_levels = [l.strip() for l in hierarchy_levels_raw.split(",") if l.strip()]
+        hierarchy_filters_raw = os.environ.get("DATA_ANALYST_HIERARCHY_FILTERS", "")
+        hierarchy_filters = {}
+        if hierarchy_filters_raw:
+            try:
+                hierarchy_filters = _json.loads(hierarchy_filters_raw)
+            except _json.JSONDecodeError:
+                pass
+
+        if hierarchy_name:
+            state_delta["selected_hierarchy"] = hierarchy_name
+        if hierarchy_levels:
+            state_delta["custom_hierarchy_levels"] = hierarchy_levels
+        if hierarchy_filters:
+            state_delta["hierarchy_filters"] = hierarchy_filters
+
         primary_dim = dim or "terminal"
         primary_val = dim_val or "Total"
         focus = f"CLI analysis of {', '.join(metrics)}" if metrics else "CLI analysis"
@@ -86,6 +106,7 @@ class CLIParameterInjector(BaseAgent):
             "focus": focus,
             "analysis_focus": analysis_focus,
             "custom_focus": custom_focus,
+            "hierarchy_filters": hierarchy_filters,
             "needs_supplementary_data": False,
             "description": focus,
             "data_fetch_query_primary": data_query,

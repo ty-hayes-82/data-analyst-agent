@@ -56,13 +56,8 @@ async function onDatasetChange() {
     mg.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" checked> ${m.name}${m.description ? ' (' + m.description.slice(0, 50) + ')' : ''}</label>`;
   });
 
-  // Hierarchies
-  const hg = document.getElementById('hierarchy-group');
-  hg.innerHTML = '';
-  (c.hierarchies || []).forEach((h, i) => {
-    const levels = (h.children || []).join(' > ');
-    hg.innerHTML += `<label><input type="radio" name="hierarchy" value="${h.name}" ${i === 0 ? 'checked' : ''}> ${h.name} (${levels})</label>`;
-  });
+  // Hierarchies — editor with filtering
+  renderHierarchyEditor(c);
 
   // Time range
   const rangeMonths = (c.time || {}).range_months || 24;
@@ -93,16 +88,21 @@ async function submitRun() {
 
   const sel = document.getElementById('dataset-select');
   const metrics = [...document.querySelectorAll('input[name="metric"]:checked')].map(c => c.value);
-  const hierarchy = document.querySelector('input[name="hierarchy"]:checked')?.value || '';
+  const hierarchy = document.getElementById('hierarchy-select')?.value || '';
 
   const focusChecks = [...document.querySelectorAll('input[name="focus"]:checked')].map(c => c.value);
   const customFocus = document.getElementById('custom-focus')?.value?.trim() || '';
+
+  const hierarchyLevels = getCustomHierarchyLevels();
+  const hierarchyFilters = getHierarchyFilters();
 
   const body = {
     dataset_id: sel.value,
     dataset_name: sel.options[sel.selectedIndex].dataset.name || sel.value,
     metrics,
     hierarchy,
+    hierarchy_levels: hierarchyLevels,
+    hierarchy_filters: hierarchyFilters,
     analysis_focus: focusChecks,
     custom_focus: customFocus,
     max_drill_depth: parseInt(document.getElementById('max-depth').value) || 3,

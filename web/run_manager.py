@@ -71,6 +71,8 @@ def start_run(params: dict[str, Any]) -> dict:
     dataset_name = params.get("dataset_name", "analysis")
     analysis_focus = params.get("analysis_focus", [])
     custom_focus = params.get("custom_focus", "")
+    hierarchy_levels = params.get("hierarchy_levels", [])
+    hierarchy_filters = params.get("hierarchy_filters", {})
 
     # Create output directory
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -94,6 +96,10 @@ def start_run(params: dict[str, Any]) -> dict:
         env["DATA_ANALYST_FOCUS"] = ",".join(analysis_focus)
     if custom_focus:
         env["DATA_ANALYST_CUSTOM_FOCUS"] = custom_focus
+    if hierarchy_levels:
+        env["DATA_ANALYST_HIERARCHY_LEVELS"] = ",".join(hierarchy_levels)
+    if hierarchy_filters:
+        env["DATA_ANALYST_HIERARCHY_FILTERS"] = json.dumps(hierarchy_filters)
     env["DATA_ANALYST_OUTPUT_DIR"] = output_dir
     env["ACTIVE_DATASET"] = dataset_id.split("/")[-1] if "/" in dataset_id else dataset_id
 
@@ -138,6 +144,8 @@ def start_run(params: dict[str, Any]) -> dict:
         "hierarchy": hierarchy,
         "analysis_focus": analysis_focus,
         "custom_focus": custom_focus,
+        "hierarchy_levels": hierarchy_levels,
+        "hierarchy_filters": hierarchy_filters,
         "max_drill_depth": max_drill_depth,
         "start_date": start_date,
         "end_date": end_date,
