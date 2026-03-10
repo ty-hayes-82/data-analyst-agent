@@ -12,11 +12,101 @@ This tool builds a narrative from structured analysis artifacts, focusing on:
 
 from __future__ import annotations
 
-from typing import Mapping
+import json
+from collections.abc import Mapping
+from typing import Any
 
 
 def _safe_lower(x) -> str:
     return str(x).lower() if x is not None else ""
+
+
+def _coerce_contract_dict(contract: Any) -> dict:
+    if contract is None:
+        return {}
+    if isinstance(contract, str):
+        try:
+            return json.loads(contract)
+        except json.JSONDecodeError:
+            return {}
+    if isinstance(contract, Mapping):
+        return dict(contract)
+    if hasattr(contract, "model_dump"):
+        try:
+            return contract.model_dump()
+        except Exception:
+            pass
+    if hasattr(contract, "dict"):
+        try:
+            return contract.dict()
+        except Exception:
+            pass
+    return {}
+
+
+def _extract_dimension_aliases(contract_dict: Mapping | None) -> tuple[list[str], dict[str, int]]:
+    if not isinstance(contract_dict, Mapping):
+        return [], {}
+
+    dims = contract_dict.get("dimensions") or []
+    aliases: list[str] = []
+
+    def _get(obj, key, default=None):
+        if isinstance(obj, Mapping):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
+    for dim in dims:
+        name = _get(dim, "name")
+        column = _get(dim, "column")
+        display = _get(dim, "display_name")
+        for candidate in (name, column, display):
+            if candidate and str(candidate) not in aliases:
+                aliases.append(str(candidate))
+                aliases.append(f"{candidate}_name")
+                aliases.append(f"{candidate}_id")
+
+    # Preserve insertion order but remove duplicates
+    seen = set()
+    ordered_aliases = []
+    for alias in aliases:
+        alias_str = str(alias)
+        if alias_str and alias_str not in seen:
+            seen.add(alias_str)
+            ordered_aliases.append(alias_str)
+
+    # Build priority map using hierarchy definition first, fall back to dimension order
+    priority: dict[str, int] = {}
+    hierarchy_children: list[str] = []
+    for hierarchy in contract_dict.get("hierarchies", []) or []:
+        children = hierarchy.get("children") if isinstance(hierarchy, Mapping) else getattr(hierarchy, "children", None)
+        if children:
+            for child in children:
+                if child:
+                    hierarchy_children.append(str(child))
+    if not hierarchy_children:
+        for dim in dims:
+            key = _get(dim, "name") or _get(dim, "column")
+            if key:
+                hierarchy_children.append(str(key))
+
+    for idx, child in enumerate(hierarchy_children):
+        priority[child.lower()] = idx
+
+    return ordered_aliases, priority
+
+
+def _generic_key_priority(key: str) -> tuple[int, str]:
+    kl = key.lower()
+    if any(token in kl for token in ("region", "country", "market", "geo")):
+        return (0, kl)
+    if any(token in kl for token in ("segment", "category", "line", "channel")):
+        return (1, kl)
+    if any(token in kl for token in ("code", "id")):
+        return (2, kl)
+    if "name" in kl or "label" in kl:
+        return (3, kl)
+    return (4, kl)
 
 
 async def generate_narrative_summary(
@@ -28,6 +118,8 @@ async def generate_narrative_summary(
     **_kwargs,
 ) -> str:
     parts: list[str] = []
+    contract_dict = _coerce_contract_dict(contract)
+    dimension_aliases, dimension_priority = _extract_dimension_aliases(contract_dict)
 
     # Variance headline
     if isinstance(hierarchy_variance, dict):
@@ -55,52 +147,36 @@ async def generate_narrative_summary(
                 dims_txt = ""
                 if isinstance(ex, Mapping) and ex:
                     # Prefer contract dimensions if provided (by name/column), else fall back to a few example keys.
-                    dim_keys: list[str] = []
-                    if isinstance(contract, dict):
-                        for d in contract.get("dimensions", []) or []:
-                            if isinstance(d, dict):
-                                dim_keys.extend([x for x in (d.get("name"), d.get("column")) if x])
-                    dim_keys = [str(k) for k in dim_keys if k]
+                    picked: list[str] = []
+                    example_key_lookup = {str(k).lower(): k for k in ex.keys()}
 
-                    picked = []
-
-                    def _prefer(k: str) -> int:
-                        kl = str(k).lower()
-                        # Dataset-agnostic heuristic ordering:
-                        # 0 = product/code identifiers
-                        # 1 = geo/context fields
-                        # 2 = human-readable names
-                        # 3 = everything else
-                        if any(tok in kl for tok in ("hs", "sku", "product", "item", "code")):
-                            return 0
-                        if any(tok in kl for tok in ("region", "state", "country", "city", "port", "terminal", "location")):
-                            return 1
-                        if "name" in kl:
-                            return 2
-                        return 3
-
-                    if dim_keys:
-                        ordered = sorted([k for k in dim_keys if k in ex], key=_prefer)
-                        for k in ordered:
-                            if ex.get(k) not in (None, ""):
-                                v = ex.get(k)
-                                kl = str(k).lower()
-                                if kl.startswith("hs") and str(v).strip():
-                                    picked.append(f"{k} {v}")
-                                else:
-                                    picked.append(f"{k}={v}")
+                    if dimension_aliases:
+                        ordered_alias_keys: list[str] = []
+                        for alias in dimension_aliases:
+                            actual_key = example_key_lookup.get(alias.lower())
+                            if actual_key and actual_key not in ordered_alias_keys:
+                                ordered_alias_keys.append(actual_key)
+                        if not ordered_alias_keys and example_key_lookup:
+                            ordered_alias_keys = sorted(
+                                example_key_lookup.values(),
+                                key=lambda key: (
+                                    dimension_priority.get(str(key).lower(), 10_000),
+                                    str(key).lower(),
+                                ),
+                            )
+                        for key in ordered_alias_keys:
+                            value = ex.get(key)
+                            if value not in (None, ""):
+                                picked.append(f"{key}={value}")
                             if len(picked) >= 8:
                                 break
+
                     if not picked:
-                        ordered2 = sorted(list(ex.keys()), key=_prefer)
-                        for k in ordered2:
-                            v = ex.get(k)
-                            if v not in (None, ""):
-                                kl = str(k).lower()
-                                if kl.startswith("hs") and str(v).strip():
-                                    picked.append(f"{k} {v}")
-                                else:
-                                    picked.append(f"{k}={v}")
+                        ordered_generic = sorted(ex.keys(), key=lambda k: _generic_key_priority(str(k)))
+                        for key in ordered_generic:
+                            value = ex.get(key)
+                            if value not in (None, ""):
+                                picked.append(f"{key}={value}")
                             if len(picked) >= 8:
                                 break
                     if picked:
