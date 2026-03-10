@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T00:01:22
+**Last updated:** 2026-03-10T00:04:23
 
 ## Current State
 - **Unit Tests:** 271 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 189 files, 26,620 lines, **50 files >200L**
+- **Codebase:** 194 files, 27,144 lines, **51 files >200L**
 - **Largest:** sub_agents/hierarchy_variance_agent/tools/compute_level_statistics.py (603L)
-- **Commit:** `d8acd3d fix: adk orchestration integration (target`
+- **Commit:** `5186c69 chore: log adk integration classes4-5 + update scoreboard`
 
 ## Progress Over Time
 
@@ -39,9 +39,10 @@
 | 24 | 23:33 | `a902d8f` | 268 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
 | 25 | 23:34 | `05747aa` | 269 | 0 | 0 | 5/5 | 50 | sub_agents/statistical_in |
 | 26 | 00:01 | `d8acd3d` | 271 | 0 | 0 | 5/5 | 50 | sub_agents/hierarchy_vari |
+| 27 | 00:04 | `5186c69` | 271 | 0 | 0 | 5/5 | 51 | sub_agents/hierarchy_vari |
 
 ## Cumulative Improvement
 - Tests: 247 → **271** (+24)
 - Failures: 0 → **0**
-- Files >200L: 50 → **50** (+0)
-- Iterations: 26
+- Files >200L: 50 → **51** (+1)
+- Iterations: 27
