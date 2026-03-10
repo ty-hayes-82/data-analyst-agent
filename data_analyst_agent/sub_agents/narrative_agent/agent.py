@@ -185,8 +185,26 @@ class NarrativeWrapper(BaseAgent):
             actions=EventActions(),
         ))
 
-        async for event in self.wrapped_agent.run_async(ctx):
-            yield event
+        try:
+            async for event in self.wrapped_agent.run_async(ctx):
+                yield event
+        except Exception as exc:
+            # Never let downstream stages fail because the LLM/narrative agent crashed.
+            print(f"[NarrativeAgent] WARNING: falling back to deterministic summary ({exc!r})")
+            fallback = {
+                "narrative_summary": "Narrative unavailable. Fallback summary generated without LLM output.",
+                "insight_cards": [],
+                "recommended_actions": [
+                    "Review the top variance drivers from the hierarchical analysis output.",
+                    "Validate detected anomalies against baseline periods before escalation.",
+                    "Incorporate the latest seasonal findings into monitoring thresholds.",
+                ],
+            }
+            yield Event(
+                invocation_id=ctx.invocation_id,
+                author="narrative_agent",
+                actions=EventActions(state_delta={self.output_key: json.dumps(fallback)}),
+            )
 
 def create_narrative_agent():
     """Create a fresh instance of the narrative agent to avoid race conditions."""
