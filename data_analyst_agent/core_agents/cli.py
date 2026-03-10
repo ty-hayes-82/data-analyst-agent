@@ -28,6 +28,19 @@ class CLIParameterInjector(BaseAgent):
         start = os.environ.get("DATA_ANALYST_START_DATE")
         end = os.environ.get("DATA_ANALYST_END_DATE")
 
+        # Analysis focus directives (web UI + CLI)
+        focus_raw = os.environ.get("DATA_ANALYST_FOCUS", "")
+        analysis_focus = [f.strip() for f in focus_raw.split(",") if f.strip()]
+        custom_focus_raw = os.environ.get("DATA_ANALYST_CUSTOM_FOCUS", "")
+
+        def _sanitize_custom_focus(text: str, *, max_len: int = 500) -> str:
+            # Remove control chars (incl. newlines/tabs) and collapse whitespace.
+            cleaned = "".join(ch if (ch.isprintable() and ch not in "\r\n\t") else " " for ch in (text or ""))
+            cleaned = " ".join(cleaned.split())
+            return cleaned[:max_len].strip()
+
+        custom_focus = _sanitize_custom_focus(custom_focus_raw)
+
         contract = ctx.session.state.get("dataset_contract")
         display_name = getattr(contract, "display_name", getattr(contract, "name", "dataset")) if contract else "dataset"
         frequency = getattr(getattr(contract, "time", None), "frequency", "weekly")
@@ -44,6 +57,13 @@ class CLIParameterInjector(BaseAgent):
                 print(f"[CLIParameterInjector] No DATA_ANALYST_METRICS -- defaulting to contract metrics: {metrics}")
 
         state_delta: dict = {}
+
+        # Focus directives (persist in session state for planner + narrative + brief)
+        if analysis_focus:
+            state_delta["analysis_focus"] = analysis_focus
+        if custom_focus:
+            state_delta["custom_focus"] = custom_focus
+
         if metrics:
             state_delta["extracted_targets_raw"] = _json.dumps(metrics)
             state_delta["extracted_targets"] = metrics
@@ -54,6 +74,11 @@ class CLIParameterInjector(BaseAgent):
         primary_dim = dim or "terminal"
         primary_val = dim_val or "Total"
         focus = f"CLI analysis of {', '.join(metrics)}" if metrics else "CLI analysis"
+        if analysis_focus:
+            focus = f"{focus} (focus={', '.join(analysis_focus)})"
+        if custom_focus:
+            focus = f"{focus} | custom_focus={custom_focus}"
+
         data_query = f"Retrieve {frequency} {display_name} for {primary_dim} {primary_val}."
         state_delta["request_analysis"] = {
             "analysis_type": "operational_trend",
@@ -61,6 +86,8 @@ class CLIParameterInjector(BaseAgent):
             "primary_dimension_value": primary_val,
             "metrics": metrics,
             "focus": focus,
+            "analysis_focus": analysis_focus,
+            "custom_focus": custom_focus,
             "needs_supplementary_data": False,
             "description": focus,
             "data_fetch_query_primary": data_query,

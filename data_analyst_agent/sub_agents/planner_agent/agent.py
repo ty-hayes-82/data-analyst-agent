@@ -63,14 +63,24 @@ class RuleBasedPlanner(BaseAgent):
 
         recommended = baseline.get("recommended_agents", [])
 
-        # Step 2: Keyword-based refinement from user query
+        # Step 2: Keyword-based refinement from user query + focus directives
         user_query = (
             ctx.session.state.get("user_query")
             or ctx.session.state.get("original_request")
             or ""
         )
-        if user_query:
-            recommended = refine_plan(recommended, user_query)
+        analysis_focus = ctx.session.state.get("analysis_focus") or []
+        custom_focus = ctx.session.state.get("custom_focus") or ""
+
+        focus_text = ""
+        if isinstance(analysis_focus, list) and analysis_focus:
+            focus_text += " " + " ".join(str(x) for x in analysis_focus if x)
+        if isinstance(custom_focus, str) and custom_focus.strip():
+            focus_text += " " + custom_focus.strip()
+
+        combined = (user_query or "") + focus_text
+        if combined.strip():
+            recommended = refine_plan(recommended, combined)
 
         # Step 3: Format as execution_plan schema
         selected_agents = [

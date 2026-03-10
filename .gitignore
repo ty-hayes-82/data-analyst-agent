@@ -89,3 +89,9 @@ config/datasets/**/*.csv
 data/public/us_counties_covid.csv
 data/public/us_counties_covid.csv
 *.csv.bak
+data/public/owid_co2_data.csv
+data/public/worldbank_population.csv
+data/public/global_temp_monthly.csv
+
+# Web UI run state (local)
+web/runs.json

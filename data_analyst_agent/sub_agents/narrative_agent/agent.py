@@ -53,11 +53,13 @@ class NarrativeWrapper(BaseAgent):
             var_pct = materiality.get("variance_pct", 5.0)
             var_abs = materiality.get("variance_absolute", 50000.0)
 
-            self.wrapped_agent.instruction = NARRATIVE_AGENT_INSTRUCTION.format(
-                dataset_display_name=display_name,
-                variance_pct=var_pct,
-                variance_absolute=var_abs
-            )
+            # NOTE: Avoid str.format() because prompts often contain JSON examples
+            # with braces that would be interpreted as format fields.
+            instr = NARRATIVE_AGENT_INSTRUCTION
+            instr = instr.replace("{dataset_display_name}", str(display_name))
+            instr = instr.replace("{variance_pct}", str(var_pct))
+            instr = instr.replace("{variance_absolute}", str(var_abs))
+            self.wrapped_agent.instruction = instr
             print(f"[NarrativeAgent] Instruction updated for contract: {contract.name}")
 
         # Inject analysis results as a conversation message so the LLM can see them.

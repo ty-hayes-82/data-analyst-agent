@@ -8,6 +8,17 @@ from ...data_cache import get_analysis_context
 
 # Maps query keywords to analysis agents that should be force-included
 _KEYWORD_AGENT_MAP: dict[str, str] = {
+    # Focus modes (env-driven / UI)
+    "recent_weekly_trends": "statistical_insights_agent",
+    "recent_monthly_trends": "statistical_insights_agent",
+    "anomaly_detection": "statistical_insights_agent",
+    "outlier_investigation": "statistical_insights_agent",
+    "seasonal_patterns": "seasonal_baseline_agent",
+    "yoy_comparison": "hierarchical_analysis_agent",
+    "forecasting": "statistical_insights_agent",
+    "revenue_gap_analysis": "alert_scoring_coordinator",
+
+    # Natural-language keywords
     "seasonal": "seasonal_baseline_agent",
     "season": "seasonal_baseline_agent",
     "trend": "statistical_insights_agent",
