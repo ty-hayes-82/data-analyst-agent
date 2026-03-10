@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T16:55:01
+**Last updated:** 2026-03-10T17:51:57
 
 ## Current State
 - **Unit Tests:** 247 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 188 files, 26,675 lines, **51 files >200L**
+- **Codebase:** 188 files, 26,705 lines, **51 files >200L**
 - **Largest:** sub_agents/executive_brief_agent/agent.py (665L)
-- **Commit:** `5befeb3 test: sync incremental narrative keywords `
+- **Commit:** `f6bc9b0 fix: proper error handling in submitRun an`
 
 ## Progress Over Time
 
@@ -137,9 +137,13 @@
 | 122 | 16:32 | `5befeb3` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 123 | 16:40 | `5befeb3` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 124 | 16:55 | `5befeb3` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 125 | 17:29 | `4c5301e` | 214 | 15 | 10 | 5/5 | 51 | sub_agents/executive_brie |
+| 126 | 17:40 | `34a5edd` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 127 | 17:41 | `34a5edd` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 128 | 17:51 | `f6bc9b0` | 247 | 0 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
 - Tests: 247 → **247** (+0)
 - Failures: 0 → **0**
 - Files >200L: 50 → **51** (+1)
-- Iterations: 124
+- Iterations: 128
