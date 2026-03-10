@@ -3,108 +3,139 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_PARENT_CHILD_CACHE: dict[tuple[str, str, str], dict[str, list[str]]] = {}
+
+
+def _resolve_scope_hierarchy(contract: Any | None, preferred_name: str | None = None):
+    if not contract or not getattr(contract, "hierarchies", None):
+        return None
+    hierarchies = getattr(contract, "hierarchies", []) or []
+    normalized_targets: list[str] = []
+    for candidate in (preferred_name, os.environ.get("EXECUTIVE_BRIEF_SCOPE_HIERARCHY")):
+        if candidate:
+            normalized_targets.append(str(candidate).strip().lower())
+    for target in normalized_targets:
+        match = next(
+            (h for h in hierarchies if str(getattr(h, "name", "")).lower() == target),
+            None,
+        )
+        if match:
+            return match
+    reporting_cfg = getattr(contract, "reporting", None)
+    if reporting_cfg:
+        cfg_name = getattr(reporting_cfg, "executive_brief_scope_hierarchy", None)
+        if cfg_name:
+            target = str(cfg_name).strip().lower()
+            match = next(
+                (h for h in hierarchies if str(getattr(h, "name", "")).lower() == target),
+                None,
+            )
+            if match:
+                return match
+    if not hierarchies:
+        return None
+    return max(hierarchies, key=lambda h: len(getattr(h, "children", []) or []))
+
+
+def derive_scope_level_labels(contract: Any | None, preferred_name: str | None = None) -> dict[int, str]:
+    hierarchy = _resolve_scope_hierarchy(contract, preferred_name)
+    if not hierarchy:
+        return {}
+    labels: dict[int, str] = {}
+    raw_map = getattr(hierarchy, "level_names", {}) or {}
+    for raw_idx, label in raw_map.items():
+        try:
+            idx = int(raw_idx)
+        except (TypeError, ValueError):
+            continue
+        if idx == 0:
+            continue
+        labels[idx] = str(label)
+    return labels
+
+
+def _resolve_contract_data_path(contract: Any | None) -> Path | None:
+    if not contract:
+        return None
+    data_source = getattr(contract, "data_source", None)
+    source_type = (getattr(data_source, "type", None) or "").lower()
+    if source_type != "csv":
+        return None
+    file_field = getattr(data_source, "file", None)
+    if not file_field and isinstance(data_source, dict):
+        file_field = data_source.get("file")
+    if not file_field:
+        return None
+    candidate = Path(file_field)
+    if candidate.is_absolute() and candidate.exists():
+        return candidate
+    source_path = getattr(contract, "_source_path", None)
+    if source_path:
+        dataset_dir = Path(source_path).parent
+        alt = dataset_dir / file_field
+        if alt.exists():
+            return alt
+    alt = _PROJECT_ROOT / file_field
+    if alt.exists():
+        return alt
+    return None
 
 
 def _load_hierarchy_level_mapping(
     json_data: dict[str, dict[str, Any]],
     parent_level: int,
     child_level: int,
+    *,
+    contract: Any | None = None,
+    preferred_hierarchy: str | None = None,
 ) -> dict[str, list[str]]:
-    import csv as _csv
-
-    parent_col: str | None = None
-    level_key = f"level_{parent_level}"
-    for data in json_data.values():
-        hier = data.get("hierarchical_analysis") or {}
-        lvl_raw = hier.get(level_key)
-        if isinstance(lvl_raw, str):
-            try:
-                lvl_raw = json.loads(lvl_raw)
-            except json.JSONDecodeError:
-                lvl_raw = {}
-        if isinstance(lvl_raw, dict) and lvl_raw.get("level_name"):
-            parent_col = lvl_raw["level_name"]
-            break
-    if not parent_col:
+    del json_data  # contract-driven implementation; JSON digest no longer needed here.
+    hierarchy = _resolve_scope_hierarchy(contract, preferred_hierarchy)
+    if not hierarchy:
         return {}
-
-    child_col: str | None = None
+    children = getattr(hierarchy, "children", []) or []
+    parent_idx = parent_level - 1
+    child_idx = child_level - 1
+    if parent_idx < 0 or child_idx < 0 or child_idx >= len(children) or parent_idx >= len(children):
+        return {}
+    if not contract or not hasattr(contract, "get_dimension"):
+        return {}
     try:
-        from config.dataset_resolver import get_dataset_path_optional
-
-        contract_path = get_dataset_path_optional("contract.yaml")
-        if contract_path and contract_path.exists():
-            text = contract_path.read_text(encoding="utf-8")
-            for line in text.splitlines():
-                stripped = line.strip()
-                if stripped.startswith(f"{child_level}:"):
-                    val = stripped.split(":", 1)[-1].strip().strip("\"'")
-                    if val:
-                        child_col = val
-                        break
+        parent_dim = contract.get_dimension(children[parent_idx])
+        child_dim = contract.get_dimension(children[child_idx])
     except Exception:
-        pass
-
-    data_dir = Path("data")
-    if not data_dir.exists():
         return {}
-
-    candidate_encs = [
-        ("utf-16", "\t"),
-        ("utf-16-le", "\t"),
-        ("utf-8-sig", ","),
-        ("utf-8", ","),
-        ("latin-1", ","),
-        ("utf-16", ","),
-    ]
-
-    for csv_path in sorted(data_dir.glob("*.csv")):
-        for enc, delim in candidate_encs:
-            try:
-                with open(csv_path, encoding=enc, newline="") as fh:
-                    reader = _csv.reader(fh, delimiter=delim)
-                    headers = next(reader, None)
-                    if not headers:
-                        continue
-                    headers = [h.strip().lstrip("\ufeff") for h in headers]
-                    parent_idx = next((i for i, h in enumerate(headers) if h == parent_col), None)
-                    if parent_idx is None:
-                        break
-                    child_idx: int | None = None
-                    if child_col:
-                        child_idx = next((i for i, h in enumerate(headers) if h == child_col), None)
-                    if child_idx is None:
-                        for i, h in enumerate(headers):
-                            if i == parent_idx:
-                                continue
-                            if "/" in h or h in ("Metric", "metric", "Date", "date"):
-                                continue
-                            child_idx = i
-                            break
-                    if child_idx is None:
-                        break
-                    mapping: dict[str, list[str]] = {}
-                    seen: set[tuple[str, str]] = set()
-                    for row in reader:
-                        if len(row) <= max(parent_idx, child_idx):
-                            continue
-                        parent_val = row[parent_idx].strip()
-                        child_val = row[child_idx].strip()
-                        if not parent_val or not child_val:
-                            continue
-                        pair = (parent_val, child_val)
-                        if pair not in seen:
-                            seen.add(pair)
-                            mapping.setdefault(parent_val, []).append(child_val)
-                    if mapping:
-                        return {k: sorted(v) for k, v in mapping.items()}
-                    break
-            except Exception:
-                continue
-    return {}
+    dataset_path = _resolve_contract_data_path(contract)
+    if not dataset_path:
+        return {}
+    cache_key = (str(dataset_path), parent_dim.column, child_dim.column)
+    if cache_key not in _PARENT_CHILD_CACHE:
+        try:
+            df = pd.read_csv(
+                dataset_path,
+                usecols=[parent_dim.column, child_dim.column],
+            )
+        except Exception:
+            return {}
+        df = df.dropna(subset=[parent_dim.column, child_dim.column])
+        df[parent_dim.column] = df[parent_dim.column].astype(str).str.strip()
+        df[child_dim.column] = df[child_dim.column].astype(str).str.strip()
+        df = df[(df[parent_dim.column] != "") & (df[child_dim.column] != "")]
+        pairs = df[[parent_dim.column, child_dim.column]].drop_duplicates()
+        mapping: dict[str, list[str]] = {}
+        for parent_val, child_val in pairs.values:
+            mapping.setdefault(parent_val, []).append(child_val)
+        mapping = {k: sorted(set(v)) for k, v in mapping.items()}
+        _PARENT_CHILD_CACHE[cache_key] = mapping
+    return _PARENT_CHILD_CACHE.get(cache_key, {})
 
 
 def _sanitize_entity_name(entity: str) -> str:

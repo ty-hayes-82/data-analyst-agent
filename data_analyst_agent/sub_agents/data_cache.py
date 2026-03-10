@@ -31,6 +31,8 @@ from typing import Optional, Dict, Any, List
 import sys
 import contextvars
 
+from config.dataset_resolver import get_dataset_path
+
 # Use a registry in sys.modules to survive multiple imports of this module
 _REGISTRY_KEY = "_data_analyst_cache_registry"
 _REQUIRED_REGISTRY_KEYS = {
@@ -189,9 +191,15 @@ def get_analysis_context(session_id: Optional[str] = None) -> Any:
             # 1. Load Contract
             contract_path = metadata.get("contract_path")
             if not contract_path or not os.path.exists(contract_path):
-                # Fallback to default if path is missing
-                contract_path = os.path.join(os.getcwd(), "config", "datasets", "account_research", "contract.yaml")
-            
+                try:
+                    contract_path = str(get_dataset_path("contract.yaml"))
+                except FileNotFoundError:
+                    print("[data_cache] ERROR: Unable to resolve contract.yaml for context reconstruction")
+                    return None
+            if not os.path.exists(contract_path):
+                print(f"[data_cache] ERROR: Contract path not found: {contract_path}")
+                return None
+
             contract = DatasetContract.from_yaml(contract_path)
             setattr(contract, "_source_path", contract_path)
             

@@ -54,6 +54,7 @@ from .scope_utils import (
     _discover_level_entities,
     _load_hierarchy_level_mapping,
     _sanitize_entity_name,
+    derive_scope_level_labels,
 )
 
 
@@ -231,42 +232,6 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
     return brief
 
 
-def _derive_scope_level_labels(contract: Any | None, preferred_name: str | None = None) -> dict[int, str]:
-    labels: dict[int, str] = {}
-    if not contract:
-        return labels
-    hierarchies = getattr(contract, "hierarchies", None) or []
-    env_override = os.environ.get("EXECUTIVE_BRIEF_SCOPE_HIERARCHY")
-    normalized_targets = []
-    for candidate in (preferred_name, env_override):
-        if candidate:
-            normalized_targets.append(str(candidate).strip().lower())
-    preferred = None
-    for target in normalized_targets:
-        preferred = next((h for h in hierarchies if str(getattr(h, "name", "")).lower() == target), None)
-        if preferred:
-            break
-    if preferred is None and getattr(contract, "reporting", None):
-        cfg_name = getattr(contract.reporting, "executive_brief_scope_hierarchy", None)
-        if cfg_name:
-            target = str(cfg_name).strip().lower()
-            preferred = next((h for h in hierarchies if str(getattr(h, "name", "")).lower() == target), None)
-    if preferred is None and hierarchies:
-        preferred = max(hierarchies, key=lambda h: len(getattr(h, "children", []) or []))
-    if not preferred:
-        return labels
-    level_names = getattr(preferred, "level_names", {}) or {}
-    for raw_idx, label in level_names.items():
-        try:
-            idx = int(raw_idx)
-        except (TypeError, ValueError):
-            continue
-        if idx == 0:
-            continue
-        labels[idx] = str(label)
-    return labels
-
-
 
 def _format_instruction(template: str, **fields: str) -> str:
     """Safely render the executive-brief prompt with literal braces intact."""
@@ -403,7 +368,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         use_json = parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_JSON", "true"))
         if use_json and json_data:
-            digest = _build_digest_from_json(json_data, reports)
+            digest = _build_digest_from_json(reports, json_data)
             print(f"[BRIEF] Using JSON-backed digest ({len(json_data)} metrics)")
         else:
             digest = _build_digest(reports)
@@ -570,7 +535,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             scoped_briefs: dict[str, dict[str, str]] = {}
             scoped_digests_map: dict[str, str] = {}
             hierarchy_hint = ctx.session.state.get("selected_hierarchy") or ctx.session.state.get("hierarchy_name")
-            scope_level_labels = _derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
+            scope_level_labels = derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
 
             if drill_levels >= 1 and json_data:
                 print(f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs")
@@ -585,7 +550,13 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     level_name = scope_level_labels.get(level, f"Level {level}")
                     print(f"[BRIEF] Level {level} ({level_name}): {len(entities)} entities: {', '.join(entities)}")
 
-                    hierarchy_map = _load_hierarchy_level_mapping(json_data, level, level + 1)
+                    hierarchy_map = _load_hierarchy_level_mapping(
+                        json_data,
+                        level,
+                        level + 1,
+                        contract=contract,
+                        preferred_hierarchy=hierarchy_hint,
+                    )
                     if hierarchy_map:
                         total_children = sum(len(v) for v in hierarchy_map.values())
                         print(

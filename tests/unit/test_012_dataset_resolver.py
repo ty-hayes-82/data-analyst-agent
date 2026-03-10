@@ -274,19 +274,23 @@ def test_trade_dataset_contract_exists():
     assert loader.exists(), f"Missing trade_data loader: {loader}"
 
 @pytest.mark.unit
-def test_no_unused_dataset_dirs_remain():
-    """Ensure no legacy dataset directories linger after cleanup."""
+def test_dataset_contracts_are_present():
+    """Every dataset directory must include contract.yaml and loader.yaml."""
     csv_root = DATASETS_DIR / "csv"
-    names = sorted([d.name for d in csv_root.iterdir() if d.is_dir()]) if csv_root.exists() else []
-    # Core datasets that must exist
-    required = {"trade_data"}
-    # Known public datasets (may or may not be present)
-    known = {"trade_data", "covid_us_counties", "covid_us_counties_v2", "owid_co2_emissions",
-             "co2_global_regions", "worldbank_population", "worldbank_population_regions",
-             "global_temperature", "toll_data", "validation_ops"}
-    assert required.issubset(set(names)), f"Missing required datasets: {required - set(names)}"
-    unknown = set(names) - known
-    assert not unknown, f"Unknown dataset directories: {sorted(unknown)}"
+    if not csv_root.exists():
+        pytest.skip("csv datasets directory missing in this workspace")
+
+    dataset_dirs = [d for d in csv_root.iterdir() if d.is_dir()]
+    assert dataset_dirs, "No dataset directories found under config/datasets/csv"
+
+    names = sorted(d.name for d in dataset_dirs)
+    assert "trade_data" in names, "trade_data dataset is required"
+
+    missing_contract = [d.name for d in dataset_dirs if not (d / "contract.yaml").exists()]
+    missing_loader = [d.name for d in dataset_dirs if not (d / "loader.yaml").exists()]
+
+    assert not missing_contract, f"Datasets missing contract.yaml: {missing_contract}"
+    assert not missing_loader, f"Datasets missing loader.yaml: {missing_loader}"
 
 
 
