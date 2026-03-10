@@ -267,3 +267,87 @@ td .btn { padding: 0.3em 0.8em; font-size: 0.8em; }
   display: inline-block; padding: 0.15em 0.4em; background: #1f6feb;
   border-radius: 3px; font-size: 0.7em; color: #fff; margin-left: 0.5em;
 }
+
+
+/* Progress Bar */
+.progress-section { margin: 1.5em 0; }
+.progress-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.5em;
+}
+.progress-label { font-size: 0.95em; color: #e6edf3; font-weight: 500; }
+.progress-pct { font-size: 1.1em; color: #58a6ff; font-weight: 600; }
+.progress-bar-lg {
+  width: 100%; height: 12px; background: #21262d;
+  border-radius: 6px; overflow: hidden;
+}
+.progress-fill-lg {
+  height: 100%; background: linear-gradient(90deg, #1f6feb, #58a6ff);
+  border-radius: 6px; transition: width 0.6s ease;
+  position: relative;
+}
+.progress-fill-lg::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  animation: shimmer 2s infinite;
+}
+.progress-fill-lg.complete { background: linear-gradient(90deg, #238636, #3fb950); }
+.progress-fill-lg.complete::after { animation: none; }
+.progress-fill-lg.failed { background: linear-gradient(90deg, #da3633, #f85149); }
+.progress-fill-lg.failed::after { animation: none; }
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.info-badges { display: flex; gap: 0.5em; margin-top: 0.5em; flex-wrap: wrap; }
+.info-badge {
+  padding: 0.25em 0.6em; background: #161b22; border: 1px solid #30363d;
+  border-radius: 4px; font-size: 0.8em; color: #8b949e;
+}
+
+/* Pipeline Stages */
+.pipeline-stages-section { margin: 1.5em 0; }
+.pipeline-stages-section h3 { margin-bottom: 0.75em; font-size: 0.95em; }
+.pipeline-stages {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.4em;
+}
+.pipeline-stage {
+  display: flex; align-items: center; gap: 0.5em;
+  padding: 0.4em 0.6em; border-radius: 4px; font-size: 0.85em;
+  background: #0d1117; border: 1px solid #21262d;
+  transition: all 0.3s;
+}
+.pipeline-stage .stage-icon { flex-shrink: 0; width: 1.2em; text-align: center; }
+.pipeline-stage .stage-label { color: #8b949e; }
+
+.pipeline-stage.stage-completed {
+  border-color: #238636; background: #0d1117;
+}
+.pipeline-stage.stage-completed .stage-icon { color: #3fb950; }
+.pipeline-stage.stage-completed .stage-label { color: #7ee787; }
+
+.pipeline-stage.stage-running {
+  border-color: #1f6feb; background: #0d1117;
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+.pipeline-stage.stage-running .stage-icon { color: #58a6ff; }
+.pipeline-stage.stage-running .stage-label { color: #79c0ff; font-weight: 500; }
+
+.pipeline-stage.stage-pending .stage-icon { color: #484f58; }
+.pipeline-stage.stage-pending .stage-label { color: #484f58; }
+
+@keyframes pulse-border {
+  0%, 100% { border-color: #1f6feb; }
+  50% { border-color: #58a6ff; }
+}
+
+/* Log as collapsible */
+.log-details { margin-top: 1em; }
+.log-details summary {
+  cursor: pointer; color: #8b949e; font-size: 0.9em;
+  padding: 0.5em 0; user-select: none;
+}
+.log-details summary:hover { color: #e6edf3; }

@@ -181,6 +181,97 @@ async def api_run_log(run_id: str, lines: int = 200):
     return PlainTextResponse(run_manager.get_run_log(run_id, lines))
 
 
+
+
+@app.get("/api/runs/{run_id}/progress")
+async def api_run_progress(run_id: str):
+    """Parse run log to extract pipeline progress."""
+    run = run_manager.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    from pathlib import Path as _Path
+    log_path = _Path(run["output_dir"]) / "run.log"
+    if not log_path.exists():
+        return {"stages": [], "current_stage": None, "percent": 0, "status": run["status"]}
+
+    log = log_path.read_text(errors="replace")
+
+    # Known pipeline stages in order
+    PIPELINE_STAGES = [
+        {"key": "contract_loader", "label": "Loading Contract", "weight": 2},
+        {"key": "cli_parameter_injector", "label": "Configuring Parameters", "weight": 1},
+        {"key": "output_dir_initializer", "label": "Initializing Output", "weight": 1},
+        {"key": "data_fetch_workflow", "label": "Fetching Data", "weight": 8},
+        {"key": "analysis_context_initializer", "label": "Preparing Analysis Context", "weight": 5},
+        {"key": "planner_agent", "label": "Planning Analysis", "weight": 3},
+        {"key": "dynamic_parallel_analysis", "label": "Running Statistical & Hierarchy Analysis", "weight": 10},
+        {"key": "narrative_agent", "label": "Generating Narrative", "weight": 20},
+        {"key": "alert_scoring_coordinator", "label": "Scoring Alerts", "weight": 5},
+        {"key": "report_synthesis_agent", "label": "Synthesizing Report", "weight": 25},
+        {"key": "output_persistence_agent", "label": "Saving Results", "weight": 3},
+        {"key": "weather_context_agent", "label": "Weather Context", "weight": 2},
+        {"key": "executive_brief_agent", "label": "Writing Executive Brief", "weight": 25},
+    ]
+
+    stages = []
+    current_stage = None
+    total_weight = sum(s["weight"] for s in PIPELINE_STAGES)
+    completed_weight = 0
+
+    for stage in PIPELINE_STAGES:
+        started = f">>> Starting agent: {stage['key']}" in log
+        # Check for both exact match and timed_ prefix variant
+        finished = (f"<<< Finished agent: {stage['key']}" in log or
+                    f"<<< Finished agent: timed_{stage['key']}" in log or
+                    f"<<< {stage['key']}" in log)
+
+        # Extract duration if finished
+        duration = None
+        import re as _re
+        dur_match = _re.search(rf"Finished agent: (?:timed_)?{_re.escape(stage['key'])}.*?Duration: ([\d.]+)s", log)
+        if dur_match:
+            duration = float(dur_match.group(1))
+            finished = True
+
+        status = "pending"
+        if finished:
+            status = "completed"
+            completed_weight += stage["weight"]
+        elif started:
+            status = "running"
+            current_stage = stage["key"]
+            completed_weight += stage["weight"] * 0.5  # halfway credit
+
+        stages.append({
+            "key": stage["key"],
+            "label": stage["label"],
+            "status": status,
+            "duration": duration,
+        })
+
+    percent = min(100, int((completed_weight / total_weight) * 100)) if total_weight else 0
+
+    # If run completed, force 100%
+    if run["status"] in ("completed", "failed"):
+        percent = 100
+
+    # Extract row counts and other useful info from log
+    info = {}
+    rows_match = _re.search(r"Loaded (\d[\d,]*) rows", log)
+    if rows_match:
+        info["rows_loaded"] = rows_match.group(1)
+    filter_match = _re.search(r"Hierarchy filter.*?-> (\d+) rows", log)
+    if filter_match:
+        info["filtered_rows"] = filter_match.group(1)
+
+    return {
+        "stages": stages,
+        "current_stage": current_stage,
+        "percent": percent,
+        "status": run["status"],
+        "info": info,
+    }
+
 @app.get("/api/runs/{run_id}/files/{filename}")
 async def api_run_file(run_id: str, filename: str):
     try:

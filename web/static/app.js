@@ -139,12 +139,14 @@ function pollRun(runId) {
   if (pollTimer) clearInterval(pollTimer);
 
   const render = async () => {
-    const [runRes, logRes] = await Promise.all([
+    const [runRes, logRes, progressRes] = await Promise.all([
       fetch(`/api/runs/${runId}`),
-      fetch(`/api/runs/${runId}/log?lines=100`),
+      fetch(`/api/runs/${runId}/log?lines=80`),
+      fetch(`/api/runs/${runId}/progress`),
     ]);
     const run = await runRes.json();
     const log = await logRes.text();
+    const progress = progressRes.ok ? await progressRes.json() : { stages: [], percent: 0 };
 
     const mc = document.getElementById('monitor-content');
     const statusClass = `badge-${run.status}`;
@@ -152,18 +154,52 @@ function pollRun(runId) {
       ? Math.round((new Date(run.finished_at) - new Date(run.started_at)) / 1000)
       : Math.round((Date.now() - new Date(run.started_at + 'Z').getTime()) / 1000);
 
+    const pct = progress.percent || 0;
+    const currentLabel = (progress.stages || []).find(s => s.status === 'running')?.label || '';
+
+    // Build stage timeline
+    const stagesHtml = (progress.stages || []).map(s => {
+      const icon = s.status === 'completed' ? '&#10003;' : s.status === 'running' ? '&#9679;' : '&#9675;';
+      const cls = `stage-${s.status}`;
+      const dur = s.duration != null ? ` (${s.duration.toFixed(1)}s)` : '';
+      return `<div class="pipeline-stage ${cls}"><span class="stage-icon">${icon}</span><span class="stage-label">${escapeHtml(s.label)}${dur}</span></div>`;
+    }).join('');
+
+    // Info badges
+    const infoBadges = progress.info ? Object.entries(progress.info).map(([k, v]) =>
+      `<span class="info-badge">${k.replace(/_/g, ' ')}: ${v}</span>`
+    ).join('') : '';
+
     mc.innerHTML = `
       <div class="info-grid">
         <div class="info-card"><div class="label">Run ID</div><div class="value">${run.id}</div></div>
         <div class="info-card"><div class="label">Status</div><div class="value"><span class="badge ${statusClass}">${run.status}</span></div></div>
-        <div class="info-card"><div class="label">Dataset</div><div class="value">${run.dataset_name}</div></div>
+        <div class="info-card"><div class="label">Dataset</div><div class="value">${escapeHtml(run.dataset_name)}</div></div>
         <div class="info-card"><div class="label">Elapsed</div><div class="value">${elapsed}s</div></div>
         <div class="info-card"><div class="label">Metrics</div><div class="value">${(run.metrics || []).join(', ') || 'all'}</div></div>
         ${run.analysis_focus && run.analysis_focus.length ? `<div class="info-card"><div class="label">Focus</div><div class="value">${run.analysis_focus.map(f => f.replace(/_/g, ' ')).join(', ')}</div></div>` : ''}
       </div>
+
+      <div class="progress-section">
+        <div class="progress-header">
+          <span class="progress-label">${run.status === 'running' ? (currentLabel || 'Processing...') : run.status === 'completed' ? 'Complete' : run.status}</span>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <div class="progress-bar-lg"><div class="progress-fill-lg ${run.status === 'completed' ? 'complete' : run.status === 'failed' ? 'failed' : ''}" style="width:${pct}%"></div></div>
+        ${infoBadges ? `<div class="info-badges">${infoBadges}</div>` : ''}
+      </div>
+
+      <div class="pipeline-stages-section">
+        <h3>Pipeline Stages</h3>
+        <div class="pipeline-stages">${stagesHtml || '<span style="color:#8b949e">Waiting for pipeline to start...</span>'}</div>
+      </div>
+
       ${run.status !== 'running' ? `<div class="actions"><button class="btn" onclick="viewResults('${run.id}')">View Results</button></div>` : ''}
-      <h3>Live Log</h3>
-      <div class="log-viewer" id="log-box">${escapeHtml(log)}</div>
+
+      <details class="log-details" ${run.status !== 'running' ? '' : 'open'}>
+        <summary>Live Log</summary>
+        <div class="log-viewer" id="log-box">${escapeHtml(log)}</div>
+      </details>
     `;
     const box = document.getElementById('log-box');
     if (box) box.scrollTop = box.scrollHeight;
@@ -175,7 +211,7 @@ function pollRun(runId) {
   };
 
   render();
-  pollTimer = setInterval(render, 3000);
+  pollTimer = setInterval(render, 2000);
 }
 
 // --- History ---
