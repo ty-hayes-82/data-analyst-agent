@@ -442,6 +442,29 @@ class ReportSynthesisWrapper(BaseAgent):
                     event_count += 1
                     yield event
 
+                    # Compatibility: ensure markdown lands in session state.
+                    try:
+                        delta = getattr(getattr(event, "actions", None), "state_delta", None)
+                        if isinstance(delta, dict) and delta.get("report_synthesis_result") and not ctx.session.state.get("report_markdown"):
+                            yield Event(
+                                invocation_id=ctx.invocation_id,
+                                author=self.name,
+                                actions=EventActions(state_delta={"report_markdown": delta["report_synthesis_result"]}),
+                            )
+
+                        if not ctx.session.state.get("report_markdown") and event.content and getattr(event.content, "parts", None):
+                            for part in event.content.parts:
+                                txt = getattr(part, "text", None)
+                                if txt:
+                                    yield Event(
+                                        invocation_id=ctx.invocation_id,
+                                        author=self.name,
+                                        actions=EventActions(state_delta={"report_markdown": txt}),
+                                    )
+                                    break
+                    except Exception:
+                        pass
+
                     # Cap tool calls: stop after first successful generate_markdown_report result
                     stop_early = False
                     if event.content and event.content.parts:

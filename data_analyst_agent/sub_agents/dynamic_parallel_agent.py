@@ -33,8 +33,11 @@ class DynamicParallelAnalysisAgent(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         plan_raw = ctx.session.state.get("execution_plan", {})
         plan_result = safe_parse_json(plan_raw)
-            
+
+        # Support both JSON-dict plans and direct list plans.
         selected_agent_infos = plan_result.get("selected_agents", [])
+        if not selected_agent_infos and isinstance(plan_raw, list):
+            selected_agent_infos = plan_raw
         
         # Filter for agents that are in our registry and intended for parallel execution
         # (alert_scoring_coordinator is usually sequential at the end)

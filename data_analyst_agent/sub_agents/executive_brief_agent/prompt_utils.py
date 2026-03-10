@@ -42,7 +42,30 @@ def _build_weather_context_block(weather_context: Any) -> str:
     return "\n".join(lines)
 
 
-def _write_executive_brief_cache(target_dir: Path, payload: dict[str, Any]) -> Path:
+def _write_executive_brief_cache(
+    target_dir: Path | None = None,
+    payload: dict[str, Any] | None = None,
+    # Back-compat kwargs (older call sites passed named fields)
+    outputs_dir: Path | None = None,
+    **kwargs: Any,
+) -> Path:
+    """Write the executive brief input cache.
+
+    Preferred call:
+      _write_executive_brief_cache(target_dir=<Path>, payload={<dict>})
+
+    Back-compat:
+      _write_executive_brief_cache(outputs_dir=<Path>, digest=..., period_end=..., ...)
+    """
+
+    if target_dir is None:
+        target_dir = outputs_dir
+    if target_dir is None:
+        raise ValueError("target_dir/outputs_dir is required")
+
+    if payload is None:
+        payload = dict(kwargs)
+
     target_dir.mkdir(parents=True, exist_ok=True)
     cache_path = target_dir / "executive_brief_input_cache.json"
     cache_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")

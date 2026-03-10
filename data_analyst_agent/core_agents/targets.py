@@ -7,6 +7,7 @@ import re
 from typing import AsyncGenerator
 
 from google.adk.agents.base_agent import BaseAgent
+from google.adk.agents.sequential_agent import SequentialAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
@@ -14,6 +15,7 @@ from pydantic import Field
 
 from ..tools import iterate_analysis_targets
 from ..utils.phase_logger import PhaseLogger
+from ..utils.timing_utils import TimedAgentWrapper
 from .loaders import AnalysisContextInitializer
 
 
