@@ -46,6 +46,15 @@ class NarrativeWrapper(BaseAgent):
         return super().__getattr__(name)
     
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        analysis_focus = ctx.session.state.get("analysis_focus") or []
+        custom_focus = ctx.session.state.get("custom_focus") or ""
+        focus_lines = []
+        if analysis_focus:
+            focus_lines.append(f"Focus modes to prioritize: {', '.join(analysis_focus)}")
+        if custom_focus:
+            focus_lines.append(f"Custom directive: {custom_focus}")
+        focus_preamble = "\n".join(focus_lines)
+
         contract = ctx.session.state.get("dataset_contract")
         if contract:
             display_name = getattr(contract, 'display_name', contract.name)
@@ -59,6 +68,8 @@ class NarrativeWrapper(BaseAgent):
             instr = instr.replace("{dataset_display_name}", str(display_name))
             instr = instr.replace("{variance_pct}", str(var_pct))
             instr = instr.replace("{variance_absolute}", str(var_abs))
+            if focus_preamble:
+                instr = f"{instr}\n\nFOCUS_DIRECTIVES:\n{focus_preamble}"
             self.wrapped_agent.instruction = instr
             print(f"[NarrativeAgent] Instruction updated for contract: {contract.name}")
 
@@ -155,8 +166,11 @@ class NarrativeWrapper(BaseAgent):
             if independent_text else ""
         )
 
+        focus_section = f"FOCUS_DIRECTIVES:\n{focus_preamble}\n\n" if focus_preamble else ""
+
         injection = (
             "Here are the analysis results for you to transform into Insight Cards:\n\n"
+            f"{focus_section}"
             f"DATA_ANALYST_RESULT (Statistical Insight Cards):\n{data_analyst_result}\n\n"
             f"STATISTICAL_SUMMARY (Raw Statistics):\n{statistical_summary}\n\n"
             f"HIERARCHICAL_ANALYSIS:\n{hierarchical_text}"

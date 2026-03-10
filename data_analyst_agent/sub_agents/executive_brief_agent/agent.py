@@ -56,6 +56,84 @@ from .scope_utils import (
     _sanitize_entity_name,
 )
 
+def _build_brief_response_schema() -> types.Schema:
+    insight_schema = types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "title": types.Schema(type=types.Type.STRING),
+            "details": types.Schema(type=types.Type.STRING),
+        },
+        required=["title", "details"],
+    )
+    section_schema = types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "title": types.Schema(type=types.Type.STRING),
+            "content": types.Schema(type=types.Type.STRING),
+            "insights": types.Schema(
+                type=types.Type.ARRAY,
+                items=insight_schema,
+            ),
+        },
+        required=["title"],
+    )
+    return types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "header": types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "title": types.Schema(type=types.Type.STRING),
+                    "summary": types.Schema(type=types.Type.STRING),
+                },
+                required=["title", "summary"],
+            ),
+            "body": types.Schema(
+                type=types.Type.OBJECT,
+                properties={
+                    "sections": types.Schema(
+                        type=types.Type.ARRAY,
+                        min_items=1,
+                        items=section_schema,
+                    ),
+                },
+                required=["sections"],
+            ),
+        },
+        required=["header", "body"],
+    )
+
+
+EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
+
+
+def _derive_scope_level_labels(contract: Any | None) -> dict[int, str]:
+    labels: dict[int, str] = {}
+    if not contract:
+        return labels
+    hierarchies = getattr(contract, "hierarchies", None) or []
+    preferred = None
+    for hierarchy in hierarchies:
+        name = str(getattr(hierarchy, "name", "")).lower()
+        if name == "full_hierarchy":
+            preferred = hierarchy
+            break
+    if preferred is None and hierarchies:
+        preferred = hierarchies[0]
+    if not preferred:
+        return labels
+    level_names = getattr(preferred, "level_names", {}) or {}
+    for raw_idx, label in level_names.items():
+        try:
+            idx = int(raw_idx)
+        except (TypeError, ValueError):
+            continue
+        if idx == 0:
+            continue
+        labels[idx] = str(label)
+    return labels
+
+
 
 def _format_instruction(template: str, **fields: str) -> str:
     """Safely render the executive-brief prompt with literal braces intact."""
@@ -82,6 +160,8 @@ async def _llm_generate_brief(
     config = types.GenerateContentConfig(
         system_instruction=instruction,
         response_modalities=["TEXT"],
+        response_mime_type="application/json",
+        response_schema=EXECUTIVE_BRIEF_RESPONSE_SCHEMA,
         temperature=0.05,
         thinking_config=thinking_config,
     )
@@ -171,6 +251,15 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             requested = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
             json_data = {k: v for k, v in json_data.items() if k.replace(" ", "_").lower() in requested}
 
+        focus_modes = ctx.session.state.get("analysis_focus") or []
+        custom_focus = ctx.session.state.get("custom_focus") or ""
+        focus_lines = []
+        if focus_modes:
+            focus_lines.append(f"- Focus modes: {', '.join(focus_modes)}")
+        if custom_focus:
+            focus_lines.append(f"- Custom directive: {custom_focus}")
+        focus_block = "\n".join(focus_lines)
+
         use_json = parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_JSON", "true"))
         if use_json and json_data:
             digest = _build_digest_from_json(json_data, reports)
@@ -251,7 +340,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             EXECUTIVE_BRIEF_INSTRUCTION,
             metric_count=len(reports),
             analysis_period=analysis_period,
-            scope_preamble="",
+            scope_preamble=focus_block,
             dataset_specific_append=load_dataset_specific_append() + contract_context,
             prompt_variant_append=load_prompt_variant(os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")),
         )
@@ -285,7 +374,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             ),
         }
 
+        focus_preamble_text = f"FOCUS_DIRECTIVES:\n{focus_block}\n\n" if focus_block else ""
+
         user_message = (
+            f"{focus_preamble_text}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
             f"Use the above 'reference_period_end' as the date in your JSON 'subject'.\n\n"
@@ -335,7 +427,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
             scoped_briefs: dict[str, dict[str, str]] = {}
             scoped_digests_map: dict[str, str] = {}
-            scope_level_labels = {1: "Region", 2: "Terminal"}
+            scope_level_labels = _derive_scope_level_labels(contract)
 
             if drill_levels >= 1 and json_data:
                 print(f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs")
