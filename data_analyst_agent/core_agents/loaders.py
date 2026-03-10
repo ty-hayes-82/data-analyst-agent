@@ -16,6 +16,7 @@ from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 
 from ..semantic.models import AnalysisContext, DatasetContract
+from ..utils.dimension_filters import extract_dimension_filters
 from ..utils.json_utils import safe_parse_json
 from ..utils.temporal_grain import detect_temporal_grain
 from ..sub_agents.data_cache import set_analysis_context
@@ -91,20 +92,28 @@ class AnalysisContextInitializer(BaseAgent):
             # This allows pulling more data up front (e.g. all LOBs) and filtering here.
             req_analysis_raw = ctx.session.state.get("request_analysis", {})
             req_analysis = safe_parse_json(req_analysis_raw)
-            dim_val = req_analysis.get("primary_dimension_value") or ctx.session.state.get("dimension_value")
-            
-            # Use same unfiltered values as fetcher
-            _UNFILTERED = {"all", "total", "none", "", "all regions", "all terminals"}
-            if dim_val and str(dim_val).lower() not in _UNFILTERED:
-                primary_dim_name = req_analysis.get("primary_dimension")
-                # Try both logical and physical names just in case
-                for col_name in [primary_dim_name, "lob", "terminal", "region"]:
-                    if col_name and col_name in df.columns:
-                        before_count = len(df)
-                        df = df[df[col_name].astype(str) == str(dim_val)]
-                        if len(df) < before_count:
-                            print(f"[AnalysisContextInitializer] Filtered in-memory data for {col_name}='{dim_val}': {before_count} -> {len(df)} rows")
-                        break
+            override_dimension = ctx.session.state.get("dimension")
+            override_value = ctx.session.state.get("dimension_value")
+            dimension_filters = extract_dimension_filters(
+                contract,
+                request_analysis=req_analysis,
+                candidates=[
+                    (req_analysis.get("primary_dimension"), override_value),
+                    (override_dimension, override_value),
+                ],
+            )
+
+            primary_filter = next(iter(dimension_filters.items()), None)
+            if primary_filter:
+                filter_column, filter_value = primary_filter
+                if filter_column in df.columns:
+                    before_count = len(df)
+                    filtered_df = df[df[filter_column].astype(str) == str(filter_value)]
+                    if len(filtered_df) < before_count:
+                        print(
+                            f"[AnalysisContextInitializer] Filtered in-memory data for {filter_column}='{filter_value}': {before_count} -> {len(filtered_df)} rows"
+                        )
+                    df = filtered_df
         except Exception as e:
             print(f"[AnalysisContextInitializer] ERROR: Failed to parse CSV: {e}")
             yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())

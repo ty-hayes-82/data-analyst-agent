@@ -7,6 +7,9 @@ to stderr so that stdout remains clean for pipeline output.
 import sys
 from typing import Optional
 
+from config.dataset_resolver import get_dataset_dir
+from data_analyst_agent.semantic.models import DatasetContract
+
 from .cli_validator import (
     list_datasets,
     list_dimension_values,
@@ -27,6 +30,18 @@ def _check_tty() -> None:
             "ERROR: --interactive requires a terminal (stdin is not a TTY).\n"
         )
         sys.exit(1)
+
+
+def _dimension_choices_for_dataset(dataset: str) -> list[str]:
+    try:
+        contract_path = get_dataset_dir(dataset) / "contract.yaml"
+        if not contract_path.is_file():
+            return []
+        contract = DatasetContract.from_yaml(str(contract_path))
+    except Exception:
+        return []
+
+    return [d.name for d in contract.dimensions if d.role in ("primary", "secondary")]
 
 
 def select_dataset() -> str:
@@ -81,32 +96,38 @@ def select_metrics(dataset: str) -> list[str]:
 
 def select_dimension(dataset: str) -> tuple[Optional[str], Optional[str]]:
     """Return (dimension_name, dimension_value) or (None, None)."""
-    dim_options = ["region", "terminal"]
+    dim_options = _dimension_choices_for_dataset(dataset)
+    if not dim_options:
+        sys.stderr.write("\nNo contract-defined dimensions available. Analyzing full dataset.\n")
+        return None, None
+
     sys.stderr.write("\nDimension filter:\n")
     for i, d in enumerate(dim_options, 1):
         sys.stderr.write(f"  {i}. {d}\n")
     sys.stderr.write(f"  {len(dim_options)+1}. (none - analyze all)\n")
 
-    choice = _prompt(f"Select [1-{len(dim_options)+1}]: ").strip()
+    choice = _prompt(f"Select [1-{len(dim_options)+1}]: " ).strip()
     try:
         idx = int(choice) - 1
-        if idx == len(dim_options):
-            return None, None
-        if 0 <= idx < len(dim_options):
-            dim = dim_options[idx]
-        else:
-            return None, None
     except ValueError:
+        return None, None
+
+    if idx == len(dim_options):
+        return None, None
+    if 0 <= idx < len(dim_options):
+        dim = dim_options[idx]
+    else:
         return None, None
 
     values = list_dimension_values(dataset, dim)
     if values:
         sys.stderr.write(f"\n{dim.title()} values: {', '.join(values)}\n")
 
-    val = _prompt(f"Enter {dim} value (or Enter for all): ").strip()
+    val = _prompt(f"Enter {dim} value (or Enter for all): " ).strip()
     if not val:
         return dim, None
     return dim, val
+
 
 
 def select_date_range() -> tuple[Optional[str], Optional[str]]:

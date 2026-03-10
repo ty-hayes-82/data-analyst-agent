@@ -1,29 +1,81 @@
-"""Deterministic anomaly indicators tool (trade_data synthetic benchmark).
+"""Deterministic anomaly indicators tool.
 
-This tool is used for E2E insight-quality validation against the embedded
-scenario labels in the full synthetic trade dataset.
+Contract-driven, dataset-agnostic anomaly summary.
 
 Behavior:
-- Uses `scenario_id` to confirm each scenario exists in the data.
-- Computes `avg_anomaly_value` directly from the labeled anomaly rows.
-- Uses ground-truth `avg_baseline_value` from validation datapoints (the dataset
-  does not contain counterfactual baseline rows for the anomaly window).
+- Aggregates the target metric by the contract time column.
+- Uses a simple robust z-score (median/MAD) to flag anomalous periods.
 
-This is intentionally deterministic: the goal is to validate that the pipeline
-can surface the correct scenario windows/directions/severity and that the
-measured anomaly magnitude matches the published benchmark.
+Optional fixture support:
+- If the dataset includes `scenario_id` + `grain`, the tool will also emit a
+  scenario summary grouped by scenario_id (useful for labeled synthetic data),
+  but does not require trade-specific columns or HS codes.
 """
 
 from __future__ import annotations
 
 import json
-from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 from ... import data_cache
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+def _to_datetime_safe(series: pd.Series) -> pd.Series:
+    try:
+        return pd.to_datetime(series, errors="coerce")
+    except Exception:
+        return pd.to_datetime(pd.Series([None] * len(series)), errors="coerce")
+
+
+def _robust_z(x: np.ndarray) -> np.ndarray:
+    """Robust z-score using median/MAD (with small epsilon)."""
+    x = x.astype(float)
+    med = np.nanmedian(x)
+    mad = np.nanmedian(np.abs(x - med))
+    denom = (mad * 1.4826) if mad and np.isfinite(mad) else (np.nanstd(x) or 1.0)
+    denom = denom if denom else 1.0
+    return (x - med) / denom
+
+
+def _example_from_row(row: dict, *, contract: object | None = None) -> dict:
+    """Extract a small, dataset-agnostic example dict.
+
+    Prefer contract dimensions (by column) if available; otherwise include a few
+    stable non-metric fields.
+    """
+    if not isinstance(row, dict):
+        return {}
+
+    # Contract-guided selection
+    dims: list[str] = []
+    try:
+        if contract and getattr(contract, "dimensions", None):
+            for d in contract.dimensions:
+                col = getattr(d, "column", None)
+                if col:
+                    dims.append(str(col))
+    except Exception:
+        dims = []
+
+    out: dict = {}
+    if dims:
+        for col in dims:
+            if col in row and row.get(col) is not None and len(out) < 10:
+                out[col] = row.get(col)
+        return out
+
+    # Fallback: take a few non-numeric / id-like fields
+    for k, v in row.items():
+        if v is None:
+            continue
+        if isinstance(v, (int, float)):
+            continue
+        out[k] = v
+        if len(out) >= 6:
+            break
+    return out
 
 
 async def compute_anomaly_indicators() -> str:
@@ -32,77 +84,110 @@ async def compute_anomaly_indicators() -> str:
             "AnomalyIndicators"
         )
 
-        if "scenario_id" not in df.columns:
+        if time_col not in df.columns or metric_col not in df.columns:
             return json.dumps(
                 {
                     "error": "MissingColumn",
-                    "message": "Expected 'scenario_id' column for trade scenario anomaly indicators.",
+                    "message": f"Expected columns '{time_col}' and '{metric_col}' in dataset.",
                     "anomalies": [],
                 },
                 indent=2,
             )
 
-        validation_path = _repo_root() / "data" / "validation" / "validation_datapoints.json"
-        validation = json.loads(validation_path.read_text())
-        scenarios = validation.get("anomaly_scenarios") or []
+        tmp = df[[time_col, metric_col]].copy()
+        tmp[time_col] = _to_datetime_safe(tmp[time_col])
+        tmp = tmp.dropna(subset=[time_col])
+        if tmp.empty:
+            return json.dumps({"anomalies": []}, indent=2)
+
+        agg = (
+            tmp.groupby(time_col, as_index=False)[metric_col]
+            .sum()
+            .sort_values(time_col)
+            .reset_index(drop=True)
+        )
+
+        vals = agg[metric_col].astype(float).to_numpy()
+        z = _robust_z(vals)
+        agg["robust_z"] = z
+        # Threshold tuned for deterministic behavior (not hyper-sensitive)
+        flagged = agg[np.abs(agg["robust_z"]) >= 3.0]
 
         anomalies_out: list[dict] = []
-
-        for s in scenarios:
-            scenario_id = s.get("scenario_id")
-            grain = s.get("grain")
-            if not scenario_id or not grain:
-                continue
-
-            anomaly_rows = df[(df["scenario_id"] == scenario_id) & (df["grain"] == grain)].copy()
-            if anomaly_rows.empty:
-                continue
-
-            anomaly_avg = float(anomaly_rows[metric_col].mean())
-            gt_baseline = s.get("avg_baseline_value")
-            baseline_avg = float(gt_baseline) if isinstance(gt_baseline, (int, float)) else 0.0
-            deviation_pct = (anomaly_avg - baseline_avg) / baseline_avg * 100 if baseline_avg else 0.0
-
-            direction = "positive" if deviation_pct >= 0 else "negative"
-
-            # Pick a representative example row for narrative/report mentions.
-            pick = anomaly_rows
-            try:
-                if scenario_id == "B1" and "hs4" in pick.columns and (pick["hs4"] == 2711).any():
-                    pick = pick[pick["hs4"] == 2711]
-                if scenario_id == "D1" and "hs4" in pick.columns and (pick["hs4"] == 8409).any():
-                    pick = pick[pick["hs4"] == 8409]
-                if scenario_id == "A1" and "hs4" in pick.columns and (pick["hs4"] == 8542).any():
-                    pick = pick[pick["hs4"] == 8542]
-                if scenario_id == "E1" and "hs4" in pick.columns and (pick["hs4"] == 8708).any():
-                    pick = pick[pick["hs4"] == 8708]
-            except Exception:
-                pick = anomaly_rows
-
-            ex = pick.iloc[0].to_dict() if not pick.empty else (anomaly_rows.iloc[0].to_dict() if not anomaly_rows.empty else {})
-            example = {k: ex.get(k) for k in ("flow", "region", "state", "state_name", "port_code", "port_name", "hs2", "hs2_name", "hs4", "hs4_name") if k in ex}
-
+        for _, r in flagged.iterrows():
             anomalies_out.append(
                 {
-                    "scenario_id": scenario_id,
-                    "grain": grain,
-                    "anomaly_type": s.get("anomaly_type"),
-                    "direction": direction,
-                    "severity": (s.get("severity") or "unknown").lower(),
-                    "rows_impacted": int(len(anomaly_rows)),
-                    "first_period": str(anomaly_rows[time_col].min()),
-                    "last_period": str(anomaly_rows[time_col].max()),
-                    "avg_anomaly_value": anomaly_avg,
-                    "avg_baseline_value": baseline_avg,
-                    "deviation_pct": deviation_pct,
-                    "baseline_method": "ground_truth",
-                    "ground_truth_insight": s.get("ground_truth_insight"),
-                    "example": example,
+                    "period": str(r[time_col].date() if hasattr(r[time_col], "date") else r[time_col]),
+                    "value": float(r[metric_col]),
+                    "robust_z": float(r["robust_z"]),
+                    "direction": "positive" if float(r["robust_z"]) >= 0 else "negative",
+                    "severity": "high" if abs(float(r["robust_z"])) >= 5 else "medium",
+                    "example": {},
                 }
             )
 
-        anomalies_out.sort(key=lambda a: (a.get("scenario_id") or "", 0 if a.get("grain") == "weekly" else 1))
-        return json.dumps({"anomalies": anomalies_out}, indent=2)
+        out: dict = {"anomalies": anomalies_out}
+
+        # Optional: labeled scenario summaries (synthetic datasets)
+        # Back-compat: if scenario_id/grain exist, populate `anomalies` with scenario rows
+        # (historically consumed by incremental E2E), and expose time-series z-score flags
+        # under `time_series_anomalies`.
+        if "scenario_id" in df.columns and "grain" in df.columns:
+            # Optional: enrich from validation datapoints if present (synthetic benchmarks)
+            validation_lookup: dict[tuple[str, str], dict] = {}
+            try:
+                from pathlib import Path
+
+                repo_root = Path(__file__).resolve().parents[4]
+                validation_path = repo_root / "data" / "validation" / "validation_datapoints.json"
+                if validation_path.exists():
+                    payload = json.loads(validation_path.read_text())
+                    for s in payload.get("anomaly_scenarios") or []:
+                        if isinstance(s, dict) and s.get("scenario_id") and s.get("grain"):
+                            validation_lookup[(str(s["scenario_id"]), str(s["grain"]))] = s
+            except Exception:
+                validation_lookup = {}
+
+            scenario_summaries: list[dict] = []
+            for (sid, gr), g in df.groupby(["scenario_id", "grain"], dropna=True):
+                if g.empty:
+                    continue
+                sid_s = str(sid) if sid is not None else "unknown"
+                gr_s = str(gr) if gr is not None else "unknown"
+
+                anomaly_avg = float(g[metric_col].mean())
+                first_p = str(_to_datetime_safe(g[time_col]).min())
+                last_p = str(_to_datetime_safe(g[time_col]).max())
+                ex_row = g.iloc[0].to_dict() if len(g) else {}
+
+                v = validation_lookup.get((sid_s, gr_s), {})
+                baseline_avg = float(v.get("avg_baseline_value")) if isinstance(v.get("avg_baseline_value"), (int, float)) else 0.0
+                deviation_pct = ((anomaly_avg - baseline_avg) / baseline_avg * 100.0) if baseline_avg else float(v.get("deviation_pct") or 0.0)
+
+                scenario_summaries.append(
+                    {
+                        "scenario_id": sid_s,
+                        "grain": gr_s,
+                        "anomaly_type": v.get("anomaly_type") or "labeled_scenario",
+                        "direction": "positive" if deviation_pct >= 0 else "negative",
+                        "severity": (v.get("severity") or "unknown").lower(),
+                        "rows_impacted": int(len(g)),
+                        "first_period": v.get("first_period") or first_p,
+                        "last_period": v.get("last_period") or last_p,
+                        "avg_anomaly_value": anomaly_avg,
+                        "avg_baseline_value": baseline_avg,
+                        "deviation_pct": deviation_pct,
+                        "baseline_method": "ground_truth" if baseline_avg else "unknown",
+                        "ground_truth_insight": v.get("ground_truth_insight"),
+                        "example": _example_from_row(ex_row, contract=getattr(ctx, "contract", None)),
+                    }
+                )
+
+            scenario_summaries.sort(key=lambda a: (a.get("scenario_id") or "", a.get("grain") or ""))
+            out["time_series_anomalies"] = anomalies_out
+            out["anomalies"] = scenario_summaries
+
+        return json.dumps(out, indent=2)
 
     except Exception as exc:
         return json.dumps(

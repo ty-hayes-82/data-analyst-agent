@@ -242,18 +242,18 @@ async def extract_alerts_from_analysis(
                         deviation_pct = float(a.get("deviation_pct", 0) or 0)
                         severity = (a.get("severity") or a.get("anomaly_severity") or "HIGH").upper()
                         alert = {
-                            "id": f"{scenario_id}-trade-anomaly",
+                            "id": f"{scenario_id}-fixture-anomaly",
                             "period": a.get("last_period") or a.get("period") or "unknown",
                             "item_id": scenario_id,
                             "item_name": scenario_id,
                             "dimension_value": target_name,
-                            "category": "trade_anomaly",
+                            "category": "fixture_anomaly",
                             "variance_amount": None,
                             "variance_pct": round(abs(deviation_pct), 2),
                             "severity": severity,
                             "signals": {"fixture_labeled": True},
                             "details": {
-                                "description": a.get("ground_truth_insight") or "Trade anomaly detected",
+                                "description": a.get("ground_truth_insight") or a.get("description") or "Fixture-labeled anomaly detected",
                                 "deviation_pct": deviation_pct,
                             },
                         }

@@ -173,3 +173,13 @@ SCOPED DEEP-DIVE SHAPE — SECTION TITLES MUST MATCH EXACTLY:
 - Each insight uses specific values, baselines, and entity names.
 - Contradictions and concentration risk are explicit when present.
 - Scoped briefs show child-entity evidence, not only parent-level averages.
+
+
+**Final JSON Assembly Checklist (MANDATORY):**
+1. ALWAYS return a top-level JSON object with exactly two keys: `header` and `body`.
+2. `header` must contain both `title` and `summary` strings.
+3. `body` must contain a `sections` array. Every section must include the required `title` plus either a `content` string or an `insights` array populated with `{ "title": "...", "details": "..." }` objects.
+4. When a section has no qualifying insights, return an empty `insights` array (do **not** drop the `insights` key or replace it with text).
+5. Do not emit Markdown fences, commentary, or explanation outside the JSON. The model output should be directly parseable by `JSON.parse` with no preprocessing.
+6. Before responding, mentally validate that the JSON matches the appropriate schema above (Network or Scoped) and that every quote, comma, and bracket is balanced.
+

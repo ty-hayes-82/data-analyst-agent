@@ -37,9 +37,9 @@ def load_from_config(
     dataset_name: str,
     *,
     csv_path: Optional[str] = None,
-    region_filter: Optional[str] = None,
-    terminal_filter: Optional[str] = None,
+    dimension_filters: Optional[Dict[str, Any]] = None,
     metric_filter: Optional[Union[str, List[str]]] = None,
+    metric_column: Optional[str] = None,
     exclude_partial_week: bool = False,
 ) -> pd.DataFrame:
     """Load data using declarative rules from config/datasets/<dataset_name>/loader.yaml.
@@ -47,9 +47,9 @@ def load_from_config(
     Args:
         dataset_name: Folder name in config/datasets/ (e.g. "validation_ops").
         csv_path: Optional override for the source file path.
-        region_filter: Exact match on region (case-insensitive).
-        terminal_filter: Exact match on terminal (case-insensitive).
-        metric_filter: Substring or exact match on metric (matches validation_data_loader logic).
+        dimension_filters: Mapping of physical column -> value derived from the dataset contract.
+        metric_filter: Substring or exact match on the metric identifier column (legacy behaviour).
+        metric_column: Override for the metric identifier column name (defaults to loader.yaml or 'metric').
         exclude_partial_week: If True, drop dates defined in partial_period.known_dates.
 
     Returns:
@@ -64,6 +64,8 @@ def load_from_config(
 
     with open(loader_path, "r") as f:
         config = yaml.safe_load(f)
+
+    metric_col = metric_column or (config.get("metric_column") if isinstance(config, dict) else None) or "metric"
 
     # Resolve source file path
     project_root = _find_project_root()
@@ -81,23 +83,29 @@ def load_from_config(
 
     # --- Apply filters to the cached full long-format DF ---
     df = full_df.copy()
+    dimension_filters = dimension_filters or {}
 
-    if region_filter:
-        mask = df["region"].str.strip().str.lower() == region_filter.lower()
+    for column, value in dimension_filters.items():
+        if column not in df.columns:
+            continue
+        mask = (
+            df[column]
+            .astype(str)
+            .str.strip()
+            .str.lower()
+            == str(value).strip().lower()
+        )
         df = df[mask]
-    if terminal_filter:
-        mask = df["terminal"].str.strip().str.lower() == terminal_filter.lower()
-        df = df[mask]
-    if metric_filter:
+    if metric_filter and metric_col in df.columns:
         if isinstance(metric_filter, list):
             lower_list = [m.strip().lower() for m in metric_filter]
-            mask = df["metric"].str.strip().str.lower().isin(lower_list)
-        elif "," in metric_filter:
+            mask = df[metric_col].astype(str).str.strip().str.lower().isin(lower_list)
+        elif isinstance(metric_filter, str) and "," in metric_filter:
             lower_list = [m.strip().lower() for m in metric_filter.split(",")]
-            mask = df["metric"].str.strip().str.lower().isin(lower_list)
+            mask = df[metric_col].astype(str).str.strip().str.lower().isin(lower_list)
         else:
-            mask = df["metric"].str.strip().str.lower().str.contains(
-                metric_filter.lower(), regex=False
+            mask = df[metric_col].astype(str).str.strip().str.lower().str.contains(
+                str(metric_filter).lower(), regex=False
             )
         df = df[mask]
 
@@ -172,7 +180,13 @@ def _perform_etl(csv_path: str, config: Dict[str, Any], exclude_partial: bool) -
     if "column_mapping" in config:
         df = df.rename(columns=config["column_mapping"])
 
-    # 6. Sort and final selection
+    # 6. Optional numeric coercion
+    numeric_cols = config.get("numeric_columns", []) or []
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # 7. Sort and final selection
     if "sort_columns" in config:
         df = df.sort_values(config["sort_columns"])
         

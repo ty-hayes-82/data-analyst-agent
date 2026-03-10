@@ -1,0 +1,30 @@
+source:
+  file: "data/public/us_counties_covid_sampled.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+date_parsing:
+  source_column: "date"
+  input_format: "%Y-%m-%d"
+  output_column: "period_end"
+  output_format: "%Y-%m-%d"
+
+column_mapping:
+  county: "county"
+  state: "state"
+  fips: "fips"
+  cases: "cases"
+  deaths: "deaths"
+
+numeric_columns: ["cases", "deaths"]
+
+sort_columns: ["period_end", "state", "county"]
+
+output_columns:
+  - "period_end"
+  - "state"
+  - "county"
+  - "fips"
+  - "cases"
+  - "deaths"

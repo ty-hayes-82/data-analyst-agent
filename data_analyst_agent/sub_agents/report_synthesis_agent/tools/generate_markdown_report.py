@@ -205,10 +205,19 @@ async def generate_markdown_report(
                     sid = a.get("scenario_id")
                     atype = a.get("anomaly_type")
                     ex = a.get("example") or {}
-                    loc = "/".join([str(x) for x in (ex.get("state_name") or ex.get("state"), ex.get("port_name") or ex.get("port_code")) if x])
+                    # Dataset-agnostic context from example dimensions
+                    bits = []
+                    if isinstance(ex, dict):
+                        for k, v in ex.items():
+                            if v in (None, ""):
+                                continue
+                            bits.append(f"{k}={v}")
+                            if len(bits) >= 4:
+                                break
+                    ctx_txt = (" (" + ", ".join(bits) + ")") if bits else ""
                     dev = float(a.get("deviation_pct") or 0.0)
                     derived_actions.append(
-                        f"Investigate {sid} ({atype}) at {loc} and validate drivers behind {dev:+.1f}% deviation; propose mitigation/monitoring steps."
+                        f"Investigate {sid} ({atype}){ctx_txt} and validate drivers behind {dev:+.1f}% deviation; propose mitigation/monitoring steps."
                     )
                 narrative_data["recommended_actions"] = derived_actions
 

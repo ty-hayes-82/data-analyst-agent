@@ -31,6 +31,7 @@ from google.adk.events.event import Event
 from google.genai.types import Content, Part
 
 from ..tools.config_data_loader import load_from_config
+from ..utils.dimension_filters import describe_dimension_filters, extract_dimension_filters
 
 
 class ConfigCSVFetcher(BaseAgent):
@@ -42,21 +43,31 @@ class ConfigCSVFetcher(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         # Resolve target and filters from session state
         metric_filter = ctx.session.state.get("current_analysis_target")
-        req_analysis = ctx.session.state.get("request_analysis", {})
-        if isinstance(req_analysis, str):
+        req_analysis_raw = ctx.session.state.get("request_analysis", {})
+        if isinstance(req_analysis_raw, str):
             try:
-                req_analysis = json.loads(req_analysis)
+                req_analysis = json.loads(req_analysis_raw)
             except json.JSONDecodeError:
                 req_analysis = {}
+        elif isinstance(req_analysis_raw, dict):
+            req_analysis = req_analysis_raw
+        else:
+            req_analysis = {}
 
-        region_filter = req_analysis.get("region")
-        terminal_filter = req_analysis.get("terminal")
-        
         contract = ctx.session.state.get("dataset_contract")
         if not contract:
             print("[ConfigCSVFetcher] ERROR: No dataset contract found in state.")
             yield Event(invocation_id=ctx.invocation_id, author=self.name)
             return
+
+        dimension_filters = extract_dimension_filters(
+            contract,
+            request_analysis=req_analysis,
+            candidates=[
+                (req_analysis.get("primary_dimension"), ctx.session.state.get("dimension_value")),
+                (ctx.session.state.get("dimension"), ctx.session.state.get("dimension_value")),
+            ],
+        )
 
         dataset_name = contract.name.lower().replace(" ", "_")
         # Ensure we use the folder name, not display name
@@ -71,8 +82,9 @@ class ConfigCSVFetcher(BaseAgent):
         print("\n" + "=" * 80)
         print(f"[ConfigCSVFetcher] Loading {dataset_name} data via loader.yaml")
         print(f"  metric   : {metric_filter or '(all)'}")
-        print(f"  region   : {region_filter or '(all)'}")
-        print(f"  terminal : {terminal_filter or '(all)'}")
+        print(
+            f"  dimension filters : {describe_dimension_filters(contract, dimension_filters)}"
+        )
         print(f"  excl_partial : {exclude_partial}")
         print("=" * 80 + "\n")
 
@@ -81,8 +93,7 @@ class ConfigCSVFetcher(BaseAgent):
             # We use the generic loader which handles wide-to-long, cleaning, and filtering
             df = load_from_config(
                 dataset_name=dataset_name,
-                region_filter=region_filter,
-                terminal_filter=terminal_filter,
+                dimension_filters=dimension_filters,
                 metric_filter=metric_filter,
                 exclude_partial_week=exclude_partial,
             )
@@ -90,7 +101,9 @@ class ConfigCSVFetcher(BaseAgent):
             print(f"[TIMER] <<< ConfigCSVFetcher: Loaded {len(df)} rows in {duration:.2f}s")
 
             if df.empty:
-                print(f"[ConfigCSVFetcher] WARNING: No rows returned for metric={metric_filter}, region={region_filter}, terminal={terminal_filter}.")
+                print(
+                    f"[ConfigCSVFetcher] WARNING: No rows returned for metric={metric_filter}, filters={describe_dimension_filters(contract, dimension_filters)}."
+                )
             
             # Populate cache and state
             csv_content = df.to_csv(index=False)

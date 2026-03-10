@@ -1,0 +1,86 @@
+name: "US County COVID-19 (v2)"
+version: "1.0.0"
+display_name: "US County COVID-19 Trends (2022)"
+target_label: "Cases"
+description: >
+  Daily COVID-19 confirmed cases and deaths for every US county (NYTimes public
+  repository). Data has been trimmed to 2022+ to keep the CSV under 5 MB while
+  preserving multi-state drill depth for validation runs.
+
+materiality:
+  variance_pct: 15.0
+  variance_absolute: 50
+
+presentation:
+  unit: "people"
+
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 1
+  max_scope_entities: 25
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/public/us_counties_covid_sampled.csv"
+
+time:
+  column: "period_end"
+  frequency: "daily"
+  format: "%Y-%m-%d"
+  range_months: 36
+
+grain:
+  columns: ["period_end", "state", "county"]
+
+metrics:
+  - name: "cases"
+    column: "cases"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    tags: ["public_health", "cases"]
+    description: "Cumulative confirmed cases"
+  - name: "deaths"
+    column: "deaths"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    tags: ["public_health", "deaths"]
+    description: "Cumulative confirmed deaths"
+
+dimensions:
+  - name: "state"
+    column: "state"
+    role: "primary"
+    description: "US state / territory"
+  - name: "county"
+    column: "county"
+    role: "secondary"
+    description: "County or county-equivalent"
+  - name: "fips"
+    column: "fips"
+    role: "secondary"
+    description: "FIPS county code"
+  - name: "period_end"
+    column: "period_end"
+    role: "time"
+    description: "Date of observation"
+
+hierarchies:
+  - name: "state_to_county"
+    description: "State -> County"
+    children: ["state", "county"]
+    level_names:
+      0: "Total"
+      1: "State"
+      2: "County"
+
+capabilities:
+  - "Daily case/death trend analysis"
+  - "State-to-county drill down"
+  - "Anomaly detection on reporting gaps"
+  - "Regional comparisons across the US"
+
+policies:
+  degradation_threshold: 0.2
