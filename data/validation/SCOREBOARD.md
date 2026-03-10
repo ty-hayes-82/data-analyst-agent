@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T14:35:35
+**Last updated:** 2026-03-10T15:05:33
 
 ## Current State
-- **Unit Tests:** 236 passed, 0 failed, 0 errors
+- **Unit Tests:** 239 passed, 1 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 187 files, 25,870 lines, **49 files >200L**
+- **Codebase:** 188 files, 26,201 lines, **49 files >200L**
 - **Largest:** utils/phase_logger.py (546L)
-- **Commit:** `5de4f34 Add FastAPI web UI for dataset analysis`
+- **Commit:** `3f11d42 fix: contract-driven anomaly/PoP/narrative`
 
 ## Progress Over Time
 
@@ -125,9 +125,10 @@
 | 110 | 13:46 | `3af1a29` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 | 111 | 14:16 | `5de4f34` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 | 112 | 14:35 | `5de4f34` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 113 | 15:05 | `3f11d42` | 239 | 1 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 
 ## Cumulative Improvement
-- Tests: 247 → **236** (+-11)
-- Failures: 0 → **0**
+- Tests: 247 → **239** (+-8)
+- Failures: 0 → **1**
 - Files >200L: 50 → **49** (-1)
-- Iterations: 112
+- Iterations: 113
