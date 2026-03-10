@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T03:01:05
+**Last updated:** 2026-03-10T03:31:30
 
 ## Current State
 - **Unit Tests:** 236 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
 - **Codebase:** 187 files, 25,745 lines, **49 files >200L**
 - **Largest:** utils/phase_logger.py (546L)
-- **Commit:** `b7eec20 fix: normalize metric name matching in exe`
+- **Commit:** `7943cc7 test: add pytest-asyncio plugin`
 
 ## Progress Over Time
 
@@ -45,9 +45,13 @@
 | 30 | 01:03 | `557d904` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 | 31 | 01:20 | `557d904` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 | 32 | 03:01 | `b7eec20` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 33 | 03:02 | `0b20bcd` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 34 | 03:17 | `7943cc7` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 35 | 03:21 | `7943cc7` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
+| 36 | 03:31 | `7943cc7` | 236 | 0 | 0 | 5/5 | 49 | utils/phase_logger.py (54 |
 
 ## Cumulative Improvement
 - Tests: 247 → **236** (+-11)
 - Failures: 0 → **0**
 - Files >200L: 50 → **49** (-1)
-- Iterations: 32
+- Iterations: 36

@@ -156,3 +156,13 @@ Agents: after each session, append what you learned here. Before starting work, 
 - Full-suite command (`/usr/local/bin/python -m pytest --tb=short -q`) still halts at collection with the same four `google.adk` import errors (planner, hierarchy variance, temporal grain, output manager). Until we vendor ADK shims, repo-root pytest cannot go green.
 - `tests/e2e/test_trade_data_e2e.py` continues to pass 5/5 checks in ~0.5s; slowest assertion is the YoY variance validation at ~0.38s.
 - `scripts/track_results.py` shells out to `.venv/bin/python` for pytest runs and then enumerates every `.py` file with `find ... | wc -l`; expect a short pause before it prints the SCOREBOARD summary—let it finish rather than Ctrl+C.
+
+### 2026-03-10 — Tester E2E 03:00 UTC run
+- Running `python -m pytest tests/ --tb=short -q` via the repo default interpreter currently surfaces 86 failures, all with the same root cause: pytest is collecting async test coroutines without an async plugin, so every async test exits early with `async def functions are not natively supported`. Until `pytest-asyncio` (or an equivalent plugin) is enabled by default, expect the suite to fail before exercising any real logic.
+- The targeted e2e command (`python -m pytest tests/e2e/ -v`) reproduces the same issue on 16 async scenarios (session state flow, hierarchy variance levels, insight quality checks, etc.). Fixing the async plugin wiring should clear the entire set at once.
+- `python scripts/track_results.py` still completes and updates SCOREBOARD/iteration_results, so let it run to completion even when preceding pytest commands fail—the script does not exit early on the async plugin errors.
+
+### 2026-03-10 — Reviewer audit (last-5 commits)
+- `compute_level_statistics_impl()` refactor dropped the outer `try/except` that used to return a JSON `{error: ComputationFailed, traceback: ...}` payload. Any runtime bug now raises and can crash the tool/agent instead of failing gracefully. Re-wrap the function body (or key stages) and preserve the previous error contract.
+- `ConditionalOrderDetailsFetchAgent` still exists in `core_agents/loaders.py` but is no longer imported/used/exported anywhere in the last-5 commits. Either re-wire it intentionally (if still part of the pipeline) or remove it to avoid dead-code drift.
+- `data_analyst_agent/__init__.py` now mutates `sys.path` to inject `.venv/site-packages` at import-time. This is a blunt fix for local deps; watch for subtle precedence issues (shadowing system packages) and prefer documenting a single canonical interpreter / entrypoint when possible.
