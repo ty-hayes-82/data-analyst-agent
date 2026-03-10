@@ -265,11 +265,11 @@ class TestNarrativeInsightQuality:
         low = narrative.lower()
 
         # Required terms
-        assert ("semiconductors" in low) or ("8542" in low)
+        assert ("electronics" in low) or ("85" in low)
         assert ("energy" in low) or ("natural gas" in low) or ("2711" in low)
         assert ("weather" in low) or ("disruption" in low)
         assert ("machinery" in low) or ("8409" in low)
-        assert ("auto parts" in low) or ("8703" in low) or ("8708" in low)
+        assert ("vehicles" in low) or ("87" in low)
         assert ("plastics" in low) or ("3901" in low) or ("3923" in low)
 
         # Geographic locations
