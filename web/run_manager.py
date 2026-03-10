@@ -49,7 +49,8 @@ def _refresh_status(run: dict) -> dict:
             log_path = Path(run["output_dir"]) / "run.log"
             if log_path.exists():
                 log_tail = log_path.read_text(errors="replace")[-2000:]
-                if "Analysis failed:" in log_tail or "Traceback" in log_tail.split("\n")[-10:]:
+                last_lines = log_tail.split("\n")[-10:]
+                if "Analysis failed:" in log_tail or any("Traceback" in line for line in last_lines):
                     run["status"] = "failed"
                     # Extract last error line
                     for line in reversed(log_tail.splitlines()):
@@ -236,11 +237,13 @@ def get_file_content(run_id: str, filename: str) -> tuple[str, str]:
     if not run:
         raise FileNotFoundError("Run not found")
     # Security: sanitize filename and ensure it stays inside output dir
-    if ".." in filename or "/" in filename or "\\" in filename:
+    if ".." in filename or "/" in filename or "\\" in filename or os.sep in filename:
         raise FileNotFoundError("Invalid filename")
     output_dir = Path(run["output_dir"]).resolve()
     file_path = (output_dir / filename).resolve()
-    if not str(file_path).startswith(str(output_dir)):
+    try:
+        file_path.relative_to(output_dir)
+    except ValueError:
         raise FileNotFoundError("Invalid filename")
     if not file_path.exists():
         raise FileNotFoundError("File not found")

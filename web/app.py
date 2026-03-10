@@ -1,6 +1,7 @@
 """Data Analyst Agent — Web UI."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File

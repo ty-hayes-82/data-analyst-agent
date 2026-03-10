@@ -21,7 +21,7 @@ def list_datasets() -> list[dict[str, Any]]:
             try:
                 with open(contract_path, encoding="utf-8") as f:
                     data = yaml.safe_load(f) or {}
-                dataset_id = str(rel).replace("\\", "/")
+                dataset_id = rel.as_posix()
                 name = data.get("name", str(rel))
                 # Deduplicate by name (handles alias/symlink layout)
                 if name in seen_names:
@@ -41,11 +41,13 @@ def list_datasets() -> list[dict[str, Any]]:
 def load_contract(dataset_id: str) -> dict[str, Any]:
     """Load a contract.yaml by dataset ID (relative path under config/datasets/)."""
     # Security: prevent path traversal
-    if ".." in dataset_id or dataset_id.startswith("/") or dataset_id.startswith("\\"):
+    if ".." in dataset_id or os.path.isabs(dataset_id):
         raise FileNotFoundError(f"Invalid dataset ID: {dataset_id}")
     contract_path = (DATASETS_DIR / dataset_id / "contract.yaml").resolve()
     # Ensure resolved path is still under DATASETS_DIR
-    if not str(contract_path).startswith(str(DATASETS_DIR.resolve())):
+    try:
+        contract_path.relative_to(DATASETS_DIR.resolve())
+    except ValueError:
         raise FileNotFoundError(f"Invalid dataset ID: {dataset_id}")
     if not contract_path.exists():
         raise FileNotFoundError(f"No contract at {contract_path}")
