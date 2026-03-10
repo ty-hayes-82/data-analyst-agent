@@ -126,8 +126,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         extracted_targets = ctx.session.state.get("extracted_targets") or []
         if extracted_targets:
-            requested = {str(t).strip() for t in extracted_targets}
-            reports = {k: v for k, v in reports.items() if k in requested}
+            requested = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
+            reports = {k: v for k, v in reports.items() if k.replace(" ", "_").lower() in requested}
             if reports:
                 print(f"[BRIEF] Filtered to {len(reports)} requested metric(s): {', '.join(reports.keys())}")
 
@@ -154,8 +154,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         json_data = _collect_metric_json_data(outputs_dir)
         if extracted_targets:
-            requested = {str(t).strip() for t in extracted_targets}
-            json_data = {k: v for k, v in json_data.items() if k in requested}
+            requested = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
+            json_data = {k: v for k, v in json_data.items() if k.replace(" ", "_").lower() in requested}
 
         use_json = parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_JSON", "true"))
         if use_json and json_data:
