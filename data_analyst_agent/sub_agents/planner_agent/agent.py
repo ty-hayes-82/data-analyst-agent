@@ -97,6 +97,10 @@ class RuleBasedPlanner(BaseAgent):
             ),
             "context_summary": context_summary,
         }
+        if analysis_focus:
+            plan["focus_modes"] = analysis_focus
+        if custom_focus:
+            plan["custom_focus"] = custom_focus
         plan_json = json.dumps(plan, indent=2)
 
         agent_names = [a["name"] for a in selected_agents]

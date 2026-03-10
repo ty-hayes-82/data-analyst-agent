@@ -45,3 +45,8 @@ class SummaryState:
 
     # Advanced tool payloads
     advanced_results: dict[str, Any] = field(default_factory=dict)
+
+    # Focus directives
+    analysis_focus: list[str] = field(default_factory=list)
+    custom_focus: str = ""
+    focus_settings: dict[str, Any] = field(default_factory=dict)

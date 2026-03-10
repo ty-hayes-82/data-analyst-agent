@@ -16,9 +16,16 @@ from .stat_summary import (
 )
 
 
-async def compute_statistical_summary() -> str:
+async def compute_statistical_summary(
+    analysis_focus: list[str] | None = None,
+    custom_focus: str | None = None,
+) -> str:
     try:
-        state, _ = data_prep.prepare_state(data_cache.resolve_data_and_columns)
+        state, _ = data_prep.prepare_state(
+            data_cache.resolve_data_and_columns,
+            analysis_focus=analysis_focus,
+            custom_focus=custom_focus,
+        )
         per_item_metrics.compute_account_metrics(state)
         anomaly_signals.compute_anomalies_and_correlations(state)
         period_totals.compute_monthly_totals(state)

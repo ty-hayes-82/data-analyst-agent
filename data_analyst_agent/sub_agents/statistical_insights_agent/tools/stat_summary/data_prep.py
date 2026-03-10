@@ -12,7 +12,7 @@ from .....semantic.lag_utils import get_effective_lag_or_default, resolve_effect
 from ..stat_summary.state import SummaryState
 
 
-def prepare_state(resolve_data_and_columns) -> Tuple[SummaryState, dict[str, Any]]:
+def prepare_state(resolve_data_and_columns, analysis_focus=None, custom_focus: str | None = None) -> Tuple[SummaryState, dict[str, Any]]:
     df, time_col, metric_col, grain_col, name_col, ctx = resolve_data_and_columns("StatisticalSummary")
     df[metric_col] = pd.to_numeric(df[metric_col], errors="coerce").fillna(0)
 
@@ -78,6 +78,12 @@ def prepare_state(resolve_data_and_columns) -> Tuple[SummaryState, dict[str, Any
         change_series=change_series,
         contribution_share=contribution_share,
     )
+
+    normalized_focus = _normalize_focus_list(analysis_focus)
+    focus_settings = _derive_focus_settings(normalized_focus, temporal_grain)
+    state.analysis_focus = normalized_focus
+    state.custom_focus = (custom_focus or "").strip()
+    state.focus_settings = focus_settings
 
     return state, {"names_map": names_map}
 
@@ -159,3 +165,40 @@ def _compute_pattern_labels(pivot: pd.DataFrame, latest_period: str) -> dict[str
         for account in pivot.index:
             labels[account] = "run_rate_change"
     return labels
+
+
+def _normalize_focus_list(focus) -> list[str]:
+    if not focus:
+        return []
+    if isinstance(focus, str):
+        focus = [focus]
+    seen = set()
+    normalized: list[str] = []
+    for item in focus:
+        value = str(item).strip().lower()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _derive_focus_settings(focus_modes: list[str], temporal_grain: str) -> dict[str, Any]:
+    settings: dict[str, Any] = {
+        "z_threshold": 2.0,
+        "focus_periods": 8 if temporal_grain == "weekly" else 4,
+    }
+    if "recent_weekly_trends" in focus_modes:
+        settings["focus_periods"] = 8
+    if "recent_monthly_trends" in focus_modes:
+        settings["focus_periods"] = 6
+    if "anomaly_detection" in focus_modes or "outlier_investigation" in focus_modes:
+        settings["z_threshold"] = 1.5
+    if "yoy_comparison" in focus_modes:
+        settings["emphasize_yoy"] = True
+    if "forecasting" in focus_modes:
+        settings["emphasize_forecast"] = True
+    if "revenue_gap_analysis" in focus_modes:
+        settings["highlight_revenue_gaps"] = True
+    settings["analysis_focus"] = focus_modes
+    return settings

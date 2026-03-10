@@ -122,9 +122,14 @@ def generate_statistical_insight_cards(statistical_summary: dict) -> dict:
     grand_total = _compute_grand_total(statistical_summary)
     cards: list[dict] = []
 
-    # Compute recent periods for recency-weighted ranking (from ANALYSIS_FOCUS_PERIODS env)
+    metadata = statistical_summary.get("metadata", {}) or {}
+    focus_context = metadata.get("focus_context", {}) or {}
+
+    # Compute recent periods for recency-weighted ranking (from focus context or env)
     periods_list = sorted(statistical_summary.get("monthly_totals", {}).keys())
-    focus_periods = max(1, int(os.environ.get("ANALYSIS_FOCUS_PERIODS", "4")))
+    focus_periods = int(focus_context.get("focus_periods") or 0)
+    if focus_periods <= 0:
+        focus_periods = max(1, int(os.environ.get("ANALYSIS_FOCUS_PERIODS", "4")))
     recent_periods = frozenset(periods_list[-focus_periods:]) if len(periods_list) >= focus_periods else frozenset()
 
     try:

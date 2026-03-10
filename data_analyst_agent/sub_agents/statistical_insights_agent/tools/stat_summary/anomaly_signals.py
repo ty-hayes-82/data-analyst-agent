@@ -11,6 +11,8 @@ from ..stat_summary.state import SummaryState
 
 def compute_anomalies_and_correlations(state: SummaryState) -> None:
     pivot = state.pivot
+    focus_settings = state.focus_settings or {}
+    z_threshold = float(focus_settings.get("z_threshold", 2.0))
     anomalies: list[dict] = []
     for account in pivot.index:
         values = pivot.loc[account].values
@@ -25,7 +27,7 @@ def compute_anomalies_and_correlations(state: SummaryState) -> None:
             if np.isnan(val):
                 continue
             z = (val - mean) / std
-            if abs(z) < 2.0:
+            if abs(z) < z_threshold:
                 continue
             p_value = float(scipy_stats.norm.sf(abs(z)) * 2)
             anomalies.append(
@@ -41,7 +43,9 @@ def compute_anomalies_and_correlations(state: SummaryState) -> None:
                 }
             )
 
-    focus_periods = max(1, int(os.environ.get("ANALYSIS_FOCUS_PERIODS", "4")))
+    focus_periods = int(focus_settings.get("focus_periods") or 0)
+    if focus_periods <= 0:
+        focus_periods = max(1, int(os.environ.get("ANALYSIS_FOCUS_PERIODS", "4")))
     periods_list = list(pivot.columns)
     recent_periods = (
         set(periods_list[-focus_periods:]) if len(periods_list) >= focus_periods else set(periods_list)

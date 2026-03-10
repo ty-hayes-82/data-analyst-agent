@@ -50,12 +50,21 @@ def build_result(state: SummaryState, advanced_results: dict[str, Any]) -> str:
         "cross_dimension_analysis": _collect_cross_dim(advanced_results),
     })
 
+    focus_context = {
+        "analysis_focus": state.analysis_focus,
+        "custom_focus": state.custom_focus,
+        **(state.focus_settings or {}),
+    }
+
+    z_threshold = focus_context.get("z_threshold", 2.0)
+
     result["metadata"] = {
         "computation_method": "pandas/numpy statistical analysis + advanced methods",
-        "anomaly_threshold": "z-score >= 2.0",
+        "anomaly_threshold": f"z-score >= {z_threshold}",
         "slope_method": f"last 3 {state.period_unit}s linear regression",
         "temporal_grain": state.temporal_grain,
         "period_unit": state.period_unit,
+        "focus_context": focus_context,
         "advanced_methods": [
             "STL seasonal decomposition",
             "PELT change point detection",

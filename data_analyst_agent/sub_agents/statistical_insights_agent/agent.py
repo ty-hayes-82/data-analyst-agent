@@ -54,7 +54,10 @@ class StatisticalComputationAgent(BaseAgent):
         print(f"{'='*80}\n", flush=True)
         
         # Call the statistical summary tool
-        stats_json = await compute_statistical_summary()
+        stats_json = await compute_statistical_summary(
+            analysis_focus=ctx.session.state.get("analysis_focus"),
+            custom_focus=ctx.session.state.get("custom_focus"),
+        )
         
         # Validate data integrity - fail fast if missing or invalid
         try:
