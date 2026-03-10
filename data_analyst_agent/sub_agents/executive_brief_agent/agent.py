@@ -57,6 +57,18 @@ from .scope_utils import (
 )
 
 
+def _format_instruction(template: str, **fields: str) -> str:
+    """Safely render the executive-brief prompt with literal braces intact."""
+    placeholders = {key: f"<<{key.upper()}_PLACEHOLDER>>" for key in fields}
+    safe = template
+    for key, token in placeholders.items():
+        safe = safe.replace(f"{{{key}}}", token)
+    safe = safe.replace("{", "{{").replace("}", "}}")
+    for key, token in placeholders.items():
+        safe = safe.replace(token, f"{{{key}}}")
+    return safe.format(**fields)
+
+
 async def _llm_generate_brief(
     model_name: str,
     instruction: str,
@@ -235,7 +247,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         if dataset_desc:
             contract_context += f" {dataset_desc.strip()}"
 
-        instruction = EXECUTIVE_BRIEF_INSTRUCTION.format(
+        instruction = _format_instruction(
+            EXECUTIVE_BRIEF_INSTRUCTION,
             metric_count=len(reports),
             analysis_period=analysis_period,
             scope_preamble="",
@@ -362,7 +375,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             scope_entity=entity,
                             scope_level_name=level_name.lower(),
                         )
-                        scoped_instruction = EXECUTIVE_BRIEF_INSTRUCTION.format(
+                        scoped_instruction = _format_instruction(
+                            EXECUTIVE_BRIEF_INSTRUCTION,
                             metric_count=len(reports),
                             analysis_period=analysis_period,
                             scope_preamble=scope_preamble,

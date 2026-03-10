@@ -1,7 +1,15 @@
-type: csv
-file: data/public/worldbank_population.csv
-encoding: utf-8
-date_columns:
-- Year
-numeric_columns:
-- Value
+source:
+  file: "data/public/worldbank_population.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+numeric_columns: ["Value"]
+
+sort_columns: ["Year", "Country Name"]
+
+output_columns:
+  - "Country Name"
+  - "Country Code"
+  - "Year"
+  - "Value"

@@ -1,7 +1,14 @@
-type: csv
-file: data/public/global_temp_monthly.csv
-encoding: utf-8
-date_columns:
-- Year
-numeric_columns:
-- Mean
+source:
+  file: "data/public/global_temp_monthly.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+numeric_columns: ["Mean"]
+
+sort_columns: ["Year", "Source"]
+
+output_columns:
+  - "Source"
+  - "Year"
+  - "Mean"
