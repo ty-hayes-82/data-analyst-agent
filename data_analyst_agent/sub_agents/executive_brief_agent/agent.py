@@ -517,7 +517,53 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         focus_preamble_text = f"FOCUS_DIRECTIVES:\n{focus_block}\n\n" if focus_block else ""
 
+        # When the run is scoped to a single entity (e.g. Arizona from hierarchy filter),
+        # add an explicit scope restriction so the brief does not discuss other entities.
+        # Prefer hierarchy_filters (what the user selected in the UI) over request_analysis.
+        scope_restriction_text = ""
+        scope_entity_name = None
+        _generic_scope = frozenset(
+            {"", "all", "total", "none", "all entities", "all regions", "entire network", "entire scope"}
+        )
+        hf = ctx.session.state.get("hierarchy_filters") or {}
+        if isinstance(hf, dict) and hf:
+            for col, vals in hf.items():
+                if isinstance(vals, list) and len(vals) == 1 and str(vals[0]).strip():
+                    scope_entity_name = str(vals[0]).strip()
+                    scope_restriction_text = (
+                        SCOPED_BRIEF_PREAMBLE.format(
+                            scope_entity=scope_entity_name,
+                            scope_level_name=col,
+                        )
+                        + "\n"
+                        "Ignore any entities or regions in the digest that are outside this scope; "
+                        "report only on the requested scope.\n\n"
+                    )
+                    break
+        if not scope_restriction_text:
+            req_analysis = ctx.session.state.get("request_analysis")
+            if isinstance(req_analysis, str) and req_analysis.strip():
+                try:
+                    req_analysis = json.loads(req_analysis)
+                except json.JSONDecodeError:
+                    req_analysis = {}
+            if isinstance(req_analysis, dict):
+                primary_val = (req_analysis.get("primary_dimension_value") or "").strip()
+                primary_dim = (req_analysis.get("primary_dimension") or "").strip()
+                if primary_val and primary_val.lower() not in _generic_scope and primary_dim:
+                    scope_entity_name = primary_val
+                    scope_restriction_text = (
+                        SCOPED_BRIEF_PREAMBLE.format(
+                            scope_entity=primary_val,
+                            scope_level_name=primary_dim,
+                        )
+                        + "\n\n"
+                    )
+        if scope_restriction_text:
+            print(f"[BRIEF] Applying scope restriction for filtered run" + (f" ({scope_entity_name})" if scope_entity_name else ""))
+
         user_message = (
+            f"{scope_restriction_text}"
             f"{focus_preamble_text}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"

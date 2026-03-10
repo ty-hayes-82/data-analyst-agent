@@ -29,6 +29,13 @@ select, input[type="date"], input[type="number"], input[type="text"] {
 }
 select:focus, input:focus { outline: none; border-color: #58a6ff; }
 
+.metrics-label-row { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; }
+.metrics-label-row label { margin-bottom: 0; }
+.metrics-actions { font-size: 0.85em; display: none; }
+.metrics-actions .btn-link { background: none; border: none; color: #58a6ff; cursor: pointer; padding: 0 0.2em; font-size: inherit; }
+.metrics-actions .btn-link:hover { text-decoration: underline; }
+.metrics-actions-sep { color: #484f58; margin: 0 0.35em; }
+
 .checkbox-group { display: flex; flex-wrap: wrap; gap: 0.75em; margin-top: 0.3em; }
 .checkbox-group label { display: flex; align-items: center; gap: 0.4em; cursor: pointer; color: #e6edf3; font-weight: 400; }
 .checkbox-group input[type="checkbox"] { accent-color: #58a6ff; }

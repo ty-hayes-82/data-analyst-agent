@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import asyncio
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -10,6 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import contract_loader, run_manager
+
+# Avoid noisy Windows Proactor shutdown assertions with active sockets.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 app = FastAPI(title="Data Analyst Agent", docs_url="/docs")
 

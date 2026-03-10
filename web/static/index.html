@@ -37,7 +37,14 @@
         </div>
 
         <div class="form-group full">
-          <label>Metrics</label>
+          <div class="metrics-label-row">
+            <label>Metrics</label>
+            <span class="metrics-actions" id="metrics-actions">
+              <button type="button" class="btn-link" onclick="selectAllMetrics()">Select all</button>
+              <span class="metrics-actions-sep">|</span>
+              <button type="button" class="btn-link" onclick="deselectAllMetrics()">Deselect all</button>
+            </span>
+          </div>
           <div class="checkbox-group" id="metrics-group">
             <span style="color:#8b949e">Select a dataset first</span>
           </div>

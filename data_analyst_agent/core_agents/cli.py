@@ -106,6 +106,9 @@ class CLIParameterInjector(BaseAgent):
             state_delta["custom_hierarchy_levels"] = hierarchy_levels
         if hierarchy_filters:
             state_delta["hierarchy_filters"] = hierarchy_filters
+            first_col = next(iter(hierarchy_filters), None)
+            if first_col and isinstance(hierarchy_filters.get(first_col), list) and len(hierarchy_filters[first_col]) == 1:
+                print(f"[CLIParameterInjector] Scoping run to {first_col}={hierarchy_filters[first_col][0]}")
 
         inferred_dim = _infer_primary_dimension(contract)
         inferred_total = _infer_total_label(contract)

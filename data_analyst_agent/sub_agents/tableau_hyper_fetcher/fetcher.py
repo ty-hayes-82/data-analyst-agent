@@ -38,12 +38,11 @@ from .hyper_connection import HyperConnectionManager, get_or_create_manager
 from .loader_config import HyperLoaderConfig
 from .query_builder import HyperQueryBuilder
 
-# Project root is four levels up from this file:
-# sub_agents/tableau_hyper_fetcher/fetcher.py
-# -> sub_agents/
-# -> data_analyst_agent/
-# -> pl_analyst/  (project root)
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.resolve()
+
+def _project_root() -> Path:
+    """Project root (directory containing config/ and data/). Single source of truth via dataset_resolver."""
+    from config.dataset_resolver import get_project_root
+    return get_project_root()
 
 # Values that mean "no filter — load everything"
 _UNFILTERED = frozenset({"all", "total", "none", "", "all regions", "all terminals"})
@@ -90,7 +89,7 @@ class TableauHyperFetcher(BaseAgent):
         manager = get_or_create_manager(active_dataset, loader_config)
 
         try:
-            manager.ensure_extracted(_PROJECT_ROOT)
+            manager.ensure_extracted(_project_root())
         except FileNotFoundError as exc:
             yield self._error_event(ctx, str(exc))
             return

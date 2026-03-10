@@ -63,11 +63,11 @@ temp_extracted/
 *.hyper
 
 # Tableau packaged data sources (large binaries, stored locally only)
-# Now stored within config/datasets/ folder
 *.tdsx
-
-# Legacy data folders (no longer used for datasets)
-# data/tableau/
+*.hyper
+# Tableau data directory: place .tdsx files in data/tableau/ (not committed)
+data/tableau/
+!data/tableau/README.md
 
 # Test data (if needed, remove this line)
 # data/
@@ -77,6 +77,7 @@ temp_extracted/
 
 # Testing and Cache
 .pytest_cache/
+.adk/
 
 # Local backups and temporary scripts
 *.a2a_backup

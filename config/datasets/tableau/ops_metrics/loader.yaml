@@ -5,7 +5,7 @@ source:
 # TDSX / Hyper file location (relative to pl_analyst project root)
 hyper:
   tdsx_file: "Ops Metrics DS.tdsx"
-  tdsx_path: "."
+  tdsx_path: "data/tableau"
   default_table: "Extract.Extract"
   extract_dir: "temp_extracted/ops_metrics_weekly_v2"
 
@@ -51,6 +51,8 @@ aggregation:
       sql: '"ttl_rev_amt" - "fuel_srchrg_rev_amt"'
     - name: "total_miles"
       sql: '"ld_mi_less_swift_billto" + "dh_miles"'
+    - name: "empty_miles"
+      sql: '"dh_miles"'
     - name: "Truck Count"
       sql: 'CAST("truck_count" AS FLOAT) / NULLIF(CAST("cal_dt" AS FLOAT), 0)'
     - name: "deadhead_pct"
@@ -109,6 +111,7 @@ output_columns:
   - "fuel_surcharge"
   - "Loaded Miles"
   - "total_miles"
+  - "empty_miles"
   - "dh_miles"
   - "order_count"
   - "ordr_miles"

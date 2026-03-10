@@ -4,7 +4,7 @@ source:
 
 hyper:
   tdsx_file: "Order Dispatch Revenue DS.tdsx"
-  tdsx_path: "."
+  tdsx_path: "data/tableau"
   default_table: "Extract.Extract"
   extract_dir: "temp_extracted/order_dispatch"
 

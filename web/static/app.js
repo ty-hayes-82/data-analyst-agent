@@ -56,10 +56,15 @@ async function onDatasetChange() {
 
   // Metrics
   const mg = document.getElementById('metrics-group');
+  const metricsActions = document.getElementById('metrics-actions');
   mg.innerHTML = '';
-  (c.metrics || []).forEach(m => {
+  const metricsList = c.metrics || [];
+  metricsList.forEach(m => {
     mg.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" checked> ${m.name}${m.description ? ' (' + m.description.slice(0, 50) + ')' : ''}</label>`;
   });
+  if (metricsActions) {
+    metricsActions.style.display = metricsList.length > 0 ? 'inline' : 'none';
+  }
 
   // Hierarchies — editor with filtering
   renderHierarchyEditor(c);
@@ -322,6 +327,14 @@ async function viewFile(runId, filename) {
 // --- Helpers ---
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function selectAllMetrics() {
+  document.querySelectorAll('input[name="metric"]').forEach(cb => { cb.checked = true; });
+}
+
+function deselectAllMetrics() {
+  document.querySelectorAll('input[name="metric"]').forEach(cb => { cb.checked = false; });
 }
 
 

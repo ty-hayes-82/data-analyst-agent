@@ -108,7 +108,7 @@ def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> str:
         from datetime import datetime
         return (
             "# Executive Brief\n"
-            f"Generated: {datetime.utcnow().strftime(chr(37) + "Y-" + chr(37) + "m-" + chr(37) + "d " + chr(37) + "H:" + chr(37) + "M UTC")}\n\n"
+            f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n\n"
             f"{digest}"
         )
     return formatted

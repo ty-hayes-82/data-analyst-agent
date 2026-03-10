@@ -108,12 +108,23 @@ class AnalysisContextInitializer(BaseAgent):
                 filter_column, filter_value = primary_filter
                 if filter_column in df.columns:
                     before_count = len(df)
-                    filtered_df = df[df[filter_column].astype(str) == str(filter_value)]
-                    if len(filtered_df) < before_count:
+                    filter_series = df[filter_column].astype(str)
+                    filter_value_str = str(filter_value)
+                    filtered_df = df[filter_series == filter_value_str]
+                    # Guardrail: when target iteration is metric-based, dimension filters can
+                    # accidentally reference the wrong semantic space (e.g., flow='trade_value_usd').
+                    # In that case skip the filter instead of zeroing out the dataset.
+                    if filtered_df.empty and before_count > 0:
                         print(
-                            f"[AnalysisContextInitializer] Filtered in-memory data for {filter_column}='{filter_value}': {before_count} -> {len(filtered_df)} rows"
+                            f"[AnalysisContextInitializer] Skipping filter {filter_column}='{filter_value}' "
+                            f"because it matched 0/{before_count} rows."
                         )
-                    df = filtered_df
+                    else:
+                        if len(filtered_df) < before_count:
+                            print(
+                                f"[AnalysisContextInitializer] Filtered in-memory data for {filter_column}='{filter_value}': {before_count} -> {len(filtered_df)} rows"
+                            )
+                        df = filtered_df
             # Apply hierarchy filters (multi-value from web UI)
             hierarchy_filters = ctx.session.state.get("hierarchy_filters", {})
             if hierarchy_filters and isinstance(hierarchy_filters, dict):
