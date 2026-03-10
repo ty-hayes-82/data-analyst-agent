@@ -14,6 +14,7 @@
         <button class="tab active" data-tab="new-analysis">New Analysis</button>
         <button class="tab" data-tab="monitor">Monitor</button>
         <button class="tab" data-tab="history">History</button>
+        <button class="tab" data-tab="add-dataset">+ Add Dataset</button>
       </div>
     </div>
   </nav>
@@ -125,6 +126,91 @@
       <ul class="file-list" id="results-files"></ul>
       <div id="result-content" class="result-content" style="display:none"></div>
     </div>
+
+    <!-- Add Dataset -->
+    <div id="add-dataset" class="section">
+      <h2>Add New Dataset</h2>
+      <p style="color:#8b949e;margin-bottom:1.5em">Upload a CSV file and we'll auto-detect its structure — metrics, dimensions, time columns, and hierarchies. Review the draft contract and confirm to make it available for analysis.</p>
+
+      <div class="upload-area" id="upload-area">
+        <div class="upload-icon">&#128196;</div>
+        <p>Drag & drop a CSV file here, or click to browse</p>
+        <input type="file" id="file-input" accept=".csv" style="display:none">
+        <p style="color:#484f58;font-size:0.8em;margin-top:0.5em">Max 200MB. CSV format only.</p>
+      </div>
+
+      <div id="detect-progress" style="display:none">
+        <div class="info-card">
+          <div class="label">Scanning Dataset</div>
+          <div class="value" id="detect-status">Uploading and analyzing...</div>
+          <div class="progress-bar"><div class="progress-fill" id="detect-progress-bar"></div></div>
+        </div>
+      </div>
+
+      <div id="detect-results" style="display:none">
+        <div class="info-grid" id="detect-file-info"></div>
+
+        <div id="detect-warnings"></div>
+
+        <h3>Detected Contract</h3>
+        <div class="review-section">
+          <div class="review-group">
+            <label>Dataset Name</label>
+            <input type="text" id="detect-name">
+          </div>
+          <div class="review-group">
+            <label>Display Name</label>
+            <input type="text" id="detect-display-name">
+          </div>
+          <div class="review-group full">
+            <label>Description</label>
+            <input type="text" id="detect-description">
+          </div>
+        </div>
+
+        <h3>Time Configuration
+          <span class="confidence-badge" id="conf-time"></span>
+        </h3>
+        <div class="review-section">
+          <div class="review-group">
+            <label>Time Column</label>
+            <select id="detect-time-col"></select>
+          </div>
+          <div class="review-group">
+            <label>Frequency</label>
+            <select id="detect-frequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
+        </div>
+
+        <h3>Metrics
+          <span class="confidence-badge" id="conf-metrics"></span>
+        </h3>
+        <div id="detect-metrics-list" class="detect-list"></div>
+
+        <h3>Dimensions
+          <span class="confidence-badge" id="conf-dimensions"></span>
+        </h3>
+        <div id="detect-dimensions-list" class="detect-list"></div>
+
+        <h3>Hierarchies
+          <span class="confidence-badge" id="conf-hierarchies"></span>
+        </h3>
+        <div id="detect-hierarchies-list" class="detect-list"></div>
+
+        <div class="actions" style="margin-top:2em">
+          <button class="btn" id="confirm-contract-btn" onclick="confirmContract()">Confirm & Save Dataset</button>
+          <button class="btn btn-secondary" onclick="resetUpload()">Start Over</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="/static/app.js"></script>

@@ -278,5 +278,218 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+
+// --- Auto-detect Dataset ---
+let detectedResult = null;
+
+// Upload area interactions
+document.addEventListener('DOMContentLoaded', () => {
+  const area = document.getElementById('upload-area');
+  const input = document.getElementById('file-input');
+  if (!area || !input) return;
+
+  area.addEventListener('click', () => input.click());
+  area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('dragover'); });
+  area.addEventListener('dragleave', () => area.classList.remove('dragover'));
+  area.addEventListener('drop', e => {
+    e.preventDefault();
+    area.classList.remove('dragover');
+    if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', () => { if (input.files.length) uploadFile(input.files[0]); });
+});
+
+async function uploadFile(file) {
+  if (!file.name.endsWith('.csv')) {
+    alert('Please upload a CSV file.');
+    return;
+  }
+
+  document.getElementById('upload-area').style.display = 'none';
+  document.getElementById('detect-progress').style.display = 'block';
+  document.getElementById('detect-results').style.display = 'none';
+
+  const bar = document.getElementById('detect-progress-bar');
+  const status = document.getElementById('detect-status');
+
+  bar.style.width = '20%';
+  status.textContent = `Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    bar.style.width = '50%';
+    status.textContent = 'Analyzing dataset structure...';
+
+    const res = await fetch('/api/datasets/detect', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Detection failed');
+    }
+
+    bar.style.width = '100%';
+    status.textContent = 'Analysis complete!';
+    detectedResult = await res.json();
+
+    setTimeout(() => renderDetectResults(detectedResult), 500);
+  } catch (e) {
+    status.textContent = 'Error: ' + e.message;
+    bar.style.width = '0%';
+    setTimeout(() => {
+      document.getElementById('detect-progress').style.display = 'none';
+      document.getElementById('upload-area').style.display = 'block';
+    }, 3000);
+  }
+}
+
+function renderDetectResults(result) {
+  document.getElementById('detect-progress').style.display = 'none';
+  document.getElementById('detect-results').style.display = 'block';
+
+  const c = result.contract;
+  const fi = result.file_info;
+
+  // File info cards
+  document.getElementById('detect-file-info').innerHTML = `
+    <div class="info-card"><div class="label">File</div><div class="value">${fi.name}</div></div>
+    <div class="info-card"><div class="label">Size</div><div class="value">${(fi.size_bytes / 1024 / 1024).toFixed(1)} MB</div></div>
+    <div class="info-card"><div class="label">Columns</div><div class="value">${fi.total_columns}</div></div>
+    <div class="info-card"><div class="label">Sampled Rows</div><div class="value">${fi.sampled_rows.toLocaleString()}</div></div>
+  `;
+
+  // Warnings
+  const wDiv = document.getElementById('detect-warnings');
+  if (result.warnings && result.warnings.length) {
+    wDiv.innerHTML = `<div class="warning-box"><strong>Review needed:</strong><ul>${result.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul></div>`;
+  } else {
+    wDiv.innerHTML = '';
+  }
+
+  // Basic fields
+  document.getElementById('detect-name').value = c.name || '';
+  document.getElementById('detect-display-name').value = c.display_name || '';
+  document.getElementById('detect-description').value = c.description || '';
+
+  // Time config
+  const timeSelect = document.getElementById('detect-time-col');
+  timeSelect.innerHTML = fi.headers.map(h =>
+    `<option value="${h}" ${h === (c.time || {}).column ? 'selected' : ''}>${h}</option>`
+  ).join('');
+  document.getElementById('detect-frequency').value = (c.time || {}).frequency || 'unknown';
+
+  // Confidence badges
+  for (const [key, level] of Object.entries(result.confidence || {})) {
+    const el = document.getElementById('conf-' + key.replace('_column', ''));
+    if (el) { el.textContent = level; el.className = 'confidence-badge ' + level; }
+  }
+
+  // Metrics
+  const ml = document.getElementById('detect-metrics-list');
+  ml.innerHTML = (c.metrics || []).map((m, i) => {
+    const det = (result.metric_details || [])[i] || {};
+    const stats = det.stats || {};
+    return `<div class="detect-item">
+      <input type="checkbox" name="detect-metric" value="${i}" checked>
+      <span class="item-name">${escapeHtml(m.column)}</span>
+      <span class="item-type">${m.type}</span>
+      <span class="item-detail">
+        ${m.format} | range: ${stats.min ?? '?'} - ${stats.max ?? '?'} | mean: ${stats.mean ?? '?'}
+      </span>
+      <select onchange="detectedResult.contract.metrics[${i}].type=this.value">
+        <option value="additive" ${m.type === 'additive' ? 'selected' : ''}>Additive</option>
+        <option value="ratio" ${m.type === 'ratio' ? 'selected' : ''}>Ratio</option>
+        <option value="non_additive" ${m.type === 'non_additive' ? 'selected' : ''}>Non-Additive</option>
+      </select>
+    </div>`;
+  }).join('') || '<p style="color:#8b949e;padding:1em">No metrics detected</p>';
+
+  // Dimensions
+  const dl = document.getElementById('detect-dimensions-list');
+  dl.innerHTML = (c.dimensions || []).map((d, i) => {
+    const det = (result.dimension_details || [])[i] || {};
+    const samples = (det.sample_values || []).slice(0, 5).join(', ');
+    return `<div class="detect-item">
+      <input type="checkbox" name="detect-dimension" value="${i}" checked>
+      <span class="item-name">${escapeHtml(d.column)}</span>
+      <span class="item-type">${d.role}</span>
+      <span class="item-detail">${samples ? 'e.g. ' + escapeHtml(samples) : d.description}</span>
+      <select onchange="detectedResult.contract.dimensions[${i}].role=this.value">
+        <option value="primary" ${d.role === 'primary' ? 'selected' : ''}>Primary</option>
+        <option value="secondary" ${d.role === 'secondary' ? 'selected' : ''}>Secondary</option>
+        <option value="time" ${d.role === 'time' ? 'selected' : ''}>Time</option>
+      </select>
+    </div>`;
+  }).join('') || '<p style="color:#8b949e;padding:1em">No dimensions detected</p>';
+
+  // Hierarchies
+  const hl = document.getElementById('detect-hierarchies-list');
+  hl.innerHTML = (c.hierarchies || []).map((h, i) => `
+    <div class="detect-item">
+      <input type="checkbox" name="detect-hierarchy" value="${i}" checked>
+      <span class="item-name">${escapeHtml(h.name)}</span>
+      <span class="item-detail">${escapeHtml(h.description)}</span>
+    </div>
+  `).join('') || '<p style="color:#8b949e;padding:1em">No hierarchies detected. You can add them manually after saving.</p>';
+}
+
+async function confirmContract() {
+  if (!detectedResult) return;
+
+  const btn = document.getElementById('confirm-contract-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  // Apply user edits
+  const c = detectedResult.contract;
+  c.name = document.getElementById('detect-name').value;
+  c.display_name = document.getElementById('detect-display-name').value;
+  c.description = document.getElementById('detect-description').value;
+  c.time.column = document.getElementById('detect-time-col').value;
+  c.time.frequency = document.getElementById('detect-frequency').value;
+
+  // Filter unchecked metrics
+  const checkedMetrics = [...document.querySelectorAll('input[name="detect-metric"]:checked')].map(c => parseInt(c.value));
+  c.metrics = c.metrics.filter((_, i) => checkedMetrics.includes(i));
+
+  // Filter unchecked dimensions
+  const checkedDims = [...document.querySelectorAll('input[name="detect-dimension"]:checked')].map(c => parseInt(c.value));
+  c.dimensions = c.dimensions.filter((_, i) => checkedDims.includes(i));
+
+  // Filter unchecked hierarchies
+  const checkedHiers = [...document.querySelectorAll('input[name="detect-hierarchy"]:checked')].map(c => parseInt(c.value));
+  c.hierarchies = c.hierarchies.filter((_, i) => checkedHiers.includes(i));
+
+  try {
+    const res = await fetch('/api/datasets/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contract: c, file_path: detectedResult.file_info.name }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Save failed');
+    }
+    const result = await res.json();
+    alert('Dataset saved! You can now select it in the New Analysis tab.');
+    resetUpload();
+    loadDatasets();  // Refresh dataset list
+    showTab('new-analysis');
+  } catch (e) {
+    alert('Error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Confirm & Save Dataset';
+  }
+}
+
+function resetUpload() {
+  detectedResult = null;
+  document.getElementById('upload-area').style.display = 'block';
+  document.getElementById('detect-progress').style.display = 'none';
+  document.getElementById('detect-results').style.display = 'none';
+  document.getElementById('file-input').value = '';
+}
+
 // --- Init ---
 loadDatasets();

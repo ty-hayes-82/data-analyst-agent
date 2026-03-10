@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -34,6 +34,65 @@ async def api_contract(dataset_id: str):
         return contract_loader.load_contract(dataset_id)
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+
+
+# ---- Dataset Auto-Detection APIs ----
+
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "data" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.post("/api/datasets/detect")
+async def api_detect_dataset(file: UploadFile = File(...)):
+    """Upload a CSV and auto-detect its contract properties."""
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(400, "Only CSV files are supported")
+
+    # Save uploaded file
+    import re as _re
+    safe_name = _re.sub(r"[^a-zA-Z0-9._-]", "_", file.filename)
+    dest = UPLOAD_DIR / safe_name
+    content = await file.read()
+    if len(content) > 200 * 1024 * 1024:  # 200MB limit
+        raise HTTPException(413, "File too large (max 200MB)")
+    dest.write_bytes(content)
+
+    try:
+        from . import contract_detector
+        result = contract_detector.detect_contract(str(dest))
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"Detection failed: {str(e)}")
+
+
+class ConfirmContractRequest(BaseModel):
+    contract: dict
+    file_path: str  # original filename
+
+
+@app.post("/api/datasets/confirm")
+async def api_confirm_contract(req: ConfirmContractRequest):
+    """Save a confirmed contract as a new dataset."""
+    import re as _re
+    from . import contract_detector as cd
+
+    # Generate dataset ID from name
+    dataset_id = _re.sub(r"[^a-z0-9_]", "", req.contract.get("name", "dataset").lower().replace(" ", "_"))
+    if not dataset_id:
+        dataset_id = "custom_dataset"
+
+    # Ensure data_source file path points to uploads dir
+    safe_name = _re.sub(r"[^a-zA-Z0-9._-]", "_", req.file_path)
+    upload_path = str(UPLOAD_DIR / safe_name)
+    req.contract["data_source"] = {"type": "csv", "file": upload_path}
+
+    try:
+        saved_path = cd.save_contract(req.contract, dataset_id)
+        return {"status": "ok", "dataset_id": f"csv/{dataset_id}", "contract_path": saved_path}
+    except Exception as e:
+        raise HTTPException(500, f"Save failed: {str(e)}")
 
 
 # ---- Run APIs ----
