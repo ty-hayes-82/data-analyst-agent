@@ -268,7 +268,11 @@ async def run_analysis(query: str):
     from google.adk.agents.invocation_context import InvocationContext
     from google.adk.agents.run_config import RunConfig
     from google.adk.sessions.in_memory_session_service import InMemorySessionService
+    from config.model_loader import get_agent_model
     import os
+    import sys
+    import uuid
+    import yaml
     
     # --- PRE-FLIGHT AUTH CHECK (T031) ---
     if os.getenv("DATA_ANALYST_TEST_MODE") != "true":
