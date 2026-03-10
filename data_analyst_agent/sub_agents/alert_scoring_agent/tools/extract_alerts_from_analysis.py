@@ -18,10 +18,69 @@ Extract Alerts From Analysis tool for alert_scoring_coordinator_agent.
 
 import json
 import os
+from collections.abc import Mapping
 from typing import Any
 
 
 _VOLATILITY_ALERT_THRESHOLD = 0.5
+
+
+def _coerce_contract_dict(contract: Any) -> dict:
+    if contract is None:
+        return {}
+    if isinstance(contract, str):
+        try:
+            return json.loads(contract)
+        except json.JSONDecodeError:
+            return {}
+    if isinstance(contract, Mapping):
+        return dict(contract)
+    if hasattr(contract, "model_dump"):
+        try:
+            return contract.model_dump()
+        except Exception:
+            pass
+    if hasattr(contract, "dict"):
+        try:
+            return contract.dict()
+        except Exception:
+            pass
+    return {}
+
+
+def _get_attr(obj: Any, key: str) -> Any:
+    if isinstance(obj, Mapping):
+        return obj.get(key)
+    return getattr(obj, key, None)
+
+
+def _primary_dimension_label(contract_dict: Mapping[str, Any]) -> str | None:
+    dims = contract_dict.get("dimensions") or []
+    for dim in dims:
+        role = (_get_attr(dim, "role") or "").lower()
+        if role == "time":
+            continue
+        label = _get_attr(dim, "display_name") or _get_attr(dim, "name") or _get_attr(dim, "column")
+        if label:
+            return str(label)
+    return None
+
+
+def _target_display_name(contract_dict: Mapping[str, Any], fallback: str) -> str:
+    label = contract_dict.get("target_label")
+    display_name = contract_dict.get("display_name")
+    if label and fallback:
+        return f"{label}: {fallback}"
+    if display_name and not fallback:
+        return str(display_name)
+    return fallback or "unknown"
+
+
+def _format_dimension_value(item_name: Any, fallback: str, dimension_label: str | None) -> str:
+    if item_name in (None, "", "unknown"):
+        return fallback
+    value = str(item_name)
+    return f"{dimension_label}: {value}" if dimension_label else value
 
 
 async def extract_alerts_from_analysis(
@@ -30,6 +89,7 @@ async def extract_alerts_from_analysis(
     synthesis: str = "",
     analysis_target: str = "unknown",
     cost_center: str | None = None,
+    contract: Any | None = None,
 ) -> str:
     """Extract alerts from analysis results text.
     
@@ -42,12 +102,17 @@ async def extract_alerts_from_analysis(
         synthesis: Output from synthesis_agent
         analysis_target: Analysis target being analyzed
         cost_center: Optional friendly identifier (used when analysis_target is generic)
+        contract: Optional dataset contract (dict/pydantic) for dimension-aware labels
         
     Returns:
         JSON string with alerts array and config for the alert_scoring_agent
     """
     try:
         target_name = cost_center or analysis_target
+        contract_dict = _coerce_contract_dict(contract)
+        dimension_label = _primary_dimension_label(contract_dict)
+        target_display = _target_display_name(contract_dict, target_name)
+
         print(f"[extract_alerts_from_analysis] Starting extraction for {target_name}...", flush=True)
         alerts = []
         
@@ -108,7 +173,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": item_id,
                 "item_name": item_name,
-                "dimension_value": target_name,
+                "dimension_value": _format_dimension_value(item_name, target_display, dimension_label),
                 "category": "statistical_anomaly",
                 "variance_amount": round(variance_amount, 2),
                 "variance_pct": round(variance_pct, 2),
@@ -152,7 +217,7 @@ async def extract_alerts_from_analysis(
                     "period": "multi-period",
                     "item_id": item_id,
                     "item_name": item_name,
-                    "dimension_value": target_name,
+                    "dimension_value": _format_dimension_value(item_name, target_display, dimension_label),
                     "category": "volatility",
                     "variance_amount": 0,
                     "variance_pct": 0,
@@ -201,7 +266,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": item_id,
                 "item_name": item_name,
-                "dimension_value": target_name,
+                "dimension_value": _format_dimension_value(item_name, target_display, dimension_label),
                 "category": "structural_break",
                 "variance_amount": round(mag_dollar, 2),
                 "variance_pct": round(mag_pct, 2),
@@ -246,7 +311,7 @@ async def extract_alerts_from_analysis(
                             "period": a.get("last_period") or a.get("period") or "unknown",
                             "item_id": scenario_id,
                             "item_name": scenario_id,
-                            "dimension_value": target_name,
+                            "dimension_value": _format_dimension_value(scenario_id, target_display, dimension_label),
                             "category": "fixture_anomaly",
                             "variance_amount": None,
                             "variance_pct": round(abs(deviation_pct), 2),
@@ -279,7 +344,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": metric,
                 "item_name": label,
-                "dimension_value": target_name,
+                "dimension_value": target_display,
                 "category": "utilization_degradation",
                 "variance_amount": round(abs(current_val - baseline_val), 4),
                 "variance_pct": round(abs(variance_pct), 2),
@@ -322,7 +387,7 @@ async def extract_alerts_from_analysis(
                 "period": period,
                 "item_id": metric,
                 "item_name": _outlier_label,
-                "dimension_value": target_name,
+                "dimension_value": target_display,
                 "category": "utilization_outlier",
                 "variance_amount": round(abs(value - mean_val), 4),
                 "variance_pct": round(abs((value - mean_val) / mean_val * 100), 2) if mean_val != 0 else 0,
@@ -364,7 +429,7 @@ async def extract_alerts_from_analysis(
                 "min_score_threshold": 0.05
             },
             "metadata": {
-                "dimension_value": str(target_name),
+                "dimension_value": target_display,
                 "extracted_at": str(__import__('datetime').datetime.now()),
                 "total_alerts": len(alerts),
                 "source": "statistical_summary"
@@ -385,7 +450,7 @@ async def extract_alerts_from_analysis(
             fallback.mkdir(parents=True, exist_ok=True)
             output_dir = fallback
         # Sanitize target for filename
-        safe_target = str(target_name).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
+        safe_target = str(target_display).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
         payload_file = output_dir / f"alerts_payload_{safe_target}.json"
         
         print(f"[extract_alerts_from_analysis] Attempting to save alert payload to: {payload_file}", flush=True)

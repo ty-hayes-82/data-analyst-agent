@@ -68,6 +68,7 @@ class AlertScoringPipeline(BaseAgent):
             ctx.session.state.get("current_analysis_target")
             or "unknown"
         )
+        contract = ctx.session.state.get("dataset_contract")
 
         # ------------------------------------------------------------------ #
         # Step 1: Extract alerts from statistical summary
@@ -76,6 +77,7 @@ class AlertScoringPipeline(BaseAgent):
             raw_alerts_json = await extract_alerts_from_analysis(
                 statistical_summary=stats_json,
                 analysis_target=analysis_target,
+                contract=contract,
             )
             raw_alerts = json.loads(raw_alerts_json)
         except Exception as exc:
