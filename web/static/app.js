@@ -22,7 +22,8 @@ async function loadDatasets() {
   const sel = document.getElementById('dataset-select');
   sel.innerHTML = '<option value="">-- Select a dataset --</option>';
   datasets.forEach(d => {
-    sel.innerHTML += `<option value="${d.id}" data-name="${d.display_name}">${d.display_name} (${d.name})</option>`;
+    const safeName = (d.display_name || d.name).replace(/"/g, '&quot;');
+    sel.innerHTML += `<option value="${d.id}" data-name="${safeName}">${escapeHtml(d.display_name || d.name)} (${escapeHtml(d.name)})</option>`;
   });
   sel.addEventListener('change', onDatasetChange);
 }
@@ -36,6 +37,10 @@ async function onDatasetChange() {
   }
 
   const res = await fetch(`/api/datasets/${id}/contract`);
+  if (!res.ok) {
+    alert(`Failed to load contract for ${id}`);
+    return;
+  }
   currentContract = await res.json();
   const c = currentContract;
 
@@ -112,6 +117,11 @@ async function submitRun() {
 
   try {
     const res = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      let errMsg = `Server error (${res.status})`;
+      try { const errData = await res.json(); errMsg = errData.detail || errMsg; } catch { errMsg = await res.text().catch(() => errMsg); }
+      throw new Error(errMsg);
+    }
     const run = await res.json();
     currentRunId = run.id;
     showTab('monitor');
@@ -670,7 +680,7 @@ async function toggleFilterLevel(index, column) {
   if (!hierarchyFilterCache[column]) {
     const datasetId = document.getElementById('dataset-select').value;
     try {
-      const res = await fetch(`/api/datasets/${datasetId}/dimension-values/${column}`);
+      const res = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/dimension-values/${encodeURIComponent(column)}`);
       if (res.ok) {
         const data = await res.json();
         hierarchyFilterCache[column] = {
