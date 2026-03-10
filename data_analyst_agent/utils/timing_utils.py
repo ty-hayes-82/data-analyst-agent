@@ -19,6 +19,18 @@ class TimedAgentWrapper(BaseAgent):
         try:
             async for event in self.wrapped_agent.run_async(ctx):
                 yield event
+        except Exception as exc:
+            import traceback
+            duration = time.perf_counter() - start_time
+            print(f"[TIMER] !!! Agent {self.wrapped_agent.name} FAILED after {duration:.2f}s: {exc}")
+            traceback.print_exc()
+            from google.adk.events.event import Event as _Ev
+            from google.adk.events.event_actions import EventActions as _EA
+            yield _Ev(
+                invocation_id=ctx.invocation_id,
+                author=self.wrapped_agent.name,
+                actions=_EA(state_delta={f"{self.wrapped_agent.name}_error": str(exc)}),
+            )
         finally:
             end_time = time.perf_counter()
             duration = end_time - start_time

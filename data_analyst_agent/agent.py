@@ -68,6 +68,7 @@ from .config import config
 from .utils.timing_utils import TimedAgentWrapper
 
 # Now import ADK agents
+from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.sequential_agent import SequentialAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
@@ -235,9 +236,38 @@ print(f"[INIT] target_analysis_pipeline sub_agents: {[a.name for a in target_ana
 from .sub_agents.executive_brief_agent.agent import CrossMetricExecutiveBriefAgent
 from .sub_agents.weather_context_agent import root_agent as weather_context_agent
 
+
+class _OutputDirInitializer(BaseAgent):
+    """Sets DATA_ANALYST_OUTPUT_DIR so all agents write to one directory per run."""
+
+    def __init__(self):
+        super().__init__(name="output_dir_initializer")
+
+    async def _run_async_impl(self, ctx):
+        import os as _os
+        from datetime import datetime as _dt
+        from pathlib import Path as _P
+        from google.adk.events.event import Event as _Ev
+        from google.adk.events.event_actions import EventActions as _EA
+        if _os.getenv("DATA_ANALYST_OUTPUT_DIR"):
+            print(f"[OutputDir] Already set: {_os.getenv('DATA_ANALYST_OUTPUT_DIR')}")
+            yield _Ev(invocation_id=ctx.invocation_id, author=self.name, actions=_EA())
+            return
+        contract = ctx.session.state.get("dataset_contract")
+        ds = getattr(contract, "name", "unknown").replace(" ", "_").lower() if contract else "unknown"
+        ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+        run_dir = str(_P("outputs") / ds / ts)
+        _P(run_dir).mkdir(parents=True, exist_ok=True)
+        _os.environ["DATA_ANALYST_OUTPUT_DIR"] = run_dir
+        print(f"[OutputDir] Set DATA_ANALYST_OUTPUT_DIR={run_dir}")
+        yield _Ev(invocation_id=ctx.invocation_id, author=self.name, actions=_EA(
+            state_delta={"output_dir": run_dir}
+        ))
+
 root_sub_agents = [
     TimedAgentWrapper(ContractLoader()),
     TimedAgentWrapper(CLIParameterInjector()),
+    TimedAgentWrapper(_OutputDirInitializer()),
     TimedAgentWrapper(data_fetch_workflow),
     ParallelDimensionTargetAgent(),
     TimedAgentWrapper(weather_context_agent),

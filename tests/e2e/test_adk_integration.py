@@ -76,6 +76,7 @@ class TestADKAgentInstantiation:
         assert root_names == [
             "timed_contract_loader",
             "timed_cli_parameter_injector",
+            "timed_output_dir_initializer",
             "timed_data_fetch_workflow",
             "parallel_dimension_target_analysis",
             "timed_weather_context_agent",

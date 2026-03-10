@@ -40,6 +40,7 @@ from .prompt_utils import (
     _build_weather_context_block,
     _format_analysis_period,
     _format_brief,
+    _format_brief_with_fallback,
     _write_executive_brief_cache,
 )
 from .report_utils import (
@@ -61,6 +62,7 @@ async def _llm_generate_brief(
     instruction: str,
     user_message: str,
     thinking_config: Any,
+    digest: str = "",
 ) -> tuple[dict, str]:
     """Call the LLM to generate a brief JSON. Returns (brief_data_dict, brief_markdown)."""
     import asyncio
@@ -102,7 +104,7 @@ async def _llm_generate_brief(
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
     brief_data = json.loads(raw)
-    return brief_data, _format_brief(brief_data)
+    return brief_data, _format_brief_with_fallback(brief_data, digest)
 
 
 
@@ -225,11 +227,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             except (ValueError, TypeError):
                 pass
 
+        # Build contract-driven context for the prompt
+        contract = ctx.session.state.get("dataset_contract")
+        dataset_name = getattr(contract, "display_name", getattr(contract, "name", "the dataset")) if contract else "the dataset"
+        dataset_desc = getattr(contract, "description", "") if contract else ""
+        contract_context = f"\nDataset: {dataset_name}."
+        if dataset_desc:
+            contract_context += f" {dataset_desc.strip()}"
+
         instruction = EXECUTIVE_BRIEF_INSTRUCTION.format(
             metric_count=len(reports),
             analysis_period=analysis_period,
             scope_preamble="",
-            dataset_specific_append=load_dataset_specific_append(),
+            dataset_specific_append=load_dataset_specific_append() + contract_context,
             prompt_variant_append=load_prompt_variant(os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")),
         )
         weather_block = _build_weather_context_block(ctx.session.state.get("weather_context"))
@@ -295,6 +305,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 instruction=instruction,
                 user_message=user_message,
                 thinking_config=thinking_config,
+                digest=digest,
             )
 
             brief_filename = "brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md"
@@ -375,6 +386,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 instruction=scoped_instruction,
                                 user_message=scoped_user_message,
                                 thinking_config=thinking_config,
+                                digest=scoped_digest,
                             )
                             safe_entity = _sanitize_entity_name(entity)
                             scoped_filename = (

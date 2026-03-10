@@ -33,6 +33,16 @@ class CLIParameterInjector(BaseAgent):
         frequency = getattr(getattr(contract, "time", None), "frequency", "weekly")
         target_label = getattr(contract, "target_label", "Metric") if contract else "Metric"
 
+        # Fall back to all metrics from contract when CLI does not specify any
+        if not metrics and contract:
+            contract_metrics = getattr(contract, "metrics", None) or []
+            if contract_metrics:
+                metrics = [
+                    m.get("name") if isinstance(m, dict) else getattr(m, "name", str(m))
+                    for m in contract_metrics
+                ]
+                print(f"[CLIParameterInjector] No DATA_ANALYST_METRICS -- defaulting to contract metrics: {metrics}")
+
         state_delta: dict = {}
         if metrics:
             state_delta["extracted_targets_raw"] = _json.dumps(metrics)

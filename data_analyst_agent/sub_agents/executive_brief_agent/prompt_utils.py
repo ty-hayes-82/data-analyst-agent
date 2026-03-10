@@ -97,3 +97,18 @@ def _format_brief(brief: dict[str, Any]) -> str:
                 sections.append(insight["details"].strip())
         sections.append("")
     return "\n".join(sections).strip()
+
+
+def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> str:
+    """Format brief from LLM JSON, falling back to digest markdown if structure is wrong."""
+    formatted = _format_brief(brief_data)
+    # If _format_brief produced only a header (no sections), use the digest as fallback
+    lines = [l for l in formatted.splitlines() if l.strip()]
+    if len(lines) <= 3:
+        from datetime import datetime
+        return (
+            "# Executive Brief\n"
+            f"Generated: {datetime.utcnow().strftime(chr(37) + "Y-" + chr(37) + "m-" + chr(37) + "d " + chr(37) + "H:" + chr(37) + "M UTC")}\n\n"
+            f"{digest}"
+        )
+    return formatted

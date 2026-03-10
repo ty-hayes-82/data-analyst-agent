@@ -17,13 +17,24 @@ async def compute_level_statistics(
     cumulative_threshold: float = 80.0,
     hierarchy_name: Optional[str] = None,
 ) -> str:
-    """Delegate to the split-out core implementation."""
+    """Delegate to the split-out core implementation with error boundary."""
+    import json as _json
+    import traceback as _tb
     _core.resolve_data_and_columns = resolve_data_and_columns
-    return await _core.compute_level_statistics_impl(
-        level=level,
-        analysis_period=analysis_period,
-        variance_type=variance_type,
-        top_n=top_n,
-        cumulative_threshold=cumulative_threshold,
-        hierarchy_name=hierarchy_name,
-    )
+    try:
+        return await _core.compute_level_statistics_impl(
+            level=level,
+            analysis_period=analysis_period,
+            variance_type=variance_type,
+            top_n=top_n,
+            cumulative_threshold=cumulative_threshold,
+            hierarchy_name=hierarchy_name,
+        )
+    except Exception as exc:
+        _tb.print_exc()
+        return _json.dumps({
+            "error": "ComputationFailed",
+            "level": level,
+            "message": str(exc),
+            "traceback": _tb.format_exc(),
+        }, indent=2)
