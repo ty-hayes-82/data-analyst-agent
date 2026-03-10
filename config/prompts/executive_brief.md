@@ -4,6 +4,22 @@ You will receive summaries from {metric_count} individual metric analyses for {a
 
 Your job is to synthesize the operating story across metrics and entities, not restate each metric independently.{scope_preamble}{dataset_specific_append}{prompt_variant_append}
 
+## RESPONSE FORMAT (DO NOT DEVIATE)
+- The FIRST non-whitespace character you emit **must be ``{``** and the final character must be ``}``.
+- Return **exactly one** JSON object adhering to the schema below. No prose, explanations, Markdown fences, or diagnostic chatter are allowed anywhere in the output.
+- If you cannot fully populate a field, emit `""` or `[]` but **never** drop required keys.
+- Violating any of these constraints causes the renderer to discard your work, so treat them as hard safety rails.
+
+## JSON OUTPUT CONTRACT (NON-NEGOTIABLE)
+- Return **only** raw JSON (no prose, no Markdown fences, no preamble).
+- The top-level object must contain exactly two keys: `header` and `body`.
+- `header` **always** includes both `title` and `summary` strings.
+- `body.sections` is an ordered array whose section titles are fixed — do not add, remove, or rename them.
+- Each section must supply either `content` (string) or `insights` (array of `{"title":"", "details":""}` objects). Empty arrays are allowed but keys may never be omitted.
+- If the model lacks evidence for a field, emit an empty string (`""`) or an empty array (`[]`) rather than dropping the key.
+- Any deviation from this structure causes the renderer to fall back to the raw digest, so treat the JSON contract as a hard schema.
+
+
 ## Structured JSON Contract (MANDATORY)
 - Return **only** a JSON object with two keys: `header` and `body`.
 - `header` **must** contain both `title` and `summary` strings.
