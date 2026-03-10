@@ -30,7 +30,7 @@ class CLIParameterInjector(BaseAgent):
 
         # Analysis focus directives (web UI + CLI)
         focus_raw = os.environ.get("DATA_ANALYST_FOCUS", "")
-        analysis_focus = [f.strip() for f in focus_raw.split(",") if f.strip()]
+        analysis_focus = [f.strip().lower() for f in focus_raw.split(",") if f.strip()]
         custom_focus_raw = os.environ.get("DATA_ANALYST_CUSTOM_FOCUS", "")
 
         def _sanitize_custom_focus(text: str, *, max_len: int = 500) -> str:
@@ -59,10 +59,8 @@ class CLIParameterInjector(BaseAgent):
         state_delta: dict = {}
 
         # Focus directives (persist in session state for planner + narrative + brief)
-        if analysis_focus:
-            state_delta["analysis_focus"] = analysis_focus
-        if custom_focus:
-            state_delta["custom_focus"] = custom_focus
+        state_delta["analysis_focus"] = analysis_focus
+        state_delta["custom_focus"] = custom_focus
 
         if metrics:
             state_delta["extracted_targets_raw"] = _json.dumps(metrics)
