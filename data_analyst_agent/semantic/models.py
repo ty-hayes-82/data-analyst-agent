@@ -62,6 +62,11 @@ class TimeConfig(BaseModel):
 
 class DataSourceConfig(BaseModel):
     type: Literal["csv", "synthetic", "tableau_hyper"] = "tableau_hyper"
+    file: Optional[str] = Field(
+        default=None,
+        description="Path to the backing dataset file (relative to the repository root).",
+    )
+    encoding: Optional[str] = Field(default=None, description="Optional file encoding override.")
     # tableau_hyper source fields
     tdsx_file: Optional[str] = None
     tdsx_path: Optional[str] = None
