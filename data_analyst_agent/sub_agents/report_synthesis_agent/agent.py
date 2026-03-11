@@ -20,7 +20,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator, Any, Optional
 
 from google.adk import Agent
 from google.adk.agents.base_agent import BaseAgent
@@ -35,6 +35,7 @@ from .tools import generate_markdown_report
 from ...utils import parse_bool_env
 from ...utils.contract_summary import build_contract_metadata
 from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
+from ...utils.stub_guard import contains_stub_content, stub_outputs_allowed
 
 
 _base_agent = Agent(
@@ -169,17 +170,17 @@ def _safe_int_env(name: str, default: int) -> int:
         return default
 
 
-_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 4)
-_MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 3)
+_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 3)
+_MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 2)
 _MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 3)
 _MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 2)
 
-_MAX_NARRATIVE_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CHARS", 2500)
-_MAX_DATA_ANALYST_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_DA_CHARS", 1800)
-_MAX_HIERARCHICAL_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_HIERARCHICAL_CHARS", 2200)
-_MAX_INDEPENDENT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_INDEPENDENT_CHARS", 1400)
-_MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 1500)
-_MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 1700)
+_MAX_NARRATIVE_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CHARS", 1300)
+_MAX_DATA_ANALYST_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_DA_CHARS", 900)
+_MAX_HIERARCHICAL_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_HIERARCHICAL_CHARS", 1100)
+_MAX_INDEPENDENT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_INDEPENDENT_CHARS", 650)
+_MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 650)
+_MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 900)
 
 
 def _truncate_block(block: str | None, max_chars: int, label: str) -> str:
@@ -223,22 +224,31 @@ _PRUNABLE_LEVEL_KEYS = {
 
 
 
-def _prune_analysis_dict(payload: dict) -> dict:
-    """Strip bulky table artifacts from serialized analysis payloads."""
-    if not isinstance(payload, dict):
+def _prune_analysis_dict(payload):
+    """Strip bulky table artifacts from serialized analysis payloads (recursive)."""
+    if isinstance(payload, dict):
+        for key in list(payload.keys()):
+            if key in _PRUNABLE_ANALYST_KEYS:
+                payload.pop(key, None)
+                continue
+            payload[key] = _prune_analysis_dict(payload.get(key))
         return payload
-    for key in list(_PRUNABLE_ANALYST_KEYS):
-        if key in payload:
-            payload.pop(key, None)
+    if isinstance(payload, list):
+        return [_prune_analysis_dict(item) for item in payload]
     return payload
 
-def _prune_level_payload(payload: dict) -> dict:
-    """Remove bulky table fields before sending to the LLM."""
-    if not isinstance(payload, dict):
+
+def _prune_level_payload(payload):
+    """Remove bulky table fields before sending to the LLM (recursive)."""
+    if isinstance(payload, dict):
+        for key in list(payload.keys()):
+            if key in _PRUNABLE_LEVEL_KEYS:
+                payload.pop(key, None)
+                continue
+            payload[key] = _prune_level_payload(payload.get(key))
         return payload
-    for key in list(payload.keys()):
-        if key in _PRUNABLE_LEVEL_KEYS:
-            payload.pop(key, None)
+    if isinstance(payload, list):
+        return [_prune_level_payload(item) for item in payload]
     return payload
 
 
@@ -289,6 +299,7 @@ def _compact_contract_context(contract) -> dict[str, Any]:
         )
     return {
         "display_name": metadata.get("display_name"),
+        "description": metadata.get("description"),
         "time": metadata.get("time"),
         "metrics": metrics,
         "primary_dimensions": primary_dims,
@@ -319,6 +330,8 @@ class ReportSynthesisWrapper(BaseAgent):
 
         # --- CACHE LOAD: Use cached prompt if REPORT_SYNTHESIS_USE_PROMPT_CACHE is set ---
         cache_path = os.environ.get("REPORT_SYNTHESIS_USE_PROMPT_CACHE")
+        tool_arguments = None
+
         if cache_path:
             if not os.path.isabs(cache_path):
                 project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -564,9 +577,21 @@ class ReportSynthesisWrapper(BaseAgent):
             alert_component = _loads_or_passthrough(alert_scoring_result)
             stats_component = _loads_or_passthrough(statistical_summary)
 
+            dataset_display_name = (
+                contract_context.get("display_name")
+                or getattr(contract, "display_name", None)
+                or getattr(contract, "name", None)
+            )
+            dataset_description = contract_context.get("description")
+            if not dataset_description and getattr(contract, "description", None):
+                dataset_description = contract.description
+
+            analysis_target_value = state.get("current_analysis_target") or ctx.session.state.get("analysis_target")
             report_payload = {
                 "dataset_context": contract_context,
-                "analysis_target": state.get("current_analysis_target") or ctx.session.state.get("analysis_target"),
+                "dataset_display_name": dataset_display_name,
+                "dataset_description": dataset_description,
+                "analysis_target": analysis_target_value,
                 "focus": focus_payload,
                 "temporal_context": temporal_context,
                 "components": {
@@ -588,18 +613,42 @@ class ReportSynthesisWrapper(BaseAgent):
                         "hierarchical_analysis",
                         "independent_findings",
                         "alert_scoring_result",
+                        "dataset_display_name",
+                        "dataset_description",
                     ],
                     "output_format": "markdown",
                     "no_raw_markdown": True,
                 },
             }
-            payload_json = json.dumps(report_payload, separators=(",", ":"), ensure_ascii=False)
+
+            def _json_arg(value):
+                if value in (None, ""):
+                    return ""
+                if isinstance(value, str):
+                    return value
+                try:
+                    return json.dumps(value, separators=(',', ':'), ensure_ascii=False)
+                except TypeError:
+                    return str(value)
+
+            tool_arguments = {
+                "hierarchical_results": _json_arg(hierarchical_payload),
+                "analysis_target": analysis_target_value,
+                "analysis_period": temporal_context.get("analysis_period"),
+                "statistical_summary": _json_arg(stats_component),
+                "narrative_results": _json_arg(narrative_component),
+                "target_label": state.get("target_label") or "Metric",
+                "anomaly_indicators": _json_arg(alert_component),
+                "dataset_display_name": dataset_display_name,
+                "dataset_description": dataset_description or "",
+            }
+
+            payload_json = json.dumps(report_payload, separators=(',', ':'), ensure_ascii=False)
             injection_message = (
                 "REPORT_SYNTHESIS_INPUT_JSON (strict JSON — do not change keys):\n"
                 f"{payload_json}\n"
                 "Use this JSON to decide on a single generate_markdown_report tool call."
             )
-
             print(f"  TOTAL payload: {len(payload_json):,} chars")
 
             # DEBUG: Save prompt to txt and JSON cache for optimization/benchmarking
@@ -720,6 +769,29 @@ class ReportSynthesisWrapper(BaseAgent):
             import traceback
             print(f"[REPORT_SYNTHESIS] ERROR: {str(e) or type(e).__name__}", flush=True)
             traceback.print_exc()
+
+        report_output = ctx.session.state.get("report_markdown") or ctx.session.state.get("report_synthesis_result")
+        fallback_reason = None
+        if not report_output:
+            fallback_reason = "missing LLM output"
+        elif contains_stub_content(report_output) and not stub_outputs_allowed():
+            fallback_reason = "stub output detected"
+        elif isinstance(report_output, str) and report_output.lstrip().startswith("# Error"):
+            fallback_reason = "LLM returned error payload"
+
+        if fallback_reason and tool_arguments:
+            print(f"[REPORT_SYNTHESIS] Fallback triggered ({fallback_reason}); calling generate_markdown_report directly.", flush=True)
+            try:
+                fallback_markdown = await generate_markdown_report(**tool_arguments)
+                ctx.session.state["report_markdown"] = fallback_markdown
+                ctx.session.state["report_synthesis_result"] = fallback_markdown
+                yield Event(
+                    invocation_id=ctx.invocation_id,
+                    author=self.name,
+                    actions=EventActions(state_delta={"report_markdown": fallback_markdown, "report_synthesis_result": fallback_markdown}),
+                )
+            except Exception as fallback_exc:
+                print(f"[REPORT_SYNTHESIS] Fallback failed: {fallback_exc}", flush=True)
 
         print(f"\n{'='*80}")
         print(f"[REPORT_SYNTHESIS] Report synthesis agent complete ({event_count} events)", flush=True)

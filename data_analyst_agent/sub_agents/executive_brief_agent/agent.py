@@ -36,12 +36,19 @@ from .prompt import (
     load_prompt_variant,
 )
 from ...utils import parse_bool_env
-from ...utils.contract_summary import build_contract_metadata, format_contract_context
+from ...utils.contract_summary import (
+    build_contract_metadata,
+    format_contract_context,
+    format_contract_reference_block,
+)
 from .prompt_utils import (
+    _build_structured_fallback_markdown,
     _build_weather_context_block,
     _format_analysis_period,
     _format_brief_with_fallback,
     _write_executive_brief_cache,
+    build_structured_fallback_brief,
+    collect_recommendations_from_reports,
     SECTION_FALLBACK_TEXT,
 )
 from .report_utils import (
@@ -309,13 +316,18 @@ def _validate_structured_brief(
         if title == "Top Operational Insights":
             if len(insights) < TOP_INSIGHT_MIN_COUNT:
                 errors.append("Top Operational Insights must include at least three entries")
-            for insight_idx, insight in enumerate(insights):
-                if not isinstance(insight, dict):
-                    errors.append(f"Top Operational Insights entry {insight_idx} is not an object")
-                    continue
-                details = str(insight.get("details") or "").strip()
-                if not details:
-                    errors.append(f"Top Operational Insights entry {insight_idx} missing details")
+            if len(insights) > 5:
+                errors.append("Top Operational Insights must not include more than five entries")
+        for insight_idx, insight in enumerate(insights):
+            if not isinstance(insight, dict):
+                errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} is not an object")
+                continue
+            details = str(insight.get("details") or "").strip()
+            title_field = str(insight.get("title") or "").strip()
+            if title == "Top Operational Insights" and not details:
+                errors.append(f"Top Operational Insights entry {insight_idx} missing details")
+            if not details and not title_field:
+                errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
 
     if expected_titles and actual_titles != expected_titles:
         errors.append(
@@ -338,6 +350,29 @@ def _format_instruction(template: str, **fields: str) -> str:
     return safe.format(**fields)
 
 
+def _extract_response_text(response: Any) -> str:
+    text = (getattr(response, "text", None) or "").strip()
+    if text:
+        return text
+    parts: list[str] = []
+    try:
+        candidates = getattr(response, "candidates", []) or []
+        for candidate in candidates:
+            content = getattr(candidate, "content", None)
+            content_parts = getattr(content, "parts", None) if content else None
+            if not content_parts and hasattr(candidate, "parts"):
+                content_parts = getattr(candidate, "parts", None)
+            if not content_parts:
+                continue
+            for part in content_parts:
+                part_text = getattr(part, "text", "")
+                if part_text:
+                    parts.append(part_text)
+    except Exception:
+        return ""
+    return "".join(parts).strip()
+
+
 async def _llm_generate_brief(
     model_name: str,
     instruction: str,
@@ -345,6 +380,7 @@ async def _llm_generate_brief(
     thinking_config: Any,
     digest: str = "",
     section_contract: list[dict[str, str]] | None = None,
+    reports: dict[str, str] | None = None,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
 
@@ -366,6 +402,12 @@ async def _llm_generate_brief(
     last_err: Exception | None = None
     max_attempts = 3
 
+    def _structured_fallback(reason: str) -> tuple[dict, str]:
+        recs = collect_recommendations_from_reports(reports or {}) if reports else []
+        brief_json = build_structured_fallback_brief(digest, reason, recs)
+        brief_markdown = _build_structured_fallback_markdown(digest, recs)
+        return brief_json, brief_markdown
+
     for attempt in range(1, max_attempts + 1):
         try:
             client = genai.Client()
@@ -380,10 +422,19 @@ async def _llm_generate_brief(
                 ),
                 timeout=300.0,
             )
-            raw = response.text.strip()
+            raw = _extract_response_text(response)
+            if not raw:
+                print("[BRIEF] Empty response payload from LLM — using deterministic fallback.")
+                fallback_json, fallback_markdown = _structured_fallback("Empty response from LLM")
+                return fallback_json, fallback_markdown, True
             raw = re.sub(r"^```(?:json)?\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
-            brief_data = json.loads(raw)
+            try:
+                brief_data = json.loads(raw)
+            except json.JSONDecodeError as json_err:
+                print(f"[BRIEF] JSON parse failed: {json_err}. Falling back to structured digest.")
+                fallback_json, fallback_markdown = _structured_fallback(f"JSON parse failed: {json_err}")
+                return fallback_json, fallback_markdown, True
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
             else:
@@ -570,6 +621,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 "CONTRACT_METADATA_JSON (contract-derived — do not invent or omit fields):\n"
                 f"{json.dumps(contract_metadata, indent=2, ensure_ascii=False)}\n\n"
             )
+        contract_reference_block = format_contract_reference_block(contract)
+        metric_names = [
+            (metric.get("name") or metric.get("column"))
+            for metric in (contract_metadata.get("metrics") if contract_metadata else [])
+            if isinstance(metric, dict)
+        ]
+        metric_names = [name for name in metric_names if name]
+        metric_coverage_block = ""
+        if metric_names:
+            metric_coverage_block = (
+                "METRIC_COVERAGE (mention every metric explicitly — add a monitoring sentence when no signal survives):\n"
+                f"- {', '.join(metric_names)}\n\n"
+            )
 
         instruction = _format_instruction(
             EXECUTIVE_BRIEF_INSTRUCTION,
@@ -618,6 +682,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
             f"{contract_metadata_block}"
+            f"{contract_reference_block}"
+            f"{metric_coverage_block}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
             f"Use the above 'reference_period_end' when writing header.title.\n\n"
@@ -653,6 +719,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 thinking_config=thinking_config,
                 digest=digest,
                 section_contract=NETWORK_SECTION_CONTRACT,
+                reports=reports,
             )
 
             if used_fallback:
@@ -738,6 +805,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"
                             f"{contract_metadata_block}"
+                            f"{contract_reference_block}"
+                            f"{metric_coverage_block}"
                             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
                             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
                             f"Use the above 'reference_period_end' when writing header.title.\n\n"
@@ -754,6 +823,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 thinking_config=thinking_config,
                                 digest=scoped_digest,
                                 section_contract=SCOPED_SECTION_CONTRACT,
+                                reports=reports,
                             )
                             if scoped_fallback:
                                 print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")

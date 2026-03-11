@@ -32,6 +32,37 @@ from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 
 from ..report_synthesis_agent.tools.generate_markdown_report import generate_markdown_report
+from ...utils.stub_guard import contains_stub_content, stub_outputs_allowed
+
+
+def _timeframe_label(timeframe: dict[str, Any] | None) -> str:
+    timeframe = timeframe or {}
+    start = timeframe.get("start")
+    end = timeframe.get("end")
+    if start and end:
+        return start if start == end else f"{start} to {end}"
+    return start or end or "current period"
+
+
+def _analysis_period_label(session_state: dict[str, Any]) -> str:
+    return session_state.get("analysis_period") or _timeframe_label(session_state.get("timeframe"))
+
+
+def _extract_summary_from_markdown(markdown: str | None) -> str:
+    if not markdown:
+        return "No synthesis available"
+    lines = [line.strip() for line in markdown.splitlines() if line.strip()]
+    for line in lines:
+        if line.startswith("#"):
+            continue
+        if line.startswith("**Generated") or line.startswith("**Period"):
+            continue
+        return line
+    return lines[0] if lines else "No synthesis available"
+
+
+def _should_drop_stub(value: Any) -> bool:
+    return contains_stub_content(value) and not stub_outputs_allowed()
 
 
 class OutputPersistenceAgent(BaseAgent):
@@ -65,6 +96,40 @@ class OutputPersistenceAgent(BaseAgent):
         # Fallback to legacy behavior
         filename = f"category_{category_name}_{safe_target}.json"
         return Path("outputs") / filename
+
+    async def _generate_metric_markdown(
+        self,
+        session_state: dict[str, Any],
+        hierarchical_results: Any,
+        analysis_target: str,
+        target_label: str,
+    ) -> str:
+        analysis_period = _analysis_period_label(session_state)
+        narrative_raw = session_state.get("narrative_results") or session_state.get("narrative_result", "")
+        stats_raw = session_state.get("statistical_summary", "")
+        anomaly_raw = session_state.get("alert_scoring_result", "")
+        dataset = session_state.get("dataset_contract")
+        dataset_display_name = getattr(dataset, "display_name", None) or getattr(dataset, "name", None)
+        dataset_description = getattr(dataset, "description", "") if dataset else ""
+        if not isinstance(hierarchical_results, str):
+            try:
+                hierarchical_payload = json.dumps(hierarchical_results or {})
+            except (TypeError, ValueError):
+                hierarchical_payload = "{}"
+        else:
+            hierarchical_payload = hierarchical_results or "{}"
+        return await generate_markdown_report(
+            hierarchical_results=hierarchical_payload,
+            analysis_target=analysis_target,
+            analysis_period=analysis_period,
+            statistical_summary=stats_raw,
+            narrative_results=narrative_raw,
+            target_label=target_label,
+            anomaly_indicators=anomaly_raw,
+            seasonal_decomposition=session_state.get("seasonal_decomposition"),
+            dataset_display_name=dataset_display_name,
+            dataset_description=dataset_description,
+        )
 
     def _parse_alert_summary(self, alert_summary: Any) -> dict[str, Any]:
         """Parse alert scoring result into structured format."""
@@ -185,21 +250,20 @@ class OutputPersistenceAgent(BaseAgent):
                     elif isinstance(narrative_raw, dict):
                         narrative_data = narrative_raw
 
-                # Determine executive summary using precedence:
+                # Determine executive summary fallback using precedence:
                 # 1. synthesis_result (usually from report_synthesis_agent)
                 # 2. report_synthesis_result (fallback key)
                 # 3. narrative_results.narrative_summary (from narrative_agent)
                 # 4. Deterministic fallback
-                synthesis = session_state.get("synthesis_result")
-                if not synthesis or synthesis == "No synthesis available":
-                    synthesis = session_state.get("report_synthesis_result")
-                
-                if not synthesis or synthesis == "No synthesis available":
+                summary_source = session_state.get("synthesis_result")
+                if not summary_source or summary_source == "No synthesis available":
+                    summary_source = session_state.get("report_synthesis_result")
+                if _should_drop_stub(summary_source):
+                    summary_source = None
+                if not summary_source or summary_source == "No synthesis available":
                     if narrative_data and narrative_data.get("narrative_summary"):
-                        synthesis = narrative_data.get("narrative_summary")
-                
-                if not synthesis:
-                    synthesis = "No synthesis available"
+                        summary_source = narrative_data.get("narrative_summary")
+                analysis_summary = str(summary_source or "No synthesis available")
 
                 alert_summary = session_state.get("alert_scoring_result")
                 gl_totals = session_state.get("category_aggregate_totals", {})
@@ -267,7 +331,7 @@ class OutputPersistenceAgent(BaseAgent):
                     "temporal_grain_confidence": session_state.get("temporal_grain_confidence"),
                     "analysis": {
                         "severity": severity,
-                        "summary": synthesis if isinstance(synthesis, str) else str(synthesis),
+                        "summary": analysis_summary,
                         "alert_scoring": alert_data,
                         "gl_totals": gl_totals,
                     },
@@ -281,47 +345,34 @@ class OutputPersistenceAgent(BaseAgent):
                     data["category"] = category
                     data["gl_drilldowns"] = []
                 
-                with output_path.open("w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-                
-                print(f"[PERSIST] [OK] Successfully saved JSON analysis to {output_path.name}")
-                print(f"[PERSIST] File size: {output_path.stat().st_size} bytes")
-                
                 # Generate and save Markdown report for analysis_target level
                 if self.level == "dimension_value":
                     try:
-                        # First, try to use the already-generated synthesis result
-                        # This is populated by TestModeReportSynthesisAgent or report_synthesis_agent
-                        markdown_content = synthesis if isinstance(synthesis, str) and synthesis.startswith("#") else None
-
-                        if not markdown_content:
-                            # Generate markdown from hierarchical + narrative results
-                            analysis_period = f"{timeframe.get('start', 'N/A')} to {timeframe.get('end', 'N/A')}"
-                            narrative_raw = session_state.get("narrative_results") or session_state.get("narrative_result", "")
-                            markdown_content = await generate_markdown_report(
-                                hierarchical_results=json.dumps(hierarchical_results) if not isinstance(hierarchical_results, str) else (hierarchical_results or "{}"),
-                                analysis_target=analysis_target,
-                                analysis_period=analysis_period,
-                                statistical_summary=session_state.get("statistical_summary", ""),
-                                narrative_results=narrative_raw,
-                                target_label=target_label,
-                            )
-
+                        markdown_content = await self._generate_metric_markdown(
+                            session_state=session_state,
+                            hierarchical_results=hierarchical_results,
+                            analysis_target=analysis_target,
+                            target_label=target_label,
+                        )
+                        if markdown_content and not markdown_content.lstrip().startswith("# Error"):
+                            summary_override = _extract_summary_from_markdown(markdown_content)
+                            if summary_override:
+                                data["analysis"]["summary"] = summary_override
                         if markdown_content:
-                            # Save markdown file
-                            if os.getenv("DATA_ANALYST_OUTPUT_DIR"):
-                                # Ensure we use the metric name to avoid collisions in parallel runs
-                                markdown_path = output_path.with_suffix('.md')
-                            else:
-                                markdown_path = output_path.with_suffix('.md')
+                            markdown_path = output_path.with_suffix('.md')
                             markdown_path.write_text(markdown_content, encoding="utf-8")
                             print(f"[PERSIST] [OK] Saved Markdown report to {markdown_path.name}")
                         else:
-                            print(f"[PERSIST] WARNING: No markdown content available, skipping Markdown generation")
+                            print("[PERSIST] WARNING: No markdown content available, skipping Markdown generation")
                     except Exception as e:
                         print(f"[PERSIST] WARNING: Failed to generate Markdown report: {e}")
                         import traceback
                         traceback.print_exc()
+                
+                with output_path.open("w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+                print(f"[PERSIST] [OK] Successfully saved JSON analysis to {output_path.name}")
+                print(f"[PERSIST] File size: {output_path.stat().st_size} bytes")
             
             else:
                 # Append GL drilldown to existing file
@@ -342,6 +393,8 @@ class OutputPersistenceAgent(BaseAgent):
                 gl_string = session_state.get("current_gl_string")
                 gl_total = session_state.get("current_gl_total", 0.0)
                 synthesis = session_state.get("synthesis_result", "No synthesis available")
+                if _should_drop_stub(synthesis):
+                    synthesis = "No synthesis available"
                 alert_summary = session_state.get("alert_scoring_result")
                 
                 if not gl_string:

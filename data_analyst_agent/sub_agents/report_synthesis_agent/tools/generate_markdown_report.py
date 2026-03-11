@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from data_analyst_agent.utils.env_utils import parse_bool_env
+from data_analyst_agent.utils.stub_guard import contains_stub_content
 
 from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import resolve_unit
 from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.parsing import (
@@ -386,6 +387,39 @@ def _build_recommended_actions_section(
     return lines
 
 
+def _build_summary_from_data(metric_label: str, period_label: str, stats_data: dict, final_cards: List[dict], unit: str) -> str:
+    summary_stats = stats_data.get("summary_stats", {}) if isinstance(stats_data, dict) else {}
+    variance_amt = _safe_float(summary_stats.get("variance_amount") or summary_stats.get("variance_dollar"))
+    variance_pct = _safe_float(summary_stats.get("variance_pct"))
+    change_clause = _compose_change_clause(_format_amount_short(variance_amt, unit), _format_pct(variance_pct))
+    sentences: List[str] = []
+    if change_clause:
+        sentences.append(f"{metric_label} moved {change_clause} over the last {period_label}.")
+
+    driver_bits: List[str] = []
+    for card in final_cards[:2]:
+        evidence = card.get("evidence", {}) if isinstance(card, dict) else {}
+        amount = _safe_float((evidence or {}).get("variance_dollar") or card.get("variance_dollar"))
+        pct = _safe_float((evidence or {}).get("variance_pct") or card.get("variance_pct"))
+        clause = _compose_change_clause(_format_amount_short(amount, unit), _format_pct(pct))
+        label = _dimension_label(card)
+        driver_bits.append(f"{label} ({clause})" if clause else label)
+
+    if driver_bits:
+        driver_sentence = "Key drivers: " + ", ".join(driver_bits[:2]) + "."
+        sentences.append(driver_sentence)
+
+    anomalies = stats_data.get("anomalies") if isinstance(stats_data, dict) else None
+    if isinstance(anomalies, list) and anomalies:
+        count = min(len(anomalies), 3)
+        noun = "anomalies" if count > 1 else "anomaly"
+        sentences.append(f"{count} {noun} triggered monitoring during this period.")
+
+    if not sentences:
+        sentences.append(f"{metric_label} performance is stable but warrants monitoring despite missing narrative output.")
+    return " ".join(sentences)
+
+
 def _parse_statistical_summary(statistical_summary: Any) -> dict:
     parsed = parse_json_safe(statistical_summary) if statistical_summary else {}
     return parsed if isinstance(parsed, dict) else {}
@@ -422,6 +456,7 @@ async def generate_markdown_report(
     seasonal_decomposition: Optional[str] = None,
     dataset_display_name: Optional[str] = None,
     dataset_description: Optional[str] = None,
+    independent_findings: Optional[str] = None,
 ) -> str:
     try:
         target_name = cost_center or analysis_target or dataset_display_name or "Network Total"
@@ -450,9 +485,14 @@ async def generate_markdown_report(
         md: List[str] = []
         _append_header(md, label, target_name, analysis_period, cost_center)
 
+        insight_lines, final_cards = build_insight_cards_section(narrative_cards, level_analyses, levels_analyzed)
+        summary_text = narrative_summary
+        if contains_stub_content(summary_text):
+            summary_text = _build_summary_from_data(metric_label, period_label, stats_data, final_cards, unit)
+
         md.extend(
             build_executive_summary_section(
-                narrative_summary=narrative_summary,
+                narrative_summary=summary_text,
                 levels_analyzed=levels_analyzed,
                 level_analyses=level_analyses,
                 drill_down_path=drill_down_path,
@@ -463,7 +503,6 @@ async def generate_markdown_report(
             )
         )
 
-        insight_lines, final_cards = build_insight_cards_section(narrative_cards, level_analyses, levels_analyzed)
         md.extend(insight_lines)
 
         md.extend(
@@ -477,7 +516,15 @@ async def generate_markdown_report(
             )
         )
 
-        independent_results = raw_results.get("independent_level_results", {}) if isinstance(raw_results, dict) else {}
+        independent_results: dict = {}
+        if independent_findings:
+            parsed_independent = parse_json_safe(independent_findings)
+            if isinstance(parsed_independent, dict):
+                independent_results = parsed_independent
+        if not independent_results and isinstance(raw_results, dict):
+            fallback_independent = raw_results.get("independent_level_results", {})
+            if isinstance(fallback_independent, dict):
+                independent_results = fallback_independent
         md.extend(build_independent_levels_section(independent_results, condensed))
 
         cross_dim_results = raw_results.get("cross_dimension_results", {}) if isinstance(raw_results, dict) else {}
