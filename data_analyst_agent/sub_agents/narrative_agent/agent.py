@@ -11,6 +11,7 @@ from google.genai import types
 from google.genai.types import Content, Part
 from .prompt import NARRATIVE_AGENT_INSTRUCTION
 from config.model_loader import get_agent_model, get_agent_thinking_config
+from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
 
 
 def _safe_int_env(var: str, default: int) -> int:
@@ -20,10 +21,37 @@ def _safe_int_env(var: str, default: int) -> int:
         return default
 
 
-MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 8)
-MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 8)
-MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 4)
+MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 5)
+MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 5)
+MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 3)
 MAX_NARRATIVE_INDEPENDENT_CARDS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CARDS", 2)
+
+
+_PRUNABLE_ANALYSIS_KEYS = {
+    "level_results",
+    "entity_rows",
+    "child_rows",
+    "raw_rows",
+    "raw_children",
+    "level_summary",
+    "level_summary_table",
+    "dimension_rows",
+    "dimension_results",
+    "entity_rankings",
+    "detail_rows",
+    "records",
+}
+
+
+def _prune_analysis_payload(payload: dict) -> dict:
+    """Drop bulky table fields that overwhelm prompt budgets."""
+    if not isinstance(payload, dict):
+        return payload
+    for key in list(payload.keys()):
+        if key in _PRUNABLE_ANALYSIS_KEYS:
+            payload.pop(key, None)
+    return payload
+
 
 
 def _slim_insight_cards(cards, limit: int):
@@ -54,6 +82,7 @@ def _compress_analysis_block(raw_value, limit: int) -> str:
         return raw_value
     cards = payload.get("insight_cards")
     payload["insight_cards"] = _slim_insight_cards(cards, limit)
+    payload = _prune_analysis_payload(payload)
     return json.dumps(payload, indent=2)
 
 
@@ -192,7 +221,8 @@ class NarrativeWrapper(BaseAgent):
                 pass
 
         level_parts = []
-        for lvl in range(5):
+        level_range = hierarchy_level_range(state, contract, max_cap=6)
+        for lvl in level_range:
             val = state.get(f"level_{lvl}_analysis")
             if not val:
                 continue
@@ -202,7 +232,8 @@ class NarrativeWrapper(BaseAgent):
 
         # Collect independent flat-scan findings (only present when INDEPENDENT_LEVEL_ANALYSIS=true)
         independent_parts = []
-        for lvl in range(1, 5):
+        independent_range = independent_level_range(state, contract, max_cap=4)
+        for lvl in independent_range:
             val = state.get(f"independent_level_{lvl}_analysis")
             if not val:
                 continue

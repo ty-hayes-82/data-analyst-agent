@@ -26,12 +26,14 @@ from google.adk import Agent
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
+from google.adk.events.event_actions import EventActions
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import REPORT_SYNTHESIS_AGENT_INSTRUCTION, build_report_instruction
 from .tools import generate_markdown_report
 from ...utils import parse_bool_env
+from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
 
 
 _base_agent = Agent(
@@ -119,6 +121,9 @@ def _slim_alert(alert: dict) -> dict:
     triggered = [k for k, v in signals_dict.items() if v]
 
     details = alert.get("details", {})
+    description = details.get("description", "")
+    if isinstance(description, str) and len(description) > 240:
+        description = description[:240].rstrip() + " …"
 
     return {
         "item": alert.get("item_name") or alert.get("dimension_value") or alert.get("gl_code") or alert.get("item_id", "Unknown"),
@@ -127,7 +132,7 @@ def _slim_alert(alert: dict) -> dict:
         "priority": alert.get("priority", ""),
         "variance_pct": alert.get("variance_pct"),
         "variance_amount": alert.get("variance_amount"),
-        "description": details.get("description", ""),
+        "description": description,
         "signals": triggered,
     }
 
@@ -139,10 +144,35 @@ def _safe_int_env(name: str, default: int) -> int:
         return default
 
 
-_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 5)
+_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 4)
 _MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 3)
-_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 8)
-_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 5)
+_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 5)
+_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 4)
+
+
+_PRUNABLE_LEVEL_KEYS = {
+    "level_results",
+    "entity_rows",
+    "child_rows",
+    "raw_rows",
+    "raw_children",
+    "dimension_rows",
+    "dimension_results",
+    "level_summary",
+    "level_summary_table",
+    "entity_rankings",
+    "records",
+}
+
+
+def _prune_level_payload(payload: dict) -> dict:
+    """Remove bulky table fields before sending to the LLM."""
+    if not isinstance(payload, dict):
+        return payload
+    for key in list(payload.keys()):
+        if key in _PRUNABLE_LEVEL_KEYS:
+            payload.pop(key, None)
+    return payload
 
 
 def _slim_narrative_payload(raw: str | dict | None) -> str:
@@ -298,44 +328,63 @@ class ReportSynthesisWrapper(BaseAgent):
 
             # Collect hierarchical level analyses
             level_parts = []
-            for lvl in range(6):
+            for lvl in hierarchy_level_range(state, contract):
                 val = state.get(f"level_{lvl}_analysis")
-                if val:
-                    try:
-                        lvl_dict = json.loads(val)
-                        cards = lvl_dict.get("insight_cards", [])
-                        # Slim and cap: only keep high-impact cards
-                        if len(cards) > 3:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:3]]
-                            lvl_dict["message"] = f"Showing top 3 of {len(cards)} hierarchical candidates"
-                        else:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
-                        val = json.dumps(lvl_dict, indent=2)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                    level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{val}")
+                if not val:
+                    continue
+                parsed_level = None
+                had_rows = False
+                try:
+                    lvl_dict = json.loads(val)
+                    cards = lvl_dict.get("insight_cards", [])
+                    # Slim and cap: only keep high-impact cards
+                    if len(cards) > 3:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:3]]
+                        lvl_dict["message"] = f"Showing top 3 of {len(cards)} hierarchical candidates"
+                    else:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
+                    had_rows = bool(lvl_dict.get("level_results"))
+                    lvl_dict = _prune_level_payload(lvl_dict)
+                    parsed_level = lvl_dict
+                    val = json.dumps(lvl_dict, indent=2)
+                except (json.JSONDecodeError, TypeError):
+                    parsed_level = None
+                if parsed_level:
+                    has_cards = bool(parsed_level.get("insight_cards"))
+                    if not (has_cards or had_rows):
+                        continue
+                level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{val}")
             hierarchical_text = "\n\n".join(level_parts) if level_parts else "No hierarchical analysis results available."
 
             # Collect independent flat-scan findings (only present when INDEPENDENT_LEVEL_ANALYSIS=true)
             independent_parts = []
-            for lvl in range(1, 6):
+            for lvl in independent_level_range(state, contract):
                 val = state.get(f"independent_level_{lvl}_analysis")
-                if val:
-                    try:
-                        lvl_dict = json.loads(val)
-                        cards = lvl_dict.get("insight_cards", [])
-                        # Slim and cap: only keep high-impact net-new cards
-                        if len(cards) > 2:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:2]]
-                            lvl_dict["message"] = f"Showing top 2 of {len(cards)} independent scans"
-                        else:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
-                        val = json.dumps(lvl_dict, indent=2)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                    independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{val}")
+                if not val:
+                    continue
+                parsed_independent = None
+                try:
+                    lvl_dict = json.loads(val)
+                    cards = lvl_dict.get("insight_cards", [])
+                    # Slim and cap: only keep high-impact net-new cards
+                    if len(cards) > 2:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:2]]
+                        lvl_dict["message"] = f"Showing top 2 of {len(cards)} independent scans"
+                    else:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
+                    lvl_dict = _prune_level_payload(lvl_dict)
+                    parsed_independent = lvl_dict
+                    val = json.dumps(lvl_dict, indent=2)
+                except (json.JSONDecodeError, TypeError):
+                    parsed_independent = None
+                if parsed_independent:
+                    has_cards = bool(parsed_independent.get("insight_cards"))
+                    if not has_cards:
+                        continue
+                independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{val}")
             independent_findings_text = "\n\n".join(independent_parts) if independent_parts else ""
 
+            # --- TEMPORAL CONTEXT: Mandatory grain and period anchoring ---
             # --- TEMPORAL CONTEXT: Mandatory grain and period anchoring ---
             temporal_grain = state.get("temporal_grain", "unknown")
             period_end = state.get("primary_query_end_date")
@@ -384,12 +433,10 @@ class ReportSynthesisWrapper(BaseAgent):
 
             # Build canonical format guidance for consistent tool inputs
             canonical_format = (
-                "\n**CANONICAL FORMAT for generate_markdown_report:**\n"
-                "Pass parameters in one call. hierarchical_results: JSON with level_0, level_1, etc., "
-                "AND independent_level_results if present in INDEPENDENT_LEVEL_FINDINGS. "
-                "Each level has insight_cards array and total_variance_dollar. narrative_results: from NARRATIVE_RESULTS as-is. "
-                "statistical_summary: PASS THE FULL JSON BLOCK from STATISTICAL_SUMMARY context unchanged. "
-                "analysis_target and analysis_period: Use exact values provided in TEMPORAL_CONTEXT.\n"
+                "\nTOOL CALL INSTRUCTIONS:\n"
+                "- Call generate_markdown_report exactly once.\n"
+                "- Pass temporal_context, analysis_target, narrative_results, statistical_summary, hierarchical_results (level_0..n plus independent results when present), and alert_scoring_result exactly as provided.\n"
+                "- Do not emit markdown yourself.\n"
             )
             
             independent_section = (
