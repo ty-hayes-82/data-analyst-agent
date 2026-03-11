@@ -10,6 +10,8 @@ from typing import Any
 
 import pandas as pd
 
+from .report_utils import _extract_scoped_cards_from_report
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _PARENT_CHILD_CACHE: dict[tuple[str, str, str], dict[str, list[str]]] = {}
 

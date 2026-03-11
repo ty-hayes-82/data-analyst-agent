@@ -36,6 +36,7 @@ from .prompt import (
     load_prompt_variant,
 )
 from ...utils import parse_bool_env
+from ...utils.stub_guard import contains_stub_content
 from ...utils.contract_summary import (
     build_contract_metadata,
     format_contract_context,
@@ -99,6 +100,19 @@ def _ensure_block_titles(block: Any, prefix: str) -> Any:
     if isinstance(data, dict):
         _ensure_card_titles(data.get("insight_cards"), prefix)
     return json.dumps(data) if was_str else data
+
+
+def _is_placeholder_markdown(markdown: str, used_fallback: bool = False) -> bool:
+    """Detect fallback or stubbed markdown content."""
+    if used_fallback:
+        return True
+    text = (markdown or "").strip()
+    if not text:
+        return True
+    normalized = text.lower()
+    if SECTION_FALLBACK_TEXT.lower() in normalized:
+        return True
+    return contains_stub_content(text)
 
 
 def _backfill_missing_titles(json_data: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -880,15 +894,27 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             from .pdf_renderer import BriefPage
 
             network_label = f"Network — {period_end}"
+            network_placeholder = _is_placeholder_markdown(brief_md, used_fallback)
             pages: list[BriefPage] = [
-                BriefPage(bookmark_label=network_label, markdown_content=brief_md, level=0)
+                BriefPage(
+                    bookmark_label=network_label,
+                    markdown_content=brief_md,
+                    level=0,
+                    is_placeholder=network_placeholder,
+                )
             ]
             for info in scoped_briefs.values():
+                scoped_placeholder = _is_placeholder_markdown(
+                    info.get("content", ""),
+                    info.get("used_fallback", False),
+                )
                 pages.append(
                     BriefPage(
                         bookmark_label=info.get("bookmark_label", "Scoped"),
-                        markdown_content=info["content"],
+                        markdown_content=info.get("content", ""),
                         level=info.get("level", 1),
+                        parent_label=info.get("parent_label", ""),
+                        is_placeholder=scoped_placeholder,
                     )
                 )
 
@@ -896,8 +922,17 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 try:
                     from .pdf_renderer import render_briefs_to_pdf
 
-                    pdf_filename = "brief.pdf" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.pdf"
-                    pdf_path = render_briefs_to_pdf(pages, outputs_dir / pdf_filename, period_end)
+                    pdf_candidates = [p for p in pages if not p.is_placeholder]
+                    placeholder_count = len(pages) - len(pdf_candidates)
+                    if not pdf_candidates:
+                        print("[BRIEF] Skipping PDF render: only placeholder/fallback brief content available.")
+                    else:
+                        if placeholder_count:
+                            print(
+                                f"[BRIEF] PDF render: skipped {placeholder_count} placeholder brief(s) to avoid empty content."
+                            )
+                        pdf_filename = "brief.pdf" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.pdf"
+                        pdf_path = render_briefs_to_pdf(pdf_candidates, outputs_dir / pdf_filename, period_end)
                 except Exception as pdf_err:
                     print(f"[BRIEF] PDF rendering error (non-fatal): {pdf_err}")
 

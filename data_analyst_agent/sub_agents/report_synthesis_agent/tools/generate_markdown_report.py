@@ -162,7 +162,7 @@ def _format_amount_short(value: Optional[float], unit: str) -> str:
             suffix = ""
         precision = 0 if scaled >= 100 or suffix == "" else 1
         formatted = f"{scaled:,.{precision}f}{suffix}"
-        return f"{sign}${{formatted}}"
+        return f"{sign}${formatted}"
     formatted = f"{abs_val:,.0f}"
     suffix = ""
     if normalized_unit.lower() not in {"count", "units", "unit"}:

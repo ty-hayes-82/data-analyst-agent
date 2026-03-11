@@ -76,7 +76,7 @@ def is_currency_unit(unit: str) -> bool:
 def format_value(value: float, unit: str) -> str:
     normalized = normalize_unit(unit)
     if is_currency_unit(normalized):
-        return f"${{value:,.0f}}"
+        return f"${value:,.0f}"
     if normalized.lower() in {"count", "units", "unit"}:
         return f"{value:,.0f}"
     return f"{value:,.0f} {normalized}"
