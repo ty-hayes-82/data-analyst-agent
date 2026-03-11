@@ -40,15 +40,16 @@ def event_loop():
 
 
 def _close_stray_event_loop() -> None:
-    try:
-        loop = asyncio.get_event_loop()
-    except Exception:
-        return
+    policy = asyncio.get_event_loop_policy()
+    local = getattr(policy, "_local", None)
+    loop = getattr(local, "loop", None) if local else None
     if loop and not loop.is_closed():
         try:
             loop.close()
         except Exception:
             pass
+        finally:
+            policy.set_event_loop(None)
 
 
 def pytest_sessionfinish(session, exitstatus):

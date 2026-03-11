@@ -37,7 +37,7 @@ def prepare_state(resolve_data_and_columns, analysis_focus=None, custom_focus: s
     periods = sorted(pivot.columns)
     lag = get_effective_lag_or_default(ctx.contract, ctx.target_metric) if ctx and ctx.contract and ctx.target_metric else 0
     effective_latest, lag_window = resolve_effective_latest_period(periods, lag)
-    latest_period = str(effective_latest) if effective_latest else "N/A"
+    latest_period_label = _format_period_label(effective_latest)
 
     temporal_grain = "monthly"
     ctx_temporal_grain = getattr(ctx, "temporal_grain", None) if ctx else None
@@ -45,18 +45,23 @@ def prepare_state(resolve_data_and_columns, analysis_focus=None, custom_focus: s
         temporal_grain = ctx_temporal_grain
     period_unit = "week" if temporal_grain == "weekly" else "month"
 
+    latest_idx = None
+    prev_period_value = None
     try:
         latest_idx = list(pivot.columns).index(effective_latest)
-        prev_period = str(pivot.columns[latest_idx - 1]) if latest_idx > 0 else None
+        if latest_idx > 0:
+            prev_period_value = list(pivot.columns)[latest_idx - 1]
     except ValueError:
-        prev_period = None
+        pass
+
+    prev_period_label = _format_period_label(prev_period_value) if prev_period_value is not None else None
 
     change_series = None
     contribution_share: dict[str, float] = {}
-    if prev_period is not None:
-        change_series = pivot[latest_period] - pivot[prev_period]
+    if prev_period_value is not None and effective_latest is not None:
+        change_series = pivot[effective_latest] - pivot[prev_period_value]
 
-    pattern_label_by_account = _compute_pattern_labels(pivot, latest_period)
+    pattern_label_by_account = _compute_pattern_labels(pivot, effective_latest)
 
     state = SummaryState(
         df=df,
@@ -70,10 +75,12 @@ def prepare_state(resolve_data_and_columns, analysis_focus=None, custom_focus: s
         current_metric_name=current_metric_name,
         temporal_grain=temporal_grain,
         period_unit=period_unit,
-        latest_period=latest_period,
-        prev_period=prev_period,
+        latest_period=latest_period_label,
+        prev_period=prev_period_label,
         lag=lag,
         lag_window=[str(p) for p in lag_window],
+        latest_period_value=effective_latest,
+        prev_period_value=prev_period_value,
         pattern_label_by_account=pattern_label_by_account,
         change_series=change_series,
         contribution_share=contribution_share,
@@ -150,13 +157,29 @@ def _apply_materiality_filter(df, pivot, ctx, metric_name, grain_col, time_col):
         pass
 
 
-def _compute_pattern_labels(pivot: pd.DataFrame, latest_period: str) -> dict[str, str]:
+def _format_period_label(period) -> str:
+    if period is None:
+        return "N/A"
+    if hasattr(period, "isoformat"):
+        try:
+            return period.isoformat()
+        except Exception:
+            pass
+    return str(period)
+
+
+def _compute_pattern_labels(pivot: pd.DataFrame, latest_period_value) -> dict[str, str]:
     labels: dict[str, str] = {}
+    if latest_period_value is None or latest_period_value not in pivot.columns:
+        for account in pivot.index:
+            labels[account] = "run_rate_change"
+        return labels
+
     if pivot.shape[1] >= 3:
         mean3 = pivot.iloc[:, -3:].mean(axis=1)
         std3 = pivot.iloc[:, -3:].std(axis=1)
         for account in pivot.index:
-            latest_val = float(pivot.loc[account, latest_period])
+            latest_val = float(pivot.loc[account, latest_period_value])
             m3 = float(mean3.loc[account])
             s3 = float(std3.loc[account])
             is_spike = abs(latest_val - m3) > 2.0 * s3 if s3 > 0 else False

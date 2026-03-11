@@ -41,8 +41,10 @@ def compute_monthly_totals(state: SummaryState) -> None:
         prev_mt = monthly_totals.get(state.prev_period, 0)
         correct_total_change = latest_mt - prev_mt
         total_change_denom = correct_total_change if correct_total_change != 0 else 1e-9
-        for account in pivot.index:
-            state.contribution_share[account] = float((pivot[state.latest_period] - pivot[state.prev_period]).loc[account] / total_change_denom)
+        if state.latest_period_value is not None and state.prev_period_value is not None:
+            period_delta = pivot[state.latest_period_value] - pivot[state.prev_period_value]
+            for account in pivot.index:
+                state.contribution_share[account] = float(period_delta.loc[account] / total_change_denom)
 
 
 def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> dict[str, float] | None:
