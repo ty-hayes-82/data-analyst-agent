@@ -14,6 +14,13 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _assert_no_deprecated_sync_warning(caplog: pytest.LogCaptureFixture):
+    caplog.clear()
+    yield
+    assert "Please migrate to the async method" not in caplog.text
+
+
 def _make_user_content(text: str):
     from google.genai.types import Content, Part
 
@@ -111,7 +118,7 @@ class TestSessionStateFlow:
         from data_analyst_agent.core_agents.loaders import ContractLoader, DateInitializer
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -155,7 +162,7 @@ class TestDataFetchPipeline:
         from data_analyst_agent.agent import data_fetch_workflow
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -271,7 +278,7 @@ class TestAnalysisPipelineIntegration:
         from data_analyst_agent.agent import data_fetch_workflow, target_analysis_pipeline
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -360,7 +367,7 @@ class TestFullPipelineOrchestration:
         from data_analyst_agent.agent import root_agent
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={

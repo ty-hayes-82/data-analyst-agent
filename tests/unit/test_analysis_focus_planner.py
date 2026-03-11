@@ -2,6 +2,13 @@ import json
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _assert_no_deprecated_sync_warning(caplog: pytest.LogCaptureFixture):
+    caplog.clear()
+    yield
+    assert "Please migrate to the async method" not in caplog.text
+
+
 @pytest.mark.asyncio
 async def test_analysis_focus_influences_rule_based_planner(monkeypatch):
     """Ensure DATA_ANALYST_FOCUS->analysis_focus changes planner selection (not pass-through)."""
@@ -25,7 +32,7 @@ async def test_analysis_focus_influences_rule_based_planner(monkeypatch):
     from google.adk.sessions.session import Session
 
     svc = InMemorySessionService()
-    session: Session = svc.create_session_sync(app_name="data-analyst-agent", user_id="test")
+    session: Session = await svc.create_session(app_name="data-analyst-agent", user_id="test")
     session.state.update({
         "analysis_focus": ["anomaly_detection"],
         "custom_focus": "",
