@@ -118,3 +118,31 @@ def detect_temporal_grain(
         dominant_weekday_ratio=round(dominant_weekday_ratio, 4),
         dominant_weekday=dominant_weekday,
     )
+
+
+def describe_analysis_period(period_end: str, frequency: str | None = None) -> str:
+    """Human-readable label for the analysis period.
+
+    Args:
+        period_end: string date (YYYY-MM-DD recommended)
+        frequency: contract time frequency (daily|weekly|monthly|quarterly|yearly|...)
+
+    Returns:
+        A short phrase like "the week ending 2026-03-11".
+    """
+    freq = (frequency or "").strip().lower()
+    if not period_end:
+        return "the most recent period"
+
+    if "week" in freq:
+        return f"the week ending {period_end}"
+    if "month" in freq:
+        return f"the month ending {period_end}"
+    if "quarter" in freq:
+        return f"the quarter ending {period_end}"
+    if "year" in freq or freq == "annual":
+        return f"the year ending {period_end}"
+    if "day" in freq or freq == "daily":
+        return f"the day ending {period_end}"
+
+    return f"the period ending {period_end}"

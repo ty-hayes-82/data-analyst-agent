@@ -165,4 +165,60 @@ def format_contract_context(contract: Any | None) -> str:
     return "\n".join(lines) + "\n"
 
 
-__all__ = ["build_contract_metadata", "format_contract_context"]
+def format_contract_reference_block(contract: Any | None) -> str:
+    """Return a deterministic plain-text reference block for prompts/tests.
+
+    This is intentionally stable (no random sampling) so it can be used inside
+    prompt templates and cached artifacts.
+    """
+    metadata = build_contract_metadata(contract)
+    if not metadata:
+        return ""
+
+    lines: List[str] = ["CONTRACT REFERENCE BLOCK:"]
+
+    name = metadata.get("display_name") or metadata.get("name") or "dataset"
+    if name:
+        lines.append(f"- Dataset: {name}")
+
+    time_cfg = metadata.get("time") or {}
+    time_bits = []
+    if time_cfg.get("column"):
+        time_bits.append(f"column={time_cfg['column']}")
+    if time_cfg.get("frequency"):
+        time_bits.append(str(time_cfg["frequency"]))
+    if time_bits:
+        lines.append(f"- Time: {' | '.join(time_bits)}")
+
+    metrics = metadata.get("metrics") or []
+    if metrics:
+        lines.append("- Metrics:")
+        for m in metrics[:12]:
+            label = m.get("name") or m.get("column") or "metric"
+            col = m.get("column")
+            mtype = m.get("type")
+            suffix = []
+            if col:
+                suffix.append(f"col={col}")
+            if mtype:
+                suffix.append(str(mtype))
+            lines.append(f"  * {label}" + (f" ({'; '.join(suffix)})" if suffix else ""))
+
+    dims = metadata.get("dimensions") or []
+    if dims:
+        lines.append("- Dimensions:")
+        for d in dims[:20]:
+            label = d.get("name") or d.get("column") or "dimension"
+            col = d.get("column")
+            role = d.get("role")
+            suffix = []
+            if col:
+                suffix.append(f"col={col}")
+            if role:
+                suffix.append(str(role))
+            lines.append(f"  * {label}" + (f" ({'; '.join(suffix)})" if suffix else ""))
+
+    return "\n".join(lines).strip() + "\n"
+
+
+__all__ = ["build_contract_metadata", "format_contract_context", "format_contract_reference_block"]

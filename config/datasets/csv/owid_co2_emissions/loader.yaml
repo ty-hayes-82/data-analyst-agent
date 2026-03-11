@@ -1,0 +1,13 @@
+type: csv
+file: data/public/owid_co2_data.csv
+encoding: utf-8
+date_columns:
+- year
+numeric_columns:
+- co2
+- co2_per_capita
+- coal_co2
+- oil_co2
+- gas_co2
+- population
+- gdp

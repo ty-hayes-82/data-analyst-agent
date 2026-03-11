@@ -1,0 +1,67 @@
+name: World Bank Population
+version: 1.0.0
+display_name: World Bank Country Population (1960-2023)
+target_label: Metric
+description: Annual population data for 262 countries from the World Bank. Covers
+  1960 to present with country-level granularity.
+materiality:
+  variance_pct: 3.0
+  variance_absolute: 100000
+presentation:
+  unit: people
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: pdf
+data_source:
+  type: csv
+  file: data/public/worldbank_population.csv
+time:
+  column: Year
+  frequency: yearly
+  format: '%Y'
+  range_months: 756
+grain:
+  columns:
+  - Year
+  - Country Name
+  - Country Code
+metrics:
+- name: population
+  column: Value
+  type: additive
+  format: integer
+  optimization: maximize
+  tags:
+  - demographic
+  - population
+  description: Total country population
+dimensions:
+- name: country_name
+  column: Country Name
+  role: primary
+  description: Country name
+- name: country_code
+  column: Country Code
+  role: secondary
+  description: ISO 3-letter country code
+- name: year
+  column: Year
+  role: time
+  description: Year of observation
+hierarchies:
+- name: by_country
+  description: Country-level population analysis
+  children:
+  - country_name
+  level_names:
+    0: World
+    1: Country
+capabilities:
+- annual population trend analysis by country
+- population growth rate comparison
+- demographic shift detection
+- country-level variance analysis
+policies:
+  degradation_threshold: 0.1

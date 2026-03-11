@@ -1,0 +1,7 @@
+type: csv
+file: data/public/worldbank_population.csv
+encoding: utf-8
+date_columns:
+- Year
+numeric_columns:
+- Value

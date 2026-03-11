@@ -1,0 +1,25 @@
+source:
+  file: "data/public/worldbank_population_enriched.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+column_mapping:
+  country_name: "country"
+  country_code: "country_code"
+  region: "region"
+  sub_region: "sub_region"
+  period_end: "period_end"
+  population: "population"
+
+numeric_columns: ["population"]
+
+sort_columns: ["period_end", "region", "sub_region", "country"]
+
+output_columns:
+  - "period_end"
+  - "region"
+  - "sub_region"
+  - "country"
+  - "country_code"
+  - "population"
