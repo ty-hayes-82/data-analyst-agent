@@ -33,6 +33,7 @@ from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import REPORT_SYNTHESIS_AGENT_INSTRUCTION, build_report_instruction
 from .tools import generate_markdown_report
 from ...utils import parse_bool_env
+from ...utils.contract_summary import build_contract_metadata
 from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
 
 
@@ -170,15 +171,15 @@ def _safe_int_env(name: str, default: int) -> int:
 
 _MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 4)
 _MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 3)
-_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 4)
-_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 3)
+_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 3)
+_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 2)
 
-_MAX_NARRATIVE_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CHARS", 3200)
-_MAX_DATA_ANALYST_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_DA_CHARS", 2200)
-_MAX_HIERARCHICAL_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_HIERARCHICAL_CHARS", 2800)
-_MAX_INDEPENDENT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_INDEPENDENT_CHARS", 1800)
-_MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 2000)
-_MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 2200)
+_MAX_NARRATIVE_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CHARS", 2500)
+_MAX_DATA_ANALYST_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_DA_CHARS", 1800)
+_MAX_HIERARCHICAL_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_HIERARCHICAL_CHARS", 2200)
+_MAX_INDEPENDENT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_INDEPENDENT_CHARS", 1400)
+_MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 1500)
+_MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 1700)
 
 
 def _truncate_block(block: str | None, max_chars: int, label: str) -> str:
@@ -265,27 +266,35 @@ def _slim_narrative_payload(raw: str | dict | None) -> str:
     return _compact_json(payload)
 
 
-def _build_contract_summary(contract) -> dict[str, Any]:
-    if not contract:
-        return {
-            "dataset": None,
-            "frequency": "unknown",
-            "metrics": [],
-            "dimensions": [],
-            "hierarchies": [],
-        }
-    display = getattr(contract, "display_name", None) or getattr(contract, "name", "dataset")
-    time_cfg = getattr(contract, "time", None)
-    frequency = getattr(time_cfg, "frequency", None) or "unknown"
-    metrics = sorted({m.name for m in getattr(contract, "metrics", []) if getattr(m, "name", None)})
-    dims = sorted({d.name for d in getattr(contract, "dimensions", []) if getattr(d, "name", None)})
-    hierarchies = sorted({h.name for h in getattr(contract, "hierarchies", []) if getattr(h, "name", None)})
+def _compact_contract_context(contract) -> dict[str, Any]:
+    metadata = build_contract_metadata(contract)
+    if not metadata:
+        return {}
+    metrics = [m.get("name") for m in metadata.get("metrics", []) if m.get("name")]
+    primary_dims = [
+        d.get("name")
+        for d in metadata.get("dimensions", [])
+        if (d.get("role") or "").lower() == "primary" and d.get("name")
+    ]
+    hierarchies = []
+    for entry in metadata.get("hierarchies", [])[:2]:
+        if not entry:
+            continue
+        hierarchies.append(
+            {
+                "name": entry.get("name"),
+                "path": entry.get("children"),
+                "level_names": entry.get("level_names"),
+            }
+        )
     return {
-        "dataset": display,
-        "frequency": frequency,
+        "display_name": metadata.get("display_name"),
+        "time": metadata.get("time"),
         "metrics": metrics,
-        "dimensions": dims,
+        "primary_dimensions": primary_dims,
         "hierarchies": hierarchies,
+        "materiality": metadata.get("materiality"),
+        "capabilities": metadata.get("capabilities"),
     }
 
 
@@ -337,7 +346,7 @@ class ReportSynthesisWrapper(BaseAgent):
                 print(f"[REPORT_SYNTHESIS] Instruction built from contract: {contract.name}")
             else:
                 print("[REPORT_SYNTHESIS] WARNING: No contract in state. Using generic fallback instruction.")
-            contract_summary = _build_contract_summary(contract)
+            contract_context = _compact_contract_context(contract)
 
             # Collect results from session state and inject as a conversation message.
             # DynamicParallelAnalysisAgent stores results via state_delta only (no message
@@ -556,7 +565,7 @@ class ReportSynthesisWrapper(BaseAgent):
             stats_component = _loads_or_passthrough(statistical_summary)
 
             report_payload = {
-                "dataset_context": contract_summary,
+                "dataset_context": contract_context,
                 "analysis_target": state.get("current_analysis_target") or ctx.session.state.get("analysis_target"),
                 "focus": focus_payload,
                 "temporal_context": temporal_context,

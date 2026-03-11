@@ -11,6 +11,7 @@ from google.genai import types
 from google.genai.types import Content, Part
 from .prompt import NARRATIVE_AGENT_INSTRUCTION
 from config.model_loader import get_agent_model, get_agent_thinking_config
+from ...utils.contract_summary import build_contract_metadata
 from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
 
 
@@ -25,10 +26,10 @@ MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 3)
 MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 3)
 MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 2)
 MAX_NARRATIVE_INDEPENDENT_CARDS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CARDS", 1)
-MAX_NARRATIVE_ANALYST_CHARS = _safe_int_env("NARRATIVE_MAX_ANALYST_CHARS", 4000)
-MAX_NARRATIVE_STATS_CHARS = _safe_int_env("NARRATIVE_MAX_STATS_CHARS", 2800)
-MAX_NARRATIVE_HIERARCHY_CHARS = _safe_int_env("NARRATIVE_MAX_HIER_CHARS", 2600)
-MAX_NARRATIVE_INDEPENDENT_CHARS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CHARS", 1500)
+MAX_NARRATIVE_ANALYST_CHARS = _safe_int_env("NARRATIVE_MAX_ANALYST_CHARS", 3200)
+MAX_NARRATIVE_STATS_CHARS = _safe_int_env("NARRATIVE_MAX_STATS_CHARS", 2100)
+MAX_NARRATIVE_HIERARCHY_CHARS = _safe_int_env("NARRATIVE_MAX_HIER_CHARS", 2000)
+MAX_NARRATIVE_INDEPENDENT_CHARS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CHARS", 1200)
 
 
 def _truncate_text(block: str | None, max_chars: int, label: str) -> str:
@@ -171,6 +172,29 @@ class NarrativeWrapper(BaseAgent):
         materiality = getattr(contract, 'materiality', {}) if contract else {}
         var_pct = materiality.get("variance_pct", 5.0)
         var_abs = materiality.get("variance_absolute", 50000.0)
+        contract_metadata = build_contract_metadata(contract)
+        compact_metadata: dict[str, Any] = {}
+        if contract_metadata:
+            metrics_list = [m.get("name") for m in contract_metadata.get("metrics", []) if m.get("name")]
+            primary_dims = [
+                d.get("name")
+                for d in contract_metadata.get("dimensions", [])
+                if (d.get("role") or "").lower() == "primary" and d.get("name")
+            ]
+            hierarchy_paths = [
+                {
+                    "name": h.get("name"),
+                    "path": h.get("children"),
+                }
+                for h in contract_metadata.get("hierarchies", [])
+                if h.get("children")
+            ]
+            compact_metadata = {
+                "metrics": metrics_list,
+                "primary_dimensions": primary_dims,
+                "hierarchies": hierarchy_paths,
+                "time": contract_metadata.get("time"),
+            }
 
         if contract:
             # NOTE: Avoid str.format() because prompts often contain JSON examples
@@ -304,14 +328,18 @@ class NarrativeWrapper(BaseAgent):
         data_analyst_component = _loads_or_passthrough(data_analyst_result)
         stats_component = _loads_or_passthrough(statistical_summary)
 
-        prompt_payload = {
-            "dataset": {
-                "display_name": display_name,
-                "materiality": {
-                    "variance_pct": var_pct,
-                    "variance_absolute": var_abs,
-                },
+        dataset_payload = {
+            "display_name": display_name,
+            "materiality": {
+                "variance_pct": var_pct,
+                "variance_absolute": var_abs,
             },
+        }
+        if compact_metadata:
+            dataset_payload["metadata"] = compact_metadata
+
+        prompt_payload = {
+            "dataset": dataset_payload,
             "temporal_grain": state.get("temporal_grain", "unknown"),
             "analysis_period": state.get("analysis_period"),
             "period_end": state.get("primary_query_end_date"),

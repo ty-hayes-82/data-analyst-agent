@@ -36,6 +36,7 @@ from .prompt import (
     load_prompt_variant,
 )
 from ...utils import parse_bool_env
+from ...utils.contract_summary import build_contract_metadata, format_contract_context
 from .prompt_utils import (
     _build_weather_context_block,
     _format_analysis_period,
@@ -561,13 +562,21 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         contract_context = f"\nDataset: {dataset_name}."
         if dataset_desc:
             contract_context += f" {dataset_desc.strip()}"
+        contract_context_text = contract_context + format_contract_context(contract)
+        contract_metadata = build_contract_metadata(contract)
+        contract_metadata_block = ""
+        if contract_metadata:
+            contract_metadata_block = (
+                "CONTRACT_METADATA_JSON (contract-derived — do not invent or omit fields):\n"
+                f"{json.dumps(contract_metadata, indent=2, ensure_ascii=False)}\n\n"
+            )
 
         instruction = _format_instruction(
             EXECUTIVE_BRIEF_INSTRUCTION,
             metric_count=len(reports),
             analysis_period=analysis_period,
             scope_preamble=focus_block,
-            dataset_specific_append=load_dataset_specific_append() + contract_context,
+            dataset_specific_append=load_dataset_specific_append() + contract_context_text,
             prompt_variant_append=load_prompt_variant(os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")),
         )
         weather_block = _build_weather_context_block(ctx.session.state.get("weather_context"))
@@ -601,9 +610,14 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         }
 
         focus_preamble_text = f"FOCUS_DIRECTIVES:\n{focus_block}\n\n" if focus_block else ""
+        contract_summary_block = contract_context_text.strip()
+        if contract_summary_block:
+            contract_summary_block = contract_summary_block + "\n\n"
 
         user_message = (
             f"{focus_preamble_text}"
+            f"{contract_summary_block}"
+            f"{contract_metadata_block}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
             f"Use the above 'reference_period_end' when writing header.title.\n\n"
@@ -626,6 +640,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             timeframe=timeframe if isinstance(timeframe, dict) else {},
             weather_context=ctx.session.state.get("weather_context"),
             dataset=ctx.session.state.get("dataset"),
+            contract_metadata=contract_metadata,
         )
 
         print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
@@ -714,12 +729,15 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             metric_count=len(reports),
                             analysis_period=analysis_period,
                             scope_preamble=scope_preamble,
-                            dataset_specific_append=load_dataset_specific_append() + contract_context,
+                            dataset_specific_append=load_dataset_specific_append() + contract_context_text,
                             prompt_variant_append=load_prompt_variant(
                                 os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")
                             ),
                         )
                         scoped_user_message = (
+                            f"{focus_preamble_text}"
+                            f"{contract_summary_block}"
+                            f"{contract_metadata_block}"
                             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
                             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
                             f"Use the above 'reference_period_end' when writing header.title.\n\n"
@@ -777,6 +795,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         timeframe=timeframe if isinstance(timeframe, dict) else {},
                         weather_context=ctx.session.state.get("weather_context"),
                         dataset=ctx.session.state.get("dataset"),
+                        contract_metadata=contract_metadata,
                         drill_levels=drill_levels,
                         scoped_digests=scoped_digests_map,
                     )
