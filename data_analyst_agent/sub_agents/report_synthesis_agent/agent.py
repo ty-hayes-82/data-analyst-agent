@@ -517,12 +517,14 @@ class ReportSynthesisWrapper(BaseAgent):
             temporal_grain = state.get("temporal_grain", "unknown")
             period_end = state.get("primary_query_end_date")
             timeframe = state.get("timeframe", {})
-            analysis_period_val = state.get("analysis_period", "the period ending")
+            analysis_period_val = state.get("analysis_period")
+            if not analysis_period_val:
+                analysis_period_val = f"the period ending {period_end}" if period_end else "the period ending"
             
             temporal_context = {
                 "temporal_grain": temporal_grain,
                 "period_unit": "week" if temporal_grain == "weekly" else "month",
-                "analysis_period": f"{analysis_period_val} {period_end}" if period_end else analysis_period_val,
+                "analysis_period": analysis_period_val,
                 "reference_period_end": period_end,
                 "timeframe": timeframe
             }

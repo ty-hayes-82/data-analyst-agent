@@ -18,11 +18,77 @@ from google.adk.events.event_actions import EventActions
 from ..semantic.models import AnalysisContext, DatasetContract
 from ..utils.dimension_filters import extract_dimension_filters
 from ..utils.json_utils import safe_parse_json
-from ..utils.temporal_grain import detect_temporal_grain
+from ..utils.temporal_grain import detect_temporal_grain, describe_analysis_period
 from ..sub_agents.data_cache import set_analysis_context
 from ..tools import calculate_date_ranges, should_fetch_supplementary_data
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _to_timestamp(value):
+    if not value:
+        return None
+    ts = pd.to_datetime(value, errors="coerce")
+    if isinstance(ts, pd.Series):
+        ts = ts.iloc[0]
+    if pd.isna(ts):
+        return None
+    return ts
+
+
+def _clamp_analysis_end_date(ctx, df, contract):
+    time_cfg = getattr(contract, 'time', None) if contract else None
+    if not time_cfg:
+        return None
+    time_col = getattr(time_cfg, 'column', None)
+    if not time_col or time_col not in df.columns:
+        return None
+    time_format = getattr(time_cfg, 'format', '%Y-%m-%d')
+
+    parsed = pd.to_datetime(df[time_col], format=time_format, errors='coerce')
+    if parsed.notna().any():
+        observed_ts = parsed.max()
+        observed_label = observed_ts.strftime(time_format)
+    else:
+        fallback = pd.to_datetime(df[time_col], errors='coerce')
+        if fallback.notna().any():
+            observed_ts = fallback.max()
+            observed_label = observed_ts.strftime(time_format)
+        else:
+            observed_ts = None
+            non_null = df[time_col].dropna()
+            observed_label = str(non_null.max()) if not non_null.empty else None
+
+    timeframe = ctx.session.state.get('timeframe')
+    if not isinstance(timeframe, dict):
+        timeframe = {}
+    requested_end = ctx.session.state.get('primary_query_end_date') or timeframe.get('end')
+    requested_ts = _to_timestamp(requested_end)
+
+    final_label = None
+    if requested_ts is not None and observed_ts is not None:
+        if requested_ts <= observed_ts:
+            final_label = requested_ts.strftime(time_format)
+        else:
+            final_label = observed_label
+            if requested_end:
+                print(f"[AnalysisContextInitializer] Clamped end date {requested_end} -> {final_label} (data max {observed_label})")
+    elif requested_ts is not None:
+        final_label = requested_end
+    else:
+        final_label = observed_label
+
+    if observed_label:
+        ctx.session.state['latest_observed_period'] = observed_label
+
+    if final_label:
+        timeframe['end'] = final_label
+        ctx.session.state['timeframe'] = timeframe
+        for key in ('primary_query_end_date', 'supplementary_query_end_date', 'detail_query_end_date'):
+            ctx.session.state[key] = final_label
+
+    return final_label
+
 
 class ContractLoader(BaseAgent):
     """Loads the DatasetContract from config/datasets/<active_dataset>/contract.yaml."""
@@ -152,6 +218,8 @@ class AnalysisContextInitializer(BaseAgent):
                 yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
                 return
 
+        final_period_end = _clamp_analysis_end_date(ctx, df, contract)
+
         # Determine target metric and primary dimension from request analysis if available
         # Priority: current_analysis_target (from loop/parallel) > req_analysis metrics
         req_analysis_raw = ctx.session.state.get("request_analysis", {})
@@ -260,8 +328,16 @@ class AnalysisContextInitializer(BaseAgent):
         set_analysis_context(context, session_id=session_id)
         
         print(f"[AnalysisContextInitializer] Created context for {len(df)} rows. Target: {target_metric.name}")
-        
-        analysis_period = "the week ending" if temporal_grain == "weekly" else "the month ending"
+
+        period_end_value = final_period_end or ctx.session.state.get("primary_query_end_date")
+        time_cfg = getattr(contract, 'time', None) if contract else None
+        time_frequency = getattr(time_cfg, 'frequency', None) if time_cfg else None
+        if period_end_value:
+            analysis_period = describe_analysis_period(period_end_value, time_frequency)
+        else:
+            analysis_period = "the week ending" if temporal_grain == "weekly" else "the month ending"
+        ctx.session.state["analysis_period"] = analysis_period
+
         actions = EventActions(state_delta={
             "analysis_context_ready": True,
             "temporal_grain": temporal_grain,
@@ -269,6 +345,7 @@ class AnalysisContextInitializer(BaseAgent):
             "temporal_grain_source": grain_source,
             "analysis_period": analysis_period,
         })
+
         yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=actions)
 
 class DateInitializer(BaseAgent):
