@@ -138,7 +138,7 @@ def _build_brief_response_schema() -> types.Schema:
                 items=insight_schema,
             ),
         },
-        required=["title"],
+        required=["title", "content", "insights"],
     )
     return types.Schema(
         type=types.Type.OBJECT,
@@ -246,7 +246,7 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
             normalized.append(
                 {
                     "title": title,
-                    "content": "",
+                    "content": content or SECTION_FALLBACK_TEXT,
                     "insights": insights,
                 }
             )

@@ -149,6 +149,24 @@ _MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 3)
 _MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 5)
 _MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 4)
 
+_MAX_NARRATIVE_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CHARS", 5000)
+_MAX_DATA_ANALYST_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_DA_CHARS", 4000)
+_MAX_HIERARCHICAL_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_HIERARCHICAL_CHARS", 6000)
+_MAX_INDEPENDENT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_INDEPENDENT_CHARS", 3000)
+_MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 3500)
+_MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 4500)
+
+
+def _truncate_block(block: str | None, max_chars: int, label: str) -> str:
+    if not block:
+        return ""
+    text = str(block)
+    if len(text) <= max_chars:
+        return text
+    suffix = f" … [truncated {label} to {max_chars} chars]"
+    keep = max(0, max_chars - len(suffix))
+    return text[:keep].rstrip() + suffix
+
 
 _PRUNABLE_LEVEL_KEYS = {
     "level_results",
@@ -199,6 +217,25 @@ def _slim_narrative_payload(raw: str | dict | None) -> str:
     return json.dumps(payload, indent=2)
 
 
+def _build_contract_summary(contract) -> str:
+    if not contract:
+        return "DATASET_CONTEXT:\n- Dataset: (unknown)\n"
+    display = getattr(contract, "display_name", None) or getattr(contract, "name", "dataset")
+    time_cfg = getattr(contract, "time", None)
+    frequency = getattr(time_cfg, "frequency", None) or "unknown"
+    metrics = ", ".join(sorted({m.name for m in getattr(contract, "metrics", []) if getattr(m, "name", None)})) or "n/a"
+    dims = ", ".join(sorted({d.name for d in getattr(contract, "dimensions", []) if getattr(d, "name", None)})) or "n/a"
+    hierarchies = ", ".join(sorted({h.name for h in getattr(contract, "hierarchies", []) if getattr(h, "name", None)})) or "n/a"
+    return (
+        "DATASET_CONTEXT:\n"
+        f"- Dataset: {display}\n"
+        f"- Frequency: {frequency}\n"
+        f"- Metrics: {metrics}\n"
+        f"- Dimensions: {dims}\n"
+        f"- Hierarchies: {hierarchies}\n"
+    )
+
+
 class ReportSynthesisWrapper(BaseAgent):
     """Wrapper to add debug logging for report synthesis agent."""
     
@@ -246,6 +283,7 @@ class ReportSynthesisWrapper(BaseAgent):
                 print(f"[REPORT_SYNTHESIS] Instruction built from contract: {contract.name}")
             else:
                 print("[REPORT_SYNTHESIS] WARNING: No contract in state. Using generic fallback instruction.")
+            contract_summary = _build_contract_summary(contract)
 
             # Collect results from session state and inject as a conversation message.
             # DynamicParallelAnalysisAgent stores results via state_delta only (no message
@@ -421,6 +459,13 @@ class ReportSynthesisWrapper(BaseAgent):
             else:
                 temporal_context_str = json.dumps(temporal_context, indent=2)
 
+            narrative_results = _truncate_block(narrative_results, _MAX_NARRATIVE_CHARS, "narrative_results")
+            data_analyst_result = _truncate_block(data_analyst_result, _MAX_DATA_ANALYST_CHARS, "data_analyst_result")
+            hierarchical_text = _truncate_block(hierarchical_text, _MAX_HIERARCHICAL_CHARS, "hierarchical_analysis")
+            independent_findings_text = _truncate_block(independent_findings_text, _MAX_INDEPENDENT_CHARS, "independent_findings")
+            alert_scoring_result = _truncate_block(alert_scoring_result, _MAX_ALERT_CHARS, "alert_scoring_result")
+            statistical_summary = _truncate_block(statistical_summary, _MAX_STAT_SUMMARY_CHARS, "statistical_summary")
+
             # Log prompt component sizes for diagnostics
             print(f"[REPORT_SYNTHESIS] Prompt component sizes:")
             print(f"  temporal_context: {len(temporal_context_str):,} chars")
@@ -444,6 +489,7 @@ class ReportSynthesisWrapper(BaseAgent):
                 if independent_findings_text else ""
             )
             injection_message = (
+                f"{contract_summary}\n"
                 "Here are the results from the specialized analysis agents:\n\n"
                 f"TEMPORAL_CONTEXT:\n{temporal_context_str}\n\n"
                 f"NARRATIVE_RESULTS:\n{narrative_results}\n\n"
