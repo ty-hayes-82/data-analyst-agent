@@ -125,7 +125,7 @@ async def test_generate_markdown_report_structure():
     assert len(report) > 100
 
     # Check required sections
-    assert "# P&L Analysis Report" in report
+    assert "# Executive Analysis Report - 067" in report
     assert "Cost Center 067" in report
     assert "## Executive Summary" in report
     assert "## Variance Drivers" in report
@@ -191,11 +191,17 @@ async def test_markdown_report_recommended_actions():
         cost_center="067"
     )
 
-    # Should have numbered actions for HIGH materiality items
-    assert "1." in report
-    assert "Investigate" in report or "investigate" in report.lower()
+    # Recommended section should include multiple specific actions
+    assert "## Recommended Actions" in report
+    rec_section = report.split("## Recommended Actions", 1)[1].split("##", 1)[0]
+    prefixes = tuple(f"{i}." for i in range(1, 6))
+    action_lines = [line.strip() for line in rec_section.splitlines() if line.strip().startswith(prefixes)]
 
-    print("[PASS] Recommended actions generated for HIGH materiality items")
+    assert len(action_lines) >= 3, f"Expected at least 3 actions, found {len(action_lines)}"
+    assert any("Freight Revenue" in line for line in action_lines)
+    assert any("Fuel Surcharge Revenue" in line for line in action_lines)
+
+    print("[PASS] Recommended actions reference top drivers with specific guidance")
 
 
 @pytest.mark.unit
@@ -218,7 +224,7 @@ async def test_markdown_report_empty_results():
 
     assert isinstance(report, str)
     assert len(report) > 0
-    assert "# P&L Analysis Report" in report
+    assert "# Executive Analysis Report - 067" in report
 
     print("[PASS] Empty results handled gracefully")
 

@@ -125,6 +125,13 @@ def collect_insight_cards(level_data: dict) -> List[dict]:
                 "what_changed": f"Variance of ${var_d:+,.0f} ({pct_str})",
                 "why": driver.get("why", ""),
                 "priority": driver.get("materiality", "LOW").lower(),
+                "dimension": item,
+                "evidence": {
+                    "variance_dollar": var_d,
+                    "variance_pct": var_p,
+                    "current": driver.get("current"),
+                    "prior": driver.get("prior"),
+                },
             }
         )
     return fallback
