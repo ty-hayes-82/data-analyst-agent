@@ -247,8 +247,8 @@ class ReportSynthesisWrapper(BaseAgent):
                             "temporal_grain": temporal_grain,
                             "period_unit": period_unit
                         },
-                        "top_drivers": (stats_dict.get("enhanced_top_drivers") or stats_dict.get("top_drivers") or [])[:MAX_STATS_TOP_DRIVERS],
-                        "anomalies": (stats_dict.get("anomalies") or [])[:MAX_STATS_ANOMALIES],
+                        "top_drivers": (stats_dict.get("enhanced_top_drivers") or stats_dict.get("top_drivers") or [])[:_MAX_STATS_TOP_DRIVERS],
+                        "anomalies": (stats_dict.get("anomalies") or [])[:_MAX_STATS_ANOMALIES],
                         "correlations": correlations_list[:3],
                         "dq_flags": stats_dict.get("dq_flags"),
                         "metadata": {
