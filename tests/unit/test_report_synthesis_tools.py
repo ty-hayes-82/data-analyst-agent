@@ -205,6 +205,22 @@ async def test_markdown_report_recommended_actions():
 
 
 @pytest.mark.unit
+def test_filtered_narrative_actions_drop_stub_strings():
+    """Stubbed LLM actions should be suppressed so reports have no placeholder text."""
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    narrative = {
+        "recommended_actions": [
+            "Stub action with specificity (HS4 8542 @ LAX).",
+            "Investigate legitimate driver variance vs prior month.",
+        ]
+    }
+
+    filtered = mod._filtered_narrative_actions(narrative)
+
+    assert filtered == ["Investigate legitimate driver variance vs prior month."]
+
+
+@pytest.mark.unit
 @pytest.mark.csv_mode
 @pytest.mark.asyncio
 async def test_markdown_report_empty_results():

@@ -306,6 +306,8 @@ def _filtered_narrative_actions(narrative_data: dict) -> List[str]:
     for action in raw_actions:
         if not isinstance(action, str):
             continue
+        if contains_stub_content(action):
+            continue
         if _looks_like_placeholder(action):
             continue
         filtered.append(action.strip())
