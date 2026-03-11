@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-11T07:12:19
+**Last updated:** 2026-03-11T20:41:37
 
 ## Current State
-- **Unit Tests:** 238 passed, 0 failed, 0 errors
+- **Unit Tests:** 246 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 189 files, 27,806 lines, **52 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (856L)
-- **Commit:** `0906ddd chore: tighten executive brief prompt sche`
+- **Codebase:** 191 files, 28,812 lines, **54 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (945L)
+- **Commit:** `6600da7 feat: restore public dataset contracts/loa`
 
 ## Progress Over Time
 
@@ -167,9 +167,10 @@
 | 152 | 06:36 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 | 153 | 07:04 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 | 154 | 07:12 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 155 | 20:41 | `6600da7` | 246 | 0 | 0 | 5/5 | 54 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **238** (+-9)
+- Tests: 247 → **246** (+-1)
 - Failures: 0 → **0**
-- Files >200L: 50 → **52** (+2)
-- Iterations: 154
+- Files >200L: 50 → **54** (+4)
+- Iterations: 155
