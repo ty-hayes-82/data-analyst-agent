@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,7 +70,7 @@ def _write_executive_brief_cache(
 
 def _build_structured_fallback_markdown(digest: str, recommendations: list[str] | None = None) -> str:
     fallback = SECTION_FALLBACK_TEXT
-    timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+    timestamp = datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')
     lines: list[str] = [
         "# Executive Brief",
         f"Generated: {timestamp}",
@@ -194,7 +194,7 @@ def _format_brief(brief: dict[str, Any]) -> str:
     body = brief.get("body") or {}
     sections = [
         f"# {header.get('title', 'Executive Brief')}",
-        f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
     ]
     if header:
