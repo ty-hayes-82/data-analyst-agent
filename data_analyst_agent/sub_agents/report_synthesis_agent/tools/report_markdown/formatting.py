@@ -32,6 +32,7 @@ _ZERO_VARIANCE_PATTERNS = (
 )
 
 _METRIC_UNITS_CACHE: Optional[Dict[str, Dict[str, str]]] = None
+_CURRENCY_TOKENS = {"usd", "currency", "dollars", "dollar", "us$", "us dollars"}
 
 
 def load_metric_units() -> Dict[str, Dict[str, str]]:
@@ -56,30 +57,54 @@ def load_metric_units() -> Dict[str, Dict[str, str]]:
     return _METRIC_UNITS_CACHE
 
 
-def resolve_unit(analysis_target: str) -> str:
+def normalize_unit(unit: Optional[str]) -> str:
+    if unit is None:
+        return "currency"
+    text = str(unit).strip()
+    return text or "currency"
+
+
+def is_currency_unit(unit: str) -> bool:
+    if not unit:
+        return True
+    normalized = unit.strip().lower()
+    if "$" in unit:
+        return True
+    return normalized in _CURRENCY_TOKENS
+
+
+def format_value(value: float, unit: str) -> str:
+    normalized = normalize_unit(unit)
+    if is_currency_unit(normalized):
+        return f"${{value:,.0f}}"
+    if normalized.lower() in {"count", "units", "unit"}:
+        return f"{value:,.0f}"
+    return f"{value:,.0f} {normalized}"
+
+
+def unit_display_label(unit: str) -> str:
+    normalized = normalize_unit(unit)
+    if is_currency_unit(normalized):
+        return "$"
+    return normalized
+
+
+def resolve_unit(analysis_target: str, contract_unit: Optional[str] = None) -> str:
+    if contract_unit is not None:
+        text = str(contract_unit).strip()
+        if text:
+            return text
     units = load_metric_units()
     cfg = units.get(analysis_target) or units.get(analysis_target.strip())
     if cfg and isinstance(cfg, dict):
-        return str(cfg.get("unit", "currency"))
+        value = str(cfg.get("unit", "currency"))
+        return value.strip() or "currency"
     return "currency"
 
 
 def format_variance(value: float, unit: str, analysis_target: Optional[str] = None) -> str:
-    if analysis_target:
-        units = load_metric_units()
-        cfg = units.get(analysis_target) or {}
-        if isinstance(cfg, dict):
-            unit_type = cfg.get("unit", unit)
-            suffix = cfg.get("suffix", "")
-            if unit_type == "currency":
-                return f"${value:,.0f}"
-            if unit_type in ("miles", "count", "ratio") and suffix:
-                return f"{value:,.0f} {suffix}"
-            if unit_type in ("miles", "count"):
-                return f"{value:,.0f}"
-    if unit == "currency":
-        return f"${value:,.0f}"
-    return f"{value:,.0f}"
+    normalized = normalize_unit(unit)
+    return format_value(value, normalized)
 
 
 def is_skip_card(card: dict) -> bool:
@@ -114,4 +139,8 @@ __all__ = [
     "resolve_unit",
     "card_tags",
     "is_skip_card",
+    "normalize_unit",
+    "is_currency_unit",
+    "format_value",
+    "unit_display_label",
 ]

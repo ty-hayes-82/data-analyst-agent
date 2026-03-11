@@ -158,6 +158,8 @@ def set_analysis_context(context: Any, session_id: Optional[str] = None) -> None
                 "temporal_grain_confidence": float(getattr(context, "temporal_grain_confidence", 0.0) or 0.0),
                 "detected_anchor": getattr(context, "detected_anchor", None),
                 "period_end_column": getattr(context, "period_end_column", None),
+                "dimension_filters": getattr(context, "dimension_filters", {}),
+                "hierarchy_filters": getattr(context, "hierarchy_filters", {}),
             }
             cache_file.write_text(json.dumps(metadata, indent=2), encoding='utf-8')
     except Exception as e:
@@ -226,6 +228,8 @@ def get_analysis_context(session_id: Optional[str] = None) -> Any:
                 temporal_grain_confidence=metadata.get("temporal_grain_confidence", 0.0),
                 detected_anchor=metadata.get("detected_anchor"),
                 period_end_column=metadata.get("period_end_column"),
+                dimension_filters=metadata.get("dimension_filters", {}) or {},
+                hierarchy_filters=metadata.get("hierarchy_filters", {}) or {},
             )
             
             # Update memory cache for this session

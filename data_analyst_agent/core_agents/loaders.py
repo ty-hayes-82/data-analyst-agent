@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Dict, Any
 import os
 import uuid
 from io import StringIO
@@ -103,6 +103,9 @@ class ContractLoader(BaseAgent):
         dataset_name = get_active_dataset()
 
         # Primary path: config/datasets/<dataset>/contract.yaml
+        dimension_filters: Dict[str, Any] = {}
+        hierarchy_filters: Dict[str, Any] = {}
+
         try:
             contract_path = get_dataset_path("contract.yaml")
         except FileNotFoundError:
@@ -181,8 +184,9 @@ class AnalysisContextInitializer(BaseAgent):
                         )
                     df = filtered_df
             # Apply hierarchy filters (multi-value from web UI)
-            hierarchy_filters = ctx.session.state.get("hierarchy_filters", {})
-            if hierarchy_filters and isinstance(hierarchy_filters, dict):
+            raw_hierarchy_filters = ctx.session.state.get("hierarchy_filters", {})
+            hierarchy_filters = raw_hierarchy_filters if isinstance(raw_hierarchy_filters, dict) else {}
+            if hierarchy_filters:
                 for filter_col, filter_values in hierarchy_filters.items():
                     if filter_col in df.columns and isinstance(filter_values, list) and filter_values:
                         before = len(df)
@@ -307,6 +311,9 @@ class AnalysisContextInitializer(BaseAgent):
         if grain_source == "fallback":
             print("[TemporalGrain] WARNING: Ambiguous cadence; defaulting to monthly.")
 
+        ctx.session.state["dimension_filters"] = dimension_filters
+        ctx.session.state["hierarchy_filters"] = hierarchy_filters
+
         context = AnalysisContext(
             contract=contract,
             df=df,
@@ -318,6 +325,8 @@ class AnalysisContextInitializer(BaseAgent):
             temporal_grain_confidence=grain_confidence,
             detected_anchor=detected_anchor,
             period_end_column=time_col,
+            dimension_filters=dimension_filters,
+            hierarchy_filters=hierarchy_filters,
         )
         
         # Store in session state and global cache

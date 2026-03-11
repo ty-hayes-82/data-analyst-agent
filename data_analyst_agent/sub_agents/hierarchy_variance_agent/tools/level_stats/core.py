@@ -48,7 +48,7 @@ async def compute_level_statistics_impl(
             }
         )
 
-    level_col, level_name, is_last_level = resolve_level_metadata(
+    level_col, level_name, is_last_level, skip_info = resolve_level_metadata(
         df, ctx, level, hierarchy_name, grain_col
     )
     if level_col not in df.columns:
@@ -59,6 +59,19 @@ async def compute_level_statistics_impl(
                 "level": level,
             }
         )
+
+    if skip_info:
+        payload = {
+            "level": level,
+            "level_name": level_name,
+            "is_last_level": is_last_level,
+            "is_duplicate": True,
+            "skip_reason": skip_info.get("reason"),
+            "dimension_filter_applied": True,
+            "filter_value": skip_info.get("filter_value"),
+            "dimension": skip_info.get("dimension"),
+        }
+        return json.dumps(payload, indent=2)
 
     (
         current_period,

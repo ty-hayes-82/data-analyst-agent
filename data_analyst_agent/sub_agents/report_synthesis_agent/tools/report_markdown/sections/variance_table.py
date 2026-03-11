@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import List
 
+from ..formatting import format_variance, unit_display_label
 
-def build_variance_section(levels_analyzed: list[int], level_analyses: dict) -> List[str]:
+
+def build_variance_section(levels_analyzed: list[int], level_analyses: dict, unit: str) -> List[str]:
     if not levels_analyzed:
         return []
     deepest_level = max(levels_analyzed)
@@ -15,7 +17,14 @@ def build_variance_section(levels_analyzed: list[int], level_analyses: dict) -> 
         return []
 
     lines: List[str] = ["## Variance Drivers", ""]
-    lines.append("| Rank | Category/GL | Variance $ | Variance % | Materiality | Cumulative % |")
+    amount_label = unit_display_label(unit)
+    if amount_label == "$":
+        variance_header = "Variance $"
+    elif amount_label:
+        variance_header = f"Variance ({amount_label})"
+    else:
+        variance_header = "Variance"
+    lines.append(f"| Rank | Category/GL | {variance_header} | Variance % | Materiality | Cumulative % |")
     lines.append("|------|-------------|------------|------------|-------------|--------------|")
 
     for driver in drivers[:10]:
@@ -34,8 +43,12 @@ def build_variance_section(levels_analyzed: list[int], level_analyses: dict) -> 
         else:
             pct_display = "N/A"
 
+        var_display = format_variance(var_dollar, unit)
+        if var_dollar > 0 and not var_display.startswith("+"):
+            var_display = f"+{var_display}"
+
         lines.append(
-            f"| {rank} | {item} | ${var_dollar:+,.0f} | {pct_display} | {materiality} | {cumulative:.1f}% |"
+            f"| {rank} | {item} | {var_display} | {pct_display} | {materiality} | {cumulative:.1f}% |"
         )
     lines.append("")
     return lines

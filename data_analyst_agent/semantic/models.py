@@ -264,6 +264,8 @@ class AnalysisContext(BaseModel):
     target_metric: MetricDefinition
     primary_dimension: DimensionDefinition
     quality_report: Optional[QualityReport] = None
+    dimension_filters: Dict[str, Any] = Field(default_factory=dict)
+    hierarchy_filters: Dict[str, Any] = Field(default_factory=dict)
     
     # Immutable metadata for the run
     run_id: str

@@ -181,6 +181,27 @@ async def test_markdown_report_numeric_formatting():
 @pytest.mark.unit
 @pytest.mark.csv_mode
 @pytest.mark.asyncio
+async def test_markdown_report_respects_presentation_unit_for_counts():
+    """Metrics declared as counts should not be rendered with currency formatting."""
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        cost_center="067",
+        presentation_unit="count"
+    )
+
+    assert "Variance (count)" in report
+    assert "Variance $" not in report
+    assert "| ${" not in report
+
+    print("[PASS] Count units render without currency symbols")
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
 async def test_markdown_report_recommended_actions():
     """Test that HIGH materiality items generate recommended actions."""
     mod = import_report_synthesis_tool("generate_markdown_report")

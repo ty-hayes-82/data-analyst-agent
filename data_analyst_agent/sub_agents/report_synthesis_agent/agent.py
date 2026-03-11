@@ -588,6 +588,13 @@ class ReportSynthesisWrapper(BaseAgent):
             if not dataset_description and getattr(contract, "description", None):
                 dataset_description = contract.description
 
+            presentation_unit = None
+            if contract and getattr(contract, "presentation", None):
+                try:
+                    presentation_unit = (contract.presentation or {}).get("unit")
+                except AttributeError:
+                    presentation_unit = None
+
             analysis_target_value = state.get("current_analysis_target") or ctx.session.state.get("analysis_target")
             report_payload = {
                 "dataset_context": contract_context,
@@ -643,6 +650,7 @@ class ReportSynthesisWrapper(BaseAgent):
                 "anomaly_indicators": _json_arg(alert_component),
                 "dataset_display_name": dataset_display_name,
                 "dataset_description": dataset_description or "",
+                "presentation_unit": presentation_unit,
             }
 
             payload_json = json.dumps(report_payload, separators=(',', ':'), ensure_ascii=False)

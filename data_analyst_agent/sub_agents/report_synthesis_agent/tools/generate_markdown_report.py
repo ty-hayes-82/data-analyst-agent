@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from data_analyst_agent.utils.env_utils import parse_bool_env
 from data_analyst_agent.utils.stub_guard import contains_stub_content
 
-from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import resolve_unit
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import resolve_unit, normalize_unit, is_currency_unit
 from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.parsing import (
     normalize_hierarchical_results,
     parse_json_safe,
@@ -144,24 +144,30 @@ def _safe_float(value: Any) -> Optional[float]:
 def _format_amount_short(value: Optional[float], unit: str) -> str:
     if value is None:
         return ""
+    normalized_unit = normalize_unit(unit)
     sign = "+" if value >= 0 else "-"
     abs_val = abs(value)
-    if abs_val >= 1_000_000_000:
-        scaled = abs_val / 1_000_000_000
-        suffix = "B"
-    elif abs_val >= 1_000_000:
-        scaled = abs_val / 1_000_000
-        suffix = "M"
-    elif abs_val >= 1_000:
-        scaled = abs_val / 1_000
-        suffix = "K"
-    else:
-        scaled = abs_val
-        suffix = ""
-    precision = 0 if scaled >= 100 or suffix == "" else 1
-    formatted = f"{scaled:,.{precision}f}{suffix}"
-    prefix = "$" if unit == "currency" else ""
-    return f"{sign}{prefix}{formatted}"
+    if is_currency_unit(normalized_unit):
+        if abs_val >= 1_000_000_000:
+            scaled = abs_val / 1_000_000_000
+            suffix = "B"
+        elif abs_val >= 1_000_000:
+            scaled = abs_val / 1_000_000
+            suffix = "M"
+        elif abs_val >= 1_000:
+            scaled = abs_val / 1_000
+            suffix = "K"
+        else:
+            scaled = abs_val
+            suffix = ""
+        precision = 0 if scaled >= 100 or suffix == "" else 1
+        formatted = f"{scaled:,.{precision}f}{suffix}"
+        return f"{sign}${{formatted}}"
+    formatted = f"{abs_val:,.0f}"
+    suffix = ""
+    if normalized_unit.lower() not in {"count", "units", "unit"}:
+        suffix = f" {normalized_unit}"
+    return f"{sign}{formatted}{suffix}".strip()
 
 
 def _format_pct(value: Optional[float]) -> str:
@@ -497,6 +503,7 @@ async def generate_markdown_report(
     dataset_display_name: Optional[str] = None,
     dataset_description: Optional[str] = None,
     independent_findings: Optional[str] = None,
+    presentation_unit: Optional[str] = None,
 ) -> str:
     try:
         target_name = cost_center or analysis_target or dataset_display_name or "Network Total"
@@ -512,7 +519,7 @@ async def generate_markdown_report(
         temporal_grain, short_delta_label, period_label = _detect_temporal_labels(stats_data)
 
         lag_meta = _extract_lag_metadata([hierarchical_results, statistical_summary, narrative_results])
-        unit = resolve_unit(dataset_display_name or target_name or "")
+        unit = resolve_unit(dataset_display_name or target_name or "", contract_unit=presentation_unit)
         default_label = dataset_display_name or "Executive Analysis"
         label = target_label or default_label
         dataset_label = dataset_display_name or label
@@ -573,7 +580,7 @@ async def generate_markdown_report(
         cross_dim_results = raw_results.get("cross_dimension_results", {}) if isinstance(raw_results, dict) else {}
         md.extend(build_cross_dimension_section(cross_dim_results, condensed))
 
-        md.extend(build_variance_section(levels_analyzed, level_analyses))
+        md.extend(build_variance_section(levels_analyzed, level_analyses, unit))
 
         # Optional explicit Anomalies + Seasonality sections (used by incremental E2E)
         if anomaly_indicators:
