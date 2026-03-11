@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from .report_utils import _extract_scoped_cards_from_report
+from .report_utils import _extract_scoped_cards_from_report, format_variance_amount
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _PARENT_CHILD_CACHE: dict[tuple[str, str, str], dict[str, list[str]]] = {}
@@ -218,6 +218,15 @@ def _extract_share_from_payload(payload: dict[str, Any]) -> float | None:
     return None
 
 
+def _safe_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _discover_level_entities(
     json_data: dict[str, dict[str, Any]],
     level: int,
@@ -356,6 +365,7 @@ def _build_scoped_digest(
     scope_level: int,
     analysis_period: str = "",
     scope_children: set[str] | None = None,
+    unit: str | None = None,
 ) -> str:
     scope_entity_lower = scope_entity.lower()
     level_key = f"level_{scope_level}"
@@ -463,14 +473,22 @@ def _build_scoped_digest(
 
         if entity_card:
             ev = entity_card.get("evidence") or {}
-            variance_dollar = ev.get("variance_dollar") or 0
-            variance_pct = ev.get("variance_pct") or 0
+            variance_amount = None
+            for key in ("variance_dollar", "variance", "variance_amount"):
+                if ev.get(key) is not None:
+                    variance_amount = ev.get(key)
+                    break
+            variance_text = format_variance_amount(variance_amount, unit) if variance_amount is not None else ""
+            variance_pct_val = _safe_float(ev.get("variance_pct"))
             share = ev.get("share_of_total")
-            sign = "+" if variance_dollar >= 0 else ""
-            summary_lines = [
-                f"{level_label.upper()} SUMMARY ({scope_entity}):",
-                f"- Variance: {sign}${variance_dollar:,.0f} ({sign}{variance_pct:.1f}%)",
-            ]
+            summary_lines = [f"{level_label.upper()} SUMMARY ({scope_entity}):"]
+            variance_bits: list[str] = []
+            if variance_text:
+                variance_bits.append(variance_text)
+            if variance_pct_val is not None:
+                variance_bits.append(f"{variance_pct_val:+.1f}%")
+            if variance_bits:
+                summary_lines.append(f"- Variance: {' / '.join(variance_bits)}")
             if share is not None:
                 try:
                     summary_lines.append(f"- Share of total variance: {share:.1%}")

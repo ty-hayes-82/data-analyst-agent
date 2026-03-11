@@ -3,11 +3,37 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from ...utils.temporal_grain import describe_analysis_period
+from ...sub_agents.report_synthesis_agent.tools.report_markdown.formatting import (
+    is_currency_unit,
+    normalize_unit,
+)
+
+
+_CURRENCY_TOKEN = re.compile(r'(?P<sign>[-+])?\$(?P<value>[\d,.]+)(?P<suffix>[KMB]?)')
+
+
+def _apply_unit_to_text(text: str, unit: str | None) -> str:
+    if not text:
+        return text
+    normalized_unit = normalize_unit(unit)
+    if is_currency_unit(normalized_unit):
+        return text
+    label = (normalized_unit or "").strip()
+    if label.lower() in {"count", "units", "unit"}:
+        label = ""
+    def _repl(match: re.Match[str]) -> str:
+        sign = match.group('sign') or ''
+        value = match.group('value')
+        suffix = match.group('suffix') or ''
+        unit_suffix = f" {label}" if label else ''
+        return f"{sign}{value}{suffix}{unit_suffix}".rstrip()
+    return _CURRENCY_TOKEN.sub(_repl, text)
 
 SECTION_FALLBACK_TEXT = "No material change this period—maintain monitoring posture."
 
@@ -68,9 +94,15 @@ def _write_executive_brief_cache(
     return cache_path
 
 
-def _build_structured_fallback_markdown(digest: str, recommendations: list[str] | None = None) -> str:
+def _build_structured_fallback_markdown(
+    digest: str,
+    recommendations: list[str] | None = None,
+    unit: str | None = None,
+) -> str:
     fallback = SECTION_FALLBACK_TEXT
     timestamp = datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')
+    normalized_digest = _apply_unit_to_text(digest or "", unit)
+    normalized_recs = [_apply_unit_to_text(rec, unit) for rec in (recommendations or [])]
     lines: list[str] = [
         "# Executive Brief",
         f"Generated: {timestamp}",
@@ -87,7 +119,7 @@ def _build_structured_fallback_markdown(digest: str, recommendations: list[str] 
         lines.append(fallback)
         lines.append("")
     lines.extend(["## Network Snapshot", fallback, ""])
-    focus_lines = recommendations or []
+    focus_lines = normalized_recs or []
     lines.append("## Focus For Next Week")
     if focus_lines:
         for rec in focus_lines:
@@ -95,7 +127,7 @@ def _build_structured_fallback_markdown(digest: str, recommendations: list[str] 
     else:
         lines.append(fallback)
     lines.extend(["", "## Leadership Question", fallback])
-    digest_block = (digest or "").strip()
+    digest_block = normalized_digest.strip()
     if digest_block:
         lines.extend(["", "## Digest Backup", digest_block])
     return "\n".join(lines).strip()
@@ -148,12 +180,17 @@ def _extract_recommendations_from_markdown(report_md: str, metric_name: str, lim
     return recs
 
 
-def collect_recommendations_from_reports(reports: dict[str, str], limit: int = 5) -> list[str]:
+def collect_recommendations_from_reports(
+    reports: dict[str, str],
+    unit: str | None = None,
+    limit: int = 5,
+) -> list[str]:
     actions: list[str] = []
     for metric_name, content in reports.items():
         for rec in _extract_recommendations_from_markdown(content, metric_name, limit=2):
-            if rec not in actions:
-                actions.append(rec)
+            sanitized = _apply_unit_to_text(rec, unit)
+            if sanitized not in actions:
+                actions.append(sanitized)
             if len(actions) >= limit:
                 return actions
     return actions
@@ -163,15 +200,18 @@ def build_structured_fallback_brief(
     digest: str,
     reason: str | None = None,
     recommendations: list[str] | None = None,
+    unit: str | None = None,
 ) -> dict[str, Any]:
-    preview = _digest_preview_lines(digest)
-    insights = _digest_insights(digest)
+    sanitized_digest = _apply_unit_to_text(digest, unit)
+    preview = _digest_preview_lines(sanitized_digest)
+    insights = _digest_insights(sanitized_digest)
     if not insights:
         insights = [{"title": "Monitoring posture", "details": SECTION_FALLBACK_TEXT}]
     opening_text = reason or "LLM returned invalid output; using deterministic digest synopsis."
     if preview:
         opening_text = f"{opening_text}\n\n{preview}"
-    focus_content = "\n".join(f"- {rec}" for rec in (recommendations or [])) or SECTION_FALLBACK_TEXT
+    focus_recs = [_apply_unit_to_text(rec, unit) for rec in (recommendations or [])]
+    focus_content = "\n".join(f"- {rec}" for rec in focus_recs if rec) or SECTION_FALLBACK_TEXT
     return {
         "header": {
             "title": "Executive Brief (Fallback)",

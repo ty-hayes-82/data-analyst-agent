@@ -51,6 +51,7 @@ from .prompt_utils import (
     build_structured_fallback_brief,
     collect_recommendations_from_reports,
     SECTION_FALLBACK_TEXT,
+    _apply_unit_to_text,
 )
 from .report_utils import (
     _build_digest,
@@ -189,6 +190,21 @@ def _build_brief_response_schema() -> types.Schema:
         required=["header", "body"],
     )
 
+
+
+def _contract_presentation_unit(contract: Any | None) -> str | None:
+    if not contract:
+        return None
+    presentation = getattr(contract, "presentation", None)
+    unit = None
+    if isinstance(presentation, dict):
+        unit = presentation.get("unit")
+    elif presentation is not None:
+        unit = getattr(presentation, "unit", None)
+    if unit is None:
+        return None
+    text_value = str(unit).strip()
+    return text_value or None
 
 EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
 
@@ -395,6 +411,7 @@ async def _llm_generate_brief(
     digest: str = "",
     section_contract: list[dict[str, str]] | None = None,
     reports: dict[str, str] | None = None,
+    unit: str | None = None,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
 
@@ -417,9 +434,9 @@ async def _llm_generate_brief(
     max_attempts = 3
 
     def _structured_fallback(reason: str) -> tuple[dict, str]:
-        recs = collect_recommendations_from_reports(reports or {}) if reports else []
-        brief_json = build_structured_fallback_brief(digest, reason, recs)
-        brief_markdown = _build_structured_fallback_markdown(digest, recs)
+        recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
+        brief_json = build_structured_fallback_brief(digest, reason, recs, unit=unit)
+        brief_markdown = _build_structured_fallback_markdown(digest, recs, unit=unit)
         return brief_json, brief_markdown
 
     for attempt in range(1, max_attempts + 1):
@@ -525,6 +542,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         print(f"[BRIEF] Found {len(reports)} metric report(s): {', '.join(reports.keys())}")
 
+        contract = ctx.session.state.get("dataset_contract")
+        presentation_unit = _contract_presentation_unit(contract)
+
         timeframe = ctx.session.state.get("timeframe", {})
         period_end = timeframe.get("end") or ctx.session.state.get("primary_query_end_date")
         if not period_end:
@@ -532,7 +552,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             match = re.search(r"\d{4}-\d{2}-\d{2}", first_content)
             period_end = match.group(0) if match else datetime.now().strftime("%Y-%m-%d")
         analysis_period = ctx.session.state.get("analysis_period") or _format_analysis_period(
-            period_end, ctx.session.state.get("dataset_contract")
+            period_end, contract
         )
         print(f"[BRIEF] Analysis period: {analysis_period}")
 
@@ -554,11 +574,13 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         use_json = parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_JSON", "true"))
         if use_json and json_data:
-            digest = _build_digest_from_json(reports, json_data)
+            digest = _build_digest_from_json(reports, json_data, presentation_unit)
             print(f"[BRIEF] Using JSON-backed digest ({len(json_data)} metrics)")
         else:
             digest = _build_digest(reports)
             print("[BRIEF] Using markdown-only digest")
+
+        digest = _apply_unit_to_text(digest, presentation_unit)
 
         drill_levels = 0
         max_scope_entities = 10
@@ -580,7 +602,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         except Exception as e:
             print(f"[BRIEF] Warning: Failed to load report_config.yaml: {e}")
 
-        contract = ctx.session.state.get("dataset_contract")
         if contract and getattr(contract, "reporting", None):
             reporting_cfg = contract.reporting
             drill_levels = reporting_cfg.executive_brief_drill_levels
@@ -734,6 +755,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 digest=digest,
                 section_contract=NETWORK_SECTION_CONTRACT,
                 reports=reports,
+                unit=presentation_unit,
             )
 
             if used_fallback:
@@ -798,6 +820,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             level,
                             analysis_period,
                             scope_children=scope_children,
+                            unit=presentation_unit,
                         )
                         scoped_digests_map[entity] = scoped_digest
 
@@ -838,6 +861,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 digest=scoped_digest,
                                 section_contract=SCOPED_SECTION_CONTRACT,
                                 reports=reports,
+                                unit=presentation_unit,
                             )
                             if scoped_fallback:
                                 print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
