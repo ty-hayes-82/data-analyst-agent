@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 
+SECTION_FALLBACK_TEXT = "No material change this period—maintain monitoring posture."
+
+
 def _format_analysis_period(period_end: str, contract: Any) -> str:
     freq = "weekly"
     if contract and hasattr(contract, "time") and contract.time:
@@ -72,6 +75,42 @@ def _write_executive_brief_cache(
     return cache_path
 
 
+def _build_structured_fallback_markdown(digest: str) -> str:
+    fallback = SECTION_FALLBACK_TEXT
+    timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+    lines: list[str] = [
+        "# Executive Brief",
+        f"Generated: {timestamp}",
+        "",
+        fallback,
+        "",
+        "## Opening",
+        fallback,
+        "",
+        "## Top Operational Insights",
+    ]
+    for idx in range(1, 4):
+        lines.append(f"### Monitoring note {idx}")
+        lines.append(fallback)
+        lines.append("")
+    lines.extend(
+        [
+            "## Network Snapshot",
+            fallback,
+            "",
+            "## Focus For Next Week",
+            fallback,
+            "",
+            "## Leadership Question",
+            fallback,
+        ]
+    )
+    digest_block = (digest or "").strip()
+    if digest_block:
+        lines.extend(["", "## Digest Backup", digest_block])
+    return "\n".join(lines).strip()
+
+
 def _format_brief(brief: dict[str, Any]) -> str:
     header = brief.get("header") or {}
     body = brief.get("body") or {}
@@ -99,16 +138,11 @@ def _format_brief(brief: dict[str, Any]) -> str:
     return "\n".join(sections).strip()
 
 
-def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> str:
-    """Format brief from LLM JSON, falling back to digest markdown if structure is wrong."""
+def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> tuple[str, bool]:
+    """Return (markdown, used_fallback) for the formatted brief."""
     formatted = _format_brief(brief_data)
-    # If _format_brief produced only a header (no sections), use the digest as fallback
     lines = [l for l in formatted.splitlines() if l.strip()]
     if len(lines) <= 3:
-        from datetime import datetime
-        return (
-            "# Executive Brief\n"
-            f"Generated: {datetime.utcnow().strftime(chr(37) + "Y-" + chr(37) + "m-" + chr(37) + "d " + chr(37) + "H:" + chr(37) + "M UTC")}\n\n"
-            f"{digest}"
-        )
-    return formatted
+        return _build_structured_fallback_markdown(digest), True
+    return formatted, False
+

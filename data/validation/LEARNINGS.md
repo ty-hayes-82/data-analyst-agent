@@ -1,59 +1,56 @@
 # Reviewer Audit Learnings (cron: reviewer-audit-001)
 
-Date: 2026-03-11 02:33 UTC
+Date: 2026-03-11 06:13 UTC
+
 Scope:
 - `git log --oneline -10`
 - `git diff HEAD~10..HEAD`
-- `grep` audit for trade-data hardcoding
-- unused-import spot check
+- hardcoded trade-data assumptions grep audit
+- unused-import spot check (lightweight AST heuristic)
 - prompt character budget audit
 
 ## Commit window reviewed (last 10)
 ```
+0906ddd chore: tighten executive brief prompt schema
+935b80a feat: tighten executive brief schema and prompt budget
+f1cec20 feat: harden brief prompt and trim synthesis payloads
+07589d9 feat: tighten executive brief pipeline
 d7d59f0 feat: tighten brief prompts and prune unused datasets
 6d04774 feat: tighten executive brief prompts and prune unused datasets
 e3f256f Make tests warning-free; contract-driven validation config
 53df441 fix: Windows-compatible Python venv path in run_manager
 e523c18 feat: agent improvements — executive brief, narrative, report synthesis
 f6fd8ec test: fix 7 failing tests — skip missing datasets, fix glob, update assertions
-7b369d2 chore: tighten executive brief JSON prompt
-5262234 chore(prompt): enforce strict executive brief json
-c7f1839 fix: cross-platform path handling (Windows-safe)
-ec9ace4 feat: real-time progress tracking in monitor view
 ```
 
 ## Code Review [HEAD~10..HEAD]
 
 ### Critical (must fix before merge)
-- **`web/app.py:~109-144` — path traversal / arbitrary file read via dimension-values endpoint**
-  - Endpoint: `GET /api/datasets/{dataset_id:path}/dimension-values/{column}`
-  - Current behavior:
-    - loads contract (`contract_loader.load_contract(dataset_id)`)
-    - reads `data_source.file` from contract
-    - resolves `full_path = (project_root / file_path).resolve()` and reads it
-  - **Risk:** if a user can create/edit contracts via the web UI (and they can — see contract upload/save path), they can set `data_source.file` to `../../../../etc/passwd` (or any readable file on the host) and exfiltrate it via this API.
-  - **Fix:** enforce an allowlisted root (e.g., `PROJECT_ROOT/data/` or `PROJECT_ROOT/data/uploads/` or `PROJECT_ROOT/data/public/`) and reject anything outside it. Use the same safe pattern already used elsewhere:
-    - `full_path.relative_to(allowed_root)` (raise 400/404 on `ValueError`)
+- **`web/app.py` — contract-controlled file path can become arbitrary file read (dimension-values endpoint)**
+  - Endpoint pattern: `GET /api/datasets/{dataset_id:path}/dimension-values/{column}`
+  - Current flow: loads contract for `dataset_id`, reads `data_source.file` from that contract, then reads that CSV to compute distinct dimension values.
+  - If the web UI can upload/edit contracts (it can), an attacker can set `data_source.file` to `../../../../etc/passwd` (or any readable host file) and exfiltrate it via this endpoint.
+  - **Fix:** hard-allowlist a root directory for dataset CSVs (e.g. `${PROJECT_ROOT}/data/public/` and/or `${PROJECT_ROOT}/data/uploads/`). After resolving, enforce `full_path.relative_to(allowed_root)` (reject on failure). Do not rely on `.resolve()` alone.
 
 ### Warning (fix soon)
-- **`data_analyst_agent/sub_agents/executive_brief_agent/agent.py` — big “contract enforcement” surface area**
-  - You added `_apply_section_contract()` + network/scoped section contracts and now “normalize” any LLM JSON into the required section list.
-  - Good for renderer stability, but it can **silently drop** unexpected LLM sections/keys (and potentially hide model regressions).
-  - Suggested follow-up: log when the contract normalization had to repair missing sections / rename content, so failures are visible.
+- **`data_analyst_agent/sub_agents/executive_brief_agent/agent.py` — section-contract normalization can mask LLM regressions**
+  - `_apply_section_contract()` heals missing/invalid sections and fills fallbacks.
+  - This is good for renderer stability, but can silently hide model output drift.
+  - Follow-up: log when normalization had to add placeholder insights, fill missing sections, or replace empty content.
 
-- **`data_analyst_agent/sub_agents/executive_brief_agent/scope_utils.py` — hierarchy mapping now reads full CSV**
-  - `_load_hierarchy_level_mapping()` now loads the dataset CSV via pandas to build parent→child maps.
-  - Risk: on large datasets this is expensive during brief generation.
-  - Suggested follow-up: ensure this is limited (usecols already helps) and consider caching per run/session (you added a module cache; make sure it can’t grow unbounded across different datasets).
+- **`data_analyst_agent/sub_agents/executive_brief_agent/scope_utils.py` — scoped hierarchy mapping reads the dataset CSV**
+  - `_load_hierarchy_level_mapping()` now reads the dataset CSV (contract-driven) to build parent→child maps.
+  - Risk: expensive on large datasets at brief time.
+  - Follow-up: ensure cache is bounded (dataset+columns), and consider a max-row cap / sampling if file sizes grow.
 
-- **`tests/e2e/test_adk_integration.py` now loosens assertions on report output**
-  - Assertions changed from “must have report_markdown” to “any key containing ‘report’”.
-  - Risk: tests may pass even if report generation regresses, as long as some unrelated key includes “report”.
-  - Suggested follow-up: tighten to a clear contract (e.g., `report_markdown` OR `report_synthesis_result` only).
+- **`tests/e2e/test_adk_integration.py` — report assertions loosened too far**
+  - Now accepts any session-state key containing `"report"`.
+  - Risk: tests pass even if `report_markdown` / `report_synthesis_result` is broken.
+  - Follow-up: tighten to an explicit contract (e.g., require `report_markdown` OR `report_synthesis_result`).
 
 ### Observations
-- Good direction: converting trade-data synthetic validation flags (`scenario_id`, `anomaly_flag`) into **contract-driven** config (added `DatasetContract.validation` + contract fields in trade_data).
-- Good direction: removing hardcoded hierarchy names (“Region”, “Terminal”) from markdown report section rendering.
+- Good direction: statistical tools are now `contract.validation` driven (`scenario_id_column`, `anomaly_flag_column`, `datapoints_file`), reducing trade-data coupling.
+- Some prompt trimming happened via payload pruning/caps, but the *prompt source files* are still over the budget.
 
 ## 2) Hardcoded trade-data assumptions (grep audit)
 Command used:
@@ -62,34 +59,36 @@ grep -RIn "trade_value\|hs2\|hs4\|port_code\|region\|imports\|exports" data_anal
   | grep -v __pycache__ | grep -v -i test | grep -v contract.yaml
 ```
 
-### Flagged (not clearly contract-driven)
-- **`data_analyst_agent/utils/dimension_filters.py:14`**
-  - Contains `_UNFILTERED` tokens including `"all regions"`, `"all terminals"`.
-  - Not a crash risk, but it bakes trade/ops vocabulary into generic filter parsing. Prefer contract role labels (primary dimension / total label) where possible.
-
-- **`data_analyst_agent/sub_agents/tableau_hyper_fetcher/fetcher.py:49`**
-  - `_UNFILTERED` includes `"all regions"`, `"all terminals"`.
-  - Same note as above.
-
-### Likely acceptable (validation/test-only)
+### Flagged (not clearly contract-driven / bakes dataset vocabulary into generic logic)
 - **`data_analyst_agent/tools/validation_data_loader.py`**
-  - Still uses `region`/`terminal` columns heavily. This is OK *if* this loader is strictly for the validation fixture dataset and not used in general contract-driven fetchers.
+  - Still models the validation long-form output as `(region, terminal, metric, week_ending)` and applies explicit `region_filter`/`terminal_filter`.
+  - This is *OK if validation-only*, but it is **not contract-generic**. If this utility is reused for other datasets, it becomes a hidden schema assumption.
+  - Suggested guardrail: document and enforce that this loader is only for `validation_ops`-shaped data, or rename it to make that explicit.
 
-### Informational
+- **`data_analyst_agent/__main__.py`**
+  - CLI help/examples reference `region` and `Truck Count` explicitly.
+  - Not runtime-breaking, but it encodes a particular dataset’s vocabulary in default examples.
+  - Suggested follow-up: either label examples as `trade_data` examples, or generate examples from the active contract.
+
+### Informational (low risk)
 - **`data_analyst_agent/sub_agents/narrative_agent/tools/generate_narrative_summary.py:101`**
-  - Uses heuristic token checks `(region, country, market, geo)` to pick phrasing.
-  - Heuristic-y, but not tied to trade_value/hs codes; low risk.
+  - Heuristic token checks include `(region, country, market, geo)` for phrasing decisions; low-risk.
 
 ## 3) Unused imports (spot-check)
-Method: AST scan of a few high-change files (expect false positives; ignore `from __future__ import annotations`).
+Method: lightweight AST scan (high false-positive rate for intentional re-exports; treat those as informational).
 
-High-confidence cleanup candidates:
-- **`web/app.py`**
-  - `import os` unused
-  - `FileResponse` unused
-  - `JSONResponse` unused
-- **`web/run_manager.py`**
-  - `import signal` unused
+High-confidence candidates worth removing:
+- **`web/app.py`**: `os`, `FileResponse`, `JSONResponse`
+- **`web/run_manager.py`**: `signal`, `sys as _sys`
+- **`data_analyst_agent/semantic/models.py`**: `ContractValidationError`
+
+Additional likely-unused (verify before deleting; some may be intentional for typing/re-exports):
+- `conftest.py`: `Mock`
+- `data_analyst_agent/sub_agents/executive_brief_agent/report_utils.py`: `Dict`
+- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_pvm_decomposition.py`: `pandas as pd`, `Dict`, `Any`, `List`
+- `tests/conftest.py`: `os`, `numpy as np`
+- `tests/integration/test_contract_to_context_flow.py`: `pandas as pd`
+- `tests/unit/test_012_dataset_resolver.py`: `MagicMock`, `resolve_dataset_file`
 
 ## 4) Prompt token efficiency (character budget audit)
 Command used:
@@ -99,18 +98,30 @@ wc -c config/prompts/executive_brief.md \
   data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py
 ```
 
-Results (flag >3000 chars):
-- **6134** `config/prompts/executive_brief.md` ✅ OVER 3000
+Results (flag > 3000 chars):
+- **5994** `config/prompts/executive_brief.md` ✅ OVER 3000
 - 1255 `data_analyst_agent/sub_agents/narrative_agent/prompt.py`
 - **6022** `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` ✅ OVER 3000
 
-Recommendation:
-- Now that executive brief output is schema-normalized in-code, you can likely cut `executive_brief.md` substantially (or split into `default` vs `verbose/debug` variant).
-- Consider a similar compact/verbose split for report synthesis.
+Recommendations:
+- `executive_brief.md`: now that output is schema-contracted *and* normalized in-code, you can likely cut redundant enforcement prose. Keep: schema, required section titles/order, ~5–10 guardrails, numeric formatting.
+- `report_synthesis_agent/prompt.py`: consider compact vs verbose variants (env-controlled), and rely more on contract summary + tool layout rather than long rule blocks.
 
 ## 5) Dev-agent checklist (actionable)
-1. **Security:** Fix dimension-values endpoint file-path allowlisting (`web/app.py`).
-2. Replace hardcoded `"all regions"/"all terminals"` unfiltered tokens in generic utilities with contract-driven labels (or keep but fence behind dataset type).
-3. Remove unused imports in `web/app.py` and `web/run_manager.py`.
-4. Trim `executive_brief.md` + `report_synthesis_agent/prompt.py` under 3000 chars (or add env-controlled prompt variants).
-5. Tighten e2e report assertions to a stricter state key contract (`report_markdown` OR `report_synthesis_result`).
+1. **Security:** lock down contract-driven CSV reads in `web/app.py` with strict allowlisted root + `relative_to` enforcement.
+2. Decide whether `validation_data_loader.py` should remain validation-only; if yes, rename/docs/guardrails so it doesn’t look like a general contract-driven loader.
+3. Remove unused imports listed above.
+4. Trim `executive_brief.md` and `report_synthesis_agent/prompt.py` under 3000 chars (or add prompt variants / debug mode).
+5. Tighten e2e report assertions back to a small explicit report-output contract.
+
+---
+
+## 2026-03-11 06:36 UTC — Regression: CLI pipeline never exits after report persistence
+- Commands run:
+  1. `python -m data_analyst_agent.agent "Analyze all metrics"`
+  2. `DATA_ANALYST_METRICS=volume_units python -m data_analyst_agent.agent "Analyze volume"`
+- In both runs the workflow completed metric analyses, generated markdown reports, and saved JSON/MD artifacts into `outputs/trade_data/20260311_063105` and `outputs/trade_data/20260311_063428` respectively.
+- After `OutputPersistenceAgent` finished, the process remained stuck (no further log lines, no CPU usage) and never returned to the shell. Required manual `kill` of the `python -m data_analyst_agent.agent ...` PIDs to continue.
+- Regression risk: automated cron / CI / CLI users will hang indefinitely after successful analysis, blocking subsequent steps and leaving zombie processes.
+- Suspect root cause: report synthesis agent’s tool call returns `{'result': '# Error Generating Report\\n\\nError: Unable to parse hierarchical_results'}` after persistence, and higher-level workflow is waiting on additional tool callbacks or cleanup that never occurs.
+- Next steps: ensure the target-analysis workflow signals completion once output persistence finishes, even if the markdown generator returns an error payload; audit any lingering async tasks or futures that keep the event loop alive.

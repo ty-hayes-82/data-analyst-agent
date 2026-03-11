@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-11T02:40:39
+**Last updated:** 2026-03-11T07:12:19
 
 ## Current State
 - **Unit Tests:** 238 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 188 files, 27,067 lines, **52 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (746L)
-- **Commit:** `d7d59f0 feat: tighten brief prompts and prune unus`
+- **Codebase:** 189 files, 27,806 lines, **52 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (856L)
+- **Commit:** `0906ddd chore: tighten executive brief prompt sche`
 
 ## Progress Over Time
 
@@ -154,9 +154,22 @@
 | 139 | 02:19 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 | 140 | 02:31 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 | 141 | 02:40 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 142 | 02:57 | `07589d9` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 143 | 03:20 | `07589d9` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 144 | 03:40 | `f1cec20` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 145 | 04:04 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 146 | 04:27 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 147 | 04:52 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 148 | 05:18 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 149 | 05:39 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 150 | 05:52 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 151 | 06:13 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 152 | 06:36 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 153 | 07:04 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 154 | 07:12 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
 - Tests: 247 → **238** (+-9)
 - Failures: 0 → **0**
 - Files >200L: 50 → **52** (+2)
-- Iterations: 141
+- Iterations: 154

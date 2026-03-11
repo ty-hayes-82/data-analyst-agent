@@ -41,6 +41,7 @@ from .prompt_utils import (
     _format_analysis_period,
     _format_brief_with_fallback,
     _write_executive_brief_cache,
+    SECTION_FALLBACK_TEXT,
 )
 from .report_utils import (
     _build_digest,
@@ -186,7 +187,6 @@ SCOPED_SECTION_CONTRACT = [
     {"title": "Leadership Question", "mode": "content"},
 ]
 
-SECTION_FALLBACK_TEXT = "No material change this period—maintain monitoring posture."
 TOP_INSIGHT_MIN_COUNT = 3
 
 
@@ -264,6 +264,67 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
 
 
 
+def _validate_structured_brief(
+    brief: dict,
+    section_contract: list[dict[str, str]] | None,
+) -> list[str]:
+    """Return a list of validation errors for the structured brief payload."""
+
+    errors: list[str] = []
+    header = brief.get("header") or {}
+    header_title = str(header.get("title") or "").strip()
+    header_summary = str(header.get("summary") or "").strip()
+    if not header_title:
+        errors.append("header.title is empty")
+    if not header_summary:
+        errors.append("header.summary is empty")
+
+    body = brief.get("body") or {}
+    sections = body.get("sections") or []
+    if not isinstance(sections, list) or not sections:
+        errors.append("body.sections missing or empty")
+        return errors
+
+    expected_titles = [spec["title"] for spec in section_contract] if section_contract else None
+    actual_titles: list[str] = []
+    for idx, section in enumerate(sections):
+        if not isinstance(section, dict):
+            errors.append(f"body.sections[{idx}] is not an object")
+            continue
+        title = str(section.get("title") or "").strip()
+        actual_titles.append(title)
+        content = str(section.get("content") or "").strip()
+        if not title:
+            errors.append(f"body.sections[{idx}] missing title")
+        if not content:
+            errors.append(f"{title or f'section[{idx}]'} content empty")
+        insights = section.get("insights")
+        if insights is None:
+            errors.append(f"{title or f'section[{idx}]'} missing insights array")
+            continue
+        if not isinstance(insights, list):
+            errors.append(f"{title or f'section[{idx}]'} insights is not a list")
+            continue
+        if title == "Top Operational Insights":
+            if len(insights) < TOP_INSIGHT_MIN_COUNT:
+                errors.append("Top Operational Insights must include at least three entries")
+            for insight_idx, insight in enumerate(insights):
+                if not isinstance(insight, dict):
+                    errors.append(f"Top Operational Insights entry {insight_idx} is not an object")
+                    continue
+                details = str(insight.get("details") or "").strip()
+                if not details:
+                    errors.append(f"Top Operational Insights entry {insight_idx} missing details")
+
+    if expected_titles and actual_titles != expected_titles:
+        errors.append(
+            "Section titles/order mismatch: " + ", ".join(actual_titles or ["<empty>"])
+        )
+
+    return errors
+
+
+
 def _format_instruction(template: str, **fields: str) -> str:
     """Safely render the executive-brief prompt with literal braces intact."""
     placeholders = {key: f"<<{key.upper()}_PLACEHOLDER>>" for key in fields}
@@ -283,8 +344,12 @@ async def _llm_generate_brief(
     thinking_config: Any,
     digest: str = "",
     section_contract: list[dict[str, str]] | None = None,
-) -> tuple[dict, str]:
-    """Call the LLM to generate a brief JSON. Returns (brief_data_dict, brief_markdown)."""
+) -> tuple[dict, str, bool]:
+    """Call the LLM to generate a brief JSON.
+
+    Returns:
+        Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
+    """
     import asyncio
 
     config = types.GenerateContentConfig(
@@ -296,9 +361,11 @@ async def _llm_generate_brief(
         thinking_config=thinking_config,
     )
     loop = asyncio.get_running_loop()
-    raw: str | None = None
+    fallback_payload: tuple[dict, str] | None = None
     last_err: Exception | None = None
-    for attempt in range(1, 4):
+    max_attempts = 3
+
+    for attempt in range(1, max_attempts + 1):
         try:
             client = genai.Client()
             response = await asyncio.wait_for(
@@ -313,26 +380,48 @@ async def _llm_generate_brief(
                 timeout=300.0,
             )
             raw = response.text.strip()
-            break
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+            brief_data = json.loads(raw)
+            if section_contract:
+                brief_data = _apply_section_contract(brief_data, section_contract)
+            else:
+                brief_data.setdefault("header", {})
+                brief_data.setdefault("body", {}).setdefault("sections", [])
+
+            structural_errors = _validate_structured_brief(brief_data, section_contract)
+            if structural_errors:
+                raise ValueError(
+                    "Structured brief failed validation: " + '; '.join(structural_errors)
+                )
+
+            brief_markdown, used_fallback = _format_brief_with_fallback(brief_data, digest)
+            if used_fallback:
+                fallback_payload = (brief_data, brief_markdown)
+                if attempt < max_attempts:
+                    print(
+                        f"[BRIEF] Attempt {attempt}/{max_attempts} produced fallback output. Retrying in 5s..."
+                    )
+                    await asyncio.sleep(5)
+                    continue
+                print("[BRIEF] LLM returned fallback output after all retries — using structured fallback.")
+                return brief_data, brief_markdown, True
+
+            return brief_data, brief_markdown, False
         except Exception as attempt_err:
             last_err = attempt_err
-            print(f"[BRIEF] Attempt {attempt}/3 failed: {attempt_err}. Retrying in 5s...")
-            if attempt < 3:
+            if attempt < max_attempts:
+                print(f"[BRIEF] Attempt {attempt}/{max_attempts} failed: {attempt_err}. Retrying in 5s...")
                 await asyncio.sleep(5)
+            else:
+                print(f"[BRIEF] Attempt {attempt}/{max_attempts} failed: {attempt_err}.")
 
-    if raw is None:
-        raise last_err  # type: ignore[misc]
-
-    raw = re.sub(r"^```(?:json)?\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
-    brief_data = json.loads(raw)
-    if section_contract:
-        brief_data = _apply_section_contract(brief_data, section_contract)
-    else:
-        brief_data.setdefault("header", {})
-        brief_data.setdefault("body", {}).setdefault("sections", [])
-    return brief_data, _format_brief_with_fallback(brief_data, digest)
-
+    if fallback_payload:
+        print("[BRIEF] All attempts resulted in fallback output — using structured fallback text.")
+        return fallback_payload[0], fallback_payload[1], True
+    if last_err:
+        raise last_err
+    raise RuntimeError("LLM failed to return executive brief output")
 
 
 
@@ -521,7 +610,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
             f"{digest}\n\n"
             f"{weather_block}"
-            "Generate the executive brief JSON as instructed."
+            "Generate the executive brief JSON as instructed and respond with ONLY the JSON object."
         )
 
         metric_names = sorted(reports.keys())
@@ -542,7 +631,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
 
         try:
-            _, brief_md = await _llm_generate_brief(
+            brief_json, brief_md, used_fallback = await _llm_generate_brief(
                 model_name=model_name,
                 instruction=instruction,
                 user_message=user_message,
@@ -551,11 +640,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 section_contract=NETWORK_SECTION_CONTRACT,
             )
 
+            if used_fallback:
+                print("[BRIEF] WARNING: Structured fallback output detected for network brief.")
+
             brief_filename = "brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md"
             brief_path = outputs_dir / brief_filename
             brief_path.write_text(brief_md, encoding="utf-8")
             print(f"[BRIEF] Saved executive brief to {brief_filename}")
             print(f"[BRIEF] File size: {brief_path.stat().st_size} bytes")
+
+            json_filename = "brief.json" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.json"
+            brief_json_path = outputs_dir / json_filename
+            brief_json_path.write_text(json.dumps(brief_json, indent=2, ensure_ascii=False), encoding="utf-8")
+            print(f"[BRIEF] Saved executive brief JSON to {json_filename}")
 
             print("\n" + "=" * 80)
             print("EXECUTIVE BRIEF")
@@ -563,7 +660,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             print(brief_md)
             print("=" * 80 + "\n")
 
-            scoped_briefs: dict[str, dict[str, str]] = {}
+            scoped_briefs: dict[str, dict[str, Any]] = {}
             scoped_digests_map: dict[str, str] = {}
             hierarchy_hint = ctx.session.state.get("selected_hierarchy") or ctx.session.state.get("hierarchy_name")
             scope_level_labels = derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
@@ -628,11 +725,11 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             f"Use the above 'reference_period_end' when writing header.title.\n\n"
                             f"Here are the individual metric analysis summaries for {analysis_period}, scoped to {entity}.\n\n"
                             f"{scoped_digest}\n\n"
-                            "Generate the executive brief JSON as instructed. Focus exclusively on this scope."
+                            "Generate the executive brief JSON as instructed and respond with ONLY the JSON object. Focus exclusively on this scope."
                         )
                         print(f"[BRIEF] Generating scoped brief for {entity} ({level_name})...")
                         try:
-                            _, scoped_brief_md = await _llm_generate_brief(
+                            scoped_json, scoped_brief_md, scoped_fallback = await _llm_generate_brief(
                                 model_name=model_name,
                                 instruction=scoped_instruction,
                                 user_message=scoped_user_message,
@@ -640,6 +737,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 digest=scoped_digest,
                                 section_contract=SCOPED_SECTION_CONTRACT,
                             )
+                            if scoped_fallback:
+                                print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
                             safe_entity = _sanitize_entity_name(entity)
                             scoped_filename = (
                                 "brief_" + safe_entity + ".md"
@@ -649,12 +748,21 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             scoped_path = outputs_dir / scoped_filename
                             scoped_path.write_text(scoped_brief_md, encoding="utf-8")
                             print(f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename}")
+                            scoped_json_filename = (
+                                "brief_" + safe_entity + ".json"
+                                if os.getenv("DATA_ANALYST_OUTPUT_DIR")
+                                else f"executive_brief_{period_end}_{safe_entity}.json"
+                            )
+                            scoped_json_path = outputs_dir / scoped_json_filename
+                            scoped_json_path.write_text(json.dumps(scoped_json, indent=2, ensure_ascii=False), encoding="utf-8")
                             scoped_briefs[entity] = {
                                 "path": str(scoped_path),
+                                "json_path": str(scoped_json_path),
                                 "content": scoped_brief_md,
                                 "level": level,
                                 "level_name": level_name,
                                 "bookmark_label": f"{entity} ({level_name})",
+                                "used_fallback": scoped_fallback,
                             }
                         except Exception as scope_err:
                             print(f"[BRIEF] ERROR generating scoped brief for {entity}: {scope_err}")
@@ -716,6 +824,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             state_delta: dict[str, Any] = {
                 "executive_brief": brief_md,
                 "executive_brief_path": str(brief_path),
+                "executive_brief_json": str(brief_json_path),
+                "executive_brief_used_fallback": used_fallback,
             }
             if scoped_briefs:
                 state_delta["scoped_briefs"] = scoped_briefs

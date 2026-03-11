@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 from google.adk.agents.llm_agent import Agent
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
@@ -21,10 +21,25 @@ def _safe_int_env(var: str, default: int) -> int:
         return default
 
 
-MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 5)
-MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 5)
-MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 3)
-MAX_NARRATIVE_INDEPENDENT_CARDS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CARDS", 2)
+MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 3)
+MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 3)
+MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 2)
+MAX_NARRATIVE_INDEPENDENT_CARDS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CARDS", 1)
+MAX_NARRATIVE_ANALYST_CHARS = _safe_int_env("NARRATIVE_MAX_ANALYST_CHARS", 4000)
+MAX_NARRATIVE_STATS_CHARS = _safe_int_env("NARRATIVE_MAX_STATS_CHARS", 2800)
+MAX_NARRATIVE_HIERARCHY_CHARS = _safe_int_env("NARRATIVE_MAX_HIER_CHARS", 2600)
+MAX_NARRATIVE_INDEPENDENT_CHARS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CHARS", 1500)
+
+
+def _truncate_text(block: str | None, max_chars: int, label: str) -> str:
+    if not block:
+        return block or ""
+    text = str(block)
+    if len(text) <= max_chars:
+        return text
+    suffix = f" … [truncated {label} to {max_chars} chars]"
+    keep = max(0, max_chars - len(suffix))
+    return text[:keep].rstrip() + suffix
 
 
 _PRUNABLE_ANALYSIS_KEYS = {
@@ -83,7 +98,29 @@ def _compress_analysis_block(raw_value, limit: int) -> str:
     cards = payload.get("insight_cards")
     payload["insight_cards"] = _slim_insight_cards(cards, limit)
     payload = _prune_analysis_payload(payload)
-    return json.dumps(payload, indent=2)
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+
+
+def _loads_or_passthrough(value: Any) -> Any:
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return value
+    return value
+
+
+def _json_payload_or_note(raw: str | None, max_chars: int, label: str, preview_len: int = 320) -> Any:
+    if not raw:
+        return ""
+    if len(raw) <= max_chars:
+        return _loads_or_passthrough(raw)
+    note = {"warning": f"{label} payload exceeded {max_chars} chars; truncated for prompt budget."}
+    if raw:
+        note["preview"] = raw[:preview_len]
+    return note
 
 
 _base_agent = Agent(
@@ -130,12 +167,12 @@ class NarrativeWrapper(BaseAgent):
         focus_preamble = "\n".join(focus_lines)
 
         contract = ctx.session.state.get("dataset_contract")
-        if contract:
-            display_name = getattr(contract, 'display_name', contract.name)
-            materiality = getattr(contract, 'materiality', {})
-            var_pct = materiality.get("variance_pct", 5.0)
-            var_abs = materiality.get("variance_absolute", 50000.0)
+        display_name = getattr(contract, 'display_name', getattr(contract, 'name', 'dataset')) if contract else "dataset"
+        materiality = getattr(contract, 'materiality', {}) if contract else {}
+        var_pct = materiality.get("variance_pct", 5.0)
+        var_abs = materiality.get("variance_absolute", 50000.0)
 
+        if contract:
             # NOTE: Avoid str.format() because prompts often contain JSON examples
             # with braces that would be interpreted as format fields.
             instr = NARRATIVE_AGENT_INSTRUCTION
@@ -157,9 +194,10 @@ class NarrativeWrapper(BaseAgent):
             try:
                 da_dict = json.loads(raw_da_result)
                 da_dict.pop("level_results", None)  # Redundant with HIERARCHICAL_ANALYSIS
-                data_analyst_result = json.dumps(da_dict, indent=2)
+                data_analyst_result = json.dumps(da_dict, separators=(",", ":"), ensure_ascii=False)
             except (json.JSONDecodeError, TypeError):
                 pass
+        data_analyst_result = _truncate_text(data_analyst_result, MAX_NARRATIVE_ANALYST_CHARS, "data analyst result")
 
         # --- OPTIMIZATION: Truncate statistical_summary to reduce prompt bloat ---
         raw_stats = state.get("statistical_summary", "")
@@ -202,11 +240,16 @@ class NarrativeWrapper(BaseAgent):
                     {k: a.get(k) for k in ("item", "value", "z_score", "period") if k in a}
                     for a in _sorted[:MAX_NARRATIVE_ANOMALIES]
                 ]
+                correlations_raw = stats_dict.get("correlations")
+                if isinstance(correlations_raw, list):
+                    correlations_lite = correlations_raw[:3]
+                else:
+                    correlations_lite = correlations_raw
                 slim_stats = {
                     "summary_stats": stats_dict.get("summary_stats"),
                     "top_drivers": slim_drivers,
                     "anomalies": slim_anomalies,
-                    "correlations": stats_dict.get("correlations"),
+                    "correlations": correlations_lite,
                 }
                 # Include cross_metric_correlations only when not skipped
                 cmc = stats_dict.get("cross_metric_correlations")
@@ -216,11 +259,13 @@ class NarrativeWrapper(BaseAgent):
                 dqf = stats_dict.get("dq_flags")
                 if dqf and dqf.get("suspected_uniform_growth"):
                     slim_stats["dq_flags"] = dqf
-                statistical_summary = _json.dumps(slim_stats, indent=2)
+                statistical_summary = _json.dumps(slim_stats, separators=(",", ":"), ensure_ascii=False)
             except (_json.JSONDecodeError, TypeError):
                 pass
+        statistical_summary = _truncate_text(statistical_summary, MAX_NARRATIVE_STATS_CHARS, "statistical summary")
 
         level_parts = []
+        hierarchical_payload: dict[str, Any] = {}
         level_range = hierarchy_level_range(state, contract, max_cap=6)
         for lvl in level_range:
             val = state.get(f"level_{lvl}_analysis")
@@ -228,34 +273,65 @@ class NarrativeWrapper(BaseAgent):
                 continue
             compressed = _compress_analysis_block(val, MAX_NARRATIVE_HIERARCHY_CARDS)
             level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{compressed}")
+            hierarchical_payload[f"level_{lvl}"] = _json_payload_or_note(
+                compressed,
+                MAX_NARRATIVE_HIERARCHY_CHARS,
+                f"Level {lvl}",
+            )
         hierarchical_text = "\n\n".join(level_parts) if level_parts else "(none)"
+        hierarchical_text = _truncate_text(hierarchical_text, MAX_NARRATIVE_HIERARCHY_CHARS, "hierarchical analysis")
 
         # Collect independent flat-scan findings (only present when INDEPENDENT_LEVEL_ANALYSIS=true)
         independent_parts = []
-        independent_range = independent_level_range(state, contract, max_cap=4)
+        independent_payload: dict[str, Any] = {}
+        independent_range = independent_level_range(state, contract, max_cap=2)
         for lvl in independent_range:
             val = state.get(f"independent_level_{lvl}_analysis")
             if not val:
                 continue
             compressed = _compress_analysis_block(val, MAX_NARRATIVE_INDEPENDENT_CARDS)
             independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{compressed}")
+            independent_payload[f"level_{lvl}"] = _json_payload_or_note(
+                compressed,
+                MAX_NARRATIVE_INDEPENDENT_CHARS,
+                f"Independent level {lvl}",
+            )
         independent_text = "\n\n".join(independent_parts) if independent_parts else ""
+        independent_text = _truncate_text(independent_text, MAX_NARRATIVE_INDEPENDENT_CHARS, "independent findings")
 
-        independent_section = (
-            f"\n\nINDEPENDENT_LEVEL_FINDINGS (entities masked at higher levels, net-new only):\n{independent_text}"
-            if independent_text else ""
-        )
 
-        focus_section = f"FOCUS_DIRECTIVES:\n{focus_preamble}\n\n" if focus_preamble else ""
+        focus_directives = focus_lines
+        data_analyst_component = _loads_or_passthrough(data_analyst_result)
+        stats_component = _loads_or_passthrough(statistical_summary)
+
+        prompt_payload = {
+            "dataset": {
+                "display_name": display_name,
+                "materiality": {
+                    "variance_pct": var_pct,
+                    "variance_absolute": var_abs,
+                },
+            },
+            "temporal_grain": state.get("temporal_grain", "unknown"),
+            "analysis_period": state.get("analysis_period"),
+            "period_end": state.get("primary_query_end_date"),
+            "focus_directives": focus_directives,
+            "components": {
+                "data_analyst_result": data_analyst_component,
+                "statistical_summary": stats_component,
+                "hierarchical_analysis": hierarchical_payload,
+                "independent_findings": independent_payload,
+            },
+        }
+        payload_json = json.dumps(prompt_payload, separators=(",", ":"), ensure_ascii=False)
 
         injection = (
-            "Here are the analysis results for you to transform into Insight Cards:\n\n"
-            f"{focus_section}"
-            f"DATA_ANALYST_RESULT (Statistical Insight Cards):\n{data_analyst_result}\n\n"
-            f"STATISTICAL_SUMMARY (Raw Statistics):\n{statistical_summary}\n\n"
-            f"HIERARCHICAL_ANALYSIS:\n{hierarchical_text}"
-            f"{independent_section}\n\n"
-            "Please generate Insight Cards based on these findings."
+            "NARRATIVE_INPUT_JSON (strict JSON — do not change keys):\n"
+            f"{payload_json}\n"
+            "Transform this JSON into Insight Cards per the system instruction."
+        )
+        print(
+            f"[NarrativeAgent] Prompt size — instruction={len(self.wrapped_agent.instruction):,} chars, payload={len(payload_json):,} chars"
         )
 
         # DEBUG: Save prompt to file for optimization review

@@ -194,11 +194,14 @@ def load_validation_data(
     if df.empty:
         return df.reset_index(drop=True)
 
+    summary_parts = []
+    for column in ("region", "terminal", "metric", "week_ending"):
+        if column in df.columns:
+            summary_parts.append(f"{df[column].nunique()} unique {column}")
+    summary_text = ", ".join(summary_parts) or "no dimension columns"
     print(
         f"[validation_data_loader] Returning {len(df):,} filtered rows "
-        f"({df['terminal'].nunique()} terminals, "
-        f"{df['metric'].nunique()} metrics, "
-        f"{df['week_ending'].nunique()} weeks)"
+        f"({summary_text})"
     )
     return df.reset_index(drop=True)
 
