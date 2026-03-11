@@ -305,12 +305,44 @@ def _filter_alerts_for_scope(
     scope_entity: str,
     sub_entity_names: set[str],
 ) -> list[dict[str, Any]]:
+    """Return alerts that clearly reference the scope entity or its children.
+
+    Alerts originate from datasets with different dimension labels. Instead of
+    reading trade-only fields (e.g., ``region``), normalize a broader set of
+    descriptive fields so this filter remains contract-agnostic.
+    """
+
     relevant = {scope_entity.lower()} | {n.lower() for n in sub_entity_names}
+
+    def _matches_scope(value: Any) -> bool:
+        text = str(value or "").strip().lower()
+        if not text:
+            return False
+        if text in relevant:
+            return True
+        return any(term and term in text for term in relevant)
+
     filtered = []
     for alert in alerts:
-        entity = _alert_entity(alert).lower()
-        region = (alert.get("region") or "").lower()
-        if entity in relevant or region in relevant:
+        candidates = [
+            _alert_entity(alert),
+            alert.get("dimension_value"),
+            alert.get("item_name"),
+            alert.get("item"),
+            alert.get("item_id"),
+            alert.get("entity"),
+            alert.get("entity_name"),
+        ]
+        details = alert.get("details")
+        if isinstance(details, dict):
+            candidates.extend(
+                [
+                    details.get("entity"),
+                    details.get("dimension_value"),
+                    details.get("description"),
+                ]
+            )
+        if any(_matches_scope(value) for value in candidates):
             filtered.append(alert)
     return filtered
 

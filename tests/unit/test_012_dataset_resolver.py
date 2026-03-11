@@ -14,6 +14,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+from tests.utils.dataset_paths import resolve_dataset_file
+
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"

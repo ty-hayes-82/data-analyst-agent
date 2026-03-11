@@ -1,0 +1,45 @@
+name: "Account Research"
+version: "1.0.0"
+display_name: "Account Research (Test Stub)"
+description: "Lightweight contract for account research tests."
+target_label: "Account"
+data_source:
+  type: "csv"
+time:
+  column: "period_end"
+  frequency: "monthly"
+  format: "%Y-%m-%d"
+  timezone: "UTC"
+  range_months: 12
+grain:
+  columns: ["period_end", "account_name", "cost_center"]
+metrics:
+  - name: "total_spend"
+    column: "total_spend"
+    type: "additive"
+    format: "currency"
+    optimization: "minimize"
+  - name: "headcount"
+    column: "headcount"
+    type: "additive"
+    format: "integer"
+    optimization: "minimize"
+dimensions:
+  - name: "account_name"
+    column: "account_name"
+    role: "primary"
+  - name: "cost_center"
+    column: "cost_center"
+    role: "secondary"
+  - name: "region"
+    column: "region"
+    role: "secondary"
+  - name: "owner"
+    column: "owner"
+    role: "auxiliary"
+hierarchies:
+  - name: "account_hierarchy"
+    description: "Region → Account"
+    children: ["region", "account_name"]
+reporting:
+  max_drill_depth: 2

@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
@@ -39,7 +39,6 @@ from ...utils import parse_bool_env
 from .prompt_utils import (
     _build_weather_context_block,
     _format_analysis_period,
-    _format_brief,
     _format_brief_with_fallback,
     _write_executive_brief_cache,
 )
@@ -187,12 +186,17 @@ SCOPED_SECTION_CONTRACT = [
     {"title": "Leadership Question", "mode": "content"},
 ]
 
+SECTION_FALLBACK_TEXT = "No material change this period—maintain monitoring posture."
+TOP_INSIGHT_MIN_COUNT = 3
+
 
 def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]]) -> dict:
     """Ensure the LLM JSON matches the required section titles/order."""
     header = brief.setdefault("header", {})
-    header["title"] = str(header.get("title") or "").strip()
-    header["summary"] = str(header.get("summary") or "").strip()
+    header_title = str(header.get("title") or "").strip()
+    header_summary = str(header.get("summary") or "").strip()
+    header["title"] = header_title or "Executive Brief"
+    header["summary"] = header_summary or SECTION_FALLBACK_TEXT
 
     body = brief.setdefault("body", {})
     existing_sections = {}
@@ -202,31 +206,58 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
             if title:
                 existing_sections[title] = raw
 
+    def _placeholder_insight(section_title: str, idx: int) -> dict[str, str]:
+        suffix = f" {idx + 1}" if idx else ""
+        return {
+            "title": f"{section_title} insight{suffix}".strip(),
+            "details": SECTION_FALLBACK_TEXT,
+        }
+
     normalized = []
     for spec in section_contract:
         title = spec["title"]
         src = existing_sections.get(title, {})
         content = str(src.get("content") or "").strip()
         insights_raw = src.get("insights") if isinstance(src, dict) else None
-        insights: list[dict[str, str]] = []
-        if isinstance(insights_raw, list):
-            for item in insights_raw:
-                if not isinstance(item, dict):
-                    continue
-                insights.append(
-                    {
-                        "title": str(item.get("title") or "").strip(),
-                        "details": str(item.get("details") or "").strip(),
-                    }
-                )
         mode = spec.get("mode", "content")
-        normalized.append(
-            {
-                "title": title,
-                "content": content if mode != "insights" else content or "",
-                "insights": insights if mode != "content" else [],
-            }
-        )
+
+        if mode == "insights":
+            insights: list[dict[str, str]] = []
+            if isinstance(insights_raw, list):
+                for item in insights_raw:
+                    if not isinstance(item, dict):
+                        continue
+                    entry_title = str(item.get("title") or "").strip()
+                    entry_details = str(item.get("details") or "").strip()
+                    if not entry_title and not entry_details:
+                        continue
+                    insights.append(
+                        {
+                            "title": entry_title or f"{title} insight",
+                            "details": entry_details or SECTION_FALLBACK_TEXT,
+                        }
+                    )
+            required = TOP_INSIGHT_MIN_COUNT if title == "Top Operational Insights" else 1
+            if not insights:
+                insights.append(_placeholder_insight(title, 0))
+            while len(insights) < required:
+                insights.append(_placeholder_insight(title, len(insights)))
+
+            normalized.append(
+                {
+                    "title": title,
+                    "content": "",
+                    "insights": insights,
+                }
+            )
+        else:
+            normalized.append(
+                {
+                    "title": title,
+                    "content": content or SECTION_FALLBACK_TEXT,
+                    "insights": [],
+                }
+            )
 
     body["sections"] = normalized
     return brief

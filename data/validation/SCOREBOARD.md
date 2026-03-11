@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T19:48:26
+**Last updated:** 2026-03-11T02:40:39
 
 ## Current State
-- **Unit Tests:** 213 passed, 7 failed, 0 errors
+- **Unit Tests:** 238 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 188 files, 26,884 lines, **51 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (744L)
-- **Commit:** `7b369d2 chore: tighten executive brief JSON prompt`
+- **Codebase:** 188 files, 27,067 lines, **52 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (746L)
+- **Commit:** `d7d59f0 feat: tighten brief prompts and prune unus`
 
 ## Progress Over Time
 
@@ -145,9 +145,18 @@
 | 130 | 19:20 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 131 | 19:29 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 132 | 19:48 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 133 | 00:30 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 134 | 00:43 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 135 | 00:55 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 136 | 01:09 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 137 | 01:25 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 138 | 02:04 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 139 | 02:19 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 140 | 02:31 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 141 | 02:40 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **213** (+-34)
-- Failures: 0 → **7**
-- Files >200L: 50 → **51** (+1)
-- Iterations: 132
+- Tests: 247 → **238** (+-9)
+- Failures: 0 → **0**
+- Files >200L: 50 → **52** (+2)
+- Iterations: 141
