@@ -12,10 +12,20 @@ def build_data_quality_section(
     temporal_grain: str,
     short_delta_label: str,
     lag_meta: dict | None,
-    util_ratios: list,
-    util_summary: dict,
+    dataset_label: str | None = None,
+    dataset_description: str | None = None,
+    util_ratios: list | None = None,
+    util_summary: dict | None = None,
 ) -> List[str]:
     lines: List[str] = ["## Data Quality & Notes", ""]
+
+    if dataset_label or dataset_description:
+        descriptor = dataset_label or "Dataset"
+        description = (dataset_description or "").strip()
+        if description:
+            lines.append(f"- Dataset: {descriptor} — {description}")
+        else:
+            lines.append(f"- Dataset: {descriptor}")
 
     if lag_meta and lag_meta.get("lag_window"):
         window = lag_meta["lag_window"]
@@ -31,6 +41,8 @@ def build_data_quality_section(
     lines.append(f"- Temporal grain detected as {temporal_grain} (comparisons interpreted as {short_delta_label})")
     lines.append("- All variance calculations use category-specific materiality thresholds")
 
+    util_ratios = util_ratios or []
+    util_summary = util_summary or {}
     if util_ratios:
         metrics_computed = util_summary.get("metrics_computed", 0) if isinstance(util_summary, dict) else 0
         lines.append(f"- Utilization analysis: {len(util_ratios)} periods, {metrics_computed} metrics")

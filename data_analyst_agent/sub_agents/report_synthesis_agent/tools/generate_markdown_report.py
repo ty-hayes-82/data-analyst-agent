@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -66,6 +67,43 @@ def _extract_lag_metadata(inputs: List[Any]) -> Optional[dict]:
         if isinstance(level_zero, dict) and level_zero.get("lag_metadata"):
             return level_zero["lag_metadata"]
     return None
+
+
+_LEVEL_BLOCK_PATTERN = re.compile(
+    r"(?:^|\n)HIERARCHICAL_LEVEL_(\d+):\s*(\{.*?)(?=\n(?:HIERARCHICAL_LEVEL_\d+:|INDEPENDENT_LEVEL_\d+:)|\Z)",
+    re.S,
+)
+
+
+def _parse_hierarchy_text_blocks(raw_text: str) -> Dict[str, dict]:
+    parsed_blocks: Dict[str, dict] = {}
+    for match in _LEVEL_BLOCK_PATTERN.finditer(raw_text):
+        level = match.group(1)
+        payload_text = match.group(2).strip()
+        payload = parse_json_safe(payload_text)
+        if isinstance(payload, dict):
+            parsed_blocks[f"level_{level}"] = payload
+    return parsed_blocks
+
+
+def _coerce_hierarchical_payload(raw: Any) -> Tuple[Any, bool]:
+    """Return normalized hierarchical payload and whether parsing required fallback."""
+    parsed = parse_json_safe(raw) if raw not in (None, "") else {}
+    if isinstance(parsed, (dict, list)) and parsed:
+        return parsed, False
+
+    warning = False
+    if isinstance(raw, str):
+        text_blocks = _parse_hierarchy_text_blocks(raw)
+        if text_blocks:
+            return text_blocks, False
+        if raw.strip():
+            warning = True
+
+    if isinstance(parsed, (dict, list)):
+        return parsed, warning
+
+    return {}, warning
 
 
 
@@ -462,10 +500,7 @@ async def generate_markdown_report(
 ) -> str:
     try:
         target_name = cost_center or analysis_target or dataset_display_name or "Network Total"
-        raw_results = parse_json_safe(hierarchical_results)
-        if not raw_results:
-            return "# Error Generating Report\n\nError: Unable to parse hierarchical_results"
-
+        raw_results, hierarchy_warning = _coerce_hierarchical_payload(hierarchical_results)
         normalized_results = normalize_hierarchical_results(raw_results)
         level_analyses, levels_analyzed, drill_down_path = _extract_levels(raw_results, normalized_results)
 
@@ -486,6 +521,12 @@ async def generate_markdown_report(
 
         md: List[str] = []
         _append_header(md, label, target_name, analysis_period, cost_center)
+
+        if hierarchy_warning:
+            md.append(
+                "> Error: Hierarchical analysis payload could not be parsed; continuing with available summary data."
+            )
+            md.append("")
 
         insight_lines, final_cards = build_insight_cards_section(narrative_cards, level_analyses, levels_analyzed)
         summary_text = narrative_summary
@@ -597,6 +638,9 @@ async def generate_markdown_report(
             )
         )
 
+        util_ratios = stats_data.get("utilization_ratios") if isinstance(stats_data, dict) else []
+        util_summary = stats_data.get("utilization_summary") if isinstance(stats_data, dict) else {}
+
         md.extend(
             build_data_quality_section(
                 dataset_label=dataset_label,
@@ -606,6 +650,8 @@ async def generate_markdown_report(
                 temporal_grain=temporal_grain,
                 short_delta_label=short_delta_label,
                 lag_meta=lag_meta,
+                util_ratios=util_ratios,
+                util_summary=util_summary,
             )
         )
 
