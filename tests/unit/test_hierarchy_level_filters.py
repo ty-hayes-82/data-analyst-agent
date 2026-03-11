@@ -11,14 +11,57 @@ from data_analyst_agent.sub_agents.hierarchy_variance_agent.tools.compute_level_
 )
 
 
-CONTRACT_PATH = Path("config/datasets/csv/covid_us_counties/contract.yaml")
+TEST_CONTRACT_DATA = {
+    "name": "test_counties",
+    "version": "1.0.0",
+    "display_name": "Test Counties",
+    "description": "Synthetic county dataset for hierarchy filter tests",
+    "time": {
+        "column": "date",
+        "frequency": "daily",
+        "format": "%Y-%m-%d",
+        "range_months": 12,
+    },
+    "grain": {"columns": ["date", "state", "county"]},
+    "metrics": [
+        {
+            "name": "cases",
+            "column": "cases",
+            "type": "additive",
+            "format": "integer",
+            "optimization": "maximize",
+            "description": "Reported cases",
+            "tags": [],
+        }
+    ],
+    "dimensions": [
+        {"name": "date", "column": "date", "role": "time", "description": "Date"},
+        {"name": "state", "column": "state", "role": "primary", "description": "State"},
+        {"name": "county", "column": "county", "role": "secondary", "description": "County"},
+    ],
+    "hierarchies": [
+        {
+            "name": "geographic",
+            "description": "State > County",
+            "children": ["state", "county"],
+            "level_names": {0: "State", 1: "County"},
+        }
+    ],
+    "materiality": {"variance_pct": 5.0, "variance_absolute": 1000},
+    "presentation": {"unit": "cases"},
+    "reporting": {
+        "max_drill_depth": 3,
+        "executive_brief_drill_levels": 1,
+        "max_scope_entities": 10,
+        "output_format": "md",
+    },
+}
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_dimension_filters_skip_redundant_hierarchy_level():
-    contract = DatasetContract.from_yaml(CONTRACT_PATH)
-    contract._source_path = str(CONTRACT_PATH)
+    contract = DatasetContract.model_validate(TEST_CONTRACT_DATA)
 
     df = pd.DataFrame(
         {

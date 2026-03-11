@@ -1,9 +1,0 @@
-type: csv
-file: data/public/us_counties_covid_sampled.csv
-encoding: utf-8
-date_columns:
-- date
-numeric_columns:
-- cases
-- deaths
-- fips
