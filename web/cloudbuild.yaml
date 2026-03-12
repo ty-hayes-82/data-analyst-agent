@@ -1,0 +1,70 @@
+# Cloud Build Configuration for Web UI Deployment
+# Builds Docker image and deploys to Cloud Run
+
+steps:
+  # Step 1: Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:latest'
+      - '-f'
+      - 'web/Dockerfile'
+      - '.'
+  
+  # Step 2: Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:latest'
+  
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'data-analyst-ui'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--service-account'
+      - 'data-analyst-agent@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_REGION},ENVIRONMENT=${_ENVIRONMENT}'
+      - '--memory'
+      - '4Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '600'
+      - '--max-instances'
+      - '10'
+
+# Substitution variables (override with --substitutions flag)
+substitutions:
+  _REGION: us-central1
+  _ENVIRONMENT: prod
+
+# Images to be pushed to registry
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:latest'
+
+# Build options
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+  
+timeout: 1200s  # 20 minutes

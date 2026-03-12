@@ -31,6 +31,7 @@ from google.genai.types import Content, Part
 # Import shared data cache
 from ..data_cache import set_validated_csv, set_supplementary_data_csv
 from ...tools.validation_data_loader import load_validation_data
+from ...utils.dimension_filters import extract_dimension_filters, describe_dimension_filters
 
 
 class TestingDataAgent(BaseAgent):
@@ -86,54 +87,65 @@ class TestingDataAgent(BaseAgent):
                     except Exception:
                         req_analysis = {}
 
-                primary_dim = req_analysis.get("primary_dimension", "terminal")
-                primary_val = req_analysis.get("primary_dimension_value") or analysis_target
-
-                # Values that mean "no specific filter — load everything"
-                _UNFILTERED = {"067", "unknown", "all", "total", "none", ""}
-
-                # Route the extracted value to the correct filter dimension.
-                # Avoid double-filtering (e.g. passing "Central" as both region AND terminal).
-                if primary_dim == "region":
-                    region_val = primary_val if str(primary_val).lower() not in _UNFILTERED else None
-                    terminal_val = None
-                elif primary_dim == "terminal":
-                    region_val = None
-                    terminal_val = primary_val if str(primary_val).lower() not in _UNFILTERED else None
-                else:
-                    region_val = None
-                    terminal_val = None
+                dimension_filters = {}
+                if contract:
+                    state_candidates = [
+                        (ctx.session.state.get("dimension"), ctx.session.state.get("dimension_value")),
+                        (ctx.session.state.get("primary_dimension"), ctx.session.state.get("primary_dimension_value")),
+                    ]
+                    dimension_filters = extract_dimension_filters(
+                        contract,
+                        request_analysis=req_analysis,
+                        candidates=state_candidates,
+                    )
+                filter_summary = (
+                    describe_dimension_filters(contract, dimension_filters)
+                    if contract
+                    else ", ".join(f"{k}={v}" for k, v in dimension_filters.items()) or "(none)"
+                )
 
                 final_df = load_validation_data(
-                    region_filter=region_val,
-                    terminal_filter=terminal_val,
                     metric_filter=_metric_filter,
+                    dimension_filters=dimension_filters or None,
                     exclude_partial_week=_exclude_partial,
                 )
 
                 csv_data = final_df.to_csv(index=False)
                 set_validated_csv(csv_data)
 
+                dim_counts = {}
+                if not final_df.empty:
+                    candidate_columns = [
+                        col
+                        for col in final_df.columns
+                        if col not in {"metric", "week_ending", "value"}
+                    ]
+                    for col in candidate_columns:
+                        try:
+                            dim_counts[col] = int(final_df[col].nunique())
+                        except Exception:
+                            continue
+
                 state_delta = {
                     "primary_data_csv": csv_data,
                     "validated_pl_data_csv": csv_data,
                     "data_summary": {
                         "total_rows": len(final_df),
-                        "terminals": int(final_df["terminal"].nunique()),
-                        "metrics": int(final_df["metric"].nunique()),
-                        "weeks": int(final_df["week_ending"].nunique()),
+                        "dimension_counts": dim_counts,
+                        "metrics": int(final_df["metric"].nunique()) if "metric" in final_df else 0,
+                        "periods": int(final_df["week_ending"].nunique()) if "week_ending" in final_df else 0,
                         "metric_filter": _metric_filter or "(all)",
                         "exclude_partial_week": _exclude_partial,
+                        "filters": filter_summary,
                     },
                 }
                 message = (
                     f"[TestingDataAgent] Loaded {len(final_df):,} rows from Validation Ops "
-                    f"({final_df['terminal'].nunique()} terminals, "
-                    f"{final_df['metric'].nunique()} metrics, "
-                    f"{final_df['week_ending'].nunique()} weeks"
+                    f"(metrics={state_delta['data_summary']['metrics']}, periods={state_delta['data_summary']['periods']}, "
+                    f"filters={filter_summary})"
                     + (f", metric_filter={_metric_filter}" if _metric_filter else "")
                     + (", partial week excluded" if _exclude_partial else "")
-                    + ")."
+                    + "."
                 )
                 print(f"[TestingDataAgent] {message}")
                 yield Event(

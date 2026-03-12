@@ -1,0 +1,37 @@
+name: "Validation Ops"
+version: "1.0.0"
+display_name: "Validation Ops (Test Stub)"
+description: "Contract for validation_data_loader outputs (region/terminal metrics)."
+target_label: "Metric"
+data_source:
+  type: "csv"
+time:
+  column: "week_ending"
+  frequency: "weekly"
+  format: "%Y-%m-%d"
+  timezone: "UTC"
+  range_months: 6
+grain:
+  columns: ["week_ending", "terminal", "metric"]
+metrics:
+  - name: "value"
+    column: "value"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+dimensions:
+  - name: "region"
+    column: "region"
+    role: "primary"
+  - name: "terminal"
+    column: "terminal"
+    role: "secondary"
+  - name: "metric"
+    column: "metric"
+    role: "secondary"
+hierarchies:
+  - name: "network"
+    description: "Region → Terminal"
+    children: ["region", "terminal"]
+reporting:
+  max_drill_depth: 2

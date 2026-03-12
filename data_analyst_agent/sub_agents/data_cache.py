@@ -31,6 +31,8 @@ from typing import Optional, Dict, Any, List
 import sys
 import contextvars
 
+from config.dataset_resolver import get_dataset_path
+
 # Use a registry in sys.modules to survive multiple imports of this module
 _REGISTRY_KEY = "_data_analyst_cache_registry"
 _REQUIRED_REGISTRY_KEYS = {
@@ -156,6 +158,9 @@ def set_analysis_context(context: Any, session_id: Optional[str] = None) -> None
                 "temporal_grain_confidence": float(getattr(context, "temporal_grain_confidence", 0.0) or 0.0),
                 "detected_anchor": getattr(context, "detected_anchor", None),
                 "period_end_column": getattr(context, "period_end_column", None),
+                "time_frequency": getattr(context, "time_frequency", None),
+                "dimension_filters": getattr(context, "dimension_filters", {}),
+                "hierarchy_filters": getattr(context, "hierarchy_filters", {}),
             }
             cache_file.write_text(json.dumps(metadata, indent=2), encoding='utf-8')
     except Exception as e:
@@ -189,9 +194,15 @@ def get_analysis_context(session_id: Optional[str] = None) -> Any:
             # 1. Load Contract
             contract_path = metadata.get("contract_path")
             if not contract_path or not os.path.exists(contract_path):
-                # Fallback to default if path is missing
-                contract_path = os.path.join(os.getcwd(), "config", "datasets", "account_research", "contract.yaml")
-            
+                try:
+                    contract_path = str(get_dataset_path("contract.yaml"))
+                except FileNotFoundError:
+                    print("[data_cache] ERROR: Unable to resolve contract.yaml for context reconstruction")
+                    return None
+            if not os.path.exists(contract_path):
+                print(f"[data_cache] ERROR: Contract path not found: {contract_path}")
+                return None
+
             contract = DatasetContract.from_yaml(contract_path)
             setattr(contract, "_source_path", contract_path)
             
@@ -218,6 +229,9 @@ def get_analysis_context(session_id: Optional[str] = None) -> Any:
                 temporal_grain_confidence=metadata.get("temporal_grain_confidence", 0.0),
                 detected_anchor=metadata.get("detected_anchor"),
                 period_end_column=metadata.get("period_end_column"),
+                time_frequency=metadata.get("time_frequency"),
+                dimension_filters=metadata.get("dimension_filters", {}) or {},
+                hierarchy_filters=metadata.get("hierarchy_filters", {}) or {},
             )
             
             # Update memory cache for this session

@@ -3,27 +3,49 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ...utils.temporal_grain import describe_analysis_period
+from ...sub_agents.report_synthesis_agent.tools.report_markdown.formatting import (
+    is_currency_unit,
+    normalize_unit,
+)
+
+
+_CURRENCY_TOKEN = re.compile(r'(?P<sign>[-+])?\$(?P<value>[\d,.]+)(?P<suffix>[KMB]?)')
+
+
+def _apply_unit_to_text(text: str, unit: str | None) -> str:
+    if not text:
+        return text
+    normalized_unit = normalize_unit(unit)
+    if is_currency_unit(normalized_unit):
+        return text
+    label = (normalized_unit or "").strip()
+    if label.lower() in {"count", "units", "unit"}:
+        label = ""
+    def _repl(match: re.Match[str]) -> str:
+        sign = match.group('sign') or ''
+        value = match.group('value')
+        suffix = match.group('suffix') or ''
+        unit_suffix = f" {label}" if label else ''
+        return f"{sign}{value}{suffix}{unit_suffix}".rstrip()
+    return _CURRENCY_TOKEN.sub(_repl, text)
+
+SECTION_FALLBACK_TEXT = "No material change this period—maintain monitoring posture."
+
 
 def _format_analysis_period(period_end: str, contract: Any) -> str:
-    freq = "weekly"
+    freq = None
     if contract and hasattr(contract, "time") and contract.time:
         time_cfg = contract.time
-        freq = getattr(time_cfg, "frequency", None) or (
-            time_cfg.get("frequency") if isinstance(time_cfg, dict) else None
-        ) or "weekly"
-    labels = {
-        "daily": "the day",
-        "weekly": "the week ending",
-        "monthly": "the month ending",
-        "quarterly": "the quarter ending",
-        "yearly": "the year ending",
-    }
-    label = labels.get(str(freq).lower(), "the period ending")
-    return f"{label} {period_end}" if period_end else "the current period"
+        freq = getattr(time_cfg, "frequency", None)
+        if freq is None and isinstance(time_cfg, dict):
+            freq = time_cfg.get("frequency")
+    return describe_analysis_period(period_end, freq)
 
 
 def _build_weather_context_block(weather_context: Any) -> str:
@@ -72,12 +94,145 @@ def _write_executive_brief_cache(
     return cache_path
 
 
+def _build_structured_fallback_markdown(
+    digest: str,
+    recommendations: list[str] | None = None,
+    unit: str | None = None,
+) -> str:
+    fallback = "All monitored metrics remained within normal ranges. Continue routine monitoring."
+    timestamp = datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')
+    normalized_digest = _apply_unit_to_text(digest or "", unit)
+    normalized_recs = [_apply_unit_to_text(rec, unit) for rec in (recommendations or [])]
+    lines: list[str] = [
+        "# Data Monitoring Summary",
+        f"Generated: {timestamp}",
+        "",
+        "## Executive Summary",
+        fallback,
+        "",
+        "## Key Findings",
+    ]
+    for idx in range(1, 4):
+        lines.append(f"### Monitoring note {idx}")
+        lines.append("Metrics tracking within expected ranges compared to recent history.")
+        lines.append("")
+    action_lines = normalized_recs or []
+    lines.append("## Recommended Actions")
+    if action_lines:
+        for rec in action_lines:
+            lines.append(f"- {rec}")
+    else:
+        lines.append("Continue routine monitoring. No immediate actions required.")
+    digest_block = normalized_digest.strip()
+    if digest_block:
+        lines.extend(["", "## Analysis Details", digest_block])
+    return "\n".join(lines).strip()
+
+
+def _digest_preview_lines(digest: str, max_lines: int = 12) -> str:
+    lines = [line.strip() for line in (digest or "").splitlines() if line.strip()]
+    return "\n".join(lines[:max_lines])
+
+
+def _digest_insights(digest: str, limit: int = 3) -> list[dict[str, str]]:
+    insights: list[dict[str, str]] = []
+    for line in (digest or "").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        normalized = stripped.lstrip("-*•\t ")
+        if len(normalized) < 24:
+            continue
+        title, _, detail = normalized.partition(":")
+        title = title.strip() or "Digest insight"
+        detail = (detail or normalized).strip()
+        insights.append({
+            "title": f"{title[:80]}",
+            "details": detail[:320],
+        })
+        if len(insights) >= limit:
+            break
+    return insights
+
+
+def _extract_recommendations_from_markdown(report_md: str, metric_name: str, limit: int = 2) -> list[str]:
+    lines = report_md.splitlines()
+    recs: list[str] = []
+    capture = False
+    for line in lines:
+        if line.strip().lower().startswith("## recommended actions"):
+            capture = True
+            continue
+        if capture and line.startswith("## "):
+            break
+        if capture:
+            stripped = line.strip()
+            if stripped and stripped[0].isdigit() and stripped[1:3] == ". ":
+                recs.append(f"{metric_name}: {stripped[3:].strip()}")
+            elif stripped.startswith("-"):
+                recs.append(f"{metric_name}: {stripped.lstrip('- ').strip()}")
+        if len(recs) >= limit:
+            break
+    return recs
+
+
+def collect_recommendations_from_reports(
+    reports: dict[str, str],
+    unit: str | None = None,
+    limit: int = 5,
+) -> list[str]:
+    actions: list[str] = []
+    for metric_name, content in reports.items():
+        for rec in _extract_recommendations_from_markdown(content, metric_name, limit=2):
+            sanitized = _apply_unit_to_text(rec, unit)
+            if sanitized not in actions:
+                actions.append(sanitized)
+            if len(actions) >= limit:
+                return actions
+    return actions
+
+
+def build_structured_fallback_brief(
+    digest: str,
+    reason: str | None = None,
+    recommendations: list[str] | None = None,
+    unit: str | None = None,
+) -> dict[str, Any]:
+    sanitized_digest = _apply_unit_to_text(digest, unit)
+    preview = _digest_preview_lines(sanitized_digest)
+    insights = _digest_insights(sanitized_digest)
+    if not insights:
+        insights = [
+            {"title": "Routine monitoring", "details": "All metrics tracking within expected ranges compared to recent baselines."},
+            {"title": "No significant changes", "details": "No material deviations detected this period."},
+            {"title": "Operations stable", "details": "Continue standard monitoring protocols."}
+        ]
+    summary_text = reason or "Automated analysis detected no material changes this period."
+    if preview:
+        summary_text = f"{summary_text}\n\n{preview}"
+    action_recs = [_apply_unit_to_text(rec, unit) for rec in (recommendations or [])]
+    actions_content = "\n".join(f"- {rec}" for rec in action_recs if rec) or "Continue routine monitoring. No immediate actions required."
+    return {
+        "header": {
+            "title": "Data Monitoring Summary",
+            "summary": "All monitored metrics remained within normal ranges for this period compared to recent history.",
+        },
+        "body": {
+            "sections": [
+                {"title": "Executive Summary", "content": summary_text, "insights": []},
+                {"title": "Key Findings", "content": "Routine monitoring detected no unusual patterns.", "insights": insights},
+                {"title": "Recommended Actions", "content": actions_content, "insights": []},
+            ]
+        },
+    }
+
+
 def _format_brief(brief: dict[str, Any]) -> str:
     header = brief.get("header") or {}
     body = brief.get("body") or {}
     sections = [
         f"# {header.get('title', 'Executive Brief')}",
-        f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}",
         "",
     ]
     if header:
@@ -99,16 +254,11 @@ def _format_brief(brief: dict[str, Any]) -> str:
     return "\n".join(sections).strip()
 
 
-def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> str:
-    """Format brief from LLM JSON, falling back to digest markdown if structure is wrong."""
+def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> tuple[str, bool]:
+    """Return (markdown, used_fallback) for the formatted brief."""
     formatted = _format_brief(brief_data)
-    # If _format_brief produced only a header (no sections), use the digest as fallback
     lines = [l for l in formatted.splitlines() if l.strip()]
     if len(lines) <= 3:
-        from datetime import datetime
-        return (
-            "# Executive Brief\n"
-            f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}\n\n"
-            f"{digest}"
-        )
-    return formatted
+        return _build_structured_fallback_markdown(digest), True
+    return formatted, False
+

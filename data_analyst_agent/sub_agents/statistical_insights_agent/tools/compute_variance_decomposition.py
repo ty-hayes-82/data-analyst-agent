@@ -141,36 +141,42 @@ async def compute_variance_decomposition(
         dimension_contributions = []
         interaction_effects = []
         
-        for idx, row in table.iterrows():
-            if idx == 'Residual':
-                continue
-            
-            ss = row['sum_sq']
-            df_val = row['df']
+        # Vectorized processing of ANOVA table (avoid iterrows)
+        table_filtered = table[table.index != 'Residual'].copy()
+        table_filtered['eta_squared'] = table_filtered['sum_sq'] / total_ss
+        table_filtered['is_interaction'] = table_filtered.index.str.contains(':', regex=False)
+        
+        # Process main effects
+        main_effects = table_filtered[~table_filtered['is_interaction']]
+        for idx in main_effects.index:
+            row = main_effects.loc[idx]
+            dim_name = str(idx).replace("Q('", "").replace("')", "")
+            eta_sq = row['eta_squared']
             f_stat = row['F']
             p_val = row['PR(>F)']
-            eta_sq = ss / total_ss
-            
-            if ":" in str(idx):
-                # Interaction
-                parts = str(idx).replace("Q('", "").replace("')", "").split(":")
-                interaction_effects.append({
-                    "dimensions": parts,
-                    "eta_squared": round(float(eta_sq), 4),
-                    "label": f"{' x '.join(parts)} interaction explains {eta_sq:.1%} of variance",
-                    "f_statistic": round(float(f_stat), 2) if not np.isnan(f_stat) else None,
-                    "p_value": round(float(p_val), 6) if not np.isnan(p_val) else None
-                })
-            else:
-                # Main effect
-                dim_name = str(idx).replace("Q('", "").replace("')", "")
-                dimension_contributions.append({
-                    "dimension": dim_name,
-                    "eta_squared": round(float(eta_sq), 4),
-                    "label": f"{dim_name} explains {eta_sq:.1%} of total variance",
-                    "f_statistic": round(float(f_stat), 2) if not np.isnan(f_stat) else None,
-                    "p_value": round(float(p_val), 6) if not np.isnan(p_val) else None
-                })
+            dimension_contributions.append({
+                "dimension": dim_name,
+                "eta_squared": round(float(eta_sq), 4),
+                "label": f"{dim_name} explains {eta_sq:.1%} of total variance",
+                "f_statistic": round(float(f_stat), 2) if not np.isnan(f_stat) else None,
+                "p_value": round(float(p_val), 6) if not np.isnan(p_val) else None
+            })
+        
+        # Process interactions
+        interactions = table_filtered[table_filtered['is_interaction']]
+        for idx in interactions.index:
+            row = interactions.loc[idx]
+            parts = str(idx).replace("Q('", "").replace("')", "").split(":")
+            eta_sq = row['eta_squared']
+            f_stat = row['F']
+            p_val = row['PR(>F)']
+            interaction_effects.append({
+                "dimensions": parts,
+                "eta_squared": round(float(eta_sq), 4),
+                "label": f"{' x '.join(parts)} interaction explains {eta_sq:.1%} of variance",
+                "f_statistic": round(float(f_stat), 2) if not np.isnan(f_stat) else None,
+                "p_value": round(float(p_val), 6) if not np.isnan(p_val) else None
+            })
 
         residual_ss = table.loc['Residual', 'sum_sq']
         residual_pct = residual_ss / total_ss

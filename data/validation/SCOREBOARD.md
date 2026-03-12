@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-10T19:48:26
+**Last updated:** 2026-03-12T14:47:14
 
 ## Current State
-- **Unit Tests:** 213 passed, 7 failed, 0 errors
+- **Unit Tests:** 298 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 188 files, 26,884 lines, **51 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (744L)
-- **Commit:** `7b369d2 chore: tighten executive brief JSON prompt`
+- **Codebase:** 194 files, 30,801 lines, **58 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (1240L)
+- **Commit:** `87f3346 docs: dev session summary 2026-03-12`
 
 ## Progress Over Time
 
@@ -145,9 +145,41 @@
 | 130 | 19:20 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 131 | 19:29 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
 | 132 | 19:48 | `7b369d2` | 213 | 7 | 0 | 5/5 | 51 | sub_agents/executive_brie |
+| 133 | 00:30 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 134 | 00:43 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 135 | 00:55 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 136 | 01:09 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 137 | 01:25 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 138 | 02:04 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 139 | 02:19 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 140 | 02:31 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 141 | 02:40 | `d7d59f0` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 142 | 02:57 | `07589d9` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 143 | 03:20 | `07589d9` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 144 | 03:40 | `f1cec20` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 145 | 04:04 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 146 | 04:27 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 147 | 04:52 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 148 | 05:18 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 149 | 05:39 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 150 | 05:52 | `935b80a` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 151 | 06:13 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 152 | 06:36 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 153 | 07:04 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 154 | 07:12 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
+| 155 | 20:41 | `6600da7` | 246 | 0 | 0 | 5/5 | 54 | sub_agents/executive_brie |
+| 156 | 03:42 | `43d2757` | 265 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 157 | 03:52 | `43d2757` | 267 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 158 | 04:04 | `2b4fa82` | 267 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 159 | 04:16 | `888d4ba` | 269 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 160 | 04:28 | `5a8bd08` | 269 | 0 | 0 | 5/5 | 57 | sub_agents/executive_brie |
+| 161 | 04:56 | `ad369f0` | 275 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+| 162 | 13:47 | `7dd5b39` | 287 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+| 163 | 14:47 | `87f3346` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **213** (+-34)
-- Failures: 0 → **7**
-- Files >200L: 50 → **51** (+1)
-- Iterations: 132
+- Tests: 247 → **298** (+51)
+- Failures: 0 → **0**
+- Files >200L: 50 → **58** (+8)
+- Iterations: 163
+| 164 | 17:24 | `d0985a2` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |

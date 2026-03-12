@@ -1,6 +1,14 @@
 import pandas as pd
 
-from data_analyst_agent.utils.temporal_grain import detect_temporal_grain
+from data_analyst_agent.utils.temporal_grain import (
+    detect_temporal_grain,
+    describe_analysis_period,
+    temporal_grain_to_period_unit,
+    temporal_grain_to_short_delta_label,
+)
+
+
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.generate_markdown_report import _detect_temporal_labels
 
 
 def test_detect_temporal_grain_weekly():
@@ -43,3 +51,21 @@ def test_detect_temporal_grain_unknown_on_ambiguous_cadence():
     )
     result = detect_temporal_grain(dates)
     assert result.temporal_grain == "unknown"
+
+
+def test_describe_analysis_period_respects_yearly_frequency():
+    phrase = describe_analysis_period("2024-12-31", frequency="yearly")
+    assert phrase == "the year ending 2024-12-31"
+    assert temporal_grain_to_period_unit("yearly") == "year"
+    assert temporal_grain_to_short_delta_label("yearly") == "YoY"
+
+
+def test_detect_temporal_labels_fall_back_to_contract_frequency():
+    stats_data = {
+        "summary_stats": {},
+        "metadata": {"time_frequency": "yearly"},
+    }
+    temporal_grain, short_label, period_label = _detect_temporal_labels(stats_data)
+    assert temporal_grain == "yearly"
+    assert short_label == "YoY"
+    assert period_label == "year"

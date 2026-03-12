@@ -38,10 +38,9 @@ DATA_ANALYST_EXCLUDE_PARTIAL_WEEK
     loaded data.  Defaults to false.
 """
 
-import json
 import os
 import time
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
@@ -51,10 +50,32 @@ from google.genai.types import Content, Part
 
 from .data_cache import set_validated_csv
 from ..tools.validation_data_loader import load_validation_data
+from ..utils.dimension_filters import describe_dimension_filters, extract_dimension_filters
+from ..utils.json_utils import safe_parse_json
 
 
-# Values that mean "no specific dimension filter — load all"
-_UNFILTERED = {"all", "total", "none", "067", "unknown", "", "all regions", "all terminals"}
+
+def _pluralize_label(label: str) -> str:
+    """Simple human-friendly pluralization for logging summaries."""
+    if not label:
+        return "items"
+    word = label.strip()
+    if not word:
+        return "items"
+    lower = word.lower()
+    if lower.endswith("y") and not lower.endswith(("ay", "ey", "iy", "oy", "uy")):
+        return word[:-1] + "ies"
+    if lower.endswith(("s", "x", "z", "ch", "sh")):
+        return word
+    if lower.endswith("ss"):
+        return word
+    return word + "s"
+
+
+def _friendly_label(value: Any, fallback: str) -> str:
+    text = str(value).strip()
+    return text or fallback
+
 
 class ValidationCSVFetcher(BaseAgent):
     """
@@ -80,27 +101,65 @@ class ValidationCSVFetcher(BaseAgent):
         )
 
         # ------------------------------------------------------------------
-        # 2. Read optional region / terminal filter from request analysis
+        # 2. Resolve contract-driven dimension filters
         # ------------------------------------------------------------------
-        req_raw = ctx.session.state.get("request_analysis", {})
-        if isinstance(req_raw, str):
-            try:
-                req_analysis: dict = json.loads(req_raw)
-            except Exception:
-                req_analysis = {}
+        contract = ctx.session.state.get("dataset_contract")
+        req_analysis = safe_parse_json(ctx.session.state.get("request_analysis", {}))
+        state_candidates = [
+            (ctx.session.state.get("dimension"), ctx.session.state.get("dimension_value")),
+            (ctx.session.state.get("primary_dimension"), ctx.session.state.get("primary_dimension_value")),
+        ]
+        if contract:
+            dimension_filters = extract_dimension_filters(
+                contract,
+                request_analysis=req_analysis,
+                candidates=state_candidates,
+            )
         else:
-            req_analysis = req_raw if isinstance(req_raw, dict) else {}
+            dimension_filters = {}
 
-        primary_dim: str = req_analysis.get("primary_dimension", "terminal")
-        primary_val: str = str(req_analysis.get("primary_dimension_value") or "")
+        filter_summary = (
+            describe_dimension_filters(contract, dimension_filters)
+            if contract
+            else (", \n".join(f"{k}={v}" for k, v in dimension_filters.items()) or "(none)")
+        )
 
-        region_filter = None
-        terminal_filter = None
+        primary_dim = None
+        if contract and getattr(contract, "dimensions", None):
+            preferred = req_analysis.get("primary_dimension")
+            if preferred:
+                try:
+                    primary_dim = contract.get_dimension(preferred)
+                except KeyError:
+                    primary_dim = None
+            if not primary_dim:
+                primary_dim = next(
+                    (d for d in contract.dimensions if d.role == "primary"),
+                    contract.dimensions[0],
+                )
+        primary_dim_label = _friendly_label(
+            getattr(primary_dim, "display_name", None)
+            or getattr(primary_dim, "name", None)
+            or getattr(primary_dim, "column", None),
+            "dimension",
+        )
+        primary_dim_column = (
+            getattr(primary_dim, "column", None)
+            or getattr(primary_dim, "name", None)
+            or "dimension_value"
+        )
+        primary_dim_label_plural = _pluralize_label(primary_dim_label)
 
-        if primary_dim == "region" and primary_val.lower() not in _UNFILTERED:
-            region_filter = primary_val
-        elif primary_dim == "terminal" and primary_val.lower() not in _UNFILTERED:
-            terminal_filter = primary_val
+        time_cfg = getattr(contract, "time", None)
+        time_column = getattr(time_cfg, "column", None) if time_cfg else None
+        time_column = time_column or "week_ending"
+        period_label = _friendly_label(
+            getattr(time_cfg, "display_name", None)
+            or getattr(time_cfg, "label", None)
+            or time_column,
+            "period",
+        )
+        period_label_plural = _pluralize_label(period_label)
 
         # ------------------------------------------------------------------
         # 3. The current target IS the metric name for validation_ops data.
@@ -114,6 +173,12 @@ class ValidationCSVFetcher(BaseAgent):
         #    the statistical analysis to aggregate unrelated rows together.
         # ------------------------------------------------------------------
         metric_filter = [current_target] if current_target else None
+        metric_label = (
+            ", ".join(str(m) for m in metric_filter if m)
+            if isinstance(metric_filter, list)
+            else (metric_filter or "(all)")
+        )
+        metric_label = metric_label or "(all)"
 
         # ------------------------------------------------------------------
         # 4. Read env-var overrides
@@ -125,9 +190,8 @@ class ValidationCSVFetcher(BaseAgent):
 
         print(f"\n{'='*80}")
         print(f"[ValidationCSVFetcher] Loading validation_data.csv")
-        print(f"  metric   : {metric_filter or '(all)'}")
-        print(f"  region   : {region_filter or '(all)'}")
-        print(f"  terminal : {terminal_filter or '(all)'}")
+        print(f"  metric   : {metric_label}")
+        print(f"  filters  : {filter_summary}")
         print(f"  excl_partial : {exclude_partial}")
         print(f"{'='*80}\n")
 
@@ -135,12 +199,11 @@ class ValidationCSVFetcher(BaseAgent):
         # 5. Load data
         # ------------------------------------------------------------------
         start_time = time.perf_counter()
-        print(f"[TIMER] >>> ValidationCSVFetcher: Loading data for metric='{metric_filter or '(all)'}'...")
+        print(f"[TIMER] >>> ValidationCSVFetcher: Loading data for metric='{metric_label}'...")
         try:
             df = load_validation_data(
                 metric_filter=metric_filter,
-                region_filter=region_filter,
-                terminal_filter=terminal_filter,
+                dimension_filters=dimension_filters,
                 exclude_partial_week=exclude_partial,
             )
             
@@ -149,13 +212,20 @@ class ValidationCSVFetcher(BaseAgent):
             end_date = ctx.session.state.get("primary_query_end_date")
             
             if not df.empty and (start_date or end_date):
-                original_count = len(df)
-                if start_date:
-                    df = df[df["week_ending"] >= start_date]
-                if end_date:
-                    df = df[df["week_ending"] <= end_date]
-                print(f"[ValidationCSVFetcher] Date filter applied: {start_date or 'min'} to {end_date or 'max'}. "
-                      f"Rows: {original_count} -> {len(df)}")
+                if time_column not in df.columns:
+                    print(
+                        f"[ValidationCSVFetcher] WARNING: Cannot apply date filter — column '{time_column}' missing."
+                    )
+                else:
+                    original_count = len(df)
+                    if start_date:
+                        df = df[df[time_column] >= start_date]
+                    if end_date:
+                        df = df[df[time_column] <= end_date]
+                    print(
+                        f"[ValidationCSVFetcher] Date filter applied: {start_date or 'min'} to {end_date or 'max'}. "
+                        f"Rows: {original_count} -> {len(df)}"
+                    )
 
             duration = time.perf_counter() - start_time
             print(f"[TIMER] <<< ValidationCSVFetcher: Loaded {len(df)} rows in {duration:.2f}s")
@@ -177,8 +247,7 @@ class ValidationCSVFetcher(BaseAgent):
         if df.empty:
             warning = (
                 f"[ValidationCSVFetcher] WARNING: No rows returned for "
-                f"metric={metric_filter!r}, region={region_filter!r}, "
-                f"terminal={terminal_filter!r}."
+                f"metric='{metric_label}', filters={filter_summary}."
             )
             print(warning)
 
@@ -190,8 +259,16 @@ class ValidationCSVFetcher(BaseAgent):
         session_id = getattr(ctx.session, "id", None)
         set_validated_csv(csv_data, session_id=session_id)
 
-        n_terminals = int(df["terminal"].nunique()) if not df.empty else 0
-        n_weeks = int(df["week_ending"].nunique()) if not df.empty else 0
+        entity_count = (
+            int(df[primary_dim_column].nunique())
+            if (not df.empty and primary_dim_column in df.columns)
+            else 0
+        )
+        period_count = (
+            int(df[time_column].nunique())
+            if (not df.empty and time_column in df.columns)
+            else 0
+        )
         n_rows = len(df)
 
         state_delta = {
@@ -199,17 +276,28 @@ class ValidationCSVFetcher(BaseAgent):
             "validated_pl_data_csv": csv_data,
             "data_summary": {
                 "total_rows": n_rows,
-                "terminals": n_terminals,
-                "metric": metric_filter or "(all)",
-                "weeks": n_weeks,
+                "metric": metric_label,
+                "primary_dimension_column": primary_dim_column,
+                "primary_dimension_label": primary_dim_label,
+                "primary_dimension_count": entity_count,
+                "time_column": time_column,
+                "period_label": period_label,
+                "period_count": period_count,
+                "filters": filter_summary,
                 "exclude_partial_week": exclude_partial,
             },
         }
 
+        summary_parts = []
+        if entity_count:
+            summary_parts.append(f"{entity_count} {primary_dim_label_plural}")
+        if period_count:
+            summary_parts.append(f"{period_count} {period_label_plural}")
+        summary_text = ", ".join(summary_parts) or "no dimension summary"
+
         message = (
-            f"[ValidationCSVFetcher] Loaded {n_rows:,} rows for "
-            f"'{metric_filter or 'all metrics'}' "
-            f"({n_terminals} terminals, {n_weeks} weeks)."
+            f"[ValidationCSVFetcher] Loaded {n_rows:,} rows for '{metric_label}' "
+            f"({summary_text})."
         )
         print(message)
 

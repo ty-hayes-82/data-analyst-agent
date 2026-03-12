@@ -1,0 +1,5 @@
+cal_dt,lob,region,terminal,driver_leader,fleet_leader,dimension_value,division_code,total_revenue,Revenue xFuel,fuel_surcharge,Loaded Miles,total_miles,order_count,ordr_miles,stop_count,Truck Count,dot_incidents
+2024-01-01,Line Haul,West,Phoenix,MGR01,FL01,067,DIV1,500000,450000,50000,150000,180000,800,120000,1600,180,1
+2024-01-08,Line Haul,West,Phoenix,MGR01,FL01,067,DIV1,501000,450900,50000,150500,180600,810,120400,1620,181,1
+2024-01-15,Line Haul,West,Phoenix,MGR01,FL01,067,DIV1,502000,451800,50000,151000,181200,820,120800,1640,182,1
+2024-01-22,Line Haul,West,Phoenix,MGR01,FL01,067,DIV1,503000,452700,50000,151500,181800,830,121200,1660,183,1

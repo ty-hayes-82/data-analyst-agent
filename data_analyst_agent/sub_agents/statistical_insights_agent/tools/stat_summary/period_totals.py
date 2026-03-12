@@ -8,6 +8,7 @@ from typing import Optional
 import pandas as pd
 
 from ..stat_summary.state import SummaryState
+from .....utils.contract_summary import get_default_grain_column
 
 
 def compute_monthly_totals(state: SummaryState) -> None:
@@ -41,8 +42,10 @@ def compute_monthly_totals(state: SummaryState) -> None:
         prev_mt = monthly_totals.get(state.prev_period, 0)
         correct_total_change = latest_mt - prev_mt
         total_change_denom = correct_total_change if correct_total_change != 0 else 1e-9
-        for account in pivot.index:
-            state.contribution_share[account] = float((pivot[state.latest_period] - pivot[state.prev_period]).loc[account] / total_change_denom)
+        if state.latest_period_value is not None and state.prev_period_value is not None:
+            period_delta = pivot[state.latest_period_value] - pivot[state.prev_period_value]
+            for account in pivot.index:
+                state.contribution_share[account] = float(period_delta.loc[account] / total_change_denom)
 
 
 def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> dict[str, float] | None:
@@ -72,7 +75,8 @@ def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> 
             return None
 
         tcol = state.time_col if state.time_col in nd_df.columns else "week_ending"
-        gcol = state.grain_col if state.grain_col in nd_df.columns else "terminal"
+        default_grain = get_default_grain_column(ctx.contract if ctx else None, fallback="terminal")
+        gcol = state.grain_col if state.grain_col in nd_df.columns else default_grain
 
         if num_metric in nd_df.columns and denom_metric in nd_df.columns:
             num_agg = nd_df.groupby(tcol)[num_metric].sum()

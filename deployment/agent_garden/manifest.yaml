@@ -1,0 +1,243 @@
+# Agent Garden Registration Manifest
+# Register Data Analyst Agent in Google Cloud Agent Garden for discoverability
+
+apiVersion: agent-garden.google.com/v1
+kind: AgentRegistration
+metadata:
+  name: data-analyst-agent
+  namespace: financial-analytics
+  
+spec:
+  # Agent Identity
+  displayName: "P&L Variance Data Analyst"
+  description: |
+    Contract-driven multi-agent system for automated P&L variance analysis with hierarchical drill-down.
+    
+    Analyzes financial performance across multiple dimensions (regions, products, cost centers) with:
+    - Automated variance detection and ranking
+    - Statistical pattern analysis (trends, outliers, seasonality)
+    - Natural language narrative generation
+    - Alert scoring and prioritization
+    - Executive brief synthesis
+    - PDF report generation
+  
+  version: "1.0.0"
+  publisher: "ty-hayes-82"
+  license: "Apache-2.0"
+  
+  # Categories (for Agent Garden browsing)
+  categories:
+    - financial-analytics
+    - business-intelligence
+    - data-analysis
+    - multi-agent
+  
+  tags:
+    - p&l-analysis
+    - variance-analysis
+    - financial-reporting
+    - hierarchical-data
+    - google-adk
+    - gemini
+    - automated-insights
+  
+  # Capabilities
+  capabilities:
+    input:
+      - natural-language-query
+      - structured-data
+      - yaml-configuration
+    
+    output:
+      - executive-summary
+      - detailed-analysis
+      - pdf-reports
+      - structured-json
+      - alert-notifications
+    
+    data_sources:
+      - tableau-hyper
+      - csv-files
+      - sql-databases
+    
+    ai_models:
+      - gemini-2.5-flash-exp
+      - gemini-2.5-pro-exp
+      - gemini-2.0-flash-exp
+  
+  # Agent Endpoint
+  endpoint:
+    type: "vertex-ai-agent-engine"
+    region: "us-central1"
+    resourceName: "projects/${PROJECT_ID}/locations/us-central1/agents/data-analyst-agent"
+    
+  # API Schema (OpenAPI-like)
+  schema:
+    input:
+      type: object
+      required: [request, dataset_name]
+      properties:
+        request:
+          type: string
+          description: "Natural language analysis request"
+          examples:
+            - "Analyze gross margin by region"
+            - "Show me top variance drivers for Q3"
+            - "Compare revenue performance across territories"
+        
+        dataset_name:
+          type: string
+          description: "Dataset identifier (must have a contract in config/datasets/)"
+          examples:
+            - "trade_data"
+            - "retail_sales"
+            - "operations_costs"
+        
+        focus_directive:
+          type: string
+          enum: [null, "alert_only", "narrative_only", "report_only"]
+          description: "Optional focus to skip certain pipeline stages"
+          default: null
+        
+        override_model:
+          type: string
+          description: "Override default model for testing"
+          examples:
+            - "gemini-2.5-pro-exp"
+    
+    output:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [success, error]
+        
+        analysis_id:
+          type: string
+          format: uuid
+          description: "Unique identifier for this analysis run"
+        
+        outputs:
+          type: object
+          properties:
+            executive_brief_pdf:
+              type: string
+              format: uri
+              description: "GCS URL to downloadable executive brief PDF"
+            
+            executive_brief_md:
+              type: string
+              format: uri
+              description: "GCS URL to markdown source"
+            
+            analysis_json:
+              type: string
+              format: uri
+              description: "GCS URL to full structured analysis JSON"
+        
+        summary:
+          type: object
+          description: "High-level summary of findings"
+          properties:
+            top_variance_driver:
+              type: string
+            total_variance_amount:
+              type: number
+            alert_count:
+              type: integer
+            insight_cards:
+              type: array
+              items:
+                type: object
+        
+        metrics:
+          type: object
+          properties:
+            duration_seconds:
+              type: number
+            llm_calls:
+              type: integer
+            total_tokens:
+              type: integer
+        
+        error:
+          type: string
+          description: "Error message if status=error"
+  
+  # Authentication
+  authentication:
+    type: "google-cloud-iam"
+    required_roles:
+      - "roles/aiplatform.user"
+  
+  # Usage Limits
+  quotas:
+    requests_per_minute: 10
+    max_concurrent: 3
+    max_execution_time: "1h"
+  
+  # Pricing (if applicable)
+  pricing:
+    model: "pay-per-use"
+    estimatedCostPerInvocation: "$0.50 - $2.00"
+    notes: "Cost depends on dataset size, model choice, and analysis complexity"
+  
+  # Support & Documentation
+  documentation:
+    readme: "deployment/agent_garden/README.md"
+    examples: "deployment/agent_garden/examples.json"
+    quickstart: "https://github.com/ty-hayes-82/data-analyst-agent/blob/main/README.md"
+    api_reference: "https://github.com/ty-hayes-82/data-analyst-agent/blob/main/docs/API.md"
+  
+  support:
+    email: "ty-hayes-82@example.com"
+    github: "https://github.com/ty-hayes-82/data-analyst-agent/issues"
+    slack: "https://example-workspace.slack.com/channels/data-analyst-agent"
+  
+  # Monitoring
+  observability:
+    logs:
+      enabled: true
+      destination: "cloud-logging"
+    
+    metrics:
+      enabled: true
+      destination: "cloud-monitoring"
+      dashboardUrl: "https://console.cloud.google.com/monitoring/dashboards/custom/DATA_ANALYST_AGENT"
+    
+    traces:
+      enabled: true
+      destination: "cloud-trace"
+  
+  # Compliance & Security
+  security:
+    data_handling:
+      - "Data is processed in memory only"
+      - "No persistent storage of customer data"
+      - "All outputs stored in customer-controlled GCS buckets"
+      - "Supports VPC-SC for data isolation"
+    
+    certifications:
+      - "SOC 2 Type II"
+      - "GDPR Compliant"
+    
+    encryption:
+      at_rest: "AES-256 (GCS default)"
+      in_transit: "TLS 1.3"
+  
+  # Deployment Configuration
+  deployment:
+    regions:
+      - "us-central1"
+      - "us-east1"
+      - "europe-west1"
+    
+    runtime:
+      framework: "google-adk"
+      pythonVersion: "3.11"
+      containerImage: "gcr.io/${PROJECT_ID}/data-analyst-agent:latest"
+    
+    autoscaling:
+      minInstances: 0
+      maxInstances: 10
+      targetConcurrency: 1

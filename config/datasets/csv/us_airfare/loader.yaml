@@ -1,0 +1,24 @@
+source:
+  file: "data/public/us_airfare_2008_2025.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+sort_columns: ["year", "quarter", "origin_city", "destination_city"]
+
+output_columns:
+  - "year"
+  - "quarter"
+  - "year_quarter"
+  - "origin_city"
+  - "destination_city"
+  - "distance_miles"
+  - "passengers"
+  - "avg_fare"
+  - "largest_carrier"
+  - "largest_carrier_market_share"
+  - "largest_carrier_fare"
+  - "lowest_fare_carrier"
+  - "lowest_fare_carrier_share"
+  - "lowest_fare"
+  - "fare_per_mile"

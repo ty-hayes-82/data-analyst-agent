@@ -4,25 +4,13 @@ source:
   delimiter: ","
   format: "long"
 
-numeric_columns:
-  - "co2"
-  - "co2_per_capita"
-  - "coal_co2"
-  - "oil_co2"
-  - "gas_co2"
-  - "population"
-  - "gdp"
-
 sort_columns: ["year", "country"]
 
 output_columns:
   - "country"
-  - "iso_code"
   - "year"
-  - "co2"
-  - "co2_per_capita"
-  - "coal_co2"
-  - "oil_co2"
-  - "gas_co2"
+  - "iso_code"
   - "population"
   - "gdp"
+  - "co2"
+  - "co2_per_capita"

@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional, Literal, Union, Any
-from pydantic import BaseModel, Field, field_validator, validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 import yaml
 import pandas as pd
 from datetime import datetime
@@ -38,7 +38,8 @@ class MetricDefinition(BaseModel):
         )
     )
 
-    @validator("lag_periods")
+    @field_validator("lag_periods")
+    @classmethod
     def _validate_lag_periods(cls, v):
         if v is not None and v < 0:
             raise ValueError("lag_periods must be >= 0")
@@ -61,6 +62,11 @@ class TimeConfig(BaseModel):
 
 class DataSourceConfig(BaseModel):
     type: Literal["csv", "synthetic", "tableau_hyper"] = "tableau_hyper"
+    file: Optional[str] = Field(
+        default=None,
+        description="Path to the backing dataset file (relative to the repository root).",
+    )
+    encoding: Optional[str] = Field(default=None, description="Optional file encoding override.")
     # tableau_hyper source fields
     tdsx_file: Optional[str] = None
     tdsx_path: Optional[str] = None
@@ -142,6 +148,10 @@ class DatasetContract(BaseModel):
     presentation: Dict[str, Any] = Field(default_factory=dict, description="Rules for display, sign correction, and units")
     reporting: ReportingConfig = Field(default_factory=ReportingConfig, description="Report generation and analysis depth settings")
     policies: Dict[str, Any] = Field(default_factory=dict, description="Domain-specific rules")
+    validation: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional dataset-specific validation/fixture configuration (contract-driven).",
+    )
     
     # Internal mappings for fast lookup
     _metric_map: Dict[str, MetricDefinition] = {}
@@ -254,14 +264,17 @@ class AnalysisContext(BaseModel):
     target_metric: MetricDefinition
     primary_dimension: DimensionDefinition
     quality_report: Optional[QualityReport] = None
+    dimension_filters: Dict[str, Any] = Field(default_factory=dict)
+    hierarchy_filters: Dict[str, Any] = Field(default_factory=dict)
     
     # Immutable metadata for the run
     run_id: str
     max_drill_depth: int = 3
-    temporal_grain: Literal["weekly", "monthly", "unknown"] = "unknown"
+    temporal_grain: Literal["daily", "weekly", "monthly", "quarterly", "yearly", "unknown"] = "unknown"
     temporal_grain_confidence: float = 0.0
     detected_anchor: Optional[str] = None
     period_end_column: Optional[str] = None
+    time_frequency: Optional[str] = None
 
     def get_metric_data(self) -> pd.Series:
         """Returns the series for the target metric."""

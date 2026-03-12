@@ -63,7 +63,9 @@ def load_from_config(
         raise FileNotFoundError(f"[config_data_loader] loader.yaml not found at {loader_path}")
 
     with open(loader_path, "r") as f:
-        config = yaml.safe_load(f)
+        config = yaml.safe_load(f) or {}
+
+    config = _normalize_loader_config(config)
 
     metric_col = metric_column or (config.get("metric_column") if isinstance(config, dict) else None) or "metric"
 
@@ -231,3 +233,25 @@ def _resolve_csv_path(path_str: str, project_root: Path) -> str:
         return str(resolved)
     
     raise FileNotFoundError(f"[config_data_loader] CSV file not found: {path_str}")
+
+
+def _normalize_loader_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure loader configs always expose a dict-like `source`."""
+
+    if not isinstance(config, dict):
+        raise ValueError("loader.yaml must deserialize into a mapping")
+
+    raw_source = config.get("source") or {}
+    if not isinstance(raw_source, dict):
+        raw_source = {}
+
+    legacy_keys = ("file", "encoding", "delimiter", "format")
+    for key in legacy_keys:
+        if key in config and key not in raw_source and config[key] is not None:
+            raw_source[key] = config[key]
+
+    if "file" not in raw_source or not raw_source["file"]:
+        raise KeyError("loader.yaml is missing a source.file entry")
+
+    config["source"] = raw_source
+    return config

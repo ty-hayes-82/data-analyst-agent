@@ -73,8 +73,11 @@ def compute_anomalies_and_correlations(state: SummaryState) -> None:
 
 
 def _compute_uniform_growth_flag(pivot) -> bool:
+    if pivot.shape[1] < 2:
+        return False
     try:
-        corr_matrix = np.corrcoef(pivot.values)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr_matrix = np.corrcoef(pivot.values)
         n = corr_matrix.shape[0]
         if n < 2:
             return False
@@ -128,7 +131,8 @@ def _compute_correlations(state: SummaryState, pivot) -> dict[str, dict]:
                     corr = float(corr) if not np.isnan(corr) else 0.0
                     p_val = float(p_val) if not np.isnan(p_val) else 1.0
                 except Exception:
-                    corr = float(np.corrcoef(a_vals, b_vals)[0, 1]) if len(a_vals) > 1 else 0.0
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        corr = float(np.corrcoef(a_vals, b_vals)[0, 1]) if len(a_vals) > 1 else 0.0
                     p_val = 1.0
                 if abs(corr) > 0.7 and p_val < 0.05:
                     key = f"{acc1}_vs_{acc2}"

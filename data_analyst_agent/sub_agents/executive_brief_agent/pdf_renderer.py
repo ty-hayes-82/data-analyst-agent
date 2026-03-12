@@ -43,6 +43,7 @@ class BriefPage:
     markdown_content: str  # brief markdown text as written to the .md file
     level: int             # 0 = network brief, 1 = Level 1 entity, 2 = Level 2 entity
     parent_label: str = "" # parent entity bookmark label; empty for level 0 and 1
+    is_placeholder: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -89,12 +90,10 @@ def _parse_brief(md: str) -> dict:
 
     # Extract known sections
     _section_names = [
-        "Top Operational Insights",
-        "Network Snapshot",
-        "Focus for next week",
-        "Scope Summary",
-        "Structural Insights",
-        "Leadership Question",
+        "Key Findings",
+        "Recommended Actions",
+        "Executive Summary",
+        "Scope Overview",
         "What's going well",
         "What's masking the picture",
         "Primary concern",
@@ -409,15 +408,19 @@ def render_briefs_to_pdf(
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(pdf_bytes)
-        size_kb = len(pdf_bytes) // 1024
+        size_bytes = len(pdf_bytes)
         page_count = len(ordered)
+        if size_bytes >= 1024:
+            size_label = f"{size_bytes / 1024:.1f} KB"
+        else:
+            size_label = f"{size_bytes} bytes"
         _safe_print(
             f"[PDF] Saved {page_count}-page PDF ({used_lib}): "
-            f"{output_path} ({size_kb} KB)"
+            f"{output_path} ({size_label})"
         )
         log.info(
-            "[PDF] Written %s via %s (%d pages, %d KB)",
-            output_path.name, used_lib, page_count, size_kb,
+            "[PDF] Written %s via %s (%d pages, %d bytes)",
+            output_path.name, used_lib, page_count, size_bytes,
         )
         return output_path
     except Exception as exc:

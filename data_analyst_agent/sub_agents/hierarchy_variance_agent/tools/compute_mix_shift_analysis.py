@@ -135,19 +135,25 @@ async def compute_mix_shift_analysis(
         # Let's use: (Current_Weight - Prior_Weight) * Current_Price * Current_Total_Vol
         merged['mix_contribution'] = (merged['weight_curr'] - merged['weight_prior']) * merged['price_curr'] * curr_total_vol
 
-        segment_detail = []
-        for _, row in merged.sort_values('mix_contribution', key=abs, ascending=False).iterrows():
-            segment_detail.append({
-                "segment": str(row[segment_dimension]),
+        # Vectorized segment detail generation (avoid iterrows)
+        merged_sorted = merged.sort_values('mix_contribution', key=abs, ascending=False).copy()
+        merged_sorted['weight_change'] = merged_sorted['weight_curr'] - merged_sorted['weight_prior']
+        merged_sorted['segment'] = merged_sorted[segment_dimension].astype(str)
+        
+        segment_detail = merged_sorted.apply(
+            lambda row: {
+                "segment": row['segment'],
                 "prior_weight": float(row['weight_prior']),
                 "current_weight": float(row['weight_curr']),
-                "weight_change": float(row['weight_curr'] - row['weight_prior']),
+                "weight_change": float(row['weight_change']),
                 "prior_price": float(row['price_prior']),
                 "current_price": float(row['price_curr']),
                 "volume_current": float(row[volume_metric + '_curr']),
                 "volume_prior": float(row[volume_metric + '_prior']),
                 "contribution_to_mix_effect": float(row['mix_contribution'])
-            })
+            },
+            axis=1
+        ).tolist()
 
         # Summary
         dominant_effect = "mix"
@@ -159,10 +165,14 @@ async def compute_mix_shift_analysis(
             dominant_effect = "price"
 
         mix_direction = "favorable" if mix_effect > 0 else "unfavorable"
+        mix_pct_value = float(mix_effect / abs(total_variance) * 100) if total_variance != 0 else 0.0
         
         blended_rate_change = curr_blended_price - prior_blended_price
         change_from_rate = blended_price_at_prior_mix - prior_blended_price
         change_from_mix = curr_blended_price - blended_price_at_prior_mix
+
+        mix_effect_word = "added" if mix_effect >= 0 else "reduced"
+        rate_direction_word = "increased" if blended_rate_change >= 0 else "decreased"
 
         result = {
             "target_metric": target_metric,
@@ -184,13 +194,17 @@ async def compute_mix_shift_analysis(
                 "mix_effect": float(mix_effect),
                 "volume_pct": float(volume_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
                 "price_pct": float(price_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
-                "mix_pct": float(mix_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
+                "mix_pct": mix_pct_value,
             },
             "segment_detail": segment_detail[:10],
             "summary": {
                 "dominant_effect": dominant_effect,
                 "mix_direction": mix_direction,
-                "narrative": f"Blended rate {'rose' if blended_rate_change > 0 else 'fell'} by {abs(blended_rate_change):.2f}, with {abs(change_from_rate):.2f} due to price changes and {abs(change_from_mix):.2f} due to mix shift."
+                "narrative": (
+                    f"Mix effect {mix_effect_word} {abs(mix_effect):,.2f} ({mix_pct_value:+.1f}% of total variance) "
+                    f"and blended rate {rate_direction_word} by {abs(blended_rate_change):.2f} "
+                    f"({abs(change_from_rate):.2f} from price, {abs(change_from_mix):.2f} from mix)."
+                ),
             }
         }
 

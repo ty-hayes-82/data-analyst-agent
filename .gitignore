@@ -96,5 +96,3 @@ data/public/global_temp_monthly.csv
 
 # Web UI run state (local)
 web/runs.json
-data/PL-067-REVENUE-ONLY.csv
-data/ops_metrics_*.csv

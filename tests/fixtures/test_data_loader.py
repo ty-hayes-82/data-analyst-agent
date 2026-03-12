@@ -12,6 +12,8 @@ from typing import Dict, Any
 
 
 class TestDataLoader:
+    # Prevent pytest from collecting this as a test class
+    __test__ = False
     """Loads and manages test data for Data Analyst Agent tests."""
 
     def __init__(self):

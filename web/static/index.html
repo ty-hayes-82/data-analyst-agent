@@ -3,61 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Data Analyst Agent</title>
+  <title>Executive Data Intelligence Platform</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <nav>
     <div class="container">
-      <h1>Data Analyst Agent</h1>
+      <div class="brand">
+        <div class="brand-icon">📊</div>
+        <div class="brand-text">
+          <h1>Executive Data Intelligence Platform</h1>
+          <p class="brand-subtitle">Automated insights, executive-ready reports</p>
+        </div>
+      </div>
       <div class="tabs">
-        <button class="tab active" data-tab="new-analysis">New Analysis</button>
+        <button class="tab active" data-tab="new-analysis">Analyze Data</button>
         <button class="tab" data-tab="monitor">Monitor</button>
-        <button class="tab" data-tab="history">History</button>
+        <button class="tab" data-tab="history">Reports</button>
         <button class="tab" data-tab="add-dataset">+ Add Dataset</button>
       </div>
     </div>
   </nav>
 
   <div class="container">
+    <!-- How to Use Help Panel -->
+    <div class="help-banner">
+      <div class="help-content">
+        <span class="help-icon">💡</span>
+        <div class="help-text">
+          <strong>Quick Start:</strong> Select your dataset → Choose analysis focus → Click Analyze Data
+        </div>
+      </div>
+      <button class="help-toggle" onclick="toggleHelp()">
+        <span id="help-toggle-text">Show Detailed Help</span>
+      </button>
+    </div>
+
+    <div id="help-panel" class="help-panel" style="display:none">
+      <h3>How to Use This Platform</h3>
+      <div class="help-grid">
+        <div class="help-step">
+          <div class="help-step-number">1</div>
+          <div class="help-step-content">
+            <strong>Select Dataset</strong>
+            <p>Choose from pre-configured business datasets</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="help-step-number">2</div>
+          <div class="help-step-content">
+            <strong>Choose Analysis Focus</strong>
+            <p>Select what insights you're looking for (trends, anomalies, patterns)</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="help-step-number">3</div>
+          <div class="help-step-content">
+            <strong>Run Analysis</strong>
+            <p>Our AI agents will analyze your data and generate an executive brief</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="help-step-number">4</div>
+          <div class="help-step-content">
+            <strong>Review Insights</strong>
+            <p>Download PDF or Markdown reports for sharing</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- New Analysis -->
     <div id="new-analysis" class="section active">
-      <h2>Configure Analysis</h2>
+      <div class="section-header">
+        <h2>Configure Data Analysis</h2>
+        <p class="section-subtitle">Select your data source and define the analysis scope</p>
+      </div>
+      
       <div class="form-grid">
         <div class="form-group full">
-          <label for="dataset-select">Dataset</label>
-          <select id="dataset-select"><option value="">Loading datasets...</option></select>
+          <label for="dataset-select">
+            Business Dataset
+            <span class="tooltip-trigger" data-tooltip="Select the dataset you want to analyze. Each dataset is pre-configured with relevant metrics and dimensions.">ⓘ</span>
+          </label>
+          <select id="dataset-select">
+            <option value="">Loading datasets...</option>
+          </select>
         </div>
 
         <div class="form-group full" id="dataset-info" style="display:none">
-          <div class="info-card">
-            <div class="label">Description</div>
+          <div class="info-card dataset-info-card">
+            <div class="label">About This Dataset</div>
             <div class="value" id="dataset-description"></div>
           </div>
         </div>
 
         <div class="form-group full">
-          <div class="metrics-label-row">
-            <label>Metrics</label>
-            <span class="metrics-actions" id="metrics-actions">
-              <button type="button" class="btn-link" onclick="selectAllMetrics()">Select all</button>
-              <span class="metrics-actions-sep">|</span>
-              <button type="button" class="btn-link" onclick="deselectAllMetrics()">Deselect all</button>
-            </span>
-          </div>
+          <label>
+            Key Metrics to Analyze
+            <span class="tooltip-trigger" data-tooltip="Select which business metrics to analyze. The system will identify trends, anomalies, and patterns across these metrics.">ⓘ</span>
+          </label>
           <div class="checkbox-group" id="metrics-group">
             <span style="color:#8b949e">Select a dataset first</span>
           </div>
         </div>
 
         <div class="form-group full">
-          <label>Hierarchy</label>
+          <label>
+            Data Hierarchy
+            <span class="tooltip-trigger" data-tooltip="Define how to drill down into your data (e.g., by region, product, customer segment). This enables deeper insights at different organizational levels.">ⓘ</span>
+          </label>
           <div class="hierarchy-editor" id="hierarchy-editor">
             <div class="hierarchy-select-row">
               <select id="hierarchy-select">
                 <option value="">Select a dataset first</option>
               </select>
-              <button class="btn btn-secondary btn-sm" id="edit-hierarchy-btn" style="display:none" onclick="toggleHierarchyEditor()">Edit Levels</button>
+              <button class="btn btn-secondary btn-sm" id="edit-hierarchy-btn" style="display:none" onclick="toggleHierarchyEditor()">Customize Levels</button>
             </div>
 
             <!-- Hierarchy level editor (hidden by default) -->
@@ -76,7 +137,7 @@
             <!-- Hierarchy filters (shown when hierarchy is selected) -->
             <div id="hierarchy-filters" style="display:none">
               <div class="hierarchy-filters-header">
-                <span class="label">Filter by hierarchy level values</span>
+                <span class="label">Filter specific business units or segments</span>
                 <button class="btn btn-secondary btn-sm" onclick="clearAllFilters()">Clear All</button>
               </div>
               <div id="hierarchy-filter-levels"></div>
@@ -84,67 +145,150 @@
           </div>
         </div>
 
-
         <div class="form-group full">
-          <label>Analysis Focus</label>
-          <div class="checkbox-group" id="focus-group">
-            <label><input type="checkbox" name="focus" value="recent_weekly_trends" checked> Recent Weekly Trends</label>
-            <label><input type="checkbox" name="focus" value="recent_monthly_trends" checked> Recent Monthly Trends</label>
-            <label><input type="checkbox" name="focus" value="anomaly_detection"> Anomaly Detection</label>
-            <label><input type="checkbox" name="focus" value="revenue_gap_analysis"> Revenue Gap / Missed Billing</label>
-            <label><input type="checkbox" name="focus" value="seasonal_patterns"> Seasonal Patterns</label>
-            <label><input type="checkbox" name="focus" value="yoy_comparison"> Year-over-Year Comparison</label>
-            <label><input type="checkbox" name="focus" value="forecasting"> Trend Forecasting</label>
-            <label><input type="checkbox" name="focus" value="outlier_investigation"> Outlier Investigation</label>
+          <label>
+            Analysis Focus
+            <span class="tooltip-trigger" data-tooltip="Choose what types of insights you want. Multiple selections will provide a comprehensive analysis.">ⓘ</span>
+          </label>
+          <div class="focus-options">
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="recent_weekly_trends" checked>
+              <div class="focus-content">
+                <strong>Recent Weekly Trends</strong>
+                <span class="focus-desc">Focus on patterns from the last 4-8 weeks</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="recent_monthly_trends" checked>
+              <div class="focus-content">
+                <strong>Recent Monthly Trends</strong>
+                <span class="focus-desc">Month-over-month performance analysis</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="anomaly_detection">
+              <div class="focus-content">
+                <strong>Anomaly Detection</strong>
+                <span class="focus-desc">Identify unusual patterns and outliers</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="revenue_gap_analysis">
+              <div class="focus-content">
+                <strong>Revenue Gap Analysis</strong>
+                <span class="focus-desc">Detect missed billing opportunities</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="seasonal_patterns">
+              <div class="focus-content">
+                <strong>Seasonal Patterns</strong>
+                <span class="focus-desc">Identify recurring cyclical trends</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="yoy_comparison">
+              <div class="focus-content">
+                <strong>Year-over-Year</strong>
+                <span class="focus-desc">Compare performance vs. prior year</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="forecasting">
+              <div class="focus-content">
+                <strong>Trend Forecasting</strong>
+                <span class="focus-desc">Project future performance</span>
+              </div>
+            </label>
+            <label class="focus-option">
+              <input type="checkbox" name="focus" value="outlier_investigation">
+              <div class="focus-content">
+                <strong>Outlier Investigation</strong>
+                <span class="focus-desc">Deep dive into extreme values</span>
+              </div>
+            </label>
           </div>
         </div>
 
         <div class="form-group full">
-          <label for="custom-focus">Custom Analysis Direction <span style="color:#8b949e">(optional)</span></label>
-          <input type="text" id="custom-focus" placeholder="e.g., Find billing anomalies in Q4 where revenue dropped but volume stayed flat">
+          <label for="custom-focus">
+            Custom Analysis Direction <span style="color:#8b949e;font-weight:400">(optional)</span>
+            <span class="tooltip-trigger" data-tooltip="Provide specific questions or focus areas in plain language (e.g., 'Why did revenue drop in Q4 while volume stayed flat?')">ⓘ</span>
+          </label>
+          <textarea id="custom-focus" rows="2" placeholder="Example: Find billing anomalies in Q4 where revenue dropped but volume stayed flat"></textarea>
         </div>
 
         <div class="form-group">
-          <label for="start-date">Start Date</label>
+          <label for="start-date">
+            Analysis Start Date
+            <span class="tooltip-trigger" data-tooltip="Define the time period to analyze. Leave blank to analyze all available data.">ⓘ</span>
+          </label>
           <input type="date" id="start-date">
         </div>
         <div class="form-group">
-          <label for="end-date">End Date</label>
+          <label for="end-date">
+            Analysis End Date
+            <span class="tooltip-trigger" data-tooltip="Define the end of the analysis period. Defaults to most recent data available.">ⓘ</span>
+          </label>
           <input type="date" id="end-date">
         </div>
 
         <div class="form-group">
-          <label for="max-depth">Max Drill Depth</label>
+          <label for="max-depth">
+            Drill-Down Depth
+            <span class="tooltip-trigger" data-tooltip="How many hierarchy levels to analyze (1-10). Higher values provide more detailed insights but take longer.">ⓘ</span>
+          </label>
           <input type="number" id="max-depth" min="1" max="10" value="3">
         </div>
         <div class="form-group">
-          <label>Frequency</label>
+          <label>Data Granularity</label>
           <input type="text" id="frequency" disabled>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" id="run-btn" disabled>Run Analysis</button>
+        <button class="btn btn-primary" id="run-btn" disabled>
+          <span class="btn-icon">🚀</span> Analyze Data
+        </button>
+        <button class="btn btn-secondary" onclick="resetForm()">Clear Form</button>
       </div>
     </div>
 
     <!-- Monitor -->
     <div id="monitor" class="section">
-      <h2>Run Monitor</h2>
+      <div class="section-header">
+        <h2>Analysis in Progress</h2>
+        <p class="section-subtitle">Real-time status of your data analysis</p>
+      </div>
       <div id="monitor-content">
-        <p style="color:#8b949e">No active run. Start an analysis first.</p>
+        <div class="empty-state">
+          <div class="empty-icon">📊</div>
+          <p>No active analysis</p>
+          <p class="empty-hint">Start an analysis from the "Analyze Data" tab</p>
+        </div>
       </div>
     </div>
 
     <!-- History -->
     <div id="history" class="section">
-      <h2>Run History</h2>
+      <div class="section-header">
+        <h2>Insights Reports</h2>
+        <p class="section-subtitle">Previously generated analysis reports</p>
+      </div>
       <table>
         <thead>
-          <tr><th>ID</th><th>Dataset</th><th>Metrics</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr>
+          <tr>
+            <th>Report ID</th>
+            <th>Dataset</th>
+            <th>Metrics</th>
+            <th>Status</th>
+            <th>Generated</th>
+            <th>Duration</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody id="history-body">
-          <tr><td colspan="7" style="color:#8b949e">Loading...</td></tr>
+          <tr><td colspan="7" style="color:#8b949e;text-align:center;padding:2em">Loading reports...</td></tr>
         </tbody>
       </table>
     </div>
@@ -152,31 +296,36 @@
     <!-- Results (shown in-place of history when viewing a run) -->
     <div id="results" class="section">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <h2>Run Results</h2>
-        <button class="btn btn-secondary" onclick="showTab('history')">Back to History</button>
+        <div>
+          <h2>Insights Report</h2>
+          <p class="section-subtitle">Detailed analysis results</p>
+        </div>
+        <button class="btn btn-secondary" onclick="showTab('history')">← Back to Reports</button>
       </div>
       <div class="info-grid" id="results-info"></div>
-      <h3>Output Files</h3>
+      <h3>Available Downloads</h3>
       <ul class="file-list" id="results-files"></ul>
       <div id="result-content" class="result-content" style="display:none"></div>
     </div>
 
     <!-- Add Dataset -->
     <div id="add-dataset" class="section">
-      <h2>Add New Dataset</h2>
-      <p style="color:#8b949e;margin-bottom:1.5em">Upload a CSV file and we'll auto-detect its structure — metrics, dimensions, time columns, and hierarchies. Review the draft contract and confirm to make it available for analysis.</p>
+      <div class="section-header">
+        <h2>Add New Dataset</h2>
+        <p class="section-subtitle">Upload a CSV file and we'll automatically detect its structure</p>
+      </div>
 
       <div class="upload-area" id="upload-area">
-        <div class="upload-icon">&#128196;</div>
+        <div class="upload-icon">📁</div>
         <p>Drag & drop a CSV file here, or click to browse</p>
         <input type="file" id="file-input" accept=".csv" style="display:none">
-        <p style="color:#484f58;font-size:0.8em;margin-top:0.5em">Max 200MB. CSV format only.</p>
+        <p style="color:#484f58;font-size:0.8em;margin-top:0.5em">Maximum 200MB • CSV format only</p>
       </div>
 
       <div id="detect-progress" style="display:none">
         <div class="info-card">
-          <div class="label">Scanning Dataset</div>
-          <div class="value" id="detect-status">Uploading and analyzing...</div>
+          <div class="label">Analyzing Dataset</div>
+          <div class="value" id="detect-status">Uploading and analyzing structure...</div>
           <div class="progress-bar"><div class="progress-fill" id="detect-progress-bar"></div></div>
         </div>
       </div>
@@ -186,10 +335,10 @@
 
         <div id="detect-warnings"></div>
 
-        <h3>Detected Contract</h3>
+        <h3>Dataset Configuration</h3>
         <div class="review-section">
           <div class="review-group">
-            <label>Dataset Name</label>
+            <label>Dataset Identifier</label>
             <input type="text" id="detect-name">
           </div>
           <div class="review-group">
@@ -239,14 +388,63 @@
         <div id="detect-hierarchies-list" class="detect-list"></div>
 
         <div class="actions" style="margin-top:2em">
-          <button class="btn" id="confirm-contract-btn" onclick="confirmContract()">Confirm & Save Dataset</button>
-          <button class="btn btn-secondary" onclick="resetUpload()">Start Over</button>
+          <button class="btn btn-primary" id="confirm-contract-btn" onclick="confirmContract()">
+            <span class="btn-icon">✓</span> Save Dataset
+          </button>
+          <button class="btn btn-secondary" onclick="resetUpload()">Cancel</button>
         </div>
       </div>
     </div>
 
   </div>
 
+  <!-- Tooltip Container -->
+  <div id="tooltip" class="tooltip"></div>
+
   <script src="/static/app.js"></script>
+  <script>
+    // Help panel toggle
+    function toggleHelp() {
+      const panel = document.getElementById('help-panel');
+      const toggleText = document.getElementById('help-toggle-text');
+      const isHidden = panel.style.display === 'none';
+      panel.style.display = isHidden ? 'block' : 'none';
+      toggleText.textContent = isHidden ? 'Hide Detailed Help' : 'Show Detailed Help';
+    }
+
+    // Tooltip functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const tooltip = document.getElementById('tooltip');
+      const triggers = document.querySelectorAll('.tooltip-trigger');
+      
+      triggers.forEach(trigger => {
+        trigger.addEventListener('mouseenter', function(e) {
+          const text = this.dataset.tooltip;
+          tooltip.textContent = text;
+          tooltip.style.display = 'block';
+          
+          const rect = this.getBoundingClientRect();
+          tooltip.style.left = rect.left + (rect.width / 2) + 'px';
+          tooltip.style.top = (rect.top - 10) + 'px';
+        });
+        
+        trigger.addEventListener('mouseleave', function() {
+          tooltip.style.display = 'none';
+        });
+      });
+    });
+
+    // Form reset
+    function resetForm() {
+      document.getElementById('dataset-select').selectedIndex = 0;
+      document.getElementById('custom-focus').value = '';
+      document.getElementById('start-date').value = '';
+      document.getElementById('end-date').value = '';
+      document.getElementById('max-depth').value = '3';
+      document.querySelectorAll('input[name="focus"]').forEach(cb => {
+        cb.checked = cb.value.includes('trends');
+      });
+    }
+  </script>
 </body>
 </html>

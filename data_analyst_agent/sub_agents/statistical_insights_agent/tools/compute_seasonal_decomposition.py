@@ -101,17 +101,35 @@ async def compute_seasonal_decomposition(pre_resolved: Optional[dict] = None) ->
                     anomalies_df['residual'] = result.resid[anomaly_mask]
                     anomalies_df['residual_z_score'] = (result.resid[anomaly_mask] - residual_mean) / residual_std
                     
-                    for idx, row in anomalies_df.iterrows():
-                        all_residual_anomalies.append({
-                            'period': idx.strftime('%Y-%m'),
-                            'item': item,
-                            'item_name': names_map.get(item, item),
+                    # Vectorized anomaly processing (avoid iterrows)
+                    anomalies_df['period'] = anomalies_df.index.strftime('%Y-%m')
+                    anomalies_df['item'] = item
+                    anomalies_df['item_name'] = names_map.get(item, item)
+                    
+                    # Get seasonal and trend components for each index
+                    anomalies_df['seasonal_component'] = anomalies_df.index.map(
+                        lambda idx: float(result.seasonal.loc[idx]) if idx in result.seasonal.index else 0
+                    )
+                    anomalies_df['trend_component'] = anomalies_df.index.map(
+                        lambda idx: float(result.trend.loc[idx]) if idx in result.trend.index else 0
+                    )
+                    
+                    # Create records
+                    anomaly_records = anomalies_df.apply(
+                        lambda row: {
+                            'period': row['period'],
+                            'item': row['item'],
+                            'item_name': row['item_name'],
                             'actual_amount': float(row[metric_col]),
                             'residual_magnitude': float(row['residual']),
                             'residual_z_score': float(row['residual_z_score']),
-                            'seasonal_component': float(result.seasonal.loc[idx]) if idx in result.seasonal.index else 0,
-                            'trend_component': float(result.trend.loc[idx]) if idx in result.trend.index else 0
-                        })
+                            'seasonal_component': row['seasonal_component'],
+                            'trend_component': row['trend_component']
+                        },
+                        axis=1
+                    ).tolist()
+                    
+                    all_residual_anomalies.extend(anomaly_records)
                 
                 # Calculate seasonally-adjusted YoY variance
                 seasonal_adjusted = item_df[metric_col] - result.seasonal

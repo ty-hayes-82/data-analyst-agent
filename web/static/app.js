@@ -94,7 +94,8 @@ document.getElementById('run-btn').addEventListener('click', submitRun);
 async function submitRun() {
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
-  btn.textContent = 'Starting...';
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="btn-icon">⏳</span> Starting Analysis...';
 
   const sel = document.getElementById('dataset-select');
   const metrics = [...document.querySelectorAll('input[name="metric"]:checked')].map(c => c.value);
@@ -132,10 +133,13 @@ async function submitRun() {
     showTab('monitor');
     pollRun(run.id);
   } catch (e) {
-    alert('Failed to start run: ' + e.message);
+    const userMsg = e.message.includes('Server error') 
+      ? 'Unable to start analysis. Please try again or contact support.' 
+      : 'Error: ' + e.message;
+    alert(userMsg);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Run Analysis';
+    btn.innerHTML = originalHTML;
   }
 }
 

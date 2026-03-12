@@ -4,8 +4,6 @@ source:
   delimiter: ","
   format: "long"
 
-numeric_columns: ["Mean"]
-
 sort_columns: ["Year", "Source"]
 
 output_columns:

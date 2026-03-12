@@ -1,0 +1,23 @@
+# Cloud Storage Path Mappings Template
+# Run deployment/data/sync_to_cloud.sh to generate actual cloud_paths.yaml
+
+project_id: YOUR_PROJECT_ID
+environment: prod
+
+buckets:
+  datasets: YOUR_PROJECT_ID-data-analyst-datasets
+  outputs: YOUR_PROJECT_ID-data-analyst-outputs
+
+paths:
+  contracts: gs://YOUR_PROJECT_ID-data-analyst-datasets/datasets/
+  validation: gs://YOUR_PROJECT_ID-data-analyst-datasets/validation/
+  synthetic: gs://YOUR_PROJECT_ID-data-analyst-datasets/synthetic/
+  outputs: gs://YOUR_PROJECT_ID-data-analyst-outputs/
+  analysis_json: gs://YOUR_PROJECT_ID-data-analyst-outputs/analysis/
+  executive_briefs: gs://YOUR_PROJECT_ID-data-analyst-outputs/executive_briefs/
+  logs: gs://YOUR_PROJECT_ID-data-analyst-outputs/logs/
+
+datasets:
+  trade_data:
+    contract: gs://YOUR_PROJECT_ID-data-analyst-datasets/datasets/trade_data/contract.yaml
+    validation: gs://YOUR_PROJECT_ID-data-analyst-datasets/validation/trade_data/

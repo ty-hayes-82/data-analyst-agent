@@ -25,6 +25,9 @@ class SummaryState:
     prev_period: str | None
     lag: int
     lag_window: list[str]
+    time_frequency: str | None = None
+    latest_period_value: Any | None = None
+    prev_period_value: Any | None = None
     pattern_label_by_account: dict[str, str] = field(default_factory=dict)
     change_series: pd.Series | None = None
     contribution_share: dict[str, float] = field(default_factory=dict)

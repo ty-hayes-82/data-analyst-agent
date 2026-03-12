@@ -1,0 +1,181 @@
+# Cloud Build Configuration for Data Analyst Agent
+# Triggered on push to main/staging branches
+# gcloud builds submit --config cloudbuild.yaml
+
+steps:
+  # ============================================================================
+  # Step 1: Run Tests
+  # ============================================================================
+  - name: 'python:3.11-slim'
+    id: 'test'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        pip install -r requirements.txt pytest pytest-asyncio
+        python -m pytest tests/ --tb=short -v
+        python -m pytest data_analyst_agent/semantic/tests/ --tb=short -v
+  
+  # ============================================================================
+  # Step 2: Build Agent Container
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-agent'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/agent:$SHORT_SHA'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/agent:latest'
+      - '-f'
+      - 'deployment/vertex_ai/Dockerfile'
+      - '.'
+    waitFor: ['test']
+  
+  # ============================================================================
+  # Step 3: Build Web UI Container
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-web'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:latest'
+      - '-f'
+      - 'web/Dockerfile'
+      - '.'
+    waitFor: ['test']
+  
+  # ============================================================================
+  # Step 4: Push Images to Artifact Registry
+  # ============================================================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-agent'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/agent:$SHORT_SHA'
+    waitFor: ['build-agent']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/agent:latest'
+    waitFor: ['push-agent']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-web'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+    waitFor: ['build-web']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:latest'
+    waitFor: ['push-web']
+  
+  # ============================================================================
+  # Step 5: Sync Datasets to Cloud Storage
+  # ============================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'sync-datasets'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gsutil -m rsync -r -d config/datasets/ gs://$PROJECT_ID-data-analyst-datasets/datasets/
+    waitFor: ['push-agent']
+  
+  # ============================================================================
+  # Step 6: Deploy Agent to Vertex AI Agent Engine
+  # ============================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-agent'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Substitute variables in agent_config.yaml
+        sed -e "s/\$${PROJECT_ID}/$PROJECT_ID/g" \
+            -e "s/\$${REGION}/${_REGION}/g" \
+            deployment/vertex_ai/agent_config.yaml > /tmp/agent_config_resolved.yaml
+        
+        # Deploy (adjust based on actual Vertex AI Agent Engine CLI)
+        gcloud ai agents deploy \
+          --config=/tmp/agent_config_resolved.yaml \
+          --region=${_REGION} \
+          --project=$PROJECT_ID
+    waitFor: ['push-agent', 'sync-datasets']
+  
+  # ============================================================================
+  # Step 7: Deploy Web UI to Cloud Run
+  # ============================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-web'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'data-analyst-ui'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+      - '--region'
+      - '${_REGION}'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--service-account'
+      - 'data-analyst-agent@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--set-env-vars'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=${_REGION},ENVIRONMENT=${_ENVIRONMENT}'
+      - '--memory'
+      - '4Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '600'
+      - '--max-instances'
+      - '10'
+    waitFor: ['push-web']
+  
+  # ============================================================================
+  # Step 8: Smoke Test
+  # ============================================================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'smoke-test'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Test agent invocation
+        gcloud ai agents invoke data-analyst-agent \
+          --region=${_REGION} \
+          --input='{"request": "Test health check", "dataset_name": "trade_data"}' \
+          --project=$PROJECT_ID
+        
+        # Test web UI health
+        WEB_URL=$(gcloud run services describe data-analyst-ui --region=${_REGION} --project=$PROJECT_ID --format='value(status.url)')
+        curl -f $WEB_URL/health || exit 1
+    waitFor: ['deploy-agent', 'deploy-web']
+
+# Substitution variables
+substitutions:
+  _REGION: us-central1
+  _ENVIRONMENT: prod
+
+# Images to be pushed
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/agent:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/agent:latest'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/data-analyst-agent/web-ui:latest'
+
+# Build options
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+  
+timeout: 3600s  # 1 hour
