@@ -750,9 +750,9 @@ async def _llm_generate_brief(
                 fallback_payload = (brief_data, brief_markdown)
                 if attempt < max_attempts:
                     print(
-                        f"[BRIEF] Attempt {attempt}/{max_attempts} produced fallback output. Retrying in 5s..."
+                        f"[BRIEF] Attempt {attempt}/{max_attempts} produced fallback output. Retrying in {BRIEF_CONFIG.retry_delay_seconds()}s..."
                     )
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
                     continue
                 print("[BRIEF] LLM returned fallback output after all retries — using structured fallback.")
                 return brief_data, brief_markdown, True
@@ -761,8 +761,8 @@ async def _llm_generate_brief(
         except Exception as attempt_err:
             last_err = attempt_err
             if attempt < max_attempts:
-                print(f"[BRIEF] Attempt {attempt}/{max_attempts} failed: {attempt_err}. Retrying in 5s...")
-                await asyncio.sleep(5)
+                print(f"[BRIEF] Attempt {attempt}/{max_attempts} failed: {attempt_err}. Retrying in {BRIEF_CONFIG.retry_delay_seconds()}s...")
+                await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
             else:
                 print(f"[BRIEF] Attempt {attempt}/{max_attempts} failed: {attempt_err}.")
 
