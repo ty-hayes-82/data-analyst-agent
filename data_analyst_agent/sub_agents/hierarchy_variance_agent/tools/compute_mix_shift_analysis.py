@@ -135,19 +135,25 @@ async def compute_mix_shift_analysis(
         # Let's use: (Current_Weight - Prior_Weight) * Current_Price * Current_Total_Vol
         merged['mix_contribution'] = (merged['weight_curr'] - merged['weight_prior']) * merged['price_curr'] * curr_total_vol
 
-        segment_detail = []
-        for _, row in merged.sort_values('mix_contribution', key=abs, ascending=False).iterrows():
-            segment_detail.append({
-                "segment": str(row[segment_dimension]),
+        # Vectorized segment detail generation (avoid iterrows)
+        merged_sorted = merged.sort_values('mix_contribution', key=abs, ascending=False).copy()
+        merged_sorted['weight_change'] = merged_sorted['weight_curr'] - merged_sorted['weight_prior']
+        merged_sorted['segment'] = merged_sorted[segment_dimension].astype(str)
+        
+        segment_detail = merged_sorted.apply(
+            lambda row: {
+                "segment": row['segment'],
                 "prior_weight": float(row['weight_prior']),
                 "current_weight": float(row['weight_curr']),
-                "weight_change": float(row['weight_curr'] - row['weight_prior']),
+                "weight_change": float(row['weight_change']),
                 "prior_price": float(row['price_prior']),
                 "current_price": float(row['price_curr']),
                 "volume_current": float(row[volume_metric + '_curr']),
                 "volume_prior": float(row[volume_metric + '_prior']),
                 "contribution_to_mix_effect": float(row['mix_contribution'])
-            })
+            },
+            axis=1
+        ).tolist()
 
         # Summary
         dominant_effect = "mix"

@@ -142,21 +142,34 @@ async def compute_anomaly_indicators() -> str:
         # Threshold tuned for deterministic behavior (not hyper-sensitive)
         flagged = agg[np.abs(agg["robust_z"]) >= 3.0]
 
+        # Vectorized anomaly payload generation (avoid iterrows)
         anomalies_out: list[dict] = []
-        for _, r in flagged.iterrows():
-            entry_value = float(r[effective_series.column_name])
-            anomaly_payload = {
-                "period": str(r[time_col].date() if hasattr(r[time_col], "date") else r[time_col]),
-                "value": entry_value,
-                "robust_z": float(r["robust_z"]),
-                "direction": "positive" if float(r["robust_z"]) >= 0 else "negative",
-                "severity": "high" if abs(float(r["robust_z"])) >= 5 else "medium",
-                "example": {},
-                "metric_variant": effective_series.column_name,
-            }
-            if effective_series.is_cumulative:
-                anomaly_payload["original_value"] = float(r[metric_col])
-            anomalies_out.append(anomaly_payload)
+        if not flagged.empty:
+            flagged_copy = flagged.copy()
+            flagged_copy['entry_value'] = flagged_copy[effective_series.column_name].astype(float)
+            flagged_copy['period'] = flagged_copy[time_col].apply(
+                lambda x: str(x.date() if hasattr(x, "date") else x)
+            )
+            flagged_copy['direction'] = flagged_copy['robust_z'].apply(
+                lambda z: "positive" if z >= 0 else "negative"
+            )
+            flagged_copy['severity'] = flagged_copy['robust_z'].apply(
+                lambda z: "high" if abs(z) >= 5 else "medium"
+            )
+            
+            anomalies_out = flagged_copy.apply(
+                lambda r: {
+                    "period": r['period'],
+                    "value": float(r['entry_value']),
+                    "robust_z": float(r['robust_z']),
+                    "direction": r['direction'],
+                    "severity": r['severity'],
+                    "example": {},
+                    "metric_variant": effective_series.column_name,
+                    **({"original_value": float(r[metric_col])} if effective_series.is_cumulative else {})
+                },
+                axis=1
+            ).tolist()
 
         out: dict = {
             "anomalies": anomalies_out,

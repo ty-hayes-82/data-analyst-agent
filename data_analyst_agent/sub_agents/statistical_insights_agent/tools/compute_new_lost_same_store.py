@@ -141,25 +141,29 @@ async def compute_new_lost_same_store(comparison: str = "MoM", top_n: int = 10, 
         if new_entities:
             new_agg = new_df.groupby(grain_col)[metric_col].sum().reset_index()
             new_agg = new_agg.sort_values(metric_col, key=abs, ascending=False).head(top_n)
-            for _, row in new_agg.iterrows():
-                item = row[grain_col]
-                top_new.append({
-                    "item": item,
-                    "item_name": names_map.get(item, item),
-                    "current_value": round(float(row[metric_col]), 2)
-                })
+            # Vectorized conversion instead of iterrows()
+            new_agg['item_name'] = new_agg[grain_col].map(lambda x: names_map.get(x, x))
+            top_new = new_agg.rename(columns={
+                grain_col: "item",
+                metric_col: "current_value"
+            })[["item", "item_name", "current_value"]].to_dict("records")
+            # Round values
+            for record in top_new:
+                record["current_value"] = round(float(record["current_value"]), 2)
         
         top_lost = []
         if lost_entities:
             lost_agg = lost_df.groupby(grain_col)[metric_col].sum().reset_index()
             lost_agg = lost_agg.sort_values(metric_col, key=abs, ascending=False).head(top_n)
-            for _, row in lost_agg.iterrows():
-                item = row[grain_col]
-                top_lost.append({
-                    "item": item,
-                    "item_name": names_map.get(item, item),
-                    "prior_value": round(float(row[metric_col]), 2)
-                })
+            # Vectorized conversion instead of iterrows()
+            lost_agg['item_name'] = lost_agg[grain_col].map(lambda x: names_map.get(x, x))
+            top_lost = lost_agg.rename(columns={
+                grain_col: "item",
+                metric_col: "prior_value"
+            })[["item", "item_name", "prior_value"]].to_dict("records")
+            # Round values
+            for record in top_lost:
+                record["prior_value"] = round(float(record["prior_value"]), 2)
         
         top_same_store_movers = []
         if same_store_entities:

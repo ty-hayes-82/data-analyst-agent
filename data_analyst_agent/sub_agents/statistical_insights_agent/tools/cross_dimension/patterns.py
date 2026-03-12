@@ -89,47 +89,59 @@ def detect_cross_cutting_patterns(
     aux_stats["consistency_pos"] = aux_stats["pos_count"] / aux_stats["n"]
 
     patterns: List[dict] = []
-    drags = aux_stats[(aux_stats["consistency_neg"] >= 0.6) & (aux_stats["n"] >= 2)]
-    for _, row in drags.iterrows():
-        aux_val = row[aux_col]
-        affected = merged[(merged[aux_col] == aux_val) & (merged["pct_change"] < -1)][
-            hier_col
-        ].tolist()
-        patterns.append(
-            {
-                "auxiliary_value": str(aux_val),
-                "effect_direction": "negative",
-                "mean_impact_pct": round(float(row["mean_impact"]), 1),
-                "affected_entities": affected[:5],
-                "affected_entity_count": int(row["neg_count"]),
-                "consistency": round(float(row["consistency_neg"]), 2),
-                "label": (
-                    f"{aux_val} is dragging performance at {int(row['neg_count'])} of {int(row['n'])} "
-                    f"entities ({float(row['mean_impact']):+.1f}% avg impact)"
-                ),
-            }
+    drags = aux_stats[(aux_stats["consistency_neg"] >= 0.6) & (aux_stats["n"] >= 2)].copy()
+    
+    # Vectorized processing of drags (avoid iterrows)
+    if not drags.empty:
+        # Get affected entities for each aux_val
+        def get_affected_entities(aux_val):
+            return merged[(merged[aux_col] == aux_val) & (merged["pct_change"] < -1)][
+                hier_col
+            ].tolist()[:5]
+        
+        drags['affected_entities'] = drags[aux_col].apply(get_affected_entities)
+        drags['auxiliary_value'] = drags[aux_col].astype(str)
+        drags['effect_direction'] = 'negative'
+        drags['mean_impact_pct'] = drags['mean_impact'].round(1)
+        drags['affected_entity_count'] = drags['neg_count'].astype(int)
+        drags['consistency'] = drags['consistency_neg'].round(2)
+        drags['label'] = drags.apply(
+            lambda r: f"{r[aux_col]} is dragging performance at {int(r['neg_count'])} of {int(r['n'])} "
+                     f"entities ({float(r['mean_impact']):+.1f}% avg impact)",
+            axis=1
         )
+        
+        patterns.extend(drags[[
+            'auxiliary_value', 'effect_direction', 'mean_impact_pct', 
+            'affected_entities', 'affected_entity_count', 'consistency', 'label'
+        ]].to_dict('records'))
 
-    boosts = aux_stats[(aux_stats["consistency_pos"] >= 0.6) & (aux_stats["n"] >= 2)]
-    for _, row in boosts.iterrows():
-        aux_val = row[aux_col]
-        affected = merged[(merged[aux_col] == aux_val) & (merged["pct_change"] > 1)][
-            hier_col
-        ].tolist()
-        patterns.append(
-            {
-                "auxiliary_value": str(aux_val),
-                "effect_direction": "positive",
-                "mean_impact_pct": round(float(row["mean_impact"]), 1),
-                "affected_entities": affected[:5],
-                "affected_entity_count": int(row["pos_count"]),
-                "consistency": round(float(row["consistency_pos"]), 2),
-                "label": (
-                    f"{aux_val} is boosting performance at {int(row['pos_count'])} of {int(row['n'])} "
-                    f"entities ({float(row['mean_impact']):+.1f}% avg impact)"
-                ),
-            }
+    boosts = aux_stats[(aux_stats["consistency_pos"] >= 0.6) & (aux_stats["n"] >= 2)].copy()
+    
+    # Vectorized processing of boosts (avoid iterrows)
+    if not boosts.empty:
+        # Get affected entities for each aux_val
+        def get_affected_entities(aux_val):
+            return merged[(merged[aux_col] == aux_val) & (merged["pct_change"] > 1)][
+                hier_col
+            ].tolist()[:5]
+        
+        boosts['affected_entities'] = boosts[aux_col].apply(get_affected_entities)
+        boosts['auxiliary_value'] = boosts[aux_col].astype(str)
+        boosts['effect_direction'] = 'positive'
+        boosts['mean_impact_pct'] = boosts['mean_impact'].round(1)
+        boosts['affected_entity_count'] = boosts['pos_count'].astype(int)
+        boosts['consistency'] = boosts['consistency_pos'].round(2)
+        boosts['label'] = boosts.apply(
+            lambda r: f"{r[aux_col]} is boosting performance at {int(r['pos_count'])} of {int(r['n'])} "
+                     f"entities ({float(r['mean_impact']):+.1f}% avg impact)",
+            axis=1
         )
+        
+        patterns.extend(boosts[[
+            'auxiliary_value', 'effect_direction', 'mean_impact_pct', 
+            'affected_entities', 'affected_entity_count', 'consistency', 'label'
+        ]].to_dict('records'))
 
     patterns.sort(key=lambda p: abs(p["mean_impact_pct"]), reverse=True)
     return patterns

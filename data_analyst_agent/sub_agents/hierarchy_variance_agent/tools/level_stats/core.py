@@ -166,17 +166,21 @@ async def compute_level_statistics_impl(
         float(top_items["cumulative_pct"].iloc[-1]) if not top_items.empty else 0
     )
 
+    # Vectorized top drivers processing (avoid iterrows)
     top_drivers = []
-    for _, row in top_items.iterrows():
-        variance_pct = None if pd.isna(row["variance_pct"]) else float(row["variance_pct"])
-        top_drivers.append(
-            {
+    if not top_items.empty:
+        top_items_copy = top_items.copy()
+        top_items_copy['variance_pct_clean'] = top_items_copy['variance_pct'].apply(
+            lambda x: None if pd.isna(x) else float(x)
+        )
+        top_drivers = top_items_copy.apply(
+            lambda row: {
                 "rank": int(row["rank"]),
                 "item": str(row["item"]),
                 "current": float(row["current"]),
                 "prior": float(row["prior"]),
                 "variance_dollar": float(row["variance_dollar"]),
-                "variance_pct": variance_pct,
+                "variance_pct": row["variance_pct_clean"],
                 "is_new_from_zero": bool(row.get("is_new_from_zero", False)),
                 "share_current": float(row["share_current"]),
                 "share_prior": float(row["share_prior"]),
@@ -184,8 +188,12 @@ async def compute_level_statistics_impl(
                 "cumulative_pct": float(row["cumulative_pct"]),
                 "exceeds_threshold": bool(row["exceeds_threshold"]),
                 "materiality": row["materiality"],
-            }
-        )
+                **({"ratio_current": float(row["ratio_current"])} if "ratio_current" in row and not pd.isna(row["ratio_current"]) else {}),
+                **({"ratio_prior": float(row["ratio_prior"])} if "ratio_prior" in row and not pd.isna(row["ratio_prior"]) else {}),
+                **({"ratio_variance": float(row["ratio_variance"])} if "ratio_variance" in row and not pd.isna(row["ratio_variance"]) else {}),
+            },
+            axis=1
+        ).tolist()
 
     total_variance_dollar = (
         network_variance

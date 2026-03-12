@@ -114,12 +114,13 @@ async def compute_pvm_decomposition(
         merged['residual'] = merged['total_variance'] - (merged['volume_impact'] + merged['price_impact'])
 
         # 5. Summarize
-        top_drivers = merged.sort_values('total_variance', key=abs, ascending=False).head(10)
+        top_drivers = merged.sort_values('total_variance', key=abs, ascending=False).head(10).copy()
         
-        impacts = []
-        for _, row in top_drivers.iterrows():
-            impacts.append({
-                "item": str(row[dimension]),
+        # Vectorized impact records (avoid iterrows)
+        top_drivers['item'] = top_drivers[dimension].astype(str)
+        impacts = top_drivers.apply(
+            lambda row: {
+                "item": row['item'],
                 "total_variance": float(row['total_variance']),
                 "volume_impact": float(row['volume_impact']),
                 "price_impact": float(row['price_impact']),
@@ -128,7 +129,9 @@ async def compute_pvm_decomposition(
                 "prior_vol": float(row[f'{volume_metric}_prior']),
                 "curr_price": float(row['price_curr']),
                 "prior_price": float(row['price_prior'])
-            })
+            },
+            axis=1
+        ).tolist()
 
         result = {
             "target_metric": target_metric,
