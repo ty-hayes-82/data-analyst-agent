@@ -13,12 +13,12 @@ def test_max_scoped_briefs_env_override(monkeypatch):
 
 def test_scope_concurrency_default(monkeypatch):
     monkeypatch.delenv("EXECUTIVE_BRIEF_SCOPE_CONCURRENCY", raising=False)
-    assert executive_agent._scope_concurrency_limit() == 2
+    assert executive_agent._scope_concurrency_limit() == 3
 
 
 def test_scope_concurrency_invalid_values_fall_back(monkeypatch):
     monkeypatch.setenv("EXECUTIVE_BRIEF_SCOPE_CONCURRENCY", "-2")
-    assert executive_agent._scope_concurrency_limit() == 2
+    assert executive_agent._scope_concurrency_limit() == 3
 
 
 def test_scope_concurrency_env_override(monkeypatch):
