@@ -1,0 +1,252 @@
+name: "ops_metrics_weekly"
+version: "1.0.0"
+display_name: "Ops Metrics Weekly Scorecard"
+target_label: "Metric"
+description: "Weekly operational metrics scorecard for trucking operations with hierarchical drill-down by region, division, and business line"
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 10000
+
+presentation:
+  unit: "USD"
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 15
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/tableau/ops_metrics_weekly_extract.csv"
+
+time:
+  column: "cal_dt"
+  frequency: "daily"
+  format: "%Y-%m-%d %H:%M:%S"
+  range_months: 24
+
+grain:
+  columns: ["cal_dt", "gl_rgn_nm", "gl_div_nm", "ops_ln_of_bus_nm", "icc_cst_ctr_cd"]
+
+metrics:
+  # Revenue Metrics (Additive)
+  - name: "ttl_rev_amt"
+    column: "ttl_rev_amt"
+    display_name: "Total Revenue"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    description: "Total revenue amount"
+    
+  - name: "lh_rev_amt"
+    column: "lh_rev_amt"
+    display_name: "Line Haul Revenue"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    description: "Line haul revenue amount"
+    
+  - name: "fuel_srchrg_rev_amt"
+    column: "fuel_srchrg_rev_amt"
+    display_name: "Fuel Surcharge Revenue"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    description: "Fuel surcharge revenue amount"
+    
+  - name: "acsrl_rev_amt"
+    column: "acsrl_rev_amt"
+    display_name: "Accessorial Revenue"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    description: "Accessorial revenue amount"
+  
+  # Order and Activity Metrics (Additive)
+  - name: "ordr_cnt"
+    column: "ordr_cnt"
+    display_name: "Order Count"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Total number of orders"
+    
+  - name: "rev_ordr_cnt"
+    column: "rev_ordr_cnt"
+    display_name: "Revenue Order Count"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Number of revenue-generating orders"
+  
+  # Mileage Metrics (Additive)
+  - name: "ordr_miles"
+    column: "ordr_miles"
+    display_name: "Order Miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Total miles for orders"
+    
+  - name: "ttl_trf_mi"
+    column: "ttl_trf_mi"
+    display_name: "Total Traffic Miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Total traffic miles"
+    
+  - name: "ld_trf_mi"
+    column: "ld_trf_mi"
+    display_name: "Loaded Traffic Miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Loaded traffic miles"
+    
+  - name: "dh_miles"
+    column: "dh_miles"
+    display_name: "Deadhead Miles"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    description: "Deadhead (empty) miles"
+  
+  # Fleet and Driver Metrics (Additive)
+  - name: "truck_count"
+    column: "truck_count"
+    display_name: "Truck Count"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Total number of trucks"
+    
+  - name: "exprncd_drvr_cnt"
+    column: "exprncd_drvr_cnt"
+    display_name: "Experienced Driver Count"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    description: "Number of experienced drivers"
+  
+  # Fuel Metrics (Additive)
+  - name: "ttl_fuel_qty"
+    column: "ttl_fuel_qty"
+    display_name: "Total Fuel Quantity"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    description: "Total fuel quantity purchased"
+    
+  - name: "idle_fuel_qty"
+    column: "idle_fuel_qty"
+    display_name: "Idle Fuel Quantity"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    description: "Fuel quantity used while idling"
+  
+  # Engine Time Metrics (Additive)
+  - name: "ttl_engn_tm"
+    column: "ttl_engn_tm"
+    display_name: "Total Engine Time"
+    type: "additive"
+    format: "float"
+    optimization: "neutral"
+    description: "Total engine time in minutes"
+    
+  - name: "idle_engn_tm"
+    column: "idle_engn_tm"
+    display_name: "Idle Engine Time"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    description: "Idle engine time in minutes"
+
+dimensions:
+  # Geographic Hierarchy
+  - name: "gl_rgn_nm"
+    column: "gl_rgn_nm"
+    display_name: "GL Region"
+    role: "primary"
+    description: "General ledger region name"
+    
+  - name: "gl_div_nm"
+    column: "gl_div_nm"
+    display_name: "GL Division"
+    role: "primary"
+    description: "General ledger division name"
+  
+  # Business Line Hierarchy
+  - name: "ops_ln_of_bus_ref_nm"
+    column: "ops_ln_of_bus_ref_nm"
+    display_name: "Operations Line of Business (Reference)"
+    role: "primary"
+    description: "Operations line of business reference name"
+    
+  - name: "ops_ln_of_bus_nm"
+    column: "ops_ln_of_bus_nm"
+    display_name: "Operations Line of Business"
+    role: "primary"
+    description: "Operations line of business name"
+  
+  # Cost Center
+  - name: "icc_cst_ctr_cd"
+    column: "icc_cst_ctr_cd"
+    display_name: "ICC Cost Center Code"
+    role: "secondary"
+    description: "ICC cost center code"
+    
+  - name: "icc_cst_ctr_nm"
+    column: "icc_cst_ctr_nm"
+    display_name: "ICC Cost Center Name"
+    role: "secondary"
+    description: "ICC cost center name"
+  
+  # Management
+  - name: "flt_mgr_cd"
+    column: "flt_mgr_cd"
+    display_name: "Fleet Manager Code"
+    role: "secondary"
+    description: "Fleet manager code"
+    
+  - name: "drvr_mgr_cd"
+    column: "drvr_mgr_cd"
+    display_name: "Driver Manager Code"
+    role: "secondary"
+    description: "Driver manager code"
+  
+  # Flags
+  - name: "ownr_oprtr_flg"
+    column: "ownr_oprtr_flg"
+    display_name: "Owner Operator Flag"
+    role: "secondary"
+    description: "Owner operator flag (Y/N)"
+    
+  - name: "drvr_2_flg"
+    column: "drvr_2_flg"
+    display_name: "Driver 2 Flag"
+    role: "secondary"
+    description: "Driver 2 flag (Y/N)"
+    
+  - name: "top_gun_stdnt_flg"
+    column: "top_gun_stdnt_flg"
+    display_name: "Top Gun Student Flag"
+    role: "secondary"
+    description: "Top Gun student flag (Y/N)"
+
+hierarchies:
+  - name: "geographic"
+    display_name: "Geographic Hierarchy"
+    levels:
+      - "gl_rgn_nm"
+      - "gl_div_nm"
+  
+  - name: "business_line"
+    display_name: "Business Line Hierarchy"
+    levels:
+      - "ops_ln_of_bus_ref_nm"
+      - "ops_ln_of_bus_nm"
+      - "icc_cst_ctr_nm"
