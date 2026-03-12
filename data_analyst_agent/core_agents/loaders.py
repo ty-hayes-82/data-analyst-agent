@@ -665,7 +665,32 @@ class DateInitializer(BaseAgent):
         print(f"[DateInitializer] Done yielding event")
 
 class ConditionalOrderDetailsFetchAgent(BaseAgent):
-    """Conditionally fetches order details based on request type using should_fetch_supplementary_data tool."""
+    """Conditionally fetches order details based on request type.
+    
+    This agent acts as a smart gate for supplementary data fetching. It uses
+    the should_fetch_supplementary_data tool to determine whether the request
+    requires detailed transactional data (e.g., order-level details) or can
+    proceed with aggregate metrics alone.
+    
+    This optimization prevents unnecessary data loading for high-level trend
+    analyses that don't require granular transaction details.
+    
+    Session State Inputs:
+        request_analysis: Parsed request with analysis type and requirements
+        
+    Behavior:
+        - If should_fetch_supplementary_data returns True: delegates to order_details_agent
+        - Otherwise: yields empty event to skip the fetch stage
+        
+    Example:
+        >>> # Request requiring order details (drill-down analysis):
+        >>> request = {"analysis_type": "store_performance_deep_dive", ...}
+        >>> # Agent will fetch order details
+        
+        >>> # Request not requiring details (high-level trend):
+        >>> request = {"analysis_type": "operational_trend", ...}
+        >>> # Agent will skip order details fetch
+    """
     
     def __init__(self, order_details_agent):
         super().__init__(name="conditional_order_details_fetch")

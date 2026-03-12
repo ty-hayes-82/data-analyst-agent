@@ -39,16 +39,105 @@ async def compute_pvm_decomposition(
     analysis_period: str = "latest",
     prior_period: Optional[str] = None
 ) -> str:
-    """
-    Perform PVM decomposition for a target metric.
-
+    """Perform 2-factor Price-Volume-Mix (PVM) decomposition for a target metric.
+    
+    This is a simplified version of PVM analysis that separates variance into:
+        1. Volume Impact: Change from quantity differences (at prior prices)
+        2. Price Impact: Change from price differences (at current quantities)
+    
+    Math:
+        - Volume Impact = (Actual_Qty - Prior_Qty) × Prior_Price
+        - Price Impact = (Actual_Price - Prior_Price) × Actual_Qty
+        - Total Variance = Price Impact + Volume Impact
+    
+    This 2-factor model is appropriate when mix shift is less relevant (e.g.,
+    single-product analysis) or when you want a simpler attribution.
+    
+    For full 3-factor analysis (including mix shift), use compute_mix_shift_analysis().
+    
+    Use Cases:
+        - Per-customer revenue analysis: Price vs volume contribution
+        - Per-lane logistics analysis: Rate vs load count impact
+        - Simple variance attribution without mix complexity
+        - Waterfall charts showing price and volume bridges
+    
     Args:
-        target_metric: The metric to decompose (e.g., 'revenue')
-        price_metric: The metric representing price (e.g., 'rate_per_mile')
-        volume_metric: The metric representing volume (e.g., 'miles')
-        dimension: The dimension to group by (e.g., 'customer' or 'lane')
-        analysis_period: The period to analyze ("latest" or "YYYY-MM")
-        prior_period: Optional specific prior period to compare against.
+        target_metric: Metric to decompose (e.g., 'revenue', 'cost').
+            Should be = price_metric × volume_metric.
+        price_metric: Price/rate metric (e.g., 'rate_per_mile', 'unit_price').
+        volume_metric: Volume metric (e.g., 'miles', 'units', 'loads').
+        dimension: Dimension to group by (e.g., 'customer', 'lane', 'product').
+            Decomposition performed per dimension value.
+        analysis_period: Period to analyze. "latest" (default) or specific period
+            (YYYY-MM). If "latest", uses most recent period.
+        prior_period: Prior period for comparison. If None, defaults to YoY
+            (12 periods ago) if available, else MoM (1 period ago).
+    
+    Returns:
+        JSON string with:
+            total_variance: Aggregate variance across all dimension values
+            decomposition: {
+                total_price_impact: Sum of price impacts
+                total_volume_impact: Sum of volume impacts
+                price_impact_pct: Price impact as % of total variance
+                volume_impact_pct: Volume impact as % of total variance
+            }
+            entity_pvm: [{
+                entity: Dimension value identifier
+                entity_name: Display name
+                current_total: Current period value
+                prior_total: Prior period value
+                variance_dollar: Total variance
+                price_impact: Price impact component
+                volume_impact: Volume impact component
+                current_qty: Current period volume
+                prior_qty: Prior period volume
+                current_price: Current period price
+                prior_price: Prior period price
+            }]
+            top_price_drivers: Top N entities by price impact
+            top_volume_drivers: Top N entities by volume impact
+            summary: {
+                current_period, prior_period,
+                dominant_factor: "price" or "volume"
+                dominant_factor_pct: % of total variance
+            }
+        
+        Or {"error": "..."} on exception or insufficient data
+    
+    Raises:
+        ValueError: Via resolve_data_and_columns if context/data resolution fails.
+    
+    Example:
+        >>> result = await compute_pvm_decomposition(
+        ...     target_metric="revenue",
+        ...     price_metric="avg_rate",
+        ...     volume_metric="loads",
+        ...     dimension="customer"
+        ... )
+        >>> # Returns: {
+        >>> #   "decomposition": {
+        >>> #     "total_price_impact": 300000,
+        >>> #     "total_volume_impact": 200000,
+        >>> #     "price_impact_pct": 60.0,
+        >>> #     "volume_impact_pct": 40.0
+        >>> #   },
+        >>> #   "top_price_drivers": [
+        >>> #     {
+        >>> #       "entity": "customer_123",
+        >>> #       "price_impact": 150000,
+        >>> #       "current_price": 2.50,
+        >>> #       "prior_price": 2.00
+        >>> #     }
+        >>> #   ]
+        >>> # }
+    
+    Note:
+        - Requires at least 2 periods (current and prior)
+        - Target metric should be = price × volume (validates PVM relationship)
+        - Prices calculated as target/volume for each dimension value
+        - Handles division by zero (sets price to 0 if volume is 0)
+        - For 3-factor analysis (including mix shift), use compute_mix_shift_analysis()
     """
     try:
         # 1. Get data

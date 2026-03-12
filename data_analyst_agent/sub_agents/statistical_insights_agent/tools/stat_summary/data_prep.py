@@ -144,7 +144,9 @@ def _apply_materiality_filter(df, pivot, ctx, metric_name, grain_col, time_col):
         if denom_df.empty:
             return
         _gcol = grain_col if grain_col in denom_df.columns else "terminal"
-        _tcol = time_col if time_col in denom_df.columns else "week_ending"
+        # Use contract-defined time column or fallback to "period"
+        contract_time_col = (ctx.contract.time.column if ctx.contract.time else None) or "period"
+        _tcol = time_col if time_col in denom_df.columns else (contract_time_col if contract_time_col in denom_df.columns else "period")
         denom_df["value"] = pd.to_numeric(denom_df["value"], errors="coerce").fillna(0)
         net_denom = denom_df.groupby(_tcol)["value"].sum()
         grain_vals = set(df[_gcol].astype(str).unique())

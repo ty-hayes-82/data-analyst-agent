@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-12T14:47:14
+**Last updated:** 2026-03-12T18:27:39
 
 ## Current State
 - **Unit Tests:** 298 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 194 files, 30,801 lines, **58 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (1240L)
-- **Commit:** `87f3346 docs: dev session summary 2026-03-12`
+- **Codebase:** 202 files, 31,816 lines, **58 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (1475L)
+- **Commit:** `7ff5c67 docs: dev iteration session summary 2026-0`
 
 ## Progress Over Time
 
@@ -176,10 +176,10 @@
 | 161 | 04:56 | `ad369f0` | 275 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 | 162 | 13:47 | `7dd5b39` | 287 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 | 163 | 14:47 | `87f3346` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+| 164 | 18:27 | `7ff5c67` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
 - Tests: 247 → **298** (+51)
 - Failures: 0 → **0**
 - Files >200L: 50 → **58** (+8)
-- Iterations: 163
-| 164 | 17:24 | `d0985a2` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+- Iterations: 164

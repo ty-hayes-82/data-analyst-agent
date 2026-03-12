@@ -21,6 +21,68 @@ def detect_cross_cutting_patterns(
     variance_type: str,
     ctx: Any,
 ) -> List[dict]:
+    """Detect auxiliary dimension values that consistently boost or drag performance.
+    
+    This function identifies cross-cutting patterns where an auxiliary dimension
+    (e.g., Terminal, Payment Type) has a consistent effect across multiple hierarchy
+    entities (e.g., LOBs, Stores). It answers questions like:
+    
+    - "Is Terminal X dragging performance across all LOBs?"
+    - "Is Payment Type Y boosting revenue for most stores?"
+    
+    The analysis computes period-over-period changes for each (hierarchy, auxiliary)
+    pair, then aggregates by auxiliary dimension to find consistent effects.
+    
+    Args:
+        df: DataFrame with columns [hier_col, aux_col, metric_col, time_col].
+        hier_col: Hierarchy dimension column (e.g., "line_of_business").
+        aux_col: Auxiliary dimension column (e.g., "terminal_name").
+        metric_col: Target metric column (e.g., "revenue").
+        time_col: Time period column (e.g., "week_ending").
+        variance_type: "MoM" or "YoY" for period comparison.
+        ctx: ADK context with contract and target_metric for lag calculation.
+    
+    Returns:
+        List of pattern dicts sorted by absolute mean_impact_pct, each with:
+            auxiliary_value: Auxiliary dimension value (e.g., "Terminal_123")
+            effect_direction: "positive" or "negative"
+            mean_impact_pct: Average % change across affected entities
+            affected_entities: List of hierarchy values (up to 5)
+            affected_entity_count: Count of entities with consistent effect
+            consistency: Proportion of entities affected (0.0-1.0)
+            label: Human-readable description
+        
+        Empty list if <2 periods or no patterns detected.
+    
+    Example:
+        >>> df = pd.DataFrame({
+        ...     'lob': ['Retail', 'Retail', 'Wholesale', 'Wholesale'],
+        ...     'terminal': ['T1', 'T2', 'T1', 'T2'],
+        ...     'revenue': [1000, 900, 2000, 1800],
+        ...     'week_ending': ['2025-01', '2025-01', '2025-01', '2025-01']
+        ... })
+        >>> patterns = detect_cross_cutting_patterns(
+        ...     df, 'lob', 'terminal', 'revenue', 'week_ending', 'MoM', ctx
+        ... )
+        >>> # Returns: [
+        >>> #   {
+        >>> #     'auxiliary_value': 'T2',
+        >>> #     'effect_direction': 'negative',
+        >>> #     'mean_impact_pct': -10.5,
+        >>> #     'affected_entity_count': 2,
+        >>> #     'consistency': 1.0,
+        >>> #     'label': 'T2 is dragging performance at 2 of 2 entities (-10.5% avg impact)'
+        >>> #   }
+        >>> # ]
+    
+    Note:
+        - Requires 2+ periods for comparison
+        - Negative pattern threshold: ≥60% of entities with change < -1%
+        - Positive pattern threshold: ≥60% of entities with change > +1%
+        - Minimum entities per auxiliary value: 2
+        - Uses lag-aware period selection (respects contract lag_periods)
+        - Returns top patterns sorted by absolute mean impact
+    """
     """Find aux values that consistently over/under-perform across hierarchy entities."""
     periods = sorted(df[time_col].unique())
     if len(periods) < 2:

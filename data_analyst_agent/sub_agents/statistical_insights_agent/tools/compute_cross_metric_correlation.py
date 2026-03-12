@@ -106,7 +106,110 @@ async def compute_cross_metric_correlation(
     per_dimension: bool = False,
     pre_resolved: Optional[dict] = None,
 ) -> str:
-    """Compute pairwise correlations across contract-defined metrics."""
+    """Compute pairwise Pearson correlations across all contract-defined metrics.
+    
+    This tool builds a correlation matrix across metrics (e.g., Revenue vs Orders)
+    to identify strong relationships, detect unexpected correlations, and flag
+    dimension-level outliers where relationships break down.
+    
+    Analysis Types:
+        1. Population-level: Correlations across all data (aggregate time series)
+        2. Per-dimension: For each dimension value (e.g., per LOB), compute
+           correlations and flag outliers where correlation deviates significantly
+           from the population.
+    
+    Use Cases:
+        - Identify leading indicators (e.g., Orders correlate with Revenue)
+        - Detect unexpected correlations (e.g., Margin negatively correlated with Volume)
+        - Find dimension-level anomalies (e.g., LOB "Retail" has broken correlation)
+        - Validate expected relationships (e.g., PVM metrics: Price * Volume = Total)
+    
+    Args:
+        min_r: Minimum absolute correlation coefficient to report.
+            Default 0.5 (moderate correlation). Range: [0, 1].
+        max_p: Maximum p-value for statistical significance.
+            Default 0.10 (10% significance level). Range: [0, 1].
+        include_derived: If True, includes derived/ratio metrics in analysis.
+            Default True. Set False to exclude calculated metrics and focus
+            on base metrics only.
+        per_dimension: If True, computes per-dimension correlations and flags
+            outliers where dimension-level correlation deviates from population.
+            Default False (population-level only). WARNING: Can be slow for
+            high-cardinality dimensions (100+ values).
+        pre_resolved: Pre-resolved data bundle from compute_statistical_summary.
+            If provided, skips data resolution. Must contain:
+            - ctx: ADK context with contract
+            - df (optional): Source DataFrame (used in wide mode)
+    
+    Returns:
+        JSON string with:
+            matrix: {
+                metrics: List of metric names
+                correlations: 2D array (n×n) of correlation coefficients
+                p_values: 2D array (n×n) of p-values
+            }
+            significant_pairs: List of {metric_a, metric_b, r, p_value,
+                classification, expected, relationship}
+                - classification: "strong_positive", "strong_negative",
+                  "moderate_positive", "moderate_negative"
+                - expected: Boolean (True if relationship is defined in contract)
+                - relationship: Human-readable explanation (e.g., "PVM relationship")
+            unexpected_pairs: Subset of significant_pairs where expected=False
+            dimension_outliers: (Only if per_dimension=True) List of {
+                dimension_label, dimension_value, metric_a, metric_b,
+                r (dimension-level), population_r, deviation}
+                Flags dimension values where correlation deviates significantly.
+            summary: {
+                metrics_analyzed, significant_pairs, unexpected_pairs,
+                dimension_outliers, dimension_label, source_mode
+            }
+        
+        Or {"skipped": True, "reason": "..."} or {"error": "..."}
+    
+    Raises:
+        ValueError: Via resolve_data_and_columns if pre_resolved not provided
+            and context/data resolution fails.
+    
+    Example:
+        >>> result = await compute_cross_metric_correlation(min_r=0.6, max_p=0.05)
+        >>> # Returns: {
+        >>> #   "significant_pairs": [
+        >>> #     {
+        >>> #       "metric_a": "revenue",
+        >>> #       "metric_b": "orders",
+        >>> #       "r": 0.92,
+        >>> #       "p_value": 0.0001,
+        >>> #       "classification": "strong_positive",
+        >>> #       "expected": false,
+        >>> #       "relationship": null
+        >>> #     }
+        >>> #   ],
+        >>> #   "unexpected_pairs": [...]  # Same as above
+        >>> # }
+        
+        >>> # Per-dimension analysis:
+        >>> result = await compute_cross_metric_correlation(per_dimension=True)
+        >>> # dimension_outliers: [{
+        >>> #   "dimension_value": "Retail",
+        >>> #   "metric_a": "revenue",
+        >>> #   "metric_b": "orders",
+        >>> #   "r": 0.15,  # Weak correlation for Retail
+        >>> #   "population_r": 0.92,  # Strong overall
+        >>> #   "deviation": "Correlation breakdown — revenue decoupled from orders at this LOB"
+        >>> # }]
+    
+    Note:
+        - Requires scipy (pip install scipy)
+        - Uses Pearson correlation (assumes linear relationships)
+        - Classification thresholds: strong = |r| ≥ 0.8, moderate = 0.5 ≤ |r| < 0.8
+        - Dimension outliers require per_dimension=True AND at least one significant pair
+        - MAX_DIMENSION_ENTITIES env var limits per-dimension analysis (default 200)
+        - Expected relationships derived from contract metadata:
+          * depends_on/derived_from fields
+          * PVM role relationships (price, volume, total)
+        - Wide mode (multiple metric columns) vs Long mode (single value column)
+          auto-detected from contract schema
+    """
 
     from ...data_cache import resolve_data_and_columns
 

@@ -24,11 +24,55 @@ USE_CODE_INSIGHTS = os.environ.get("USE_CODE_INSIGHTS", "true").lower() == "true
 
 
 class RuleBasedPlanner(BaseAgent):
-    """Code-based execution planner — replaces the LLM planner agent.
-
-    Calls generate_execution_plan() for the deterministic baseline plan, then
-    calls refine_plan() to add any agents explicitly mentioned in the user query.
-    No LLM call is made.
+    """Deterministic code-based execution planner (no LLM).
+    
+    This agent generates the execution plan for the analysis pipeline. It determines
+    which analysis agents to run based on:
+        1. Contract configuration (available metrics, hierarchies, PVM roles)
+        2. Available data periods (enables/disables seasonal, YoY, etc.)
+        3. User query keywords (focus directives, explicit agent mentions)
+    
+    Plan Generation Flow:
+        1. generate_execution_plan(): Creates baseline plan from contract metadata
+           - Always includes: StatisticalInsightsAgent, HierarchyVarianceAgent
+           - Conditionally adds based on contract:
+             * SeasonalDecompositionAgent (if 24+ periods)
+             * PVMDecompositionAgent (if PVM roles defined)
+             * MixShiftAnalysisAgent (if PVM roles + segment dimension)
+             * CrossMetricCorrelationAgent (if 2+ metrics)
+             * LaggedCorrelationAgent (if 2+ metrics + 12+ periods)
+        2. refine_plan(): Adds agents mentioned in user query/focus directives
+           - Keyword matching on agent names (e.g., "seasonal" → SeasonalDecompositionAgent)
+    
+    Session State Inputs:
+        user_query: User's request text (for keyword matching)
+        original_request: Fallback request text
+        analysis_focus: List of focus directives (e.g., ["recent_monthly_trends"])
+        custom_focus: Custom focus text (sanitized, max 500 chars)
+    
+    Session State Outputs:
+        execution_plan: {
+            selected_agents: [{name, reasoning}]
+            summary: Human-readable plan summary
+            context_summary: {contract, periods, metrics}
+        }
+    
+    Example:
+        >>> # After planner runs:
+        >>> plan = ctx.session.state["execution_plan"]
+        >>> print(plan["selected_agents"])
+        >>> # [
+        >>> #   {"name": "StatisticalInsightsAgent", "reasoning": "Core analysis"},
+        >>> #   {"name": "HierarchyVarianceAgent", "reasoning": "Multi-level drill-down"},
+        >>> #   {"name": "SeasonalDecompositionAgent", "reasoning": "24+ periods available"}
+        >>> # ]
+    
+    Note:
+        - This is a "rule-based planner" — no LLM calls
+        - USE_CODE_INSIGHTS env var controls whether to use this or LLM planner
+        - Plans are deterministic and reproducible
+        - Keyword matching is case-insensitive substring search
+        - Invalid agent names (not in AVAILABLE_AGENTS) are ignored
     """
 
     def __init__(self):

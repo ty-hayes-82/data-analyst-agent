@@ -139,7 +139,85 @@ _base_agent = Agent(
 )
 
 class NarrativeWrapper(BaseAgent):
-    """Wrapper to dynamically update narrative agent instruction from contract."""
+    """LLM-powered agent that transforms raw analytical findings into semantic Insight Cards.
+    
+    This agent is the final synthesis stage of the analysis pipeline. It receives
+    structured results from statistical and hierarchy analysis agents and generates
+    human-readable narrative summaries with root-cause classification.
+    
+    Responsibilities:
+        - Rank and filter insights by materiality (dollar impact × percentage × share)
+        - Classify root causes (price, volume, mix, seasonality, other)
+        - Generate executive summaries (≤35 words)
+        - Populate evidence fields (metric, baseline, period, delta, p-value)
+        - Assign priority (critical/high/medium/low)
+        - Tag insights with relevant categories
+    
+    Output Schema:
+        insight_cards: List of cards with:
+            - title: Concise headline (e.g., "Retail LOB drove 60% of revenue growth")
+            - what_changed: Factual change description (≤28 words)
+            - why: Root cause explanation (≤28 words)
+            - evidence: Structured data (metric, baseline, delta, share, p-value)
+            - priority: critical|high|medium|low
+            - root_cause: price|volume|mix|seasonality|other
+            - tags: List of relevant tags
+        narrative_summary: One-sentence executive summary (≤35 words)
+    
+    Context Inputs (from session state):
+        statistical_summary: Statistical insights tool output
+        hierarchy_results: Hierarchy variance tool output
+        independent_dimension_results: Independent dimension analysis
+        analyst_results: Planner/ML analysis results
+        dataset_contract: Contract metadata
+        analysis_focus: Focus directives
+        custom_focus: Custom user focus text
+        temporal_grain: Monthly/weekly/daily
+        analysis_period: Period being analyzed
+    
+    Model Configuration:
+        - Uses Gemini 2.0 Flash (or configured narrative_agent model)
+        - Temperature: 0.0 (deterministic)
+        - Response format: JSON
+        - Thinking mode: Configurable via get_agent_thinking_config
+    
+    Token Budget Management:
+        - Truncates statistical_summary to MAX_NARRATIVE_STATS_CHARS (2100)
+        - Truncates hierarchy_results to MAX_NARRATIVE_HIERARCHY_CHARS (2000)
+        - Truncates independent_dimension_results to MAX_NARRATIVE_INDEPENDENT_CHARS (1200)
+        - Limits top drivers to MAX_NARRATIVE_TOP_DRIVERS (3)
+        - Limits anomalies to MAX_NARRATIVE_ANOMALIES (3)
+        - Limits hierarchy cards to MAX_NARRATIVE_HIERARCHY_CARDS (2)
+        - Prunes bulky table fields (level_results, entity_rows, raw_rows, etc.)
+    
+    Example:
+        >>> # After statistical and hierarchy analysis:
+        >>> narrative_results = ctx.session.state["narrative_results"]
+        >>> cards = narrative_results["insight_cards"]
+        >>> print(cards[0])
+        >>> # {
+        >>> #   "title": "Retail LOB drove 60% of revenue growth",
+        >>> #   "what_changed": "Retail revenue increased $1.2M (+8.5% YoY)",
+        >>> #   "why": "Strong same-store sales growth in Q4 holiday season",
+        >>> #   "evidence": {
+        >>> #     "metric": "revenue",
+        >>> #     "baseline": "YoY",
+        >>> #     "delta_abs": 1200000,
+        >>> #     "delta_pct": 8.5,
+        >>> #     "share_of_total": 60.0
+        >>> #   },
+        >>> #   "priority": "critical",
+        >>> #   "root_cause": "volume"
+        >>> # }
+    
+    Note:
+        - Uses NarrativeWrapper to dynamically inject contract metadata into prompt
+        - Respects materiality thresholds from contract (variance_pct, variance_absolute)
+        - Filters out low-materiality insights (<10% share unless explaining >60% variance)
+        - Flags partial periods explicitly
+        - Only uses contract-defined metric/dimension names
+        - Sets signal="statistically_confirmed" only if p < 0.05
+    """
     
     def __init__(self, wrapped_agent):
         output_key = getattr(wrapped_agent, "output_key", None) or "narrative_results"
