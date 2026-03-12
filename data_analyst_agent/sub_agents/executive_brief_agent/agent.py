@@ -781,34 +781,7 @@ async def _llm_generate_brief(
                 fallback_json, fallback_markdown = _structured_fallback(reason)
                 return fallback_json, fallback_markdown, True
             
-            # PRE-NORMALIZATION VALIDATION: Check if LLM returned the required section titles
-            if section_contract:
-                expected_titles = [spec["title"] for spec in section_contract]
-                actual_sections = brief_data.get("body", {}).get("sections", [])
-                actual_titles = [
-                    str(s.get("title", "")).strip() 
-                    for s in actual_sections 
-                    if isinstance(s, dict)
-                ]
-                
-                if actual_titles != expected_titles:
-                    error_msg = (
-                        f"LLM returned wrong section titles. "
-                        f"Expected: {', '.join(expected_titles)}. "
-                        f"Got: {', '.join(actual_titles or ['<empty>'])}"
-                    )
-                    print(f"[BRIEF] Attempt {attempt}/{max_attempts}: {error_msg}")
-                    if attempt < max_attempts:
-                        print(f"[BRIEF] Retrying with stronger section title enforcement...")
-                        await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
-                        continue
-                    else:
-                        # After exhausting retries, RAISE to trigger fallback
-                        raise ValueError(
-                            f"LLM persistently returned wrong section titles after {max_attempts} attempts: "
-                            f"got {actual_titles}, expected {expected_titles}"
-                        )
-            
+            # Apply normalization FIRST to fix structure, then validate
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
             else:
