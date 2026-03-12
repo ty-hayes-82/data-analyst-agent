@@ -1,0 +1,9 @@
+metrics:
+  co2:
+    unit: "MtCO2"
+  coal_co2:
+    unit: "MtCO2"
+  gas_co2:
+    unit: "MtCO2"
+  oil_co2:
+    unit: "MtCO2"

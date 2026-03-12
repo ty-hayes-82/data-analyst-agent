@@ -8,6 +8,8 @@ Tests:
 
 import pytest
 import json
+from config.dataset_resolver import clear_dataset_cache
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import clear_metric_units_cache
 from tests.utils.import_helpers import import_report_synthesis_tool
 
 
@@ -287,3 +289,68 @@ async def test_markdown_report_error_on_invalid_json():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s", "--tb=short"])
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
+async def test_markdown_report_uses_metric_units_for_covid_cases(monkeypatch):
+    """covid_us_counties cases should render people units from metric_units.yaml."""
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+
+    monkeypatch.setenv("ACTIVE_DATASET", "covid_us_counties")
+    clear_dataset_cache()
+    clear_metric_units_cache()
+
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        analysis_target="cases",
+    )
+
+    lines = [line for line in report.splitlines() if "Total Variance" in line]
+    assert lines, "Total Variance line missing in covid unit test"
+    assert all("$" not in line for line in lines)
+    assert any("people" in line.lower() for line in lines)
+
+    rec_section = report.split("## Recommended Actions", 1)[1].split("##", 1)[0]
+    assert "$" not in rec_section
+    assert "people" in rec_section.lower()
+
+    assert "Variance (people)" in report
+
+    clear_metric_units_cache()
+    clear_dataset_cache()
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
+async def test_markdown_report_prefers_metric_units_over_contract(monkeypatch):
+    """owid_co2_emissions co2 should render MtCO2 even if contract says tonnes."""
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+
+    monkeypatch.setenv("ACTIVE_DATASET", "owid_co2_emissions")
+    clear_dataset_cache()
+    clear_metric_units_cache()
+
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        analysis_target="co2",
+        presentation_unit="tonnes",
+    )
+
+    lines = [line for line in report.splitlines() if "Total Variance" in line]
+    assert lines, "Total Variance line missing in CO2 unit test"
+    assert all("$" not in line for line in lines)
+    assert any("mtco2" in line.lower() for line in lines)
+
+    rec_section = report.split("## Recommended Actions", 1)[1].split("##", 1)[0]
+    assert "$" not in rec_section
+    assert "mtco2" in rec_section.lower()
+
+    assert "Variance (MtCO2)" in report
+
+    clear_metric_units_cache()
+    clear_dataset_cache()

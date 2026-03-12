@@ -32,16 +32,20 @@ _ZERO_VARIANCE_PATTERNS = (
 )
 
 _METRIC_UNITS_CACHE: Optional[Dict[str, Dict[str, str]]] = None
+_METRIC_UNITS_DATASET: Optional[str] = None
 _CURRENCY_TOKENS = {"usd", "currency", "dollars", "dollar", "us$", "us dollars"}
 
 
 def load_metric_units() -> Dict[str, Dict[str, str]]:
-    global _METRIC_UNITS_CACHE
-    if _METRIC_UNITS_CACHE is not None:
-        return _METRIC_UNITS_CACHE
+    global _METRIC_UNITS_CACHE, _METRIC_UNITS_DATASET
 
+    dataset_name: Optional[str] = None
     try:
-        from config.dataset_resolver import get_dataset_path_optional
+        from config.dataset_resolver import get_active_dataset, get_dataset_path_optional
+
+        dataset_name = get_active_dataset()
+        if _METRIC_UNITS_CACHE is not None and dataset_name == _METRIC_UNITS_DATASET:
+            return _METRIC_UNITS_CACHE
 
         path = get_dataset_path_optional("metric_units.yaml")
         if path and path.exists():
@@ -52,9 +56,17 @@ def load_metric_units() -> Dict[str, Dict[str, str]]:
             _METRIC_UNITS_CACHE = data.get("metrics", {}) or {}
         else:
             _METRIC_UNITS_CACHE = {}
+        _METRIC_UNITS_DATASET = dataset_name
     except Exception:  # pragma: no cover
         _METRIC_UNITS_CACHE = {}
+        _METRIC_UNITS_DATASET = dataset_name
     return _METRIC_UNITS_CACHE
+
+
+def clear_metric_units_cache() -> None:
+    global _METRIC_UNITS_CACHE, _METRIC_UNITS_DATASET
+    _METRIC_UNITS_CACHE = None
+    _METRIC_UNITS_DATASET = None
 
 
 def normalize_unit(unit: Optional[str]) -> str:
@@ -89,16 +101,26 @@ def unit_display_label(unit: str) -> str:
     return normalized
 
 
-def resolve_unit(analysis_target: str, contract_unit: Optional[str] = None) -> str:
+def resolve_unit(analysis_target: Optional[str], contract_unit: Optional[str] = None) -> str:
+    key = (analysis_target or "").strip()
+    if key:
+        units = load_metric_units()
+        cfg = units.get(key) or units.get(key.strip())
+        if isinstance(cfg, dict):
+            value = str(cfg.get("unit", "currency"))
+            normalized = value.strip()
+            if normalized:
+                return normalized
+        elif isinstance(cfg, str):
+            normalized = cfg.strip()
+            if normalized:
+                return normalized
+
     if contract_unit is not None:
-        text = str(contract_unit).strip()
-        if text:
-            return text
-    units = load_metric_units()
-    cfg = units.get(analysis_target) or units.get(analysis_target.strip())
-    if cfg and isinstance(cfg, dict):
-        value = str(cfg.get("unit", "currency"))
-        return value.strip() or "currency"
+        text_value = str(contract_unit).strip()
+        if text_value:
+            return text_value
+
     return "currency"
 
 
@@ -143,4 +165,5 @@ __all__ = [
     "is_currency_unit",
     "format_value",
     "unit_display_label",
+    "clear_metric_units_cache",
 ]

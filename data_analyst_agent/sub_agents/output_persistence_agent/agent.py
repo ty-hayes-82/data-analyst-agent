@@ -111,6 +111,13 @@ class OutputPersistenceAgent(BaseAgent):
         dataset = session_state.get("dataset_contract")
         dataset_display_name = getattr(dataset, "display_name", None) or getattr(dataset, "name", None)
         dataset_description = getattr(dataset, "description", "") if dataset else ""
+        presentation_unit = None
+        if dataset:
+            presentation_cfg = getattr(dataset, "presentation", None)
+            if isinstance(presentation_cfg, dict):
+                presentation_unit = presentation_cfg.get("unit")
+            elif presentation_cfg is not None:
+                presentation_unit = getattr(presentation_cfg, "unit", None)
         if not isinstance(hierarchical_results, str):
             try:
                 hierarchical_payload = json.dumps(hierarchical_results or {})
@@ -129,6 +136,7 @@ class OutputPersistenceAgent(BaseAgent):
             seasonal_decomposition=session_state.get("seasonal_decomposition"),
             dataset_display_name=dataset_display_name,
             dataset_description=dataset_description,
+            presentation_unit=presentation_unit,
         )
 
     def _parse_alert_summary(self, alert_summary: Any) -> dict[str, Any]:

@@ -1,0 +1,61 @@
+name: "covid_us_counties"
+version: "1.0.0"
+display_name: "COVID-19 US County Cases"
+target_label: "Metric"
+description: >
+  County-level COVID-19 cases and deaths compiled by the New York Times.
+  Daily counts are available for every U.S. county with state rollups.
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 100.0
+presentation:
+  unit: "people"
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: "pdf"
+data_source:
+  type: "csv"
+  file: "data/public/us_counties_covid.csv"
+time:
+  column: "date"
+  frequency: "daily"
+  format: "%Y-%m-%d"
+  range_months: 36
+grain:
+  columns: ["date", "state", "county"]
+metrics:
+  - name: "cases"
+    column: "cases"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+    description: "Cumulative COVID-19 cases"
+  - name: "deaths"
+    column: "deaths"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+    description: "Cumulative COVID-19 deaths"
+dimensions:
+  - name: "state"
+    column: "state"
+    role: "primary"
+    description: "U.S. state"
+  - name: "county"
+    column: "county"
+    role: "secondary"
+    description: "County name"
+  - name: "date"
+    column: "date"
+    role: "time"
+    description: "Observation date"
+hierarchies:
+  - name: "geographic"
+    description: "State to county drill-down"
+    children: ["state", "county"]
+    level_names:
+      0: "Total"
+      1: "State"
+      2: "County"

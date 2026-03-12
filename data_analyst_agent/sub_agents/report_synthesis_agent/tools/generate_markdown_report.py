@@ -528,7 +528,7 @@ async def generate_markdown_report(
         temporal_grain, short_delta_label, period_label = _detect_temporal_labels(stats_data)
 
         lag_meta = _extract_lag_metadata([hierarchical_results, statistical_summary, narrative_results])
-        unit = resolve_unit(dataset_display_name or target_name or "", contract_unit=presentation_unit)
+        unit = resolve_unit(analysis_target or dataset_display_name or target_name or "", contract_unit=presentation_unit)
         default_label = dataset_display_name or "Executive Analysis"
         label = target_label or default_label
         dataset_label = dataset_display_name or label

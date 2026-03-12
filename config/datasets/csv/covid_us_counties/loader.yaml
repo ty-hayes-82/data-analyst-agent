@@ -1,0 +1,14 @@
+source:
+  file: "data/public/us_counties_covid.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+sort_columns: ["date", "state", "county"]
+
+output_columns:
+  - "date"
+  - "state"
+  - "county"
+  - "cases"
+  - "deaths"
