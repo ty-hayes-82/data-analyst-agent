@@ -146,7 +146,7 @@ def _max_scoped_briefs() -> int:
 
 def _scope_concurrency_limit() -> int:
     """Return semaphore size for scoped brief fan-out (>=1)."""
-    return max(1, _parse_positive_int_env("EXECUTIVE_BRIEF_SCOPE_CONCURRENCY", 2))
+    return max(1, _parse_positive_int_env("EXECUTIVE_BRIEF_SCOPE_CONCURRENCY", 3))
 
 
 
