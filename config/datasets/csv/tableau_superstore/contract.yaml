@@ -1,0 +1,148 @@
+name: Tableau Superstore
+version: 1.0.0
+display_name: Tableau Sample Superstore — Sales & Profit Analysis
+target_label: Metric
+description: >
+  The canonical Tableau sample dataset. 9,994 retail orders (2014-2017) across
+  3 product categories, 17 sub-categories, 49 US states, and 3 customer segments.
+  Includes Sales, Profit, Quantity, and Discount with full geographic and product hierarchies.
+  Source: Tableau public sample data (Superstore).
+
+materiality:
+  variance_pct: 8.0
+  variance_absolute: 500.0
+
+presentation:
+  unit: USD
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 3
+  max_scope_entities: 25
+  output_format: pdf
+
+data_source:
+  type: csv
+  file: data/tableau/orders.csv
+
+time:
+  column: Order Date
+  frequency: daily
+  format: "%Y-%m-%d"
+  range_months: 48
+
+grain:
+  columns:
+    - Order Date
+    - Region
+    - Category
+
+metrics:
+  - name: sales
+    column: Sales
+    type: additive
+    format: currency
+    optimization: maximize
+    tags: [revenue, topline]
+    description: Total sales revenue (USD)
+
+  - name: profit
+    column: Profit
+    type: additive
+    format: currency
+    optimization: maximize
+    tags: [profitability, bottomline]
+    description: Profit after cost of goods (USD). Can be negative.
+
+  - name: quantity
+    column: Quantity
+    type: additive
+    format: integer
+    optimization: maximize
+    tags: [volume]
+    description: Number of units sold
+
+  - name: discount
+    column: Discount
+    type: ratio
+    format: percent
+    optimization: minimize
+    tags: [pricing, margin]
+    description: Discount applied to the order (0.0 - 0.8)
+
+dimensions:
+  - name: order_date
+    column: Order Date
+    role: time
+    description: Date the order was placed (2014-01-03 to 2017-12-30)
+
+  - name: ship_date
+    column: Ship Date
+    role: secondary
+    description: Date the order was shipped
+
+  - name: ship_mode
+    column: Ship Mode
+    role: secondary
+    description: "Shipping method: Standard Class, Second Class, First Class, Same Day"
+
+  - name: segment
+    column: Segment
+    role: primary
+    description: "Customer segment: Consumer, Corporate, Home Office"
+
+  - name: region
+    column: Region
+    role: primary
+    description: "US geographic region: Central, East, South, West"
+
+  - name: state
+    column: State
+    role: primary
+    description: US state (49 unique states)
+
+  - name: city
+    column: City
+    role: secondary
+    description: US city (531 unique cities)
+
+  - name: category
+    column: Category
+    role: primary
+    description: "Product category: Furniture, Office Supplies, Technology"
+
+  - name: sub_category
+    column: Sub-Category
+    role: primary
+    description: Product sub-category (17 unique sub-categories)
+
+  - name: customer_name
+    column: Customer Name
+    role: secondary
+    description: Customer name (793 unique customers)
+
+hierarchies:
+  - name: geography
+    levels: [Region, State, City]
+    description: Geographic hierarchy from region down to city
+
+  - name: product
+    levels: [Category, Sub-Category, Product Name]
+    description: Product hierarchy from category to individual products
+
+  - name: customer
+    levels: [Segment, Customer Name]
+    description: Customer hierarchy from segment to individual
+
+capabilities:
+  - Daily time-series analysis (2014-2017, 4 years)
+  - Geographic drill-down (Region → State → City)
+  - Product drill-down (Category → Sub-Category → Product)
+  - Customer segmentation analysis (Consumer, Corporate, Home Office)
+  - Profitability analysis with negative-margin detection
+  - Discount impact on margin analysis
+  - Shipping mode cost/speed trade-off analysis
+  - Cross-dimensional variance (which products lose money in which regions)
+
+policies:
+  degradation_threshold: 0.10

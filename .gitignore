@@ -65,6 +65,7 @@ temp_extracted/
 # Tableau packaged data sources (large binaries, stored locally only)
 # Now stored within config/datasets/ folder
 *.tdsx
+!data/tableau/Sample_Superstore.tdsx
 
 # Legacy data folders (no longer used for datasets)
 # data/tableau/
