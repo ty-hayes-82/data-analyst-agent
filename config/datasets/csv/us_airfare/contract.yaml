@@ -1,0 +1,160 @@
+name: "US Domestic Airfare"
+version: "1.0.0"
+display_name: "US Domestic Airline Airfare Analysis"
+target_label: "Metric"
+description: >
+  US Department of Transportation Bureau of Transportation Statistics airfare data
+  covering the top 1,000 domestic city-pair markets from 2008 to 2025. Quarterly
+  granularity with average fares, passenger volumes, carrier market shares, and
+  fare-per-mile metrics. Captures financial crisis recovery, fuel price impacts,
+  COVID-19 collapse/recovery, and post-pandemic fare inflation.
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 10.0
+
+presentation:
+  unit: "USD"
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 30
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/public/us_airfare_2008_2025.csv"
+
+time:
+  column: "year_quarter"
+  frequency: "quarterly"
+  format: "%Y_Q%q"
+  range_months: 204
+
+grain:
+  columns: ["year_quarter", "origin_city", "destination_city"]
+
+metrics:
+  - name: "avg_fare"
+    column: "avg_fare"
+    type: "average"
+    format: "currency"
+    optimization: "context_dependent"
+    tags: ["pricing", "fare", "revenue"]
+    description: "Average round-trip fare for the city-pair market (USD)"
+  - name: "passengers"
+    column: "passengers"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    tags: ["volume", "demand", "traffic"]
+    description: "Average daily passenger volume (sampled) for the route"
+  - name: "fare_per_mile"
+    column: "fare_per_mile"
+    type: "average"
+    format: "float"
+    optimization: "context_dependent"
+    tags: ["pricing", "efficiency", "yield"]
+    description: "Average fare divided by route distance (USD per mile)"
+  - name: "largest_carrier_fare"
+    column: "largest_carrier_fare"
+    type: "average"
+    format: "currency"
+    optimization: "context_dependent"
+    tags: ["pricing", "carrier", "competition"]
+    description: "Average fare charged by the largest carrier on the route"
+  - name: "lowest_fare"
+    column: "lowest_fare"
+    type: "average"
+    format: "currency"
+    optimization: "context_dependent"
+    tags: ["pricing", "carrier", "competition"]
+    description: "Average fare charged by the lowest-fare carrier on the route"
+  - name: "largest_carrier_market_share"
+    column: "largest_carrier_market_share"
+    type: "average"
+    format: "percentage"
+    optimization: "context_dependent"
+    tags: ["competition", "market_share", "concentration"]
+    description: "Market share of the dominant carrier (0-1 proportion)"
+  - name: "lowest_fare_carrier_share"
+    column: "lowest_fare_carrier_share"
+    type: "average"
+    format: "percentage"
+    optimization: "context_dependent"
+    tags: ["competition", "market_share"]
+    description: "Market share of the lowest-fare carrier (0-1 proportion)"
+  - name: "distance_miles"
+    column: "distance_miles"
+    type: "average"
+    format: "float"
+    optimization: "neutral"
+    tags: ["route", "geography", "distance"]
+    description: "Non-stop distance between city pair in miles"
+
+dimensions:
+  - name: "origin_city"
+    column: "origin_city"
+    role: "primary"
+    description: "Origin metropolitan area (e.g., 'Phoenix, AZ', 'New York City, NY')"
+  - name: "destination_city"
+    column: "destination_city"
+    role: "primary"
+    description: "Destination metropolitan area"
+  - name: "largest_carrier"
+    column: "largest_carrier"
+    role: "secondary"
+    description: "IATA code of carrier with highest market share on route (e.g., WN, AA, DL, UA)"
+  - name: "lowest_fare_carrier"
+    column: "lowest_fare_carrier"
+    role: "secondary"
+    description: "IATA code of carrier offering the lowest fare on route"
+  - name: "year"
+    column: "year"
+    role: "secondary"
+    description: "Calendar year (2008-2025)"
+  - name: "quarter"
+    column: "quarter"
+    role: "secondary"
+    description: "Fiscal quarter (1-4)"
+  - name: "year_quarter"
+    column: "year_quarter"
+    role: "time"
+    description: "Year and quarter combined (e.g., '2024_Q3')"
+
+hierarchies:
+  - name: "route"
+    description: "Route hierarchy: Origin City -> Destination City"
+    children: ["origin_city", "destination_city"]
+    level_names:
+      0: "Total"
+      1: "Origin City"
+      2: "Route (Origin-Destination)"
+  - name: "carrier"
+    description: "Carrier analysis: Largest Carrier -> Lowest Fare Carrier"
+    children: ["largest_carrier", "lowest_fare_carrier"]
+    level_names:
+      0: "Total"
+      1: "Dominant Carrier"
+      2: "Low-Cost Carrier"
+  - name: "temporal"
+    description: "Time hierarchy: Year -> Quarter"
+    children: ["year", "quarter"]
+    level_names:
+      0: "Total"
+      1: "Year"
+      2: "Quarter"
+
+capabilities:
+  - "quarterly fare trend analysis across 18 years (2008-2025)"
+  - "route-level pricing comparison (origin-destination pairs)"
+  - "carrier competition analysis (dominant vs low-cost carriers)"
+  - "fare-per-mile efficiency across route distances"
+  - "market concentration analysis (carrier market share trends)"
+  - "COVID-19 impact analysis on air travel pricing and demand"
+  - "post-pandemic fare inflation tracking"
+  - "cross-dimensional analysis (route x carrier x time)"
+
+policies:
+  degradation_threshold: 0.10
