@@ -170,9 +170,8 @@ def _parse_markdown_to_html(md: str) -> str:
                   html, count=1, flags=re.DOTALL)
 
     # Style Section Headings
-    for name in ("Top Operational Insights", "Network Snapshot", "Focus for next week",
-                 "Scope Summary", "Structural Insights", "Leadership Question",
-                 "What's going well", "What's masking the picture",
+    for name in ("Key Findings", "Recommended Actions", "Executive Summary",
+                 "Scope Overview", "What's going well", "What's masking the picture",
                  "Primary concern", "Key Risk & Implications", "Bottom Line"):
         html = re.sub(
             rf"<p><strong>({re.escape(name)})</strong></p>",

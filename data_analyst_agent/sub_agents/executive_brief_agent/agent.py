@@ -465,7 +465,7 @@ def _validate_structured_brief(
             content = str(section.get("content") or "").strip().lower()
             if content and fallback_lower in content:
                 # Allow fallback ONLY for sections that explicitly mention metrics without critical findings
-                # or for Leadership Question section
+                # or for Recommended Actions section
                 if section_title not in ("Recommended Actions",):
                     # Check if the content mentions any of the critical metrics
                     critical_mention = any(

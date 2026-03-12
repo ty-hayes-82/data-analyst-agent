@@ -90,12 +90,10 @@ def _parse_brief(md: str) -> dict:
 
     # Extract known sections
     _section_names = [
-        "Top Operational Insights",
-        "Network Snapshot",
-        "Focus for next week",
-        "Scope Summary",
-        "Structural Insights",
-        "Leadership Question",
+        "Key Findings",
+        "Recommended Actions",
+        "Executive Summary",
+        "Scope Overview",
         "What's going well",
         "What's masking the picture",
         "Primary concern",
