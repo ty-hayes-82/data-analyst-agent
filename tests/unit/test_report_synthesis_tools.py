@@ -8,14 +8,25 @@ Tests:
 
 import pytest
 import json
+from pathlib import Path
 from config.dataset_resolver import clear_dataset_cache
 from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import clear_metric_units_cache
 from tests.utils.import_helpers import import_report_synthesis_tool
+
+DATASETS_ROOT = Path(__file__).resolve().parents[2] / "config" / "datasets" / "csv"
+
 
 
 # ============================================================================
 # Helper: build mock hierarchical results
 # ============================================================================
+
+
+
+def _require_dataset(slug: str) -> None:
+    dataset_dir = DATASETS_ROOT / slug
+    if not dataset_dir.exists():
+        pytest.skip(f"dataset '{slug}' not present in this workspace")
 
 def _make_hierarchical_results() -> dict:
     """Build mock hierarchical results matching the report generator's expected input."""
@@ -370,6 +381,7 @@ if __name__ == "__main__":
 @pytest.mark.asyncio
 async def test_markdown_report_uses_metric_units_for_covid_cases(monkeypatch):
     """covid_us_counties cases should render people units from metric_units.yaml."""
+    _require_dataset("covid_us_counties")
     mod = import_report_synthesis_tool("generate_markdown_report")
     results = _make_hierarchical_results()
 
@@ -402,6 +414,7 @@ async def test_markdown_report_uses_metric_units_for_covid_cases(monkeypatch):
 @pytest.mark.asyncio
 async def test_markdown_report_prefers_metric_units_over_contract(monkeypatch):
     """owid_co2_emissions co2 should render MtCO2 even if contract says tonnes."""
+    _require_dataset("owid_co2_emissions")
     mod = import_report_synthesis_tool("generate_markdown_report")
     results = _make_hierarchical_results()
 

@@ -24,6 +24,8 @@ def _reset_data_cache():
 
 def _load_contract(dataset: str) -> DatasetContract:
     contract_path = REPO_ROOT / "config" / "datasets" / "csv" / dataset / "contract.yaml"
+    if not contract_path.exists():
+        pytest.skip(f"contract for {dataset} not present in this workspace")
     return DatasetContract.from_yaml(str(contract_path))
 
 
