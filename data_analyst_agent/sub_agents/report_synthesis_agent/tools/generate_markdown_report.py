@@ -225,7 +225,14 @@ def _looks_like_placeholder(action: str) -> bool:
     return len(normalized) < 24
 
 
-def _variance_actions(final_cards: List[dict], metric_label: str, unit: str) -> List[str]:
+def _variance_actions(final_cards: List[dict], metric_label: str, unit: str, period_label: str) -> List[str]:
+    """Operational follow-ups for the top variance drivers.
+
+    Keep these deterministic and concise, but specific:
+    - where to look (HierarchyVariance output / slice)
+    - comparison window (last period vs prior)
+    - a concrete follow-up trigger threshold
+    """
     actions: List[str] = []
     for card in final_cards or []:
         evidence = card.get("evidence") or {}
@@ -246,7 +253,10 @@ def _variance_actions(final_cards: List[dict], metric_label: str, unit: str) -> 
         reason = (card.get("why") or card.get("root_cause") or "").strip()
         reason_clause = f" Root cause: {reason}" if reason else ""
         actions.append(
-            f"Investigate {dimension} – {change_clause} change in {metric_label}; validate drivers causing the {direction}.{reason_clause}"
+            f"HierarchyVariance → {dimension}: compare last {period_label} vs prior {period_label} for {metric_label} ({change_clause}). "
+            f"Validate the driver in this slice and check DataFetcher inputs for {dimension} if the move looks implausible; "
+            f"escalate if |Δ%| ≥ 3pp or this remains a top-3 driver next {period_label}." 
+            f"{reason_clause}".strip()
         )
         if len(actions) >= 3:
             break
@@ -269,8 +279,10 @@ def _anomaly_actions(stats_data: dict, metric_label: str, unit: str, period_labe
         z_score = _safe_float(anomaly.get("z_score") or anomaly.get("score"))
         z_clause = f" (z={z_score:.2f})" if z_score is not None else ""
         value_clause = f"; observed value {value}" if value else ""
+        trigger = "|z| ≥ 2" if z_score is not None else "repeat anomaly next period"
         actions.append(
-            f"Review {item} for data quality issues – anomaly flagged in {period}{z_clause}{value_clause} impacting {metric_label}."
+            f"Statistics → anomalies: review {item} in {period}{z_clause}{value_clause} for {metric_label}. "
+            f"Validate raw inputs in DataFetcher for this slice and re-run Statistics; follow up if {trigger}."
         )
         if len(actions) >= 2:
             break
@@ -456,7 +468,8 @@ def _correlation_actions(stats_data: dict, metric_label: str) -> List[str]:
             continue
         direction = "positive" if value >= 0 else "negative"
         actions.append(
-            f"Leverage {metric_a} / {metric_b} correlation (r={value:.2f}, {direction}) to improve {metric_label} forecasting and scenario planning."
+            f"Statistics → correlations: use {metric_a} vs {metric_b} (r={value:.2f}, {direction}) as a diagnostic for {metric_label}. "
+            f"Follow up if |r| drops by ≥0.20 over the next refresh (relationship break) while {metric_label} volatility rises."
         )
         if len(actions) >= 1:
             break
@@ -478,18 +491,20 @@ def _trend_actions(stats_data: dict, metric_label: str, unit: str, period_label:
         item = driver.get("item") or driver.get("dimension") or driver.get("name") or "Key driver"
         slope_clause = _format_amount_short(slope, unit)
         actions.append(
-            f"Monitor {item} – {direction} trend over last 3 {period_label}s (slope {slope_clause} per {period_label}) to stay ahead of {metric_label} swings."
+            f"Statistics → top_drivers: monitor {item} trend over last 3 {period_label}s "
+            f"(slope {slope_clause} per {period_label}) as an early signal for {metric_label}. "
+            f"Escalate if the trend persists 2 more {period_label}s or the {period_label}-over-{period_label} change exceeds ±5%."
         )
         if len(actions) >= 1:
             break
     return actions
 
 
-def _fallback_actions(metric_label: str) -> List[str]:
+def _fallback_actions(metric_label: str, period_label: str = "period") -> List[str]:
     return [
-        f"Validate upstream data pipelines feeding {metric_label} before publishing executive reporting.",
-        f"Align mitigation plans with owners of the largest unfavorable driver in {metric_label}.",
-        f"Reforecast {metric_label} incorporating latest variance and trend signals.",
+        f"DataFetcher check: validate source extract + joins feeding {metric_label}; compare last {period_label} vs prior {period_label} row counts and totals; investigate if totals drift ≥2%.",
+        f"HierarchyVariance check: review the top unfavorable slice for {metric_label}; follow up if it stays top-1 driver next {period_label} or worsens by ≥3pp.",
+        f"Reforecast {metric_label}: use the latest {period_label}-over-{period_label} variance; escalate if forecast error exceeds ±5% on the next close.",
     ]
 
 
@@ -527,7 +542,7 @@ def _derive_contextual_actions(
         actions.append(candidate.strip())
 
     for source in (
-        _variance_actions(final_cards, metric_label, unit),
+        _variance_actions(final_cards, metric_label, unit, period_label),
         _anomaly_actions(stats_data, metric_label, unit, period_label),
         _correlation_actions(stats_data, metric_label),
         _trend_actions(stats_data, metric_label, unit, period_label),
@@ -570,7 +585,7 @@ def _build_recommended_actions_section(
                 break
 
     if len(actions) < 3:
-        for action in _fallback_actions(metric_label):
+        for action in _fallback_actions(metric_label, period_label):
             _append_unique(action)
             if len(actions) >= 3:
                 break
