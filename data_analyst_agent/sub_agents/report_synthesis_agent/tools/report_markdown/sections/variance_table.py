@@ -7,6 +7,28 @@ from typing import List
 from ..formatting import format_variance, unit_display_label
 
 
+def _recomputed_cumulative(drivers: list[dict], limit: int) -> List[float]:
+    display = drivers[:limit]
+    contributions = []
+    for driver in display:
+        try:
+            contributions.append(abs(float(driver.get("variance_dollar", 0) or 0.0)))
+        except (TypeError, ValueError):
+            contributions.append(0.0)
+    total = sum(contributions)
+    if total <= 0:
+        return [0.0 for _ in display]
+
+    cumulative: List[float] = []
+    running = 0.0
+    for weight in contributions:
+        running += weight / total * 100.0
+        cumulative.append(min(running, 100.0))
+    if cumulative:
+        cumulative[-1] = 100.0
+    return cumulative
+
+
 def build_variance_section(levels_analyzed: list[int], level_analyses: dict, unit: str) -> List[str]:
     if not levels_analyzed:
         return []
@@ -15,6 +37,9 @@ def build_variance_section(levels_analyzed: list[int], level_analyses: dict, uni
     drivers = deepest_analysis.get("top_drivers", [])
     if not drivers:
         return []
+
+    max_rows = 10
+    recomputed = _recomputed_cumulative(drivers, max_rows)
 
     lines: List[str] = ["## Variance Drivers", ""]
     amount_label = unit_display_label(unit)
@@ -27,14 +52,14 @@ def build_variance_section(levels_analyzed: list[int], level_analyses: dict, uni
     lines.append(f"| Rank | Category/GL | {variance_header} | Variance % | Materiality | Cumulative % |")
     lines.append("|------|-------------|------------|------------|-------------|--------------|")
 
-    for driver in drivers[:10]:
+    for idx, driver in enumerate(drivers[:max_rows]):
         rank = driver.get("rank", "-")
         item = driver.get("item", "Unknown")
         var_dollar = driver.get("variance_dollar", 0)
         var_pct = driver.get("variance_pct")
         is_new = bool(driver.get("is_new_from_zero", False))
         materiality = driver.get("materiality", "LOW")
-        cumulative = driver.get("cumulative_pct", 0)
+        cumulative = recomputed[idx] if idx < len(recomputed) else float(driver.get("cumulative_pct", 0) or 0)
 
         if is_new:
             pct_display = "new"

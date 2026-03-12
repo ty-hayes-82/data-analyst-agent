@@ -162,6 +162,38 @@ async def test_markdown_report_contains_variance_table():
 @pytest.mark.unit
 @pytest.mark.csv_mode
 @pytest.mark.asyncio
+async def test_variance_table_cumulative_pct_monotonic():
+    """Variance table cumulative column should be monotonic and end near 100%."""
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        cost_center="067"
+    )
+
+    section = report.split("## Variance Drivers", 1)[1]
+    table_block = section.split("##", 1)[0]
+    rows = [line.strip() for line in table_block.splitlines() if line.strip().startswith("|")]
+    data_rows = [line for line in rows if not line.startswith("|------") and not line.startswith("| Rank")]
+
+    cumulative_values: list[float] = []
+    for row in data_rows:
+        cells = [cell.strip() for cell in row.strip().split("|") if cell.strip()]
+        if not cells:
+            continue
+        cumulative_str = cells[-1].rstrip("%")
+        cumulative_values.append(float(cumulative_str))
+
+    assert cumulative_values, "No cumulative values parsed"
+    assert cumulative_values[-1] == pytest.approx(100.0, abs=0.2)
+    assert all(curr >= prev for prev, curr in zip(cumulative_values, cumulative_values[1:])), "Cumulative values must be monotonic"
+    assert any(val > 0 for val in cumulative_values), "Cumulative column should not be all zeros"
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
 async def test_markdown_report_numeric_formatting():
     """Test that dollar amounts and percentages are formatted correctly."""
     mod = import_report_synthesis_tool("generate_markdown_report")
@@ -225,6 +257,48 @@ async def test_markdown_report_recommended_actions():
     assert any("Fuel Surcharge Revenue" in line for line in action_lines)
 
     print("[PASS] Recommended actions reference top drivers with specific guidance")
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
+async def test_anomalies_section_prioritizes_trade_scenarios_with_truncation_note():
+    """Synthetic trade_data scenarios should appear in anomalies with truncation rationale."""
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+
+    scenario_ids = ["A1", "B1", "C1", "D1", "E1", "F1"]
+    scenarios = []
+    for idx, sid in enumerate(scenario_ids, start=1):
+        scenarios.append({
+            "scenario_id": sid,
+            "grain": "weekly",
+            "first_period": f"2024-0{idx}-01",
+            "last_period": f"2024-0{idx}-07",
+            "avg_anomaly_value": 1500 - idx * 100,
+            "avg_baseline_value": 500,
+            "deviation_pct": 25 - idx,  # ensure later scenarios rank lower
+            "severity": "high" if idx <= 3 else "medium",
+            "ground_truth_insight": f"{sid} ground truth",
+        })
+
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        anomaly_indicators=json.dumps({"anomalies": scenarios}),
+        statistical_summary=json.dumps({"summary_stats": {"temporal_grain": "weekly"}}),
+        analysis_period="2025-12",
+    )
+
+    section = report.split("## Anomalies", 1)[1]
+    anomaly_block = section.split("##", 1)[0]
+
+    # Scenario IDs from synthetic trade_data should be present
+    assert "A1" in anomaly_block
+    assert "B1" in anomaly_block
+    # Truncation note should explain omitted scenarios (e.g., F1)
+    assert "Showing top" in anomaly_block
+    assert "Omitted scenarios" in anomaly_block
+    assert "F1" in anomaly_block
 
 
 @pytest.mark.unit

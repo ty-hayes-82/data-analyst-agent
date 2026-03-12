@@ -344,6 +344,72 @@ def _anomaly_entry_score(entry: dict) -> float:
     return max(z, deviation, value)
 
 
+_SCENARIO_ID_PATTERN = re.compile(r"^[A-Za-z][0-9]{1,3}$")
+
+
+def _scenario_label(entry: dict) -> Optional[str]:
+    source = (entry.get("source") or "").strip()
+    if source and _SCENARIO_ID_PATTERN.match(source.upper()):
+        return source
+    entity = (entry.get("entity") or "").strip()
+    if entity and _SCENARIO_ID_PATTERN.match(entity.upper()):
+        return entity
+    return None
+
+
+def _is_scenario_entry(entry: dict) -> bool:
+    return _scenario_label(entry) is not None
+
+
+def _convert_alert_to_anomaly(alert: Any) -> Optional[dict]:
+    if not isinstance(alert, dict):
+        return None
+    details = alert.get("details") if isinstance(alert.get("details"), dict) else {}
+    payload = {
+        "period": alert.get("period"),
+        "item": alert.get("item_name") or alert.get("item_id"),
+        "value": alert.get("variance_amount"),
+        "deviation_pct": alert.get("variance_pct"),
+        "z_score": details.get("z_score") or details.get("z"),
+        "description": details.get("description"),
+        "severity": alert.get("severity"),
+        "anomaly_type": alert.get("category"),
+    }
+    if alert.get("category") == "fixture_anomaly" and alert.get("item_id"):
+        payload["scenario_id"] = alert.get("item_id")
+    return payload
+
+
+def _select_anomaly_entries(entries: List[dict], limit: int) -> tuple[List[dict], List[str]]:
+    scenario_entries = [e for e in entries if _is_scenario_entry(e)]
+    selected: List[dict] = []
+    for entry in scenario_entries:
+        if entry not in selected:
+            selected.append(entry)
+        if len(selected) >= limit:
+            break
+    for entry in entries:
+        if len(selected) >= limit:
+            break
+        if entry not in selected:
+            selected.append(entry)
+    displayed_labels = {
+        label
+        for entry in selected
+        for label in (_scenario_label(entry),)
+        if label
+    }
+    omitted: List[str] = []
+    for entry in entries:
+        if not _is_scenario_entry(entry):
+            continue
+        label = _scenario_label(entry)
+        if not label or label in displayed_labels or label in omitted:
+            continue
+        omitted.append(label)
+    return selected, omitted
+
+
 def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> List[dict]:
     entries: List[dict] = []
     seen: set[tuple] = set()
@@ -375,6 +441,23 @@ def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> L
                 continue
             seen.add(key)
             entries.append(normalized)
+
+    if isinstance(payload, dict):
+        for alert_key in ("alerts", "top_alerts"):
+            alert_bucket = payload.get(alert_key)
+            if not isinstance(alert_bucket, list):
+                continue
+            for alert in alert_bucket:
+                compat = _convert_alert_to_anomaly(alert)
+                normalized = _normalize_anomaly_entry(compat)
+                if not normalized:
+                    continue
+                normalized.setdefault("source", alert.get("category") or alert_key.rstrip("s"))
+                key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                entries.append(normalized)
 
     entries.sort(key=_anomaly_entry_score, reverse=True)
     return entries
@@ -422,8 +505,18 @@ def _build_anomalies_section(
 
     lines = ["## Anomalies", ""]
     if entries:
-        for entry in entries[:5]:
+        max_rows = 5
+        selected_entries, omitted_scenarios = _select_anomaly_entries(entries, max_rows)
+        for entry in selected_entries:
             lines.append(_format_anomaly_line(entry, unit))
+        if len(entries) > len(selected_entries):
+            lines.append(
+                f"_Showing top {len(selected_entries)} of {len(entries)} anomalies (ranked by severity)._"
+            )
+        if omitted_scenarios:
+            lines.append(
+                f"_Omitted scenarios due to truncation: {', '.join(omitted_scenarios)}._"
+            )
         lines.append("")
     else:
         lines.append("- No anomalies available.")

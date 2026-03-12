@@ -159,10 +159,14 @@ async def compute_mix_shift_analysis(
             dominant_effect = "price"
 
         mix_direction = "favorable" if mix_effect > 0 else "unfavorable"
+        mix_pct_value = float(mix_effect / abs(total_variance) * 100) if total_variance != 0 else 0.0
         
         blended_rate_change = curr_blended_price - prior_blended_price
         change_from_rate = blended_price_at_prior_mix - prior_blended_price
         change_from_mix = curr_blended_price - blended_price_at_prior_mix
+
+        mix_effect_word = "added" if mix_effect >= 0 else "reduced"
+        rate_direction_word = "increased" if blended_rate_change >= 0 else "decreased"
 
         result = {
             "target_metric": target_metric,
@@ -184,13 +188,17 @@ async def compute_mix_shift_analysis(
                 "mix_effect": float(mix_effect),
                 "volume_pct": float(volume_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
                 "price_pct": float(price_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
-                "mix_pct": float(mix_effect / abs(total_variance) * 100) if total_variance != 0 else 0,
+                "mix_pct": mix_pct_value,
             },
             "segment_detail": segment_detail[:10],
             "summary": {
                 "dominant_effect": dominant_effect,
                 "mix_direction": mix_direction,
-                "narrative": f"Blended rate {'rose' if blended_rate_change > 0 else 'fell'} by {abs(blended_rate_change):.2f}, with {abs(change_from_rate):.2f} due to price changes and {abs(change_from_mix):.2f} due to mix shift."
+                "narrative": (
+                    f"Mix effect {mix_effect_word} {abs(mix_effect):,.2f} ({mix_pct_value:+.1f}% of total variance) "
+                    f"and blended rate {rate_direction_word} by {abs(blended_rate_change):.2f} "
+                    f"({abs(change_from_rate):.2f} from price, {abs(change_from_mix):.2f} from mix)."
+                ),
             }
         }
 
