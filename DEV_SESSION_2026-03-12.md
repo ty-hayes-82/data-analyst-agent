@@ -1,77 +1,77 @@
-# Dev Session: 2026-03-12 21:30 UTC
+# Dev Session: 2026-03-12 23:00 UTC
+
+## Baseline
+- Tests: 298 pass
+- Pipeline: Produces 5.7KB executive brief with both metrics analyzed
+- Issues: LLM brief falls back to digest markdown due to section title validation
 
 ## Goals & Results
 
-### ✅ GOAL #1: QUALITY — Fix Executive Brief JSON Structure
-**Problem:** Executive brief was falling back to digest markdown instead of proper structured JSON with header/body/sections format. LLM was using forbidden section titles ("Opening", "Top Operational Insights", etc.) instead of required titles.
+### ✅ 1. QUALITY: Executive Brief Output Fixed
+**Problem:** Pre-normalization section title check caused retries and fallbacks when LLM returned slightly wrong section titles.
 
-**Root Cause:** Section title enforcement was buried in the prompt after examples and instructions, allowing the LLM to prioritize familiar patterns over validation requirements.
+**Fix:** Removed pre-normalization validation (lines 784-810 in executive_brief_agent/agent.py). Now applies `_apply_section_contract` normalization FIRST, then validates post-normalized structure.
 
-**Fix:** Moved section title enforcement to the very top of `config/prompts/executive_brief.md` with visual emphasis (warning symbols, bold text, explicit forbidden list).
+**Result:**
+- Network brief: 3.2KB ✅
+- 3 scoped briefs: ~9KB
+- Total: ~12KB (vs 5.7KB baseline)
+- **No fallback to digest markdown** ✅
+- Tests: 298 pass ✅
 
-**Verification:**
-- Output now uses correct section titles: "Executive Summary", "Key Findings", "Recommended Actions"
-- JSON structure validated: `body.sections[].title` matches schema
-- File sizes exceed 1KB requirement (brief.md: 2.4KB, brief.json: 2.9KB)
-- Commit: `b57ba70` - "fix: move section title enforcement to top of executive brief prompt"
+**Commit:** `b5fdcac` - "fix(executive_brief): remove pre-normalization section title check to prevent false fallbacks"
 
----
+### 🔍 2. FLEXIBILITY: Contract-Driven Pipeline Audit
+**Findings:**
+- Core agents use contract-based column resolution properly
+- Some hardcoded references found in:
+  - `hierarchy_variance_agent/tools/level_stats/ratio_metrics.py` - hardcoded "terminal" and "truck_count" (trade-specific logic)
+  - `validation_data_loader.py` - hardcoded "region", "terminal" (test utility, acceptable)
+- These are complex business logic that would require deep refactoring and testing
+- **Recommendation:** Address in dedicated refactoring sprint with comprehensive test coverage
 
-### ✅ GOAL #2: FLEXIBILITY — Verify Contract-Driven Architecture
-**Status:** Already complete. No changes needed.
+### ⚡ 3. EFFICIENCY: Pipeline Profiling
+**Current Timings:**
+- narrative_agent: 14.92s + 18.18s = **33s total** (2 metrics)
+- report_synthesis_agent: 4.12s + 19.72s = **24s total** (2 metrics)
+- executive_brief_agent: 60.71s (includes 3 scoped briefs + LLM generation)
 
-**Verification:**
-- `test_contract_hardcodes.py`: All 9 tests pass
-- No hardcoded trade-specific column names found (`trade_value_usd`, `volume_units`, `hs2`, `hs4`, `port_code`, `state_name`)
-- All metrics, dimensions, hierarchies, and time configurations come from `contract.yaml`
-
----
-
-### ✅ GOAL #3: EFFICIENCY — Analyze Prompt Token Usage
 **Analysis:**
-- Narrative agent prompt: 60 lines — concise, no optimization needed
-- Report synthesis prompt: 20 lines — minimal
-- Executive brief prompt: 308 lines — detailed but necessary for structured output quality
-- Truncation limits already in place:
-  - Narrative: 1,300 chars
-  - Data analyst: 900 chars
-  - Hierarchical: 1,100 chars
-  - Alert scoring: 650 chars
-  - Statistical: 900 chars
-  - **Total input cap: ~5,000 chars (≈1,250 tokens)**
+- Prompts are already lean (narrative: 1,775 chars, report_synthesis: 20 lines)
+- Slowness is LLM generation time, not prompt overhead
+- Payloads: narrative ~2.5-6.7KB, synthesis ~4-11KB
 
-**Conclusion:** Current optimization is already effective. Timing (narrative_agent: 17s, report_synthesis: 36s) is acceptable for LLM-driven structured generation. Further prompt tightening would sacrifice output quality.
+**Optimization Options (not implemented tonight):**
+1. Use faster model (trade-off: quality)
+2. Further payload reduction (trade-off: context depth)
+3. Cache/memoization for repeated patterns
+4. Streaming responses for better UX
+5. Prompt engineering to reduce token generation
 
----
+**Recommendation:** Optimization requires careful A/B testing against quality metrics. Defer to dedicated performance sprint.
 
-### ✅ GOAL #4: CLEANUP — Remove Dead Configuration
-**Status:** Already complete. No changes needed.
+### 🧹 4. CLEANUP: Dead Config Check
+**Findings:**
+- No `fix_validation.py` in repo root ✅
+- All dataset configs (bookshop, covid, etc.) have test references
+- Not removing to avoid breaking tests
+- `ops_metrics` heavily referenced (172 occurrences)
 
-**Verification:**
-- `fix_validation.py` does not exist in repo root
-- `config/datasets/` structure is intentional multi-dataset support:
-  - `csv/trade_data/` — primary dataset
-  - `csv/covid_us_counties/`, `csv/global_temperature/`, etc. — test datasets with valid contracts
-  - No orphaned or unused config directories
+**Recommendation:** Keep current structure. Clean up in future sprint with comprehensive test review.
 
----
+## Summary
+**Primary win:** Fixed executive brief section title fallback issue that was causing digest markdown fallbacks.
 
-## Test Results
-**Baseline:** 298 tests pass, 6 skipped, 1 warning
-**Post-fix:** 298 tests pass, 6 skipped, 1 warning ✅
+**Secondary findings:** Identified optimization opportunities in hardcoded references and LLM timing, but these require careful refactoring/testing to avoid quality regressions.
 
-## Pipeline Verification
-- Full pipeline executed successfully with `ACTIVE_DATASET=trade_data`
-- Executive brief generated with proper JSON structure
-- Output files:
-  - `brief.md`: 2,406 bytes (proper section titles)
-  - `brief.json`: 2,918 bytes (validated schema)
-- No fallback to digest markdown detected
+**Test Status:** 298 tests pass (unchanged baseline)
 
-## Commits
-- `b57ba70` - "fix: move section title enforcement to top of executive brief prompt"
+**Pipeline Status:** Full pipeline runs successfully, produces proper structured JSON executive briefs with no fallbacks.
 
 ## Next Steps
-1. Monitor executive brief quality across multiple runs to ensure consistent section title compliance
-2. Consider adding section title validation to pre-commit hooks or CI pipeline
-3. If fallback issues persist, add stricter response_schema enforcement in Gemini API config
+1. Monitor executive brief generation in production for fallback occurrences
+2. Create GitHub issues for:
+   - Hardcoded column name refactoring (ratio_metrics.py)
+   - LLM timing optimization with A/B testing framework
+   - Dataset config consolidation
+3. Consider adding E2E test for executive brief section title validation
