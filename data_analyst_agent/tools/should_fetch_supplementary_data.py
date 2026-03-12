@@ -38,8 +38,10 @@ def should_fetch_supplementary_data(request_analysis: Any, contract: Optional[An
             try:
                 data = json.loads(request_analysis)
                 analysis_type = data.get("analysis_type")
-            except:
-                pass
+            except json.JSONDecodeError:
+                pass  # Expected - not JSON
+            except (KeyError, TypeError, AttributeError) as e:
+                print(f"[WARNING] Unexpected error parsing analysis_type: {e}")
         
         if analysis_type and analysis_type in contract.policies.supplementary_data_trigger:
             print(f"[Conditional Logic] Contract policy triggers supplementary data for analysis type '{analysis_type}'")
@@ -64,8 +66,10 @@ def should_fetch_supplementary_data(request_analysis: Any, contract: Optional[An
             if data.get("needs_supplementary_data") is True or data.get("needs_order_detail") is True:
                 print("[Conditional Logic] Explicitly requested supplementary data (parsed JSON)")
                 return True
-    except:
-        pass
+    except json.JSONDecodeError:
+        pass  # Expected - not JSON
+    except (KeyError, TypeError, AttributeError) as e:
+        print(f"[WARNING] Unexpected error parsing supplementary data flags: {e}")
 
     # 3. Fallback to keyword check
     # These keywords are generic indicators that detail-level investigation is needed

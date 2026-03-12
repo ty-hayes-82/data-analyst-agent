@@ -70,7 +70,7 @@ metrics:
   - name: largest_carrier_market_share
     column: largest_carrier_market_share
     type: ratio
-    format: percentage
+    format: percent
     optimization: neutral
     tags: [competition, market]
     description: Market share of the largest carrier on this route
@@ -86,7 +86,7 @@ metrics:
   - name: lowest_fare_carrier_share
     column: lowest_fare_carrier_share
     type: ratio
-    format: percentage
+    format: percent
     optimization: neutral
     tags: [competition, market]
     description: Market share of the lowest-fare carrier on this route

@@ -80,6 +80,44 @@ from .scope_utils import (
 )
 
 
+class ExecutiveBriefConfig:
+    """Centralized configuration for Executive Brief agent behavior.
+    
+    All retry logic, timeouts, and timing parameters controlled through
+    environment variables with sensible defaults.
+    """
+    
+    @staticmethod
+    def max_llm_retries() -> int:
+        """Maximum attempts for LLM brief generation."""
+        return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_RETRIES", 3)
+    
+    @staticmethod
+    def llm_timeout_seconds() -> float:
+        """Timeout for individual LLM generate_content calls."""
+        try:
+            value = os.getenv("EXECUTIVE_BRIEF_TIMEOUT")
+            if value is None:
+                return 300.0
+            return float(value)
+        except (TypeError, ValueError):
+            return 300.0
+    
+    @staticmethod
+    def retry_delay_seconds() -> float:
+        """Delay between retry attempts."""
+        try:
+            value = os.getenv("EXECUTIVE_BRIEF_RETRY_DELAY")
+            if value is None:
+                return 5.0
+            return float(value)
+        except (TypeError, ValueError):
+            return 5.0
+
+
+BRIEF_CONFIG = ExecutiveBriefConfig()
+
+
 def _parse_positive_int_env(var_name: str, default: int) -> int:
     value = os.getenv(var_name)
     if value is None:
@@ -609,7 +647,7 @@ async def _llm_generate_brief(
     loop = asyncio.get_running_loop()
     fallback_payload: tuple[dict, str] | None = None
     last_err: Exception | None = None
-    max_attempts = 3
+    max_attempts = BRIEF_CONFIG.max_llm_retries()
 
     def _structured_fallback(reason: str) -> tuple[dict, str]:
         recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
@@ -629,7 +667,7 @@ async def _llm_generate_brief(
                         config=config,
                     ),
                 ),
-                timeout=300.0,
+                timeout=BRIEF_CONFIG.llm_timeout_seconds(),
             )
             raw = _extract_response_text(response)
             if not raw:
