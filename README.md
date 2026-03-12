@@ -59,6 +59,108 @@ Open `http://localhost:8080` in your browser.
 6. Watch progress in the **Monitor** tab
 7. View results in the **Results** tab — the executive brief loads automatically
 
+## CLI Usage
+
+Run analysis directly from the command line for automation and scripting.
+
+### Basic Command
+
+```bash
+python -m data_analyst_agent --dataset <dataset_name> --metrics "metric1,metric2"
+```
+
+### Available Options
+
+```
+--dataset NAME              Dataset folder name (e.g., us_airfare, covid_us_counties)
+--metrics M1,M2             Comma-separated metric names (required)
+--dimension DIM             Primary dimension (e.g., region, state)
+--dimension-value VAL       Filter by dimension value (e.g., Central, California)
+--start-date YYYY-MM-DD     Override analysis start date
+--end-date YYYY-MM-DD       Override analysis end date
+--interactive               Interactive mode with guided menus
+```
+
+### Examples
+
+**1. Basic Single-Metric Analysis**
+```bash
+python -m data_analyst_agent \
+    --dataset covid_us_counties \
+    --metrics cases
+```
+
+**2. Multi-Metric Analysis**
+```bash
+python -m data_analyst_agent \
+    --dataset us_airfare \
+    --metrics "avg_fare,passengers"
+```
+
+**3. With Analysis Focus (Anomaly Detection)**
+```bash
+DATA_ANALYST_FOCUS=anomaly_detection \
+python -m data_analyst_agent \
+    --dataset us_airfare \
+    --metrics avg_fare
+```
+
+**4. Recent Monthly Trends**
+```bash
+DATA_ANALYST_FOCUS=recent_monthly_trends \
+python -m data_analyst_agent \
+    --dataset covid_us_counties \
+    --metrics "cases,deaths"
+```
+
+**5. Multi-Focus with Custom Instructions**
+```bash
+DATA_ANALYST_FOCUS=anomaly_detection,yoy_comparison \
+DATA_ANALYST_CUSTOM_FOCUS="Focus on Q4 performance and identify seasonal holiday patterns" \
+python -m data_analyst_agent \
+    --dataset us_airfare \
+    --metrics avg_fare
+```
+
+**6. Dimension Filter (Analyze Specific Region)**
+```bash
+python -m data_analyst_agent \
+    --dataset trade_data \
+    --metrics trade_value_usd \
+    --dimension region \
+    --dimension-value Midwest
+```
+
+**7. Interactive Mode (Guided Menus)**
+```bash
+python -m data_analyst_agent --interactive
+```
+
+### Analysis Focus Modes
+
+Set via `DATA_ANALYST_FOCUS` environment variable (comma-separated):
+
+- `recent_weekly_trends` - Focus on last 8 weeks
+- `recent_monthly_trends` - Focus on last 6 months  
+- `anomaly_detection` - Identify outliers and unusual patterns
+- `revenue_gap_analysis` - Find volume vs. value mismatches
+- `seasonal_patterns` - Detect cyclical behavior
+- `yoy_comparison` - Year-over-year comparisons
+- `forecasting` - Forward projections
+- `outlier_investigation` - Deep-dive on extreme values
+
+### Output Location
+
+Results are saved to:
+```
+outputs/<dataset>/<dimension>/<value>/<timestamp>/
+  ├── brief.md          # Executive summary (Markdown)
+  ├── brief.pdf         # Executive summary (PDF)
+  ├── brief.json        # Structured insights (JSON)
+  ├── metric_*.json     # Detailed metric analysis
+  └── run_metadata.json # Run configuration
+```
+
 ## Included Public Datasets
 
 These datasets are ready to analyze out of the box:
@@ -154,24 +256,6 @@ When starting a run, select one or more focus modes to guide the analysis:
 | **Outlier Investigation** | Deep-dives into top outliers, traces root causes |
 
 You can also type a **custom analysis direction** for specific questions.
-
-## CLI Usage
-
-Run analysis directly from the command line:
-
-```bash
-# Analyze all metrics for the trade dataset
-python -m data_analyst_agent.agent "Analyze trade_value_usd and volume_units"
-
-# With environment overrides
-export ACTIVE_DATASET=trade_data
-export DATA_ANALYST_METRICS=trade_value_usd,volume_units
-export DATA_ANALYST_HIERARCHY=geographic
-export DATA_ANALYST_MAX_DRILL_DEPTH=3
-export DATA_ANALYST_FOCUS=anomaly_detection,yoy_comparison
-export DATA_ANALYST_CUSTOM_FOCUS="Find the top 3 drivers of the Q4 trade decline"
-python -m data_analyst_agent.agent "Analyze trade metrics"
-```
 
 ## Output Files
 

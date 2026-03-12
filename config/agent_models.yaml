@@ -47,8 +47,8 @@ model_tiers:
   advanced:
     model: "gemini-3-flash-preview"
     thinking_level: "high"
-    thinking_budget: 16000
-    description: "Gemini 3 Flash (Thinking) — high-quality reasoning"
+    thinking_budget: 14000
+    description: "Gemini 3 Flash (Thinking) — high-quality reasoning (optimized budget)"
 
   pro:
     model: "gemini-3.1-pro-preview"
