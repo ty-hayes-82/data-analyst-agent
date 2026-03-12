@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-12T18:27:39
+**Last updated:** 2026-03-12T20:11:02
 
 ## Current State
-- **Unit Tests:** 298 passed, 0 failed, 0 errors
+- **Unit Tests:** 297 passed, 1 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 202 files, 31,816 lines, **58 files >200L**
+- **Codebase:** 202 files, 33,501 lines, **64 files >200L**
 - **Largest:** sub_agents/executive_brief_agent/agent.py (1475L)
-- **Commit:** `7ff5c67 docs: dev iteration session summary 2026-0`
+- **Commit:** `d008197 Merge dev: Comprehensive cleanup, E2E vali`
 
 ## Progress Over Time
 
@@ -177,9 +177,10 @@
 | 162 | 13:47 | `7dd5b39` | 287 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 | 163 | 14:47 | `87f3346` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 | 164 | 18:27 | `7ff5c67` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+| 165 | 20:11 | `d008197` | 297 | 1 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **298** (+51)
-- Failures: 0 → **0**
-- Files >200L: 50 → **58** (+8)
-- Iterations: 164
+- Tests: 247 → **297** (+50)
+- Failures: 0 → **1**
+- Files >200L: 50 → **64** (+14)
+- Iterations: 165

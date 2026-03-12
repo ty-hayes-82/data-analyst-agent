@@ -127,11 +127,13 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
 
 4. **Recommended Actions** (required for all briefs)
    - `content`: 1 sentence introducing the recommendations
-   - `insights`: empty array `[]` or 1-3 action items with:
+   - `insights`: array of 2-3 action items (REQUIRED — cannot be empty array):
      - `title`: Action item (4-6 words)
-     - `details`: 1-2 sentences explaining the recommendation
+     - `details`: 2-3 sentences explaining the recommendation with specific metrics, thresholds, or timelines
    - Frame as: "Investigate X", "Monitor Y", "Consider Z"
    - Tie recommendations directly to findings
+   - **Include specific next steps**: mention which metrics to watch, what thresholds to monitor, or when to escalate
+   - Each action item should reference at least one metric or entity from the Key Findings
 
 ---
 ## COMPARISON LANGUAGE

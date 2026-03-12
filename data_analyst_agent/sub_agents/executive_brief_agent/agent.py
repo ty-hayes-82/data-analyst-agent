@@ -385,14 +385,14 @@ EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
 NETWORK_SECTION_CONTRACT = [
     {"title": "Executive Summary", "mode": "content"},
     {"title": "Key Findings", "mode": "insights"},
-    {"title": "Recommended Actions", "mode": "content"},
+    {"title": "Recommended Actions", "mode": "insights_min_2"},
 ]
 
 SCOPED_SECTION_CONTRACT = [
     {"title": "Executive Summary", "mode": "content"},
     {"title": "Scope Overview", "mode": "content"},
     {"title": "Key Findings", "mode": "insights"},
-    {"title": "Recommended Actions", "mode": "content"},
+    {"title": "Recommended Actions", "mode": "insights_min_2"},
 ]
 
 TOP_INSIGHT_MIN_COUNT = 3
@@ -429,7 +429,7 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
         insights_raw = src.get("insights") if isinstance(src, dict) else None
         mode = spec.get("mode", "content")
 
-        if mode == "insights":
+        if mode == "insights" or mode == "insights_min_2":
             insights: list[dict[str, str]] = []
             if isinstance(insights_raw, list):
                 for item in insights_raw:
@@ -445,7 +445,14 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
                             "details": entry_details or SECTION_FALLBACK_TEXT,
                         }
                     )
-            required = TOP_INSIGHT_MIN_COUNT if title == "Key Findings" else 1
+            # Determine minimum required insights
+            if title == "Key Findings":
+                required = TOP_INSIGHT_MIN_COUNT
+            elif mode == "insights_min_2":
+                required = 2
+            else:
+                required = 1
+            
             if not insights:
                 insights.append(_placeholder_insight(title, 0))
             while len(insights) < required:

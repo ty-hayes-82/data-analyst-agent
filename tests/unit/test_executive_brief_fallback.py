@@ -77,7 +77,16 @@ async def test_llm_generate_brief_parses_json_with_preamble(monkeypatch: pytest.
                 {
                     "title": "Recommended Actions",
                     "content": "Focus on resolving NY customs backlog while sustaining Southwest momentum. Monitor Midwest for rebound signals.",
-                    "insights": [],
+                    "insights": [
+                        {
+                            "title": "Resolve NY Customs Backlog",
+                            "details": "Coordinate with NY customs authority to clear the $18M backlog. Target daily throughput of 2,500 transactions (currently at 2,450) by implementing expedited processing for electronics orders. Monitor daily transaction counts and escalate if throughput drops below 2,400.",
+                        },
+                        {
+                            "title": "Monitor Midwest Auto Sector",
+                            "details": "Track Michigan automotive supplier orders weekly for rebound signals. The $1.8M decline follows strong prior performance, suggesting temporary inventory adjustment. Alert if decline extends beyond 2 weeks or exceeds $2.5M.",
+                        },
+                    ],
                 },
             ]
         },
