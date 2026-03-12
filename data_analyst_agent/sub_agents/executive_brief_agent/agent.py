@@ -1044,6 +1044,27 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         if contract_summary_block:
             contract_summary_block = contract_summary_block + "\n\n"
 
+        # Build mandatory section title enforcement block
+        expected_sections = [spec["title"] for spec in NETWORK_SECTION_CONTRACT]
+        section_title_enforcement = (
+            "⚠️ SECTION TITLE ENFORCEMENT (MANDATORY — VALIDATION WILL FAIL IF VIOLATED):\n"
+            "Your JSON body.sections array MUST contain EXACTLY these section titles in this order:\n"
+            + "\n".join(f"{i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+            + "\n\n"
+            "FORBIDDEN SECTION TITLES (DO NOT USE):\n"
+            "- \"Opening\" (use \"Executive Summary\" instead)\n"
+            "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
+            "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
+            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
+            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
+            "- Any other custom titles not listed above\n\n"
+            "VALIDATION PROCESS:\n"
+            "1. Parse your JSON response\n"
+            "2. Check body.sections[i].title matches expected titles exactly\n"
+            "3. If mismatch detected → automatic retry (up to 3 attempts)\n"
+            "4. After exhausting retries → structured fallback output\n\n"
+        )
+        
         json_enforcement_block = (
             "JSON_OUTPUT_CONSTRAINTS (hard fail if violated):\n"
             "1. '{' must be the first character of your reply and '}' the last.\n"
@@ -1074,6 +1095,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         user_message = (
+            f"{section_title_enforcement}"  # FIRST — most visible position
+            f"{json_enforcement_block}"
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
             f"{contract_metadata_block}"
@@ -1087,7 +1110,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
             f"{digest}\n\n"
             f"{weather_block}"
-            f"{json_enforcement_block}"
             "Generate the executive brief JSON as instructed and respond with ONLY the JSON object."
         )
 
@@ -1284,7 +1306,33 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             ),
                         )
                         scoped_instruction = augment_instruction(scoped_instruction, ctx.session.state)
+                        
+                        # Build section title enforcement for scoped briefs
+                        scoped_expected_sections = [spec["title"] for spec in SCOPED_SECTION_CONTRACT]
+                        scoped_section_enforcement = (
+                            "⚠️ SECTION TITLE ENFORCEMENT (MANDATORY — VALIDATION WILL FAIL IF VIOLATED):\n"
+                            "Your JSON body.sections array MUST contain EXACTLY these section titles in this order:\n"
+                            + "\n".join(f"{i+1}. \"{title}\"" for i, title in enumerate(scoped_expected_sections))
+                            + "\n\n"
+                            "FORBIDDEN SECTION TITLES (DO NOT USE):\n"
+                            "- \"Opening\" (use \"Executive Summary\" instead)\n"
+                            "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
+                            "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
+                            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
+                            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
+                            "- Any other custom titles not listed above\n\n"
+                        )
+                        
+                        scoped_json_enforcement = (
+                            "JSON_OUTPUT_CONSTRAINTS (hard fail if violated):\n"
+                            "1. '{' must be the first character of your reply and '}' the last.\n"
+                            "2. Do not wrap the JSON in markdown fences or include prose before/after it.\n"
+                            "3. Do not add acknowledgements, apologies, or closing statements outside the JSON object.\n\n"
+                        )
+                        
                         scoped_user_message = (
+                            f"{scoped_section_enforcement}"  # FIRST — most visible
+                            f"{scoped_json_enforcement}"
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"
                             f"{contract_metadata_block}"
