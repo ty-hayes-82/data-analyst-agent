@@ -37,8 +37,8 @@ async def test_llm_generate_brief_falls_back_on_invalid_json(monkeypatch: pytest
     )
 
     assert used_fallback is True
-    assert "Executive Brief" in brief_md
-    assert "Fallback" in brief_json["header"]["title"]
+    assert "Data Monitoring Summary" in brief_md
+    assert "Data Monitoring Summary" in brief_json["header"]["title"]
     assert brief_json["body"]["sections"], "Fallback JSON should include sections"
 
 
@@ -46,47 +46,37 @@ async def test_llm_generate_brief_falls_back_on_invalid_json(monkeypatch: pytest
 async def test_llm_generate_brief_parses_json_with_preamble(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {
         "header": {
-            "title": "2024-03-10 – Network pulse",
-            "summary": "Demand up 2.1% vs prior week; focus on Southwest mix shifts.",
+            "title": "2024-03-10 – Demand up 2% from Southwest growth",
+            "summary": "Overall demand increased 2.1% compared to the prior week, driven primarily by Southwest region growth and electronics mix shift. Northeast region showed flat performance due to customs processing delays.",
         },
         "body": {
             "sections": [
                 {
-                    "title": "Opening",
-                    "content": "Network stabilized after prior-week volatility.",
+                    "title": "Executive Summary",
+                    "content": "Network operations stabilized after prior-week volatility with modest growth driven by Southwest region.",
                     "insights": [],
                 },
                 {
-                    "title": "Top Operational Insights",
-                    "content": "Southwest drove the rebound while Northeast lagged.",
+                    "title": "Key Findings",
+                    "content": "Southwest drove the rebound while Northeast lagged due to operational constraints.",
                     "insights": [
                         {
-                            "title": "SW e-commerce spiked",
-                            "details": "+4.2% vs prior week driven by AZ electronics.",
+                            "title": "Southwest e-commerce drove growth",
+                            "details": "Southwest region increased 4.2% compared to the prior week, driven by Arizona electronics orders. This represents the strongest regional performance and accounts for the majority of network growth.",
                         },
                         {
-                            "title": "Midwest auto drag",
-                            "details": "-2.1% vs prior week from MI suppliers.",
+                            "title": "Midwest auto sector declined",
+                            "details": "Midwest region declined 2.1% compared to the prior week, primarily from Michigan automotive suppliers. This appears to be a temporary pullback after strong prior-period performance.",
                         },
                         {
-                            "title": "Northeast import lag",
-                            "details": "Flat vs prior week as NY customs backlog cleared slowly.",
+                            "title": "Northeast customs delays persist",
+                            "details": "Northeast region remained flat compared to the prior week as New York customs backlog continued to clear slowly. Transaction counts suggest underlying demand is normal but processing delays are masking growth.",
                         },
                     ],
                 },
                 {
-                    "title": "Network Snapshot",
-                    "content": "Mix shift toward higher-margin export lanes.",
-                    "insights": [],
-                },
-                {
-                    "title": "Focus For Next Week",
-                    "content": "Resolve NY backlog and sustain AZ growth.",
-                    "insights": [],
-                },
-                {
-                    "title": "Leadership Question",
-                    "content": "Is West Coast capacity enough for forecasted surge?",
+                    "title": "Recommended Actions",
+                    "content": "Focus on resolving NY customs backlog while sustaining Southwest momentum. Monitor Midwest for rebound signals.",
                     "insights": [],
                 },
             ]
@@ -108,4 +98,4 @@ async def test_llm_generate_brief_parses_json_with_preamble(monkeypatch: pytest.
     assert brief_json["header"]["title"] == payload["header"]["title"]
     sections = brief_json["body"].get("sections") or []
     assert len(sections) == len(payload["body"]["sections"])
-    assert "Top Operational Insights" in brief_md
+    assert "Key Findings" in brief_md
