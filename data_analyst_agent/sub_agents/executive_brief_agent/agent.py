@@ -385,14 +385,14 @@ EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
 NETWORK_SECTION_CONTRACT = [
     {"title": "Executive Summary", "mode": "content"},
     {"title": "Key Findings", "mode": "insights"},
-    {"title": "Recommended Actions", "mode": "insights_min_2"},
+    {"title": "Forward Outlook", "mode": "content"},
 ]
 
 SCOPED_SECTION_CONTRACT = [
     {"title": "Executive Summary", "mode": "content"},
     {"title": "Scope Overview", "mode": "content"},
     {"title": "Key Findings", "mode": "insights"},
-    {"title": "Recommended Actions", "mode": "insights_min_2"},
+    {"title": "Forward Outlook", "mode": "content"},
 ]
 
 TOP_INSIGHT_MIN_COUNT = 3
