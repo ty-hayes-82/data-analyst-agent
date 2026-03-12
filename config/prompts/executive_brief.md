@@ -180,6 +180,29 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
 - Weekly data → prioritize "compared to the prior week" or "vs rolling 4-week average"
 - Monthly data → prioritize "compared to the prior month" or "vs same month last year"
 
+**MONTHLY GRAIN — SEQUENTIAL COMPARISONS (CRITICAL):**
+
+When analysis uses monthly temporal grain (check `focus_temporal_grain` or `temporal_grain` in context):
+- **Provide sequential month-over-month comparisons**, not just endpoint comparisons
+- Show the progression across all months in the analysis period
+- Use format: "Metric decreased X% from January to February, then declined another Y% in March"
+
+**Example CORRECT (monthly grain):**
+"Cases decreased 35.7% from January to February, then declined another 33.7% from February to March, reaching April levels 67% below the January peak."
+
+**Example INCORRECT (monthly grain):**
+"Cases decreased 95% from January peak" (missing the sequential monthly steps)
+
+**When to use sequential comparisons:**
+- ANY multi-month analysis (e.g., Jan-Feb-Mar-Apr data)
+- Trend narratives showing progression over time
+- Seasonal pattern explanations
+
+**When endpoint comparison is acceptable:**
+- Single-month analysis (only one data point)
+- Year-over-year context ("March 2024 vs March 2023")
+- Summary statements AFTER sequential detail is provided
+
 ---
 ## CONTRACT + TEMPORAL GROUNDING
 
@@ -199,6 +222,27 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
 - Concentration risk (e.g., "Three stores account for 65% of the revenue decline")
 - Seasonality (e.g., "This aligns with historical summer patterns")
 - Data quality issues (e.g., "Reporting delays likely explain the gap")
+
+---
+## SCOPE CONSTRAINT — CRITICAL RULE
+
+**ONLY summarize metrics that have analysis results in the provided digest.**
+
+If the digest contains insights for only "avg_fare", DO NOT add speculative insights about "passengers", "competition", "market_share", or other metrics in the contract.
+
+If asked to provide a comprehensive brief but given limited scope, explain the scope limitation rather than inventing insights for unanalyzed metrics.
+
+**Example CORRECT:**
+"This analysis focuses on average fare trends. Passenger volume and competition metrics were not included in this analysis."
+
+**Example INCORRECT:**
+"Passenger volumes remained stable" (when no passenger analysis was provided)
+
+**When multiple metrics are in the contract but only one is analyzed:**
+- Acknowledge the scope limitation in the Executive Summary
+- Write Key Findings ONLY for the analyzed metric(s)
+- Do NOT speculate about unanalyzed metrics
+- Frame recommendations around what was actually measured
 
 ---
 ## DIGEST HANDLING

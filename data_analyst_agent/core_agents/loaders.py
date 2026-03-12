@@ -230,6 +230,10 @@ class AnalysisContextInitializer(BaseAgent):
                         dimension_columns=dimension_columns,
                         time_format=time_format,
                     )
+                    
+                    # Persist the temporal grain to session state for downstream agents (NarrativeAgent, ExecutiveBrief)
+                    ctx.session.state["temporal_grain"] = focus_temporal_grain
+                    print(f"[AnalysisContextInitializer] Set temporal_grain in session state: {focus_temporal_grain}")
                 else:
                     print(f"[AnalysisContextInitializer] WARNING: Cannot apply temporal aggregation (missing time_col or metrics)")
 
@@ -319,43 +323,61 @@ class AnalysisContextInitializer(BaseAgent):
             max_drill_depth = ctx.session.state.get("max_drill_depth", 3)
 
         # Detect temporal grain using deterministic overrides that honor the contract frequency first.
+        # PRIORITY: If temporal_grain was already set by aggregation, RESPECT IT - do not overwrite
+        
+        # Extract contract metadata needed for both branches
         time_cfg = getattr(contract, "time", None) if contract else None
         time_col = time_cfg.column if time_cfg else None
         raw_time_frequency = getattr(time_cfg, "frequency", None) if time_cfg else None
         contract_frequency = normalize_temporal_grain(raw_time_frequency)
-        grain_result = detect_temporal_grain(df[time_col]) if time_col and time_col in df.columns else None
-
-        contract_override = normalize_temporal_grain(
-            getattr(time_cfg, "temporal_grain_override", None) if time_cfg else None
-        )
+        
+        # Get env override - define BEFORE if/else to avoid UnboundLocalError
         env_time_frequency = normalize_temporal_grain(os.environ.get("DATA_ANALYST_TIME_FREQUENCY"))
         canonical_frequency = env_time_frequency if env_time_frequency != "unknown" else contract_frequency
-        env_grain = normalize_temporal_grain(os.environ.get("TEMPORAL_GRAIN"))
-
-        if canonical_frequency != "unknown":
-            temporal_grain = canonical_frequency
-            grain_source = "time_frequency_env" if env_time_frequency != "unknown" else "contract_frequency"
-        elif contract_override != "unknown":
-            temporal_grain = contract_override
-            grain_source = "contract_override"
-        elif env_grain != "unknown":
-            temporal_grain = env_grain
-            grain_source = "env"
-        elif grain_result and grain_result.temporal_grain in ("weekly", "monthly"):
-            temporal_grain = grain_result.temporal_grain
-            grain_source = "detected"
-        else:
-            temporal_grain = "monthly"
-            grain_source = "fallback"
-
-        if grain_source in {"time_frequency_env", "contract_override", "contract_frequency"}:
+        
+        existing_grain = ctx.session.state.get("temporal_grain")
+        
+        if existing_grain and existing_grain in ["weekly", "monthly", "yearly"]:
+            # Use aggregated grain, don't overwrite
+            temporal_grain = existing_grain
+            grain_source = "aggregation"
             grain_confidence = 1.0
-        elif grain_source == "detected":
-            grain_confidence = float(grain_result.detection_confidence) if grain_result else 0.0
+            detected_anchor = "aggregated"
+            periods_analyzed = 0
+            print(f"[TemporalGrain] USING AGGREGATION GRAIN: {temporal_grain} (set earlier by temporal aggregation)")
         else:
-            grain_confidence = 0.0
-        detected_anchor = grain_result.detected_anchor if grain_result else "unknown"
-        periods_analyzed = int(grain_result.periods_analyzed) if grain_result else 0
+            # Proceed with standard detection
+            grain_result = detect_temporal_grain(df[time_col]) if time_col and time_col in df.columns else None
+
+            contract_override = normalize_temporal_grain(
+                getattr(time_cfg, "temporal_grain_override", None) if time_cfg else None
+            )
+            env_grain = normalize_temporal_grain(os.environ.get("TEMPORAL_GRAIN"))
+
+            if canonical_frequency != "unknown":
+                temporal_grain = canonical_frequency
+                grain_source = "time_frequency_env" if env_time_frequency != "unknown" else "contract_frequency"
+            elif contract_override != "unknown":
+                temporal_grain = contract_override
+                grain_source = "contract_override"
+            elif env_grain != "unknown":
+                temporal_grain = env_grain
+                grain_source = "env"
+            elif grain_result and grain_result.temporal_grain in ("weekly", "monthly"):
+                temporal_grain = grain_result.temporal_grain
+                grain_source = "detected"
+            else:
+                temporal_grain = "monthly"
+                grain_source = "fallback"
+
+            if grain_source in {"time_frequency_env", "contract_override", "contract_frequency"}:
+                grain_confidence = 1.0
+            elif grain_source == "detected":
+                grain_confidence = float(grain_result.detection_confidence) if grain_result else 0.0
+            else:
+                grain_confidence = 0.0
+            detected_anchor = grain_result.detected_anchor if grain_result else "unknown"
+            periods_analyzed = int(grain_result.periods_analyzed) if grain_result else 0
 
         print(
             f"[TemporalGrain] detected={temporal_grain} source={grain_source} "

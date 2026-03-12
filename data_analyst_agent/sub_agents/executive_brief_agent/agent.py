@@ -1003,12 +1003,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 f"{json.dumps(contract_metadata, indent=2, ensure_ascii=False)}\n\n"
             )
         contract_reference_block = format_contract_reference_block(contract)
-        metric_names = [
-            (metric.get("name") or metric.get("column"))
-            for metric in (contract_metadata.get("metrics") if contract_metadata else [])
-            if isinstance(metric, dict)
-        ]
-        metric_names = [name for name in metric_names if name]
+        # Use ANALYZED metrics (from filtered reports) instead of ALL contract metrics
+        # This prevents the brief from trying to synthesize insights for non-analyzed metrics
+        metric_names = sorted(reports.keys())
         metric_coverage_block = ""
         if metric_names:
             metric_coverage_block = (
