@@ -1,0 +1,73 @@
+name: "World Bank Population"
+version: "1.0.0"
+display_name: "World Bank Population Dataset"
+target_label: "Metric"
+description: >
+  Historical population data by country from the World Bank.
+  Contains annual population estimates for countries worldwide.
+
+materiality:
+  variance_pct: 2.0
+  variance_absolute: 1000000
+
+presentation:
+  unit: "count"
+
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 1
+  max_scope_entities: 100
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/public/worldbank_population.csv"
+
+time:
+  column: "Year"
+  frequency: "yearly"
+  format: "%Y"
+  range_months: 720
+
+grain:
+  columns: ["Year", "Country Name"]
+
+metrics:
+  - name: "population"
+    column: "Value"
+    type: "additive"
+    format: "integer"
+    optimization: "neutral"
+    tags: ["demographic", "population"]
+    description: "Total population estimate"
+
+dimensions:
+  - name: "country_name"
+    column: "Country Name"
+    role: "primary"
+    description: "Country name"
+  - name: "country_code"
+    column: "Country Code"
+    role: "secondary"
+    description: "ISO country code"
+  - name: "year"
+    column: "Year"
+    role: "time"
+    description: "Year of the data point"
+
+hierarchies:
+  - name: "geographic"
+    description: "Geographic hierarchy by country"
+    children: ["Country Name"]
+    level_names:
+      0: "Total"
+      1: "Country"
+
+capabilities:
+  - "annual population trend analysis"
+  - "country-level population tracking"
+  - "cross-country population comparison"
+  - "long-term demographic trends"
+
+policies:
+  degradation_threshold: 0.10

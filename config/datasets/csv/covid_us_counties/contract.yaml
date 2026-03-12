@@ -1,0 +1,85 @@
+name: "COVID-19 US Counties"
+version: "1.0.0"
+display_name: "COVID-19 US Counties Dataset"
+target_label: "Metric"
+description: >
+  COVID-19 cases and deaths data for US counties from the New York Times.
+  Contains cumulative case and death counts by county, state, and date.
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 100
+
+presentation:
+  unit: "count"
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 50
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/public/us_counties_covid_sampled.csv"
+
+time:
+  column: "date"
+  frequency: "daily"
+  format: "%Y-%m-%d"
+  range_months: 24
+
+grain:
+  columns: ["date", "county", "state"]
+
+metrics:
+  - name: "cases"
+    column: "cases"
+    type: "additive"
+    format: "integer"
+    optimization: "minimize"
+    tags: ["health", "covid", "cases"]
+    description: "Cumulative COVID-19 cases"
+  - name: "deaths"
+    column: "deaths"
+    type: "additive"
+    format: "integer"
+    optimization: "minimize"
+    tags: ["health", "covid", "deaths"]
+    description: "Cumulative COVID-19 deaths"
+
+dimensions:
+  - name: "county"
+    column: "county"
+    role: "primary"
+    description: "US county name"
+  - name: "state"
+    column: "state"
+    role: "secondary"
+    description: "US state name"
+  - name: "fips"
+    column: "fips"
+    role: "secondary"
+    description: "Federal Information Processing Standard (FIPS) code"
+  - name: "date"
+    column: "date"
+    role: "time"
+    description: "Date of the data point"
+
+hierarchies:
+  - name: "geographic"
+    description: "Geographic hierarchy: State -> County"
+    children: ["state", "county"]
+    level_names:
+      0: "Total"
+      1: "State"
+      2: "County"
+
+capabilities:
+  - "daily COVID-19 trend analysis"
+  - "geographic drill-down from state to county"
+  - "case and death trend comparison"
+  - "cumulative case tracking"
+
+policies:
+  degradation_threshold: 0.10
