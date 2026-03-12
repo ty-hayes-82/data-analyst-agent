@@ -502,6 +502,11 @@ def _validate_structured_brief(
             errors.append(f"body.sections[{idx}] missing title")
         if not content:
             errors.append(f"{title or f'section[{idx}]'} content empty")
+        elif content == SECTION_FALLBACK_TEXT:
+            errors.append(
+                f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
+                "LLM did not populate this section"
+            )
         insights = section.get("insights")
         if insights is None:
             errors.append(f"{title or f'section[{idx}]'} missing insights array")
@@ -522,6 +527,11 @@ def _validate_structured_brief(
             title_field = str(insight.get("title") or "").strip()
             if title == "Key Findings" and not details:
                 errors.append(f"Key Findings entry {insight_idx} missing details")
+            elif details == SECTION_FALLBACK_TEXT:
+                errors.append(
+                    f"Key Findings entry {insight_idx} contains only placeholder fallback text - "
+                    "LLM did not populate this insight"
+                )
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
 
@@ -639,6 +649,40 @@ async def _llm_generate_brief(
                 print(f"[BRIEF] {reason} Falling back to structured digest.")
                 fallback_json, fallback_markdown = _structured_fallback(reason)
                 return fallback_json, fallback_markdown, True
+            
+            # PRE-NORMALIZATION VALIDATION: Check if LLM returned the required section titles
+            if section_contract:
+                expected_titles = [spec["title"] for spec in section_contract]
+                actual_sections = brief_data.get("body", {}).get("sections", [])
+                actual_titles = [
+                    str(s.get("title", "")).strip() 
+                    for s in actual_sections 
+                    if isinstance(s, dict)
+                ]
+                
+                if actual_titles != expected_titles:
+                    error_msg = (
+                        f"LLM returned wrong section titles. "
+                        f"Expected: {', '.join(expected_titles)}. "
+                        f"Got: {', '.join(actual_titles or ['<empty>'])}"
+                    )
+                    print(f"[BRIEF] {error_msg}")
+                    if attempt < max_attempts:
+                        print(f"[BRIEF] Retrying with explicit section title enforcement...")
+                        # Update config to explicitly list required sections in the prompt
+                        config.system_instruction = (
+                            f"{instruction}\n\n"
+                            "SECTION TITLE ENFORCEMENT (MANDATORY):\n"
+                            "Your JSON body.sections array MUST have exactly these titles in this order:\n"
+                            + "\n".join(f"{i+1}. {title}" for i, title in enumerate(expected_titles))
+                            + "\n\nDO NOT use any other section titles. "
+                            "DO NOT include: 'Opening', 'Top Operational Insights', 'Network Snapshot', "
+                            "'Focus For Next Week', 'Leadership Question', or any similar variations.\n"
+                        )
+                        continue
+                    else:
+                        raise ValueError(error_msg)
+            
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
             else:
@@ -652,6 +696,13 @@ async def _llm_generate_brief(
                 critical_metrics=critical_metrics or []
             )
             if structural_errors:
+                # Check if errors include SECTION_FALLBACK_TEXT usage (indicates normalization failure)
+                fallback_errors = [e for e in structural_errors if "fallback text" in e.lower()]
+                if fallback_errors:
+                    print(f"[BRIEF] Fallback text detected: {'; '.join(fallback_errors)}")
+                    if attempt < max_attempts:
+                        print(f"[BRIEF] Retrying...")
+                        continue
                 raise ValueError(
                     "Structured brief failed validation: " + '; '.join(structural_errors)
                 )

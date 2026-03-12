@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-11T20:41:37
+**Last updated:** 2026-03-12T14:47:14
 
 ## Current State
-- **Unit Tests:** 246 passed, 0 failed, 0 errors
+- **Unit Tests:** 298 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 191 files, 28,812 lines, **54 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (945L)
-- **Commit:** `6600da7 feat: restore public dataset contracts/loa`
+- **Codebase:** 194 files, 30,801 lines, **58 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (1240L)
+- **Commit:** `87f3346 docs: dev session summary 2026-03-12`
 
 ## Progress Over Time
 
@@ -168,9 +168,17 @@
 | 153 | 07:04 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 | 154 | 07:12 | `0906ddd` | 238 | 0 | 0 | 5/5 | 52 | sub_agents/executive_brie |
 | 155 | 20:41 | `6600da7` | 246 | 0 | 0 | 5/5 | 54 | sub_agents/executive_brie |
+| 156 | 03:42 | `43d2757` | 265 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 157 | 03:52 | `43d2757` | 267 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 158 | 04:04 | `2b4fa82` | 267 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 159 | 04:16 | `888d4ba` | 269 | 0 | 0 | 5/5 | 56 | sub_agents/executive_brie |
+| 160 | 04:28 | `5a8bd08` | 269 | 0 | 0 | 5/5 | 57 | sub_agents/executive_brie |
+| 161 | 04:56 | `ad369f0` | 275 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+| 162 | 13:47 | `7dd5b39` | 287 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
+| 163 | 14:47 | `87f3346` | 298 | 0 | 0 | 5/5 | 58 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **246** (+-1)
+- Tests: 247 → **298** (+51)
 - Failures: 0 → **0**
-- Files >200L: 50 → **54** (+4)
-- Iterations: 155
+- Files >200L: 50 → **58** (+8)
+- Iterations: 163
