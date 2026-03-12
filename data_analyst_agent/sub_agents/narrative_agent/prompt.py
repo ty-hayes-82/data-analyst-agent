@@ -1,3 +1,26 @@
+def build_narrative_prompt(dataset_display_name: str, variance_pct: float, variance_absolute: float) -> str:
+    """Build the narrative agent instruction prompt with contract-specific thresholds.
+    
+    Args:
+        dataset_display_name: Human-readable dataset name (e.g., "Trade Data", "OPS Metrics").
+        variance_pct: Materiality threshold as percentage (e.g., 5.0 for 5%).
+        variance_absolute: Materiality threshold as absolute value (e.g., 50000 for $50K).
+    
+    Returns:
+        str: Formatted instruction prompt with placeholders filled.
+    
+    Example:
+        >>> prompt = build_narrative_prompt("Trade Data", 5.0, 50000)
+        >>> print(prompt)
+        >>> # "You are the Insight Narrative Agent for Trade Data..."
+    """
+    return NARRATIVE_AGENT_INSTRUCTION.format(
+        dataset_display_name=dataset_display_name,
+        variance_pct=variance_pct,
+        variance_absolute=variance_absolute
+    )
+
+
 NARRATIVE_AGENT_INSTRUCTION = """You are the Insight Narrative Agent for {dataset_display_name}. Respond with exactly one JSON object:
 {
   "insight_cards": [

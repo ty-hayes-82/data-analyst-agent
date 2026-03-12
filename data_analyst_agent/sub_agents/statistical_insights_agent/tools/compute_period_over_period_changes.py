@@ -220,6 +220,40 @@ def _attach_validation_overlays(
 
 
 async def compute_period_over_period_changes() -> str:
+    """Compute period-over-period changes for the target metric.
+    
+    Aggregates the target metric by the contract's time column and computes
+    the change between the most recent period and the prior period. Provides
+    both absolute and percentage changes.
+    
+    Optional validation overlays (contract-driven):
+    - If dataset declares an anomaly-flag column: computes flagged vs baseline averages
+    - If dataset declares scenario metadata: attaches scenario-level summaries
+    
+    Returns:
+        JSON string containing:
+        - current_period: Most recent period timestamp
+        - prior_period: Previous period timestamp
+        - current_value: Metric value in current period
+        - prior_value: Metric value in prior period
+        - absolute_change: current_value - prior_value
+        - percent_change: (absolute_change / prior_value) * 100
+        - validation_overlay: Optional anomaly/scenario metadata
+        
+    Example Response:
+        {
+            "current_period": "2025-02-28",
+            "prior_period": "2025-01-31",
+            "current_value": 1500000.0,
+            "prior_value": 1400000.0,
+            "absolute_change": 100000.0,
+            "percent_change": 7.14,
+            "validation_overlay": {...}
+        }
+        
+    Raises:
+        Returns error JSON if required columns missing or data empty after parsing
+    """
     try:
         df, time_col, metric_col, grain_col, name_col, ctx = data_cache.resolve_data_and_columns(
             "PeriodOverPeriodChanges"

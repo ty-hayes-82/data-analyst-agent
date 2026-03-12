@@ -1044,6 +1044,27 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         if contract_summary_block:
             contract_summary_block = contract_summary_block + "\n\n"
 
+        # Build mandatory section title enforcement block
+        expected_sections = [spec["title"] for spec in NETWORK_SECTION_CONTRACT]
+        section_title_enforcement = (
+            "⚠️ SECTION TITLE ENFORCEMENT (MANDATORY — VALIDATION WILL FAIL IF VIOLATED):\n"
+            "Your JSON body.sections array MUST contain EXACTLY these section titles in this order:\n"
+            + "\n".join(f"{i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+            + "\n\n"
+            "FORBIDDEN SECTION TITLES (DO NOT USE):\n"
+            "- \"Opening\" (use \"Executive Summary\" instead)\n"
+            "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
+            "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
+            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
+            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
+            "- Any other custom titles not listed above\n\n"
+            "VALIDATION PROCESS:\n"
+            "1. Parse your JSON response\n"
+            "2. Check body.sections[i].title matches expected titles exactly\n"
+            "3. If mismatch detected → automatic retry (up to 3 attempts)\n"
+            "4. After exhausting retries → structured fallback output\n\n"
+        )
+        
         json_enforcement_block = (
             "JSON_OUTPUT_CONSTRAINTS (hard fail if violated):\n"
             "1. '{' must be the first character of your reply and '}' the last.\n"
@@ -1073,53 +1094,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 "- Format: 'Month1→Month2: X%, Month2→Month3: Y%'\n\n"
             )
 
-        # When the run is scoped to a single entity (e.g. Arizona from hierarchy filter),
-        # add an explicit scope restriction so the brief does not discuss other entities.
-        # Prefer hierarchy_filters (what the user selected in the UI) over request_analysis.
-        scope_restriction_text = ""
-        scope_entity_name = None
-        _generic_scope = frozenset(
-            {"", "all", "total", "none", "all entities", "all regions", "entire network", "entire scope"}
-        )
-        hf = ctx.session.state.get("hierarchy_filters") or {}
-        if isinstance(hf, dict) and hf:
-            for col, vals in hf.items():
-                if isinstance(vals, list) and len(vals) == 1 and str(vals[0]).strip():
-                    scope_entity_name = str(vals[0]).strip()
-                    scope_restriction_text = (
-                        SCOPED_BRIEF_PREAMBLE.format(
-                            scope_entity=scope_entity_name,
-                            scope_level_name=col,
-                        )
-                        + "\n"
-                        "Ignore any entities or regions in the digest that are outside this scope; "
-                        "report only on the requested scope.\n\n"
-                    )
-                    break
-        if not scope_restriction_text:
-            req_analysis = ctx.session.state.get("request_analysis")
-            if isinstance(req_analysis, str) and req_analysis.strip():
-                try:
-                    req_analysis = json.loads(req_analysis)
-                except json.JSONDecodeError:
-                    req_analysis = {}
-            if isinstance(req_analysis, dict):
-                primary_val = (req_analysis.get("primary_dimension_value") or "").strip()
-                primary_dim = (req_analysis.get("primary_dimension") or "").strip()
-                if primary_val and primary_val.lower() not in _generic_scope and primary_dim:
-                    scope_entity_name = primary_val
-                    scope_restriction_text = (
-                        SCOPED_BRIEF_PREAMBLE.format(
-                            scope_entity=primary_val,
-                            scope_level_name=primary_dim,
-                        )
-                        + "\n\n"
-                    )
-        if scope_restriction_text:
-            print(f"[BRIEF] Applying scope restriction for filtered run" + (f" ({scope_entity_name})" if scope_entity_name else ""))
-
         user_message = (
-            f"{scope_restriction_text}"
+            f"{section_title_enforcement}"  # FIRST — most visible position
+            f"{json_enforcement_block}"
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
             f"{contract_metadata_block}"
@@ -1133,7 +1110,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
             f"{digest}\n\n"
             f"{weather_block}"
-            f"{json_enforcement_block}"
             "Generate the executive brief JSON as instructed and respond with ONLY the JSON object."
         )
 
@@ -1330,7 +1306,33 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             ),
                         )
                         scoped_instruction = augment_instruction(scoped_instruction, ctx.session.state)
+                        
+                        # Build section title enforcement for scoped briefs
+                        scoped_expected_sections = [spec["title"] for spec in SCOPED_SECTION_CONTRACT]
+                        scoped_section_enforcement = (
+                            "⚠️ SECTION TITLE ENFORCEMENT (MANDATORY — VALIDATION WILL FAIL IF VIOLATED):\n"
+                            "Your JSON body.sections array MUST contain EXACTLY these section titles in this order:\n"
+                            + "\n".join(f"{i+1}. \"{title}\"" for i, title in enumerate(scoped_expected_sections))
+                            + "\n\n"
+                            "FORBIDDEN SECTION TITLES (DO NOT USE):\n"
+                            "- \"Opening\" (use \"Executive Summary\" instead)\n"
+                            "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
+                            "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
+                            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
+                            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
+                            "- Any other custom titles not listed above\n\n"
+                        )
+                        
+                        scoped_json_enforcement = (
+                            "JSON_OUTPUT_CONSTRAINTS (hard fail if violated):\n"
+                            "1. '{' must be the first character of your reply and '}' the last.\n"
+                            "2. Do not wrap the JSON in markdown fences or include prose before/after it.\n"
+                            "3. Do not add acknowledgements, apologies, or closing statements outside the JSON object.\n\n"
+                        )
+                        
                         scoped_user_message = (
+                            f"{scoped_section_enforcement}"  # FIRST — most visible
+                            f"{scoped_json_enforcement}"
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"
                             f"{contract_metadata_block}"

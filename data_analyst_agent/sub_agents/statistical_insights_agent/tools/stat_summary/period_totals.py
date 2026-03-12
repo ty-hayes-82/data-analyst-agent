@@ -12,6 +12,36 @@ from .....utils.contract_summary import get_default_grain_column
 
 
 def compute_monthly_totals(state: SummaryState) -> None:
+    """Compute period totals (aggregate across items) with optional ratio metric handling.
+    
+    For additive metrics, sums across items per period. For ratio metrics (e.g., RPL),
+    fetches numerator/denominator from validation data and computes the ratio at
+    the aggregate level (correct calculation for ratios).
+    
+    Args:
+        state: SummaryState instance with:
+            - pivot: DataFrame with items × periods
+            - df: Source DataFrame (for ratio metrics)
+            - ctx: ADK context with contract
+            - current_metric_name: Name of the metric being analyzed
+            - prev_period/latest_period: For contribution share calculation
+    
+    Modifies:
+        state.monthly_totals: Dict mapping period -> aggregate value
+        state.contribution_share: Dict mapping item -> contribution to latest delta
+            (only computed if prev_period is available)
+    
+    Example:
+        >>> state = SummaryState(pivot=..., current_metric_name='revenue')
+        >>> compute_monthly_totals(state)
+        >>> print(state.monthly_totals)  # {'2025-01': 15000, '2025-02': 16500, ...}
+        >>> print(state.contribution_share)  # {'Store_A': 0.6, 'Store_B': 0.4}
+    
+    Note:
+        - Ratio metrics require validation_data_loader to fetch numerator/denominator
+        - Contribution share: item's delta / total delta (for waterfall charts)
+        - Falls back to simple sum if ratio config unavailable
+    """
     ctx = state.ctx
     df = state.df
     pivot = state.pivot
@@ -74,7 +104,9 @@ def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> 
         if nd_df.empty:
             return None
 
-        tcol = state.time_col if state.time_col in nd_df.columns else "week_ending"
+        # Use contract-defined time column or fallback to "period"
+        contract_time_col = (ctx.contract.time.column if ctx and ctx.contract and ctx.contract.time else None) or "period"
+        tcol = state.time_col if state.time_col in nd_df.columns else (contract_time_col if contract_time_col in nd_df.columns else "period")
         default_grain = get_default_grain_column(ctx.contract if ctx else None, fallback="terminal")
         gcol = state.grain_col if state.grain_col in nd_df.columns else default_grain
 

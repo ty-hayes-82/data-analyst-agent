@@ -31,16 +31,84 @@ from typing import Dict, Any, List, Optional
 
 
 async def compute_new_lost_same_store(comparison: str = "MoM", top_n: int = 10, pre_resolved: Optional[dict] = None) -> str:
-    """
-    Decompose period-over-period variance into new, lost, and same-store components.
+    """Decompose period-over-period variance into new, lost, and same-store components.
+    
+    This analysis answers the critical question:
+    "Is the aggregate change driven by portfolio churn (new/lost entities)
+    or organic growth/decline in the existing base (same-store)?"
+    
+    Buckets:
+        - New: Entities present in current period but absent in prior period
+        - Lost: Entities present in prior period but absent in current period
+        - Same-Store: Entities present in both periods (organic change)
+    
+    Use Cases:
+        - Retail: New stores opening vs store closures vs same-store sales
+        - Supply chain: New terminals vs closed terminals vs same-terminal volume
+        - Revenue: New accounts vs churned accounts vs same-account growth
+        - Workforce: New hires vs terminations vs existing employee productivity
     
     Args:
-        comparison: "MoM" (month-over-month) or "YoY" (year-over-year)
-        top_n: Number of top entities to return per bucket
-        pre_resolved: Optional pre-resolved data bundle from compute_statistical_summary
-        
+        comparison: Comparison type.
+            - "MoM": Month-over-month (latest vs prior period)
+            - "YoY": Year-over-year (latest vs same period last year)
+              Requires 13+ periods. Falls back to MoM if insufficient.
+        top_n: Number of top entities to return in each bucket (new/lost/same-store).
+            Default 10. Top is sorted by absolute value magnitude.
+        pre_resolved: Pre-resolved data bundle from compute_statistical_summary.
+            If provided, skips data resolution. Must contain:
+            - df: DataFrame with time, grain, metric columns
+            - time_col, metric_col, grain_col, name_col: Column names
+            - names_map: Dict mapping grain values to display names
+    
     Returns:
-        JSON string with decomposition results
+        JSON string with:
+            comparison: "MoM" or "YoY"
+            current_period: Current period identifier (e.g., "2025-03")
+            prior_period: Prior period identifier (e.g., "2025-02" or "2024-03")
+            summary: {
+                total_current, total_prior, total_delta: Aggregate totals
+                new_total, lost_total, same_store_delta: Component totals
+                new_count, lost_count, same_store_count: Entity counts
+                new_pct_of_delta: % of total delta from new entities
+                lost_pct_of_delta: % of total delta from lost entities (negative)
+                same_store_pct_of_delta: % of total delta from same-store changes
+            }
+            top_new: List of {item, item_name, current_value} for top new entities
+            top_lost: List of {item, item_name, prior_value} for top lost entities
+            top_same_store_movers: List of {item, item_name, current, prior, delta, delta_pct}
+                for same-store entities with largest absolute delta, sorted descending.
+        
+        Or {"warning": "InsufficientPeriods", ...} if <2 periods available
+        Or {"error": "NewLostSameStoreFailed", ...} on exception
+    
+    Raises:
+        ValueError: Via resolve_data_and_columns if pre_resolved not provided
+            and context/data resolution fails.
+    
+    Example:
+        >>> result = await compute_new_lost_same_store(comparison="MoM", top_n=5)
+        >>> # Returns: {
+        >>> #   "summary": {
+        >>> #     "total_delta": 1500,
+        >>> #     "new_total": 800,
+        >>> #     "lost_total": 200,
+        >>> #     "same_store_delta": 900,
+        >>> #     "new_pct_of_delta": 53.3,
+        >>> #     "lost_pct_of_delta": -13.3,
+        >>> #     "same_store_pct_of_delta": 60.0
+        >>> #   },
+        >>> #   "top_new": [{"item": "Store_123", "item_name": "Downtown", "current_value": 500}, ...]
+        >>> # }
+        
+        >>> # Interpretation: 53% of the growth came from new stores,
+        >>> # 13% offset by store closures, 60% from existing stores.
+    
+    Note:
+        - Percentages may not sum to 100% due to rounding
+        - new_pct + lost_pct + same_store_pct should ≈ 100%
+        - Requires grain_col values to be entity identifiers (e.g., store_id)
+        - YoY comparison requires 13+ periods (12 months + 1 for latest)
     """
     try:
         if pre_resolved:

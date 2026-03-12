@@ -30,8 +30,90 @@ from io import StringIO
 
 
 async def compute_seasonal_decomposition(pre_resolved: Optional[dict] = None) -> str:
-    """
-    Decompose time series into trend, seasonal, and residual components.
+    """Decompose time series into trend, seasonal, and residual components using STL.
+    
+    This tool uses statsmodels' Seasonal and Trend decomposition using Loess (STL)
+    to break down each time series into three additive components:
+    
+    Components:
+        - Trend: Long-term directional movement (growth or decline)
+        - Seasonal: Recurring patterns (e.g., monthly/yearly cycles)
+        - Residual: What's left after removing trend and seasonality (true anomalies)
+    
+    The residual component is particularly valuable for anomaly detection because
+    it isolates unexpected deviations that aren't explained by normal patterns.
+    
+    Use Cases:
+        - Detect true anomalies (residuals beyond 2σ) vs normal seasonal spikes
+        - Quantify seasonal patterns (e.g., "December is 15% above annual average")
+        - Calculate seasonally-adjusted YoY variance (removes monthly bias)
+        - Identify items with strongest/weakest seasonal effects
+    
+    Args:
+        pre_resolved: Pre-resolved data bundle from compute_statistical_summary.
+            If provided, skips data resolution. Must contain:
+            - df: DataFrame with time series data
+            - time_col, metric_col, grain_col, name_col: Column names
+            - names_map: Dict mapping grain values to display names
+    
+    Returns:
+        JSON string with:
+            seasonal_analysis: Per-item analysis with:
+                - periods_analyzed: Number of time periods
+                - residual_std/residual_mean: Residual statistics
+                - anomaly_count: Count of residuals beyond 2σ
+                - seasonal_pattern: Dict mapping month (1-12) to average seasonal component
+                - yoy_variance_raw: YoY change including seasonality
+                - yoy_variance_seasonal_adjusted: YoY change with seasonality removed
+                - seasonal_strength: Ratio of seasonal std to total std
+            residual_anomalies: All detected anomalies (|residual| > 2σ)
+            top_anomalies: Top 15 anomalies by absolute residual magnitude
+            strongest_seasonal_items: Top 5 items by seasonal_strength
+            seasonality_summary: Dataset-level {peak_month, trough_month, seasonal_amplitude_pct}
+            summary: {
+                items_analyzed, total_periods, total_anomalies_detected,
+                items_with_anomalies, anomaly_rate_pct
+            }
+        
+        Or {"warning": "InsufficientDataForSeasonal", ...} if <24 periods
+        Or {"error": "SeasonalDecompositionFailed", ...} on exception
+    
+    Raises:
+        ValueError: Via resolve_data_and_columns if pre_resolved not provided
+            and context/data resolution fails.
+    
+    Example:
+        >>> result = await compute_seasonal_decomposition()
+        >>> # Returns: {
+        >>> #   "seasonal_analysis": [{
+        >>> #     "item": "Store_123",
+        >>> #     "seasonal_pattern": {
+        >>> #       12: 1500,  # December +$1500 above trend
+        >>> #       1: -800,   # January -$800 below trend
+        >>> #       ...
+        >>> #     },
+        >>> #     "seasonal_strength": 0.35,  # 35% of variance is seasonal
+        >>> #     "yoy_variance_seasonal_adjusted": 1200,  # True growth after removing seasonal effect
+        >>> #   }],
+        >>> #   "top_anomalies": [{
+        >>> #     "period": "2025-02",
+        >>> #     "item": "Store_456",
+        >>> #     "residual_z_score": 3.8,  # 3.8σ above expected
+        >>> #     "residual_magnitude": 5000  # $5000 unexplained deviation
+        >>> #   }]
+        >>> # }
+    
+    Note:
+        - Requires statsmodels (pip install statsmodels)
+        - Requires 24+ periods (2 years) for reliable seasonal decomposition
+        - Uses additive model (seasonal + trend + residual = observed)
+        - Seasonal period = 12 (monthly cycles)
+        - Residual anomaly threshold = 2 standard deviations
+        - Items with <24 observations are skipped
+        - Seasonal_strength interpretation:
+          * <0.2 = weak seasonality
+          * 0.2-0.5 = moderate seasonality
+          * >0.5 = strong seasonality
     """
     try:
         if pre_resolved:

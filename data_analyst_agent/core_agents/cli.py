@@ -12,6 +12,26 @@ from google.adk.events.event_actions import EventActions
 
 
 def _infer_primary_dimension(contract):
+    """Infer the primary dimension from contract metadata.
+    
+    Searches for a dimension with role='primary' in the contract. Falls back
+    to the first dimension if no primary role is defined, or 'network' if
+    the contract has no dimensions.
+    
+    Args:
+        contract: DatasetContract instance with dimensions metadata.
+        
+    Returns:
+        str: Primary dimension name (e.g., 'line_of_business', 'network').
+        
+    Example:
+        >>> contract = DatasetContract(dimensions=[
+        ...     Dimension(name='lob', role='primary'),
+        ...     Dimension(name='region', role='secondary')
+        ... ])
+        >>> _infer_primary_dimension(contract)
+        'lob'
+    """
     if not contract or not getattr(contract, 'dimensions', None):
         return 'network'
     primary = next((d for d in contract.dimensions if getattr(d, 'role', None) == 'primary'), None)
@@ -19,6 +39,25 @@ def _infer_primary_dimension(contract):
 
 
 def _infer_total_label(contract):
+    """Infer the 'total' or 'all' label for the root hierarchy level.
+    
+    Searches contract hierarchies for a level_names mapping at level 0
+    (the root/aggregate level). This label represents "all values combined"
+    for the hierarchy (e.g., 'All LOBs', 'Total Network').
+    
+    Args:
+        contract: DatasetContract instance with hierarchies metadata.
+        
+    Returns:
+        str: Total label from first hierarchy with level 0 name, or 'Total'.
+        
+    Example:
+        >>> contract = DatasetContract(hierarchies=[
+        ...     Hierarchy(name='lob', level_names={0: 'All LOBs', 1: 'LOB'})
+        ... ])
+        >>> _infer_total_label(contract)
+        'All LOBs'
+    """
     if not contract:
         return 'Total'
     hierarchies = getattr(contract, 'hierarchies', None) or []
@@ -31,7 +70,58 @@ def _infer_total_label(contract):
 
 
 class CLIParameterInjector(BaseAgent):
-    """Injects CLI-provided parameters into session state."""
+    """Injects CLI-provided parameters into session state.
+    
+    This agent is the primary entry point for command-line and web UI configuration.
+    It reads environment variables set by the CLI harness or web server and
+    translates them into session state keys used by downstream agents.
+    
+    Environment Variables Processed:
+        DATA_ANALYST_METRICS: Comma-separated list of target metrics
+        DATA_ANALYST_DIMENSION: Primary dimension name
+        DATA_ANALYST_DIMENSION_VALUE: Dimension value to analyze
+        DATA_ANALYST_START_DATE: Override start date (YYYY-MM-DD)
+        DATA_ANALYST_END_DATE: Override end date (YYYY-MM-DD)
+        DATA_ANALYST_FOCUS: Comma-separated focus directives
+        DATA_ANALYST_CUSTOM_FOCUS: Free-text custom focus instruction
+        DATA_ANALYST_HIERARCHY: Selected hierarchy name
+        DATA_ANALYST_HIERARCHY_LEVELS: Comma-separated hierarchy levels
+        DATA_ANALYST_HIERARCHY_FILTERS: JSON-encoded hierarchy filters
+        
+    Focus Directives:
+        - recent_weekly_trends: Last 8 weeks, weekly grain
+        - recent_monthly_trends: Last 6 months, monthly grain
+        - recent_yearly_trends: Last 3 years, yearly grain
+        
+    Session State Outputs:
+        extracted_targets: List of metric names to analyze
+        dimension: Primary dimension name
+        dimension_value: Dimension value for filtering
+        analysis_focus: List of normalized focus directives
+        custom_focus: Sanitized custom focus text (max 500 chars)
+        selected_hierarchy: Hierarchy name
+        custom_hierarchy_levels: List of level names
+        hierarchy_filters: Dict mapping dimension columns to value lists
+        request_analysis: Complete parsed request object
+        primary_query_start_date: Start date override
+        primary_query_end_date: End date override
+        timeframe: {start, end} dict for persistence
+        
+    Example:
+        >>> # CLI usage:
+        >>> # export DATA_ANALYST_METRICS="revenue,orders"
+        >>> # export DATA_ANALYST_DIMENSION="line_of_business"
+        >>> # export DATA_ANALYST_DIMENSION_VALUE="Retail"
+        >>> # python -m data_analyst_agent
+        >>> # After CLIParameterInjector runs:
+        >>> ctx.session.state["extracted_targets"]  # ["revenue", "orders"]
+        >>> ctx.session.state["dimension"]  # "line_of_business"
+    
+    Note:
+        Custom focus text is sanitized to remove control characters and
+        truncated to 500 characters to prevent prompt injection or
+        excessive token usage.
+    """
 
     def __init__(self):
         super().__init__(name="cli_parameter_injector")

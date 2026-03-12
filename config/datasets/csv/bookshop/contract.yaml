@@ -1,0 +1,137 @@
+name: Bookshop Sales
+version: 1.0.0
+display_name: Bookshop — Sales, Revenue & Publishing Analysis
+target_label: Metric
+description: >
+  Fictional bookshop dataset from a Tableau TDSX source. 56,350 sales transactions
+  across 58 books, 41 authors, 5 publishers, and 6 genres over a full calendar year.
+  Includes price, discount, revenue, format, and publishing metadata.
+  Sourced from a packaged Tableau .tdsx with a native .hyper extract.
+
+materiality:
+  variance_pct: 10.0
+  variance_absolute: 500.0
+
+presentation:
+  unit: USD
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 3
+  max_scope_entities: 25
+  output_format: pdf
+
+data_source:
+  type: tableau_hyper
+  file: data/tableau/Bookshop.tdsx
+
+time:
+  column: Sale Date
+  frequency: daily
+  format: "%Y-%m-%d"
+  range_months: 12
+
+grain:
+  columns:
+    - Sale Date
+    - Genre
+    - Publishing House
+
+metrics:
+  - name: revenue
+    column: Revenue
+    type: additive
+    format: currency
+    optimization: maximize
+    tags: [revenue, topline]
+    description: Net revenue per sale (Price * (1 - Discount))
+
+  - name: price
+    column: Price
+    type: ratio
+    format: currency
+    optimization: maximize
+    tags: [pricing]
+    description: List price of the edition (USD)
+
+  - name: discount
+    column: Discount
+    type: ratio
+    format: percent
+    optimization: minimize
+    tags: [pricing, margin]
+    description: Discount applied (0.0 or 0.15)
+
+dimensions:
+  - name: sale_date
+    column: Sale Date
+    role: time
+    description: Date of the sale transaction
+
+  - name: genre
+    column: Genre
+    role: primary
+    description: "Book genre: Childrens, Fiction, Mystery, Sci-Fi, Thriller, Young Adult"
+
+  - name: publishing_house
+    column: Publishing House
+    role: primary
+    description: "Publisher: Cedar House, Etaoin Shrdlu Press, Palimpsest Printing, Sound & Seas Co."
+
+  - name: publisher_country
+    column: Publisher Country
+    role: primary
+    description: "Publisher country: USA, UK, New Zealand"
+
+  - name: title
+    column: Title
+    role: primary
+    description: Book title (58 unique titles)
+
+  - name: author_last_name
+    column: Author Last Name
+    role: secondary
+    description: Author last name (41 unique authors)
+
+  - name: author_country
+    column: Author Country
+    role: secondary
+    description: "Author country of residence: New Zealand, Norway, UK, USA"
+
+  - name: format
+    column: Format
+    role: secondary
+    description: "Edition format: Hardcover, Paperback, Graphic, Audio"
+
+  - name: series_name
+    column: Series Name
+    role: secondary
+    description: Series name if part of a series (7 series, many standalone)
+
+hierarchies:
+  - name: publishing
+    levels: [Publisher Country, Publishing House, Title]
+    description: Publisher country → Publishing house → Book title
+
+  - name: product
+    levels: [Genre, Title, Format]
+    description: Genre → Book title → Edition format
+
+  - name: author
+    levels: [Author Country, Author Last Name, Title]
+    description: Author country → Author → Book title
+
+capabilities:
+  - Daily time-series analysis (full calendar year)
+  - Genre-level revenue variance and trend analysis
+  - Publisher performance comparison
+  - Discount impact analysis (0% vs 15% discount effect on volume)
+  - Format mix analysis (Hardcover vs Paperback vs Graphic vs Audio)
+  - Author productivity and revenue contribution
+  - Series vs standalone title performance
+  - Geographic analysis by publisher and author country
+  - Seasonal demand patterns (quarterly volume shifts)
+  - Cross-dimensional drill-down (which genres sell best through which publishers)
+
+policies:
+  degradation_threshold: 0.10

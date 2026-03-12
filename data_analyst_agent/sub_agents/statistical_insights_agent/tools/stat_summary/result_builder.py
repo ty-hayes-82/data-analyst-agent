@@ -9,6 +9,57 @@ from ..stat_summary.state import SummaryState
 
 
 def build_result(state: SummaryState, advanced_results: dict[str, Any]) -> str:
+    """Assemble final statistical summary JSON from state and advanced results.
+    
+    Combines core statistical summary (top drivers, volatility, anomalies) with
+    advanced analysis results (seasonal decomposition, change points, etc.) into
+    a unified JSON response.
+    
+    Args:
+        state: SummaryState instance with core statistics:
+            - top_drivers, most_volatile, anomalies_sorted
+            - correlations, monthly_totals, summary_stats
+            - enhanced_top_drivers, delta_attribution
+            - suspected_uniform_growth, analysis_focus, custom_focus
+            - temporal_grain, time_frequency, period_unit
+            - lag metadata (if applicable)
+        advanced_results: Dict mapping analysis names to their results:
+            - SeasonalDecomposition
+            - ChangePoints
+            - MADOutliers
+            - ForecastBaseline
+            - DerivedMetrics
+            - NewLostSameStore
+            - ConcentrationAnalysis
+            - CrossMetricCorrelation
+            - LaggedCorrelation
+            - VarianceDecomposition
+            - OutlierImpact
+            - DistributionAnalysis
+            - CrossDimension_* (multiple cross-dimension analyses)
+    
+    Returns:
+        JSON string with complete statistical summary including:
+            - Core summary fields (top_drivers, anomalies, etc.)
+            - Advanced analysis fields mapped to legacy key names
+            - metadata: Computation methods, thresholds, focus context
+    
+    Example:
+        >>> state = SummaryState(...)
+        >>> advanced = {
+        ...     'SeasonalDecomposition': {...},
+        ...     'NewLostSameStore': {...}
+        ... }
+        >>> json_str = build_result(state, advanced)
+        >>> result = json.loads(json_str)
+        >>> print(result['seasonal_analysis'])  # From advanced['SeasonalDecomposition']
+        >>> print(result['metadata']['advanced_methods'])  # List of all methods used
+    
+    Note:
+        - Uses custom JSON encoder to handle numpy types
+        - Cross-dimension analyses collected into nested dict
+        - Metadata includes focus_context (analysis_focus, custom_focus, z_threshold)
+    """
     result = {
         "top_drivers": state.top_drivers,
         "most_volatile": state.most_volatile,

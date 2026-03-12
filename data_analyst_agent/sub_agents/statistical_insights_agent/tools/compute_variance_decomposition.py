@@ -35,18 +35,85 @@ async def compute_variance_decomposition(
     hierarchy_dim: Optional[str] = None,
     auxiliary_dim: Optional[str] = None,
 ) -> str:
-    """
-    Compute variance decomposition for available dimensions.
-
+    """Decompose variance across dimensions using ANOVA (Type II Sum of Squares).
+    
+    This tool quantifies how much of the total variance in the target metric
+    is explained by each dimension (e.g., LOB, Terminal, Time) and their
+    interactions. It uses statsmodels' ANOVA with Type II SS to handle
+    unbalanced designs common in business data.
+    
+    The analysis answers: "Which dimension drives the most variation in this metric?"
+    
+    Use Cases:
+        - Identify which dimension (LOB vs Region vs Time) has the biggest impact
+        - Detect interaction effects (e.g., LOB behavior differs by Region)
+        - Determine if variance is mostly unexplained (high residual)
+        - Pair mode: Test specific hypothesis about two dimensions
+    
     Args:
-        dimensions: Specific dimensions to include. If None, auto-detected.
-        include_interactions: Whether to include pairwise interactions.
-        method: Attribution method ("anova" or "shapley" -- shapley is simplified).
-        pre_resolved: Optional pre-resolved data bundle from compute_statistical_summary.
+        dimensions: Explicit list of dimension columns to analyze.
+            If None, auto-detects from contract dimensions (excluding metric/time/grain).
+        include_interactions: If True, includes pairwise interaction terms
+            (e.g., LOB:Region). Default True. Disable for >3 dimensions to
+            avoid combinatorial explosion.
+        method: Attribution method. Currently only "anova" is fully implemented.
+            "shapley" is a simplified fallback.
+        pre_resolved: Pre-resolved data bundle from compute_statistical_summary.
+            If provided, skips data resolution. Must contain:
+            - df: DataFrame with dimension and metric columns
+            - time_col, metric_col, grain_col, name_col: Column names
+            - ctx: ADK context with contract
         hierarchy_dim: Explicit hierarchy dimension column for pair mode.
         auxiliary_dim: Explicit auxiliary dimension column for pair mode.
             When both hierarchy_dim and auxiliary_dim are set, only these two
-            dimensions are used (with interaction).
+            dimensions are analyzed (with interaction). This is used for
+            cross-dimension analysis to test specific hypotheses.
+    
+    Returns:
+        JSON string with:
+            method: "anova_type_2" or "one_way_fallback"
+            total_variance_ss: Total sum of squares
+            dimension_contributions: List of {dimension, eta_squared, f_statistic, p_value}
+                sorted by eta_squared descending. Eta-squared = proportion of
+                variance explained by that dimension.
+            interaction_effects: List of {dimensions, eta_squared, f_statistic, p_value}
+                for pairwise interactions, sorted by eta_squared descending.
+            residual_variance_pct: Proportion unexplained by model
+            summary: {dominant_dimension, dominant_pct, recommendation}
+            
+        Or {"error": "..."} or {"skipped": True, "reason": "..."}
+    
+    Raises:
+        ValueError: Via resolve_data_and_columns if pre_resolved not provided
+            and context/data resolution fails.
+    
+    Example:
+        >>> # Auto-detect dimensions:
+        >>> result = await compute_variance_decomposition()
+        >>> # Returns: {"dimension_contributions": [
+        >>> #   {"dimension": "line_of_business", "eta_squared": 0.42, ...},
+        >>> #   {"dimension": "week_ending", "eta_squared": 0.18, ...}
+        >>> # ], ...}
+        
+        >>> # Pair mode (cross-dimension analysis):
+        >>> result = await compute_variance_decomposition(
+        ...     hierarchy_dim="line_of_business",
+        ...     auxiliary_dim="terminal_name",
+        ...     include_interactions=True
+        ... )
+        >>> # Tests: How much variance is explained by LOB, Terminal,
+        >>> # and their interaction (LOB behavior varies by Terminal)?
+    
+    Note:
+        - Requires statsmodels (pip install statsmodels)
+        - Falls back to one-way ANOVA if multi-way formula fails
+          (e.g., due to sparse interaction cells)
+        - Eta-squared (η²) interpretation:
+          * 0.01 = small effect
+          * 0.06 = medium effect
+          * 0.14+ = large effect
+        - High residual_variance_pct (>80%) suggests missing dimensions
+          or high noise in the data
     """
     try:
         if pre_resolved:
