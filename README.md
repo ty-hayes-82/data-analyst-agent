@@ -161,6 +161,152 @@ outputs/<dataset>/<dimension>/<value>/<timestamp>/
   └── run_metadata.json # Run configuration
 ```
 
+## Web UI Usage
+
+The web interface provides a complete visual workflow for dataset management and analysis.
+
+### Starting the Web Server
+
+**Development Mode (with auto-reload):**
+```bash
+cd /data/data-analyst-agent
+uvicorn web.app:app --reload --host 0.0.0.0 --port 8080
+```
+
+**Production Mode:**
+```bash
+uvicorn web.app:app --host 0.0.0.0 --port 8080 --workers 4
+```
+
+**Background Mode (Linux/Mac):**
+```bash
+nohup uvicorn web.app:app --host 0.0.0.0 --port 8080 > web.log 2>&1 &
+```
+
+### Web UI Tabs
+
+**1. New Analysis**
+- Select dataset from dropdown
+- Choose metrics (single or multiple)
+- Select analysis focus mode (or multiple)
+- Add custom analysis instructions (optional)
+- Configure hierarchy and drill depth
+- Click "Run Analysis" to start
+
+**2. Monitor**
+- View all active and recent runs
+- See real-time progress logs (updates every 2 seconds)
+- Check run status (Running, Completed, Failed)
+- Track execution time
+- Cancel running analyses
+
+**3. Results**
+- Browse all completed analyses
+- Filter by dataset, date, status
+- Preview executive briefs in-browser (Markdown rendering)
+- Download outputs:
+  - `brief.md` - Markdown summary
+  - `brief.pdf` - PDF for leadership
+  - `brief.json` - Structured JSON
+  - `metric_*.json` - Detailed analysis per metric
+- View run metadata (configuration, timing, focus)
+
+**4. Add Dataset**
+- Upload CSV file (drag-and-drop)
+- Auto-detect structure:
+  - Time columns (date/week/month/quarter)
+  - Numeric metrics
+  - Categorical dimensions
+  - Hierarchical relationships
+- Review detected contract
+- Adjust confidence thresholds
+- Toggle fields on/off
+- Save and use immediately
+
+### API Integration
+
+The web UI is built on a REST API that you can call directly:
+
+**Start an Analysis:**
+```bash
+curl -X POST http://localhost:8080/api/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_id": "us_airfare",
+    "metrics": ["avg_fare"],
+    "focus": ["anomaly_detection"],
+    "custom_focus": "Focus on Q4 routes"
+  }'
+```
+
+**Check Run Status:**
+```bash
+curl http://localhost:8080/api/runs/{run_id}
+```
+
+**Get Live Logs:**
+```bash
+curl http://localhost:8080/api/runs/{run_id}/log
+```
+
+**Download Brief:**
+```bash
+curl http://localhost:8080/api/runs/{run_id}/files/brief.md > brief.md
+```
+
+**Health Check:**
+```bash
+curl http://localhost:8080/health
+# Returns: {"status": "healthy", "service": "data-analyst-agent-web", "version": "1.0.0"}
+```
+
+### Configuration
+
+Environment variables for the web server (add to `.env`):
+
+```bash
+# Server
+WEB_SERVER_PORT=8080           # Default port
+
+# CORS (for browser-based frontends)
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+
+# Performance
+EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=3    # Limit entity-level briefs
+EXECUTIVE_BRIEF_SCOPE_CONCURRENCY=3    # Parallel brief generation
+
+# Logging
+LOG_LEVEL=INFO                         # DEBUG, INFO, WARNING, ERROR
+PHASE_LOGGING_ENABLED=true            # Enable phase-based logging
+```
+
+### Troubleshooting
+
+**Port already in use:**
+```bash
+# Find process using port 8080
+lsof -i :8080
+# Kill it
+kill -9 <PID>
+# Or use a different port
+uvicorn web.app:app --port 8081
+```
+
+**Import errors:**
+```bash
+# Ensure you're in the project root
+cd /data/data-analyst-agent
+# Activate venv
+source .venv/bin/activate
+# Verify installation
+pip list | grep google-adk
+```
+
+**Slow performance:**
+- Reduce `EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` to 2
+- Increase `EXECUTIVE_BRIEF_SCOPE_CONCURRENCY` to 4
+- Use `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL=true` for faster synthesis
+
 ## Included Public Datasets
 
 These datasets are ready to analyze out of the box:
