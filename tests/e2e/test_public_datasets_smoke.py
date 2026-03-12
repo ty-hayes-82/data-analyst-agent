@@ -40,17 +40,32 @@ def _normalize_columns(columns: Iterable[str]) -> set[str]:
     return {c.strip().lower() for c in columns if isinstance(c, str)}
 
 
+def _expected_contract_columns(contract: DatasetContract) -> set[str]:
+    """Return the set of canonical columns that the CSV must contain."""
+    expected: set[str] = set()
+
+    if contract.time.column:
+        expected.add(contract.time.column)
+
+    if contract.grain and contract.grain.columns:
+        expected.update(contract.grain.columns)
+
+    expected.update(m.column for m in contract.metrics if m.column)
+
+    expected.update(
+        d.column for d in contract.dimensions if d.role in {"primary", "secondary", "time"}
+    )
+
+    return _normalize_columns(expected)
+
+
 def test_covid_us_counties_dataset_loads_and_has_core_columns():
     contract = _load_contract("covid_us_counties")
     assert contract.metrics, "contract missing metrics"
     csv_path = _resolve_data_path(contract)
     df = pd.read_csv(csv_path)
 
-    metric_columns = [m.column for m in contract.metrics if m.column][:2]
-    dimension_columns = [
-        d.column for d in contract.dimensions if d.role in {"primary", "secondary"}
-    ][:2]
-    expected = _normalize_columns([contract.time.column, *metric_columns, *dimension_columns])
+    expected = _expected_contract_columns(contract)
 
     assert expected.issubset(_normalize_columns(df.columns)), "core contract columns missing from CSV"
     assert len(df) > 10_000
@@ -77,7 +92,8 @@ def test_worldbank_population_dataset_loads_and_has_population():
     assert metric_column, "population metric is missing a source column"
     country_dimension = next((d.column for d in contract.dimensions if d.role == "primary"), None)
     assert country_dimension, "contract missing a primary dimension"
-    expected = _normalize_columns([contract.time.column, metric_column, country_dimension])
+
+    expected = _expected_contract_columns(contract)
 
     assert expected.issubset(_normalize_columns(df.columns)), "population columns missing from CSV"
     assert df[metric_column].astype(float).sum() > 0
