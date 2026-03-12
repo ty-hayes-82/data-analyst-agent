@@ -1,0 +1,54 @@
+name: "worldbank_population"
+version: "1.0.0"
+display_name: "World Bank Population"
+target_label: "Population"
+description: >
+  Annual population counts per country published by the World Bank's World
+  Development Indicators dataset. Contains 60+ years of global coverage.
+materiality:
+  variance_pct: 3.0
+  variance_absolute: 100000
+presentation:
+  unit: "people"
+reporting:
+  max_drill_depth: 1
+  executive_brief_drill_levels: 1
+  max_scope_entities: 15
+  output_format: "pdf"
+data_source:
+  type: "csv"
+  file: "data/public/worldbank_population.csv"
+time:
+  column: "Year"
+  frequency: "yearly"
+  format: "%Y"
+  range_months: 720
+grain:
+  columns: ["Year", "Country Name"]
+metrics:
+  - name: "population"
+    column: "Value"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+    description: "Total population count"
+dimensions:
+  - name: "country"
+    column: "Country Name"
+    role: "primary"
+    description: "Country name"
+  - name: "country_code"
+    column: "Country Code"
+    role: "secondary"
+    description: "ISO alpha-3 country code"
+  - name: "year"
+    column: "Year"
+    role: "time"
+    description: "Calendar year"
+hierarchies:
+  - name: "global_population"
+    description: "Global total to country drill-down"
+    children: ["Country Name"]
+    level_names:
+      0: "Global"
+      1: "Country"

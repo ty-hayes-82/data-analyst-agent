@@ -114,6 +114,44 @@ class RuleBasedPlanner(BaseAgent):
 
 
 # LLM fallback agent (used when USE_CODE_INSIGHTS=false)
+
+class FocusAwarePlannerAgent(BaseAgent):
+    """Wraps the LLM planner so focus directives reach the prompt context."""
+
+    def __init__(self, wrapped_agent: Agent):
+        super().__init__(name="planner_agent")
+        self._wrapped = wrapped_agent
+        self.output_key = getattr(wrapped_agent, "output_key", "execution_plan")
+        self.description = getattr(wrapped_agent, "description", "")
+        self._base_instruction = getattr(wrapped_agent, "instruction", PLANNER_INSTRUCTION)
+
+    def __getattr__(self, item):
+        if item in {"output_key", "description"}:
+            return getattr(self, item)
+        return getattr(self._wrapped, item)
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        analysis_focus = ctx.session.state.get("analysis_focus") or []
+        custom_focus = ctx.session.state.get("custom_focus") or ""
+        focus_lines = []
+        if analysis_focus:
+            focus_lines.append("- Focus modes: " + ", ".join(str(m) for m in analysis_focus if m))
+        if isinstance(custom_focus, str) and custom_focus.strip():
+            focus_lines.append(f"- Custom directive: {custom_focus.strip()}")
+
+        instruction = self._base_instruction
+        if focus_lines:
+            focus_block = "\n".join(focus_lines)
+            instruction = (
+                f"{self._base_instruction}\n\nFOCUS_DIRECTIVES:\n"
+                f"{focus_block}\nPrioritize or de-prioritize agents accordingly."
+            )
+        self._wrapped.instruction = instruction
+
+        async for event in self._wrapped.run_async(ctx):
+            yield event
+
+
 _llm_planner = Agent(
     model=get_agent_model("planner_agent"),
     name="planner_agent",
@@ -128,7 +166,7 @@ _llm_planner = Agent(
     ),
 )
 
-root_agent = RuleBasedPlanner() if USE_CODE_INSIGHTS else _llm_planner
+root_agent = RuleBasedPlanner() if USE_CODE_INSIGHTS else FocusAwarePlannerAgent(_llm_planner)
 
 print(
     f"[Planner] Using "

@@ -57,7 +57,7 @@ class CLIParameterInjector(BaseAgent):
             cleaned = " ".join(cleaned.split())
             return cleaned[:max_len].strip()
 
-        custom_focus = _sanitize_custom_focus(custom_focus_raw)
+        custom_focus = _sanitize_custom_focus(custom_focus_raw) or None
 
         contract = ctx.session.state.get("dataset_contract")
         display_name = getattr(contract, "display_name", getattr(contract, "name", "dataset")) if contract else "dataset"

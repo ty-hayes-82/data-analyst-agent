@@ -1,0 +1,13 @@
+source:
+  file: "data/public/worldbank_population.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+sort_columns: ["Year", "Country Name"]
+
+output_columns:
+  - "Year"
+  - "Country Name"
+  - "Country Code"
+  - "Value"
