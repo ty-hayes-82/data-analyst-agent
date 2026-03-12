@@ -335,19 +335,16 @@ EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
 
 
 NETWORK_SECTION_CONTRACT = [
-    {"title": "Opening", "mode": "content"},
-    {"title": "Top Operational Insights", "mode": "insights"},
-    {"title": "Network Snapshot", "mode": "content"},
-    {"title": "Focus For Next Week", "mode": "content"},
-    {"title": "Leadership Question", "mode": "content"},
+    {"title": "Executive Summary", "mode": "content"},
+    {"title": "Key Findings", "mode": "insights"},
+    {"title": "Recommended Actions", "mode": "content"},
 ]
 
 SCOPED_SECTION_CONTRACT = [
-    {"title": "Opening", "mode": "content"},
-    {"title": "Scope Summary", "mode": "content"},
-    {"title": "Child Entity Insights", "mode": "insights"},
-    {"title": "Structural Insights", "mode": "insights"},
-    {"title": "Leadership Question", "mode": "content"},
+    {"title": "Executive Summary", "mode": "content"},
+    {"title": "Scope Overview", "mode": "content"},
+    {"title": "Key Findings", "mode": "insights"},
+    {"title": "Recommended Actions", "mode": "content"},
 ]
 
 TOP_INSIGHT_MIN_COUNT = 3
@@ -400,7 +397,7 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
                             "details": entry_details or SECTION_FALLBACK_TEXT,
                         }
                     )
-            required = TOP_INSIGHT_MIN_COUNT if title == "Top Operational Insights" else 1
+            required = TOP_INSIGHT_MIN_COUNT if title == "Key Findings" else 1
             if not insights:
                 insights.append(_placeholder_insight(title, 0))
             while len(insights) < required:
@@ -469,12 +466,12 @@ def _validate_structured_brief(
             if content and fallback_lower in content:
                 # Allow fallback ONLY for sections that explicitly mention metrics without critical findings
                 # or for Leadership Question section
-                if section_title not in ("Leadership Question", "Focus For Next Week"):
+                if section_title not in ("Recommended Actions",):
                     # Check if the content mentions any of the critical metrics
                     critical_mention = any(
                         metric.lower() in content for metric in critical_metrics
                     )
-                    if critical_mention or section_title in ("Opening", "Top Operational Insights", "Network Snapshot"):
+                    if critical_mention or section_title in ("Executive Summary", "Key Findings", "Scope Overview"):
                         errors.append(
                             f"CRITICAL VIOLATION: Section '{section_title}' uses fallback text but critical findings exist in: {', '.join(critical_metrics)}"
                         )
@@ -512,19 +509,19 @@ def _validate_structured_brief(
         if not isinstance(insights, list):
             errors.append(f"{title or f'section[{idx}]'} insights is not a list")
             continue
-        if title == "Top Operational Insights":
+        if title == "Key Findings":
             if len(insights) < TOP_INSIGHT_MIN_COUNT:
-                errors.append("Top Operational Insights must include at least three entries")
+                errors.append("Key Findings must include at least three entries")
             if len(insights) > 5:
-                errors.append("Top Operational Insights must not include more than five entries")
+                errors.append("Key Findings must not include more than five entries")
         for insight_idx, insight in enumerate(insights):
             if not isinstance(insight, dict):
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} is not an object")
                 continue
             details = str(insight.get("details") or "").strip()
             title_field = str(insight.get("title") or "").strip()
-            if title == "Top Operational Insights" and not details:
-                errors.append(f"Top Operational Insights entry {insight_idx} missing details")
+            if title == "Key Findings" and not details:
+                errors.append(f"Key Findings entry {insight_idx} missing details")
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
 
