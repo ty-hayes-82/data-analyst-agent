@@ -511,12 +511,14 @@ def _validate_structured_brief(
     has_critical_findings: bool = False,
     critical_metrics: list[str] | None = None,
     min_insight_values: int = 3,
+    is_scoped: bool = False,
 ) -> list[str]:
     """Return a list of validation errors for the structured brief payload.
     
     Args:
         min_insight_values: Minimum numeric values per Key Findings insight (default 3).
                            Use 2 for scoped briefs with less signal.
+        is_scoped: True for entity-scoped briefs (relaxed validation).
     """
 
     errors: list[str] = []
@@ -614,8 +616,9 @@ def _validate_structured_brief(
             errors.append(f"{title or f'section[{idx}]'} insights is not a list")
             continue
         if title == "Key Findings":
-            if len(insights) < TOP_INSIGHT_MIN_COUNT:
-                errors.append("Key Findings must include at least three entries")
+            min_key_findings = 2 if is_scoped else TOP_INSIGHT_MIN_COUNT
+            if len(insights) < min_key_findings:
+                errors.append(f"Key Findings must include at least {min_key_findings} entries")
             if len(insights) > 5:
                 errors.append("Key Findings must not include more than five entries")
         for insight_idx, insight in enumerate(insights):
@@ -652,7 +655,7 @@ def _validate_structured_brief(
         )
     
     # Validate total numeric values across entire brief
-    MINIMUM_TOTAL_VALUES = 15
+    MINIMUM_TOTAL_VALUES = 10 if is_scoped else 15
     if total_numeric_values < MINIMUM_TOTAL_VALUES:
         errors.append(
             f"Brief contains only {total_numeric_values} total numeric values (minimum: {MINIMUM_TOTAL_VALUES}). "
@@ -711,12 +714,14 @@ async def _llm_generate_brief(
     critical_metrics: list[str] | None = None,
     max_attempts: int | None = None,
     min_insight_values: int = 3,
+    is_scoped: bool = False,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
 
     Args:
         max_attempts: Maximum retry attempts. If None, uses BRIEF_CONFIG.max_llm_retries().
         min_insight_values: Minimum numeric values per Key Findings insight (default 3 for network, 2 for scoped).
+        is_scoped: True for entity-scoped briefs (relaxed validation).
 
     Returns:
         Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
@@ -815,7 +820,8 @@ async def _llm_generate_brief(
                 section_contract,
                 has_critical_findings=has_critical_findings,
                 critical_metrics=critical_metrics or [],
-                min_insight_values=min_insight_values
+                min_insight_values=min_insight_values,
+                is_scoped=is_scoped
             )
             if structural_errors:
                 # Check if errors include SECTION_FALLBACK_TEXT usage (indicates normalization failure)
@@ -1203,6 +1209,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             critical_metrics=[],
                             max_attempts=BRIEF_CONFIG.max_scoped_retries(),
                             min_insight_values=2,  # Scoped briefs have less signal, require only 2 values
+                            is_scoped=True,  # Relaxed validation for entity-scoped briefs
                         )
                         if scoped_fallback:
                             print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
