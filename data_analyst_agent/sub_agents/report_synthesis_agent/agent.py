@@ -227,7 +227,49 @@ def _has_hierarchical_signal(payload: dict[str, Any], fallback_text: str | None)
         for value in payload.values():
             if _entry_has_hierarchical_signal(value):
                 return True
+        return False
     return _string_has_hierarchical_signal(fallback_text)
+
+
+def _contract_has_hierarchy(contract: Any) -> bool:
+    if not contract:
+        return False
+    hierarchies = getattr(contract, "hierarchies", None)
+    if hierarchies is None and isinstance(contract, dict):
+        hierarchies = contract.get("hierarchies")
+    try:
+        return bool(hierarchies)
+    except Exception:
+        return False
+
+
+def _deterministic_plan_hint(plan_entry: Any) -> Optional[str]:
+    if not plan_entry:
+        return None
+    parsed: Any = plan_entry
+    if isinstance(plan_entry, str):
+        try:
+            parsed = json.loads(plan_entry)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            lowered = plan_entry.lower()
+            if "rule-based plan" in lowered or "rule based plan" in lowered:
+                return "rule-based execution plan"
+            return None
+    if isinstance(parsed, dict):
+        summary = str(parsed.get("summary", ""))
+        if summary and "rule-based plan" in summary.lower():
+            return "rule-based execution plan"
+        context_summary = parsed.get("context_summary") or {}
+        if isinstance(context_summary, dict):
+            planner_mode = str(context_summary.get("planner_mode", "")).strip().lower()
+            if planner_mode in {"rule_based", "deterministic"}:
+                return f"{planner_mode.replace('_', ' ')} planner"
+        metadata = parsed.get("metadata") or {}
+        if isinstance(metadata, dict):
+            planner_mode = str(metadata.get("planner_mode", "")).strip().lower()
+            if planner_mode in {"rule_based", "deterministic"}:
+                return f"{planner_mode.replace('_', ' ')} planner"
+    return None
 
 
 def _truncate_block(block: str | None, max_chars: int, label: str) -> str:
@@ -701,6 +743,9 @@ class ReportSynthesisWrapper(BaseAgent):
                 "presentation_unit": presentation_unit,
             }
 
+            plan_hint = _deterministic_plan_hint(ctx.session.state.get("execution_plan"))
+            contract_has_hierarchy = _contract_has_hierarchy(contract)
+
             payload_json = json.dumps(report_payload, separators=(',', ':'), ensure_ascii=False)
             injection_message = (
                 "REPORT_SYNTHESIS_INPUT_JSON (strict JSON — do not change keys):\n"
@@ -751,7 +796,12 @@ class ReportSynthesisWrapper(BaseAgent):
             if force_direct:
                 fast_path_reason = "REPORT_SYNTHESIS_FORCE_DIRECT_TOOL=1"
             elif not has_hierarchy_signal:
-                fast_path_reason = "no hierarchical payload detected"
+                if plan_hint:
+                    fast_path_reason = f"{plan_hint}; no hierarchical payload detected"
+                elif not contract_has_hierarchy:
+                    fast_path_reason = "no hierarchical payload expected"
+                else:
+                    fast_path_reason = "no hierarchical payload detected"
 
         if fast_path_reason and tool_arguments:
             print(f"[REPORT_SYNTHESIS] Fast-path triggered ({fast_path_reason}); calling generate_markdown_report directly.", flush=True)
