@@ -800,7 +800,9 @@ async def _llm_generate_brief(
                         )
                         continue
                     else:
-                        raise ValueError(error_msg)
+                        # Don't raise - proceed to normalization instead
+                        print(f"[BRIEF] Exhausted retries, will normalize section titles to contract.")
+                        # Note: _apply_section_contract() will fix the titles below
             
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
@@ -1060,6 +1062,20 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             print(f"[BRIEF] CRITICAL/HIGH findings detected in: {', '.join(critical_metrics)}")
             print("[BRIEF] Injecting severity enforcement to prevent fallback boilerplate")
 
+        # Build monthly grain enforcement block when monthly temporal grain is detected
+        monthly_enforcement_block = ""
+        if canonical_grain == "monthly":
+            print("[BRIEF] Monthly grain detected — injecting sequential comparison enforcement")
+            monthly_enforcement_block = (
+                "⚠️ MONTHLY GRAIN ENFORCEMENT (MANDATORY):\n"
+                "The analysis uses MONTHLY temporal grain. You MUST provide SEQUENTIAL month-over-month comparisons in your Key Findings.\n"
+                "- DO NOT write: 'Cases decreased 95% from January peak' (endpoint only)\n"
+                "- ALWAYS write: 'Cases decreased 35.7% from January to February, then declined another 33.7% from February to March, reaching April levels 67% below the January peak.'\n"
+                "- Show the PROGRESSION across ALL months in the period\n"
+                "- Use the monthly_totals data from the digest to calculate sequential changes\n"
+                "- Format: 'Month1→Month2: X%, Month2→Month3: Y%'\n\n"
+            )
+
         user_message = (
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
@@ -1067,6 +1083,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"{contract_reference_block}"
             f"{metric_coverage_block}"
             f"{severity_enforcement_block}"
+            f"{monthly_enforcement_block}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
             f"Use the above 'reference_period_end' when writing header.title.\n\n"
