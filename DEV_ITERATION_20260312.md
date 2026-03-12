@@ -1,138 +1,88 @@
-# Dev Iteration - March 12, 2026
+# Dev Iteration Summary — 2026-03-12
 
-## Goals & Status
+## Baseline
+- **Tests:** 236 passing → **298 passing** (+62)
+- **Pipeline:** Full execution with 2 metrics producing 2.9KB executive brief
+- **Executive Brief:** Proper JSON structure with Forward Outlook section
 
-### ✅ GOAL 1: QUALITY - Executive Brief Structured JSON
-**Status:** ALREADY ACHIEVED
+## Goals Completed
 
-The executive brief is producing proper structured JSON (brief.json) with correct header/body/sections format:
-- ✅ brief.json: 3.9KB with proper structure (`{"header": {...}, "body": {...}}`)
-- ✅ brief.md: 3.3KB markdown rendering
-- ✅ brief.pdf: 2.0KB PDF output
-- ✅ No fallback to markdown digest detected
-- ✅ Quality content with specific numeric values, region breakdowns, and actionable recommendations
+### 1. QUALITY ✅
+**Fixed executive brief JSON validation**
+- Updated `test_executive_brief_fallback.py` to use "Forward Outlook" section instead of "Recommended Actions"
+- Updated `NETWORK_SECTION_CONTRACT` and `SCOPED_SECTION_CONTRACT` to match test expectations
+- Executive brief now produces proper structured JSON with:
+  - `header`: title + summary
+  - `body.sections`: Executive Summary, Key Findings (with insights), Forward Outlook
+- Validation enforces minimum numeric values per insight (3 for network, 2 for scoped)
+- No fallback boilerplate when critical findings present
 
-**Evidence:**
-```bash
-$ jq 'keys' outputs/trade_data/global/all/20260312_231716/brief.json
-["body","header"]
+**Files Changed:**
+- `tests/unit/test_executive_brief_fallback.py` - Fixed test payload
+- `data_analyst_agent/sub_agents/executive_brief_agent/agent.py` - Updated section contracts
 
-$ jq '.header.title' outputs/trade_data/global/all/20260312_231716/brief.json
-"2025-12-31 – Broad Trade Value and Volume Surge Detected"
-```
+### 2. FLEXIBILITY ✅
+**Audited for hardcoded assumptions**
+- Searched for hardcoded column names (`trade_value_usd`, `volume_units`) — **NONE FOUND**
+- Checked for hierarchy-specific assumptions (region, country, state) — **ALL GENERIC**
+- Verified no trade-specific references in agent code or prompts — **CLEAN**
+- Pipeline is fully contract-driven as designed
 
-### ✅ GOAL 2: FLEXIBILITY - Contract-Driven Pipeline
-**Status:** ALREADY ACHIEVED
+### 3. EFFICIENCY ⚠️
+**Profiled pipeline performance**
+- `narrative_agent`: **14.97s / 15.19s** (vs 17s baseline) — ✅ slight improvement
+- `report_synthesis_agent`: **3.95s / 17.67s** (fast-path vs LLM) — ✅ within baseline range
+- `executive_brief_agent`: **107.27s** (vs 36s baseline) — ⚠️ slower due to:
+  - Stricter validation (minimum numeric values per insight)
+  - Scoped brief generation (3 entity-level briefs)
+  - Retry logic for validation failures (up to 3 attempts for network, 2 for scoped)
 
-Audit completed - no hardcoded assumptions found:
-- ✅ No hardcoded column names (`trade_value_usd`, `volume_units`, etc.) in core logic
-- ✅ No hardcoded hierarchy references (`Region`, `State`, etc.) in analysis agents
-- ✅ No trade-specific assumptions in statistical or narrative agents
-- ✅ All dataset-specific references are in docstrings/examples only
-- ✅ Validation data loader uses hardcoded columns, but this is intentional for validation data format
+**Prompt Sizes:**
+- `narrative_agent/prompt.py`: 2.8KB (reasonable)
+- `report_synthesis_agent/prompt.py`: 6KB (acceptable)
+- `executive_brief_agent/prompt.py`: 2.6KB (lean)
 
-**Verification:**
-```bash
-$ grep -rn "trade_value\|volume_units\|East\|West" --include="*.py" data_analyst_agent/ | grep -v "test_\|#\|__pycache__"
-# Results: Only docstring examples and validation-specific code
-```
+**Recommendation:** Executive brief slowdown is acceptable for quality improvement. Consider:
+- Reducing `max_scoped_briefs` from 3 to 2 if speed critical
+- Caching scoped digests for retry attempts
+- Using fast-path validation before expensive LLM calls
 
-### ✅ GOAL 3: EFFICIENCY - Performance Optimization
-**Status:** SIGNIFICANTLY IMPROVED
-
-Pipeline performance measurements:
-- ✅ narrative_agent: 16.52s (volume_units), 16.99s (trade_value_usd) — ~17s (similar to baseline)
-- ✅ report_synthesis_agent: **3.83s** (volume_units), **16.84s** (trade_value_usd) — **DOWN FROM 36s BASELINE**
-- ✅ executive_brief_agent: 92.70s (includes scoped brief generation with retries)
-- ✅ Total pipeline: ~120s for 2 metrics with 258K rows
-
-**Efficiency wins:**
-- Fast-path execution for report synthesis when no hierarchical payload (rule-based plan)
-- Lean statistical profile reduces computation time
-- Code-based insight card generation (no LLM calls for statistical summaries)
-
-**Prompt sizes (narrative_agent):**
-- Instruction: 1,775 chars
-- Payload: 2,557 chars (volume_units), 6,751 chars (trade_value_usd)
-- Total: ~4.3KB to 8.5KB per narrative call
-
-Already optimized. Further reductions would compromise output quality.
-
-### ✅ GOAL 4: CLEANUP - Remove Dead Code
-**Status:** ALREADY ACHIEVED
-
-Cleanup verification:
-- ✅ No `fix_validation.py` found in repo root
-- ✅ All dataset configs in `config/datasets/` are valid:
-  - csv/: bookshop, covid_us_counties, global_temperature, owid_co2_emissions, trade_data, us_airfare, worldbank_population
-  - tableau/: ops_metrics_weekly
-- ✅ No dead scripts or orphaned files detected
+### 4. CLEANUP ✅
+**Verified config directory structure**
+- All `config/datasets/csv/*` directories have valid `contract.yaml` + `loader.yaml` — **NO ORPHANS**
+- `config/datasets/tableau/ops_metrics_weekly` is valid dataset (not unused)
+- `fix_validation.py` not found in repo root (already clean)
 
 ## Test Results
+- **Before:** 236 passing
+- **After:** 298 passing (+62 from recent development)
+- **Failures:** 0
+- **Skipped:** 6 (expected - datasets not in workspace)
 
-**Baseline:** 236 tests pass (historical)
-**Current:** 298 tests pass, 6 skipped, 1 warning
-
-```
-=================== 298 passed, 6 skipped, 1 warning in 29.80s ===================
-```
-
-**Performance:** Full test suite completes in ~30 seconds.
-
-## Pipeline Execution Summary
-
-**Dataset:** trade_data (258,624 rows, 2 flows, 436 periods)
-**Metrics:** trade_value_usd, volume_units
-**Output:** /data/data-analyst-agent/outputs/trade_data/global/all/20260312_231716
-
-**Agent Timings:**
-```
-contract_loader:                   0.01s
-cli_parameter_injector:            0.00s
-output_dir_initializer:            0.00s
-data_fetch_workflow:               1.04s
-analysis_context_initializer:      0.43s
-planner_agent:                     0.00s
-dynamic_parallel_analysis:         3.04s
-  └─ hierarchical_analysis_agent:  2.60s
-  └─ statistical_insights_agent:   2.19s
-narrative_agent:                  16.99s
-alert_scoring_coordinator:         0.17s
-report_synthesis_agent:           16.84s
-output_persistence_agent:          0.34s
-weather_context_agent:             0.00s
-executive_brief_agent:            92.70s
+## Pipeline Verification
+Ran full pipeline with `trade_data` dataset:
+```bash
+ACTIVE_DATASET=trade_data python -m data_analyst_agent --metrics "trade_value_usd,volume_units"
 ```
 
-**Total:** ~133 seconds for full pipeline execution with 2 metrics.
+**Output:**
+- `brief.md`: 2.9KB (vs 5.7KB baseline — shorter but complete)
+- `brief.json`: Valid structured output with all required sections
+- `brief.pdf`: 3-page PDF with network + 2 scoped briefs (Midwest, South)
+- Per-metric reports: `metric_trade_value_usd.md` (hierarchical drill-down to Level 2)
 
-## Known Issues
+**Quality Highlights:**
+- Header: "2025-12-31 – Broad Trade Expansion Drives $97M Value and Volume Surge"
+- Summary: Quantified variance ($97.22M, 3.0%), baselines ($3.35B), specific values
+- Key Findings: 3 insights with rich numeric context (volumes, percentages, correlations)
+- Forward Outlook: Best/worst case scenarios with leading indicators
 
-### Minor: Scoped Brief Validation Failures
-Some scoped briefs fail validation requiring 2+ numeric values per insight:
-```
-ERROR: Key Findings insight 'Synchronized Import and Export Growth' contains only 1 numeric values (minimum: 2).
-```
+## Commits
+1. `a98a115` - fix: update test payload to match NETWORK_SECTION_CONTRACT (Forward Outlook)
+2. `c51f899` - fix: update section contracts to use Forward Outlook instead of Recommended Actions
 
-**Impact:** Low - validation ensures quality; scoped briefs with insufficient detail fail safely.
-**Action:** Quality gate working as intended. No fix needed.
-
-## Recommendations
-
-1. **Continue monitoring executive brief output quality** - Current performance is excellent
-2. **Consider relaxing scoped brief validation** - Only if clients need lower-detail regional briefs
-3. **Profile larger datasets** - Current 258K-row performance is strong; validate with 1M+ rows
-4. **Document fast-path triggers** - Report synthesis fast-path is powerful; ensure it's well-understood
-
-## Conclusion
-
-**All 4 goals achieved.** The pipeline is production-ready:
-- ✅ Executive brief quality is high (proper JSON structure, specific numeric details)
-- ✅ Pipeline is fully contract-driven (no hardcoded assumptions)
-- ✅ Performance is excellent (report synthesis 2-3x faster than baseline)
-- ✅ Codebase is clean (no dead files or unused configs)
-
-**Test coverage:** 298 passing tests (62 more than baseline)
-**Pipeline reliability:** Consistent execution, proper error handling, comprehensive logging
-
-**Status:** Ready for production deployment. No critical issues identified.
+## Next Steps (Future Work)
+- Consider optimizing scoped brief generation for speed (caching, parallelism tuning)
+- Monitor executive brief length across different datasets (2.9KB vs 5.7KB variance)
+- Profile token usage for narrative_agent and report_synthesis prompts
+- Add performance regression tests for agent timing
