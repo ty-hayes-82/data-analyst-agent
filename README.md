@@ -224,6 +224,17 @@ python -m pytest tests/unit/ -q          # Unit tests only
 python -m pytest tests/e2e/ -q           # End-to-end tests
 ```
 
+
+## Performance Controls
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` | `3` | Caps how many scoped briefs (Level 1/2 entities) the executive brief agent will spawn per run. Tune down when profiling or when metric fan-out overwhelms the LLM budget. |
+| `EXECUTIVE_BRIEF_SCOPE_CONCURRENCY` | `2` | Limits the asyncio semaphore that guards scoped brief fan-out to avoid saturating the GenAI backend. Set higher on beefier nodes or lower when profiling latency. |
+| `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL` | `false` | Forces the synthesis stage to skip the LLM and call `generate_markdown_report` directly. Useful for deterministic tests or when profiling tool latency. The agent now also auto-enables this fast-path whenever no hierarchical payload is available. |
+
+When `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL` is unset, the agent automatically detects missing hierarchical payloads and uses the deterministic Markdown tool. This prevents 300-second timeouts when upstream stages skip drill-downs.
+
 ## API Endpoints
 
 | Method | Endpoint | Description |

@@ -187,6 +187,49 @@ _MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 650)
 _MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 900)
 
 
+_FAST_PATH_PLACEHOLDER_PHRASES = (
+    "no hierarchical analysis results available",
+    "no hierarchical data available",
+    "no drill-down results available",
+)
+
+
+def _string_has_hierarchical_signal(text: str | None) -> bool:
+    if not text:
+        return False
+    normalized = str(text).strip()
+    if not normalized:
+        return False
+    lowered = normalized.lower()
+    return not any(phrase in lowered for phrase in _FAST_PATH_PLACEHOLDER_PHRASES)
+
+
+def _entry_has_hierarchical_signal(entry: Any) -> bool:
+    if entry is None:
+        return False
+    parsed = _loads_or_passthrough(entry)
+    if isinstance(parsed, dict):
+        if parsed.get("insight_cards"):
+            return True
+        for key in ("level_summary", "summary", "message"):
+            if parsed.get(key):
+                return True
+        return False
+    if isinstance(parsed, list):
+        return any(_entry_has_hierarchical_signal(item) for item in parsed)
+    if isinstance(parsed, str):
+        return _string_has_hierarchical_signal(parsed)
+    return bool(parsed)
+
+
+def _has_hierarchical_signal(payload: dict[str, Any], fallback_text: str | None) -> bool:
+    if payload:
+        for value in payload.values():
+            if _entry_has_hierarchical_signal(value):
+                return True
+    return _string_has_hierarchical_signal(fallback_text)
+
+
 def _truncate_block(block: str | None, max_chars: int, label: str) -> str:
     if not block:
         return ""
@@ -700,6 +743,32 @@ class ReportSynthesisWrapper(BaseAgent):
                 print(f"[REPORT_SYNTHESIS] DEBUG: Saved cache to {cache_path_out}")
             except Exception as e:
                 print(f"[REPORT_SYNTHESIS] DEBUG ERROR: Failed to save prompt: {e}")
+
+        fast_path_reason = None
+        if tool_arguments:
+            force_direct = parse_bool_env(os.environ.get("REPORT_SYNTHESIS_FORCE_DIRECT_TOOL"))
+            has_hierarchy_signal = _has_hierarchical_signal(hierarchical_payload, hierarchical_text)
+            if force_direct:
+                fast_path_reason = "REPORT_SYNTHESIS_FORCE_DIRECT_TOOL=1"
+            elif not has_hierarchy_signal:
+                fast_path_reason = "no hierarchical payload detected"
+
+        if fast_path_reason and tool_arguments:
+            print(f"[REPORT_SYNTHESIS] Fast-path triggered ({fast_path_reason}); calling generate_markdown_report directly.", flush=True)
+            try:
+                direct_markdown = await generate_markdown_report(**tool_arguments)
+            except Exception as fast_exc:
+                print(f"[REPORT_SYNTHESIS] Fast-path failed: {fast_exc}; continuing with LLM path.", flush=True)
+            else:
+                ctx.session.state["report_markdown"] = direct_markdown
+                ctx.session.state["report_synthesis_result"] = direct_markdown
+                yield Event(
+                    invocation_id=ctx.invocation_id,
+                    author=self.name,
+                    actions=EventActions(state_delta={"report_markdown": direct_markdown, "report_synthesis_result": direct_markdown}),
+                )
+                print("[REPORT_SYNTHESIS] Fast-path completed; skipping LLM agent.", flush=True)
+                return
 
         ctx.session.events.append(Event(
             invocation_id="result_injection",

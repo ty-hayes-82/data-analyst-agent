@@ -14,6 +14,7 @@ refinement with different prompts/models via regenerate script.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -71,6 +72,28 @@ from .scope_utils import (
     _sanitize_entity_name,
     derive_scope_level_labels,
 )
+
+
+def _parse_positive_int_env(var_name: str, default: int) -> int:
+    value = os.getenv(var_name)
+    if value is None:
+        return default
+    try:
+        parsed = int(str(value).strip())
+        return parsed if parsed > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _max_scoped_briefs() -> int:
+    """Return the current scoped brief cap (reads env each call)."""
+    return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", 3)
+
+
+def _scope_concurrency_limit() -> int:
+    """Return semaphore size for scoped brief fan-out (>=1)."""
+    return max(1, _parse_positive_int_env("EXECUTIVE_BRIEF_SCOPE_CONCURRENCY", 2))
+
 
 
 def _ensure_card_titles(card_list: list[dict[str, Any]] | None, prefix: str) -> None:
@@ -878,10 +901,74 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             scoped_digests_map: dict[str, str] = {}
             hierarchy_hint = ctx.session.state.get("selected_hierarchy") or ctx.session.state.get("hierarchy_name")
             scope_level_labels = derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
+            max_scoped_briefs = _max_scoped_briefs()
+            scoped_sem = asyncio.Semaphore(_scope_concurrency_limit())
+
+            async def _generate_scoped_brief(
+                entity: str,
+                level_name: str,
+                scoped_instruction: str,
+                scoped_user_message: str,
+                scoped_digest: str,
+                level: int,
+            ) -> tuple[str, dict[str, Any] | None]:
+                async with scoped_sem:
+                    print(f"[BRIEF] Generating scoped brief for {entity} ({level_name})...")
+                    try:
+                        scoped_json, scoped_brief_md, scoped_fallback = await _llm_generate_brief(
+                            model_name=model_name,
+                            instruction=scoped_instruction,
+                            user_message=scoped_user_message,
+                            thinking_config=thinking_config,
+                            digest=scoped_digest,
+                            section_contract=SCOPED_SECTION_CONTRACT,
+                            reports=reports,
+                            unit=presentation_unit,
+                        )
+                        if scoped_fallback:
+                            print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
+                        safe_entity = _sanitize_entity_name(entity)
+                        scoped_filename = (
+                            "brief_" + safe_entity + ".md"
+                            if os.getenv("DATA_ANALYST_OUTPUT_DIR")
+                            else f"executive_brief_{period_end}_{safe_entity}.md"
+                        )
+                        scoped_path = outputs_dir / scoped_filename
+                        scoped_path.write_text(scoped_brief_md, encoding="utf-8")
+                        print(f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename}")
+                        scoped_json_filename = (
+                            "brief_" + safe_entity + ".json"
+                            if os.getenv("DATA_ANALYST_OUTPUT_DIR")
+                            else f"executive_brief_{period_end}_{safe_entity}.json"
+                        )
+                        scoped_json_path = outputs_dir / scoped_json_filename
+                        scoped_json_path.write_text(json.dumps(scoped_json, indent=2, ensure_ascii=False), encoding="utf-8")
+                        return (
+                            entity,
+                            {
+                                "path": str(scoped_path),
+                                "json_path": str(scoped_json_path),
+                                "content": scoped_brief_md,
+                                "level": level,
+                                "level_name": level_name,
+                                "bookmark_label": f"{entity} ({level_name})",
+                                "used_fallback": scoped_fallback,
+                            },
+                        )
+                    except Exception as scope_err:
+                        print(f"[BRIEF] ERROR generating scoped brief for {entity}: {scope_err}")
+                        return entity, None
 
             if drill_levels >= 1 and json_data:
                 print(f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs")
+                scheduled_scoped = 0
                 for level in range(1, min(drill_levels, 2) + 1):
+                    if max_scoped_briefs and scheduled_scoped >= max_scoped_briefs:
+                        print(
+                            f"[BRIEF] Reached EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS={max_scoped_briefs}; skipping remaining levels"
+                        )
+                        break
+
                     entities = _discover_level_entities(
                         json_data,
                         level,
@@ -890,6 +977,17 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     if level == 2:
                         entities = entities[:max_scope_entities]
                     level_name = scope_level_labels.get(level, f"Level {level}")
+
+                    if max_scoped_briefs:
+                        remaining = max_scoped_briefs - scheduled_scoped
+                        if remaining <= 0:
+                            break
+                        if len(entities) > remaining:
+                            print(
+                                f"[BRIEF] Level {level} truncated to {remaining} entity(ies) due to EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS={max_scoped_briefs}"
+                            )
+                            entities = entities[:remaining]
+
                     print(f"[BRIEF] Level {level} ({level_name}): {len(entities)} entities: {', '.join(entities)}")
 
                     hierarchy_map = _load_hierarchy_level_mapping(
@@ -907,6 +1005,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     else:
                         print("[BRIEF] No hierarchy mapping found — using Strategy A fallback")
 
+                    tasks: list[asyncio.Task[tuple[str, dict[str, Any] | None]]] = []
                     for entity in entities:
                         scope_children = set(hierarchy_map.get(entity, [])) if hierarchy_map else None
                         scoped_digest = _build_scoped_digest(
@@ -947,47 +1046,25 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             f"{scoped_digest}\n\n"
                             "Generate the executive brief JSON as instructed and respond with ONLY the JSON object. Focus exclusively on this scope."
                         )
-                        print(f"[BRIEF] Generating scoped brief for {entity} ({level_name})...")
-                        try:
-                            scoped_json, scoped_brief_md, scoped_fallback = await _llm_generate_brief(
-                                model_name=model_name,
-                                instruction=scoped_instruction,
-                                user_message=scoped_user_message,
-                                thinking_config=thinking_config,
-                                digest=scoped_digest,
-                                section_contract=SCOPED_SECTION_CONTRACT,
-                                reports=reports,
-                                unit=presentation_unit,
+
+                        task = asyncio.create_task(
+                            _generate_scoped_brief(
+                                entity=entity,
+                                level_name=level_name,
+                                scoped_instruction=scoped_instruction,
+                                scoped_user_message=scoped_user_message,
+                                scoped_digest=scoped_digest,
+                                level=level,
                             )
-                            if scoped_fallback:
-                                print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
-                            safe_entity = _sanitize_entity_name(entity)
-                            scoped_filename = (
-                                "brief_" + safe_entity + ".md"
-                                if os.getenv("DATA_ANALYST_OUTPUT_DIR")
-                                else f"executive_brief_{period_end}_{safe_entity}.md"
-                            )
-                            scoped_path = outputs_dir / scoped_filename
-                            scoped_path.write_text(scoped_brief_md, encoding="utf-8")
-                            print(f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename}")
-                            scoped_json_filename = (
-                                "brief_" + safe_entity + ".json"
-                                if os.getenv("DATA_ANALYST_OUTPUT_DIR")
-                                else f"executive_brief_{period_end}_{safe_entity}.json"
-                            )
-                            scoped_json_path = outputs_dir / scoped_json_filename
-                            scoped_json_path.write_text(json.dumps(scoped_json, indent=2, ensure_ascii=False), encoding="utf-8")
-                            scoped_briefs[entity] = {
-                                "path": str(scoped_path),
-                                "json_path": str(scoped_json_path),
-                                "content": scoped_brief_md,
-                                "level": level,
-                                "level_name": level_name,
-                                "bookmark_label": f"{entity} ({level_name})",
-                                "used_fallback": scoped_fallback,
-                            }
-                        except Exception as scope_err:
-                            print(f"[BRIEF] ERROR generating scoped brief for {entity}: {scope_err}")
+                        )
+                        tasks.append(task)
+                        scheduled_scoped += 1
+
+                    if tasks:
+                        results = await asyncio.gather(*tasks)
+                        for entity_name, scoped_info in results:
+                            if scoped_info:
+                                scoped_briefs[entity_name] = scoped_info
 
                 if scoped_digests_map:
                     _write_executive_brief_cache(
@@ -1003,7 +1080,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         drill_levels=drill_levels,
                         scoped_digests=scoped_digests_map,
                     )
-
             env_format = os.environ.get("EXECUTIVE_BRIEF_OUTPUT_FORMAT")
             if env_format:
                 output_format = env_format.lower()
