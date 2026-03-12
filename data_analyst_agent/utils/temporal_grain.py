@@ -32,6 +32,79 @@ class TemporalGrainResult:
         }
 
 
+_CANONICAL_GRAIN_ALIASES = {
+    "d": "daily",
+    "day": "daily",
+    "daily": "daily",
+    "w": "weekly",
+    "wk": "weekly",
+    "week": "weekly",
+    "weekly": "weekly",
+    "m": "monthly",
+    "mo": "monthly",
+    "mon": "monthly",
+    "month": "monthly",
+    "monthly": "monthly",
+    "q": "quarterly",
+    "qr": "quarterly",
+    "quarter": "quarterly",
+    "quarterly": "quarterly",
+    "y": "yearly",
+    "yr": "yearly",
+    "year": "yearly",
+    "annual": "yearly",
+    "annually": "yearly",
+    "yearly": "yearly",
+}
+
+_PERIOD_UNIT_BY_GRAIN = {
+    "daily": "day",
+    "weekly": "week",
+    "monthly": "month",
+    "quarterly": "quarter",
+    "yearly": "year",
+}
+
+_SHORT_DELTA_BY_GRAIN = {
+    "daily": "DoD",
+    "weekly": "WoW",
+    "monthly": "MoM",
+    "quarterly": "QoQ",
+    "yearly": "YoY",
+}
+
+_PERIOD_PHRASE_TEMPLATE = {
+    "daily": "the day ending {period_end}",
+    "weekly": "the week ending {period_end}",
+    "monthly": "the month ending {period_end}",
+    "quarterly": "the quarter ending {period_end}",
+    "yearly": "the year ending {period_end}",
+}
+
+
+def normalize_temporal_grain(value: Optional[str]) -> str:
+    """Map arbitrary frequency/grain labels to canonical values."""
+    if value is None:
+        return "unknown"
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return "unknown"
+    return _CANONICAL_GRAIN_ALIASES.get(
+        normalized,
+        normalized if normalized in _PERIOD_UNIT_BY_GRAIN else "unknown",
+    )
+
+
+def temporal_grain_to_period_unit(grain: Optional[str]) -> str:
+    """Return the singular period unit for a canonical grain."""
+    return _PERIOD_UNIT_BY_GRAIN.get(normalize_temporal_grain(grain), "period")
+
+
+def temporal_grain_to_short_delta_label(grain: Optional[str]) -> str:
+    """Return the short comparison label (WoW, MoM, etc.) for the grain."""
+    return _SHORT_DELTA_BY_GRAIN.get(normalize_temporal_grain(grain), "PoP")
+
+
 def _empty_result(periods: int = 0) -> TemporalGrainResult:
     return TemporalGrainResult(
         temporal_grain="unknown",
@@ -120,29 +193,16 @@ def detect_temporal_grain(
     )
 
 
-def describe_analysis_period(period_end: str, frequency: str | None = None) -> str:
-    """Human-readable label for the analysis period.
+def describe_analysis_period(
+    period_end: str,
+    frequency: Optional[str] = None,
+    temporal_grain: Optional[str] = None,
+) -> str:
+    """Human-readable label for the analysis period."""
 
-    Args:
-        period_end: string date (YYYY-MM-DD recommended)
-        frequency: contract time frequency (daily|weekly|monthly|quarterly|yearly|...)
-
-    Returns:
-        A short phrase like "the week ending 2026-03-11".
-    """
-    freq = (frequency or "").strip().lower()
     if not period_end:
         return "the most recent period"
 
-    if "week" in freq:
-        return f"the week ending {period_end}"
-    if "month" in freq:
-        return f"the month ending {period_end}"
-    if "quarter" in freq:
-        return f"the quarter ending {period_end}"
-    if "year" in freq or freq == "annual":
-        return f"the year ending {period_end}"
-    if "day" in freq or freq == "daily":
-        return f"the day ending {period_end}"
-
-    return f"the period ending {period_end}"
+    preferred = normalize_temporal_grain(frequency or temporal_grain)
+    template = _PERIOD_PHRASE_TEMPLATE.get(preferred, "the period ending {period_end}")
+    return template.format(period_end=period_end)

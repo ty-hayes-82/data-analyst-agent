@@ -34,6 +34,10 @@ from .prompt import REPORT_SYNTHESIS_AGENT_INSTRUCTION, build_report_instruction
 from .tools import generate_markdown_report
 from ...utils import parse_bool_env
 from ...utils.contract_summary import build_contract_metadata
+from ...utils.temporal_grain import (
+    normalize_temporal_grain,
+    temporal_grain_to_period_unit,
+)
 from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
 from ...utils.stub_guard import contains_stub_content, stub_outputs_allowed
 
@@ -521,9 +525,10 @@ class ReportSynthesisWrapper(BaseAgent):
             if not analysis_period_val:
                 analysis_period_val = f"the period ending {period_end}" if period_end else "the period ending"
             
+            canonical_grain = normalize_temporal_grain(temporal_grain)
             temporal_context = {
-                "temporal_grain": temporal_grain,
-                "period_unit": "week" if temporal_grain == "weekly" else "month",
+                "temporal_grain": canonical_grain,
+                "period_unit": temporal_grain_to_period_unit(canonical_grain),
                 "analysis_period": analysis_period_val,
                 "reference_period_end": period_end,
                 "timeframe": timeframe

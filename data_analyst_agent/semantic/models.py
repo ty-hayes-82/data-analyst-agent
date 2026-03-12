@@ -270,10 +270,11 @@ class AnalysisContext(BaseModel):
     # Immutable metadata for the run
     run_id: str
     max_drill_depth: int = 3
-    temporal_grain: Literal["weekly", "monthly", "unknown"] = "unknown"
+    temporal_grain: Literal["daily", "weekly", "monthly", "quarterly", "yearly", "unknown"] = "unknown"
     temporal_grain_confidence: float = 0.0
     detected_anchor: Optional[str] = None
     period_end_column: Optional[str] = None
+    time_frequency: Optional[str] = None
 
     def get_metric_data(self) -> pd.Series:
         """Returns the series for the target metric."""

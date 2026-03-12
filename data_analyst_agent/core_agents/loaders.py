@@ -18,7 +18,12 @@ from google.adk.events.event_actions import EventActions
 from ..semantic.models import AnalysisContext, DatasetContract
 from ..utils.dimension_filters import extract_dimension_filters
 from ..utils.json_utils import safe_parse_json
-from ..utils.temporal_grain import detect_temporal_grain, describe_analysis_period
+from ..utils.temporal_grain import (
+    detect_temporal_grain,
+    describe_analysis_period,
+    normalize_temporal_grain,
+    temporal_grain_to_period_unit,
+)
 from ..sub_agents.data_cache import set_analysis_context
 from ..tools import calculate_date_ranges, should_fetch_supplementary_data
 
@@ -276,41 +281,52 @@ class AnalysisContextInitializer(BaseAgent):
         else:
             max_drill_depth = ctx.session.state.get("max_drill_depth", 3)
 
-        # Detect temporal grain (weekly/monthly) with deterministic overrides.
-        from ..utils.temporal_grain import detect_temporal_grain
-
-        time_col = contract.time.column if contract and contract.time else None
+        # Detect temporal grain using deterministic overrides that honor the contract frequency first.
+        time_cfg = getattr(contract, "time", None) if contract else None
+        time_col = time_cfg.column if time_cfg else None
+        raw_time_frequency = getattr(time_cfg, "frequency", None) if time_cfg else None
+        contract_frequency = normalize_temporal_grain(raw_time_frequency)
         grain_result = detect_temporal_grain(df[time_col]) if time_col and time_col in df.columns else None
 
-        env_grain = os.environ.get("TEMPORAL_GRAIN", "").strip().lower()
-        if env_grain in ("weekly", "monthly"):
+        contract_override = normalize_temporal_grain(
+            getattr(time_cfg, "temporal_grain_override", None) if time_cfg else None
+        )
+        env_grain = normalize_temporal_grain(os.environ.get("TEMPORAL_GRAIN"))
+
+        if env_grain != "unknown":
             temporal_grain = env_grain
             grain_source = "env"
+        elif contract_override != "unknown":
+            temporal_grain = contract_override
+            grain_source = "contract_override"
+        elif contract_frequency != "unknown":
+            temporal_grain = contract_frequency
+            grain_source = "contract_frequency"
+        elif grain_result and grain_result.temporal_grain in ("weekly", "monthly"):
+            temporal_grain = grain_result.temporal_grain
+            grain_source = "detected"
         else:
-            contract_override = None
-            if contract and contract.time:
-                contract_override = getattr(contract.time, "temporal_grain_override", None)
-            if contract_override in ("weekly", "monthly"):
-                temporal_grain = contract_override
-                grain_source = "contract"
-            elif grain_result and grain_result.temporal_grain in ("weekly", "monthly"):
-                temporal_grain = grain_result.temporal_grain
-                grain_source = "detected"
-            else:
-                temporal_grain = "monthly"
-                grain_source = "fallback"
+            temporal_grain = "monthly"
+            grain_source = "fallback"
 
-        grain_confidence = float(grain_result.detection_confidence) if grain_result else 0.0
+        if grain_source in {"env", "contract_override", "contract_frequency"}:
+            grain_confidence = 1.0
+        elif grain_source == "detected":
+            grain_confidence = float(grain_result.detection_confidence) if grain_result else 0.0
+        else:
+            grain_confidence = 0.0
         detected_anchor = grain_result.detected_anchor if grain_result else "unknown"
         periods_analyzed = int(grain_result.periods_analyzed) if grain_result else 0
 
         print(
             f"[TemporalGrain] detected={temporal_grain} source={grain_source} "
-            f"confidence={grain_confidence:.2f} periods={periods_analyzed}"
+            f"confidence={grain_confidence:.2f} periods={periods_analyzed} "
+            f"(contract={contract_frequency or 'unknown'})"
         )
         if grain_source == "fallback":
             print("[TemporalGrain] WARNING: Ambiguous cadence; defaulting to monthly.")
 
+        ctx.session.state["time_frequency"] = raw_time_frequency
         ctx.session.state["dimension_filters"] = dimension_filters
         ctx.session.state["hierarchy_filters"] = hierarchy_filters
 
@@ -325,6 +341,7 @@ class AnalysisContextInitializer(BaseAgent):
             temporal_grain_confidence=grain_confidence,
             detected_anchor=detected_anchor,
             period_end_column=time_col,
+            time_frequency=raw_time_frequency,
             dimension_filters=dimension_filters,
             hierarchy_filters=hierarchy_filters,
         )
@@ -339,12 +356,17 @@ class AnalysisContextInitializer(BaseAgent):
         print(f"[AnalysisContextInitializer] Created context for {len(df)} rows. Target: {target_metric.name}")
 
         period_end_value = final_period_end or ctx.session.state.get("primary_query_end_date")
-        time_cfg = getattr(contract, 'time', None) if contract else None
-        time_frequency = getattr(time_cfg, 'frequency', None) if time_cfg else None
         if period_end_value:
-            analysis_period = describe_analysis_period(period_end_value, time_frequency)
+            analysis_period = describe_analysis_period(
+                period_end_value,
+                raw_time_frequency,
+                temporal_grain,
+            )
         else:
-            analysis_period = "the week ending" if temporal_grain == "weekly" else "the month ending"
+            fallback_unit = temporal_grain_to_period_unit(temporal_grain)
+            analysis_period = (
+                f"the {fallback_unit} ending" if fallback_unit != "period" else "the most recent period"
+            )
         ctx.session.state["analysis_period"] = analysis_period
 
         actions = EventActions(state_delta={
@@ -352,6 +374,7 @@ class AnalysisContextInitializer(BaseAgent):
             "temporal_grain": temporal_grain,
             "temporal_grain_confidence": grain_confidence,
             "temporal_grain_source": grain_source,
+            "time_frequency": raw_time_frequency,
             "analysis_period": analysis_period,
         })
 

@@ -26,6 +26,13 @@ from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.
 )
 
 
+from data_analyst_agent.utils.temporal_grain import (
+    normalize_temporal_grain,
+    temporal_grain_to_period_unit,
+    temporal_grain_to_short_delta_label,
+)
+
+
 def _extract_levels(raw: Any, normalized: Dict[str, dict]) -> Tuple[Dict[str, dict], List[int], str]:
     if isinstance(raw, dict) and "level_analyses" in raw:
         level_analyses = raw.get("level_analyses", {}) or {}
@@ -474,9 +481,11 @@ def _parse_statistical_summary(statistical_summary: Any) -> dict:
 def _detect_temporal_labels(stats_data: dict) -> Tuple[str, str, str]:
     summary_stats = stats_data.get("summary_stats", {}) if isinstance(stats_data, dict) else {}
     metadata = stats_data.get("metadata", {}) if isinstance(stats_data, dict) else {}
-    temporal_grain = summary_stats.get("temporal_grain") or metadata.get("temporal_grain") or "monthly"
-    short_delta_label = "WoW" if temporal_grain == "weekly" else "MoM"
-    period_label = "week" if temporal_grain == "weekly" else "month"
+    raw_grain = summary_stats.get("temporal_grain") or metadata.get("temporal_grain")
+    frequency_hint = metadata.get("time_frequency")
+    temporal_grain = normalize_temporal_grain(raw_grain or frequency_hint or "unknown")
+    short_delta_label = temporal_grain_to_short_delta_label(temporal_grain)
+    period_label = temporal_grain_to_period_unit(temporal_grain)
     return temporal_grain, short_delta_label, period_label
 
 

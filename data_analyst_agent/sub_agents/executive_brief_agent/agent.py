@@ -42,6 +42,11 @@ from ...utils.contract_summary import (
     format_contract_context,
     format_contract_reference_block,
 )
+from ...utils.temporal_grain import (
+    normalize_temporal_grain,
+    temporal_grain_to_period_unit,
+    temporal_grain_to_short_delta_label,
+)
 from .prompt_utils import (
     _build_structured_fallback_markdown,
     _build_weather_context_block,
@@ -101,6 +106,57 @@ def _ensure_block_titles(block: Any, prefix: str) -> Any:
     if isinstance(data, dict):
         _ensure_card_titles(data.get("insight_cards"), prefix)
     return json.dumps(data) if was_str else data
+
+
+_TEMPORAL_COMPARISON_PRIORITY = {
+    "daily": [
+        "current day vs prior day (DoD)",
+        "current day vs rolling 7-day average",
+        "current day vs same day prior year (YoY)",
+        "other supported comparisons (lower priority)",
+    ],
+    "weekly": [
+        "current week vs prior week (WoW)",
+        "current week vs rolling 4-week average",
+        "other supported comparisons (lower priority)",
+    ],
+    "monthly": [
+        "current month vs prior month (MoM)",
+        "current month vs rolling 3-month average",
+        "current month vs same month prior year (YoY)",
+        "other supported comparisons (lower priority)",
+    ],
+    "quarterly": [
+        "current quarter vs prior quarter (QoQ)",
+        "current quarter vs rolling 4-quarter average",
+        "current quarter vs same quarter prior year (YoY)",
+        "other supported comparisons (lower priority)",
+    ],
+    "yearly": [
+        "current year vs prior year (YoY)",
+        "current year vs rolling 3-year average",
+        "other supported comparisons (lower priority)",
+    ],
+    "unknown": [
+        "current period vs prior period (PoP)",
+        "current period vs rolling multi-period average",
+        "other supported comparisons (lower priority)",
+    ],
+}
+
+
+def _default_comparison_basis(grain: str) -> str:
+    canonical = normalize_temporal_grain(grain)
+    period_unit = temporal_grain_to_period_unit(canonical)
+    short_delta = temporal_grain_to_short_delta_label(canonical)
+    if short_delta == "PoP":
+        return f"vs prior {period_unit}" if period_unit != "period" else "vs prior period (PoP)"
+    return f"vs prior {period_unit} ({short_delta})"
+
+
+def _build_comparison_priority(grain: str) -> list[str]:
+    canonical = normalize_temporal_grain(grain)
+    return _TEMPORAL_COMPARISON_PRIORITY.get(canonical, _TEMPORAL_COMPARISON_PRIORITY["unknown"])
 
 
 def _is_placeholder_markdown(markdown: str, used_fallback: bool = False) -> bool:
@@ -681,28 +737,15 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         weather_block = _build_weather_context_block(ctx.session.state.get("weather_context"))
 
         temporal_grain = ctx.session.state.get("temporal_grain", "unknown")
+        canonical_grain = normalize_temporal_grain(temporal_grain)
+        period_unit = temporal_grain_to_period_unit(canonical_grain)
         brief_temporal_context = {
             "reference_period_end": period_end,
-            "temporal_grain": temporal_grain,
+            "temporal_grain": canonical_grain,
             "analysis_period": analysis_period,
-            "period_unit": "week" if temporal_grain == "weekly" else "month",
-            "default_comparison_basis": (
-                "vs prior week (WoW)" if temporal_grain == "weekly" else "vs prior month (MoM)"
-            ),
-            "comparison_priority_order": (
-                [
-                    "current week vs prior week (WoW)",
-                    "current week vs rolling 4-week average",
-                    "other supported comparisons (lower priority)",
-                ]
-                if temporal_grain == "weekly"
-                else [
-                    "current month vs prior month (MoM)",
-                    "current month vs rolling 3-month average",
-                    "current month vs same month prior year (YoY)",
-                    "other supported comparisons (lower priority)",
-                ]
-            ),
+            "period_unit": period_unit,
+            "default_comparison_basis": _default_comparison_basis(canonical_grain),
+            "comparison_priority_order": _build_comparison_priority(canonical_grain),
             "comparison_requirement": (
                 "Every comparative claim must include its explicit baseline in the same sentence."
             ),

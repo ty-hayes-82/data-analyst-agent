@@ -24,6 +24,7 @@ import numpy as np
 from scipy.stats import pearsonr
 from typing import Dict, Any, List, Optional
 import json
+from ....utils.temporal_grain import normalize_temporal_grain, temporal_grain_to_period_unit
 
 async def compute_lagged_correlation(
     max_lag: int = 6,
@@ -60,8 +61,15 @@ async def compute_lagged_correlation(
             return json.dumps({"error": "No dataset contract available"}, indent=2)
 
         contract = ctx.contract
-        temporal_grain = getattr(ctx, "temporal_grain", "monthly")
-        lag_unit = "week" if temporal_grain == "weekly" else "month"
+        temporal_grain = normalize_temporal_grain(getattr(ctx, "temporal_grain", None))
+        if temporal_grain == "unknown":
+            time_cfg = getattr(contract, "time", None)
+            temporal_grain = normalize_temporal_grain(getattr(time_cfg, "frequency", None))
+            if temporal_grain == "unknown":
+                temporal_grain = "monthly"
+        lag_unit = temporal_grain_to_period_unit(temporal_grain)
+        if lag_unit == "period":
+            lag_unit = "month"
         available_metrics = [m for m in contract.metrics]
 
         if len(available_metrics) <= 1:

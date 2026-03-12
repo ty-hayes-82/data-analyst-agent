@@ -63,6 +63,7 @@ def build_result(state: SummaryState, advanced_results: dict[str, Any]) -> str:
         "anomaly_threshold": f"z-score >= {z_threshold}",
         "slope_method": f"last 3 {state.period_unit}s linear regression",
         "temporal_grain": state.temporal_grain,
+        "time_frequency": state.time_frequency,
         "period_unit": state.period_unit,
         "focus_context": focus_context,
         "advanced_methods": [
