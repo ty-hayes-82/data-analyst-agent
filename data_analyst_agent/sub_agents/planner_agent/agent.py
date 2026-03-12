@@ -13,6 +13,12 @@ from google.genai import types
 from .prompt import PLANNER_INSTRUCTION
 from .tools.generate_execution_plan import generate_execution_plan, refine_plan
 from config.model_loader import get_agent_model, get_agent_thinking_config
+from ...utils.focus_directives import (
+    augment_instruction,
+    focus_search_text,
+    get_custom_focus,
+    get_focus_modes,
+)
 
 USE_CODE_INSIGHTS = os.environ.get("USE_CODE_INSIGHTS", "true").lower() == "true"
 
@@ -69,16 +75,11 @@ class RuleBasedPlanner(BaseAgent):
             or ctx.session.state.get("original_request")
             or ""
         )
-        analysis_focus = ctx.session.state.get("analysis_focus") or []
-        custom_focus = ctx.session.state.get("custom_focus") or ""
+        analysis_focus = get_focus_modes(ctx.session.state)
+        custom_focus = get_custom_focus(ctx.session.state)
 
-        focus_text = ""
-        if isinstance(analysis_focus, list) and analysis_focus:
-            focus_text += " " + " ".join(str(x) for x in analysis_focus if x)
-        if isinstance(custom_focus, str) and custom_focus.strip():
-            focus_text += " " + custom_focus.strip()
-
-        combined = (user_query or "") + focus_text
+        focus_blob = focus_search_text(ctx.session.state)
+        combined = " ".join(v for v in [user_query, focus_blob] if v).strip()
         if combined.strip():
             recommended = refine_plan(recommended, combined)
 
@@ -131,21 +132,11 @@ class FocusAwarePlannerAgent(BaseAgent):
         return getattr(self._wrapped, item)
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        analysis_focus = ctx.session.state.get("analysis_focus") or []
-        custom_focus = ctx.session.state.get("custom_focus") or ""
-        focus_lines = []
-        if analysis_focus:
-            focus_lines.append("- Focus modes: " + ", ".join(str(m) for m in analysis_focus if m))
-        if isinstance(custom_focus, str) and custom_focus.strip():
-            focus_lines.append(f"- Custom directive: {custom_focus.strip()}")
-
-        instruction = self._base_instruction
-        if focus_lines:
-            focus_block = "\n".join(focus_lines)
-            instruction = (
-                f"{self._base_instruction}\n\nFOCUS_DIRECTIVES:\n"
-                f"{focus_block}\nPrioritize or de-prioritize agents accordingly."
-            )
+        instruction = augment_instruction(
+            self._base_instruction,
+            ctx.session.state,
+            suffix="Prioritize or de-prioritize agents accordingly.",
+        )
         self._wrapped.instruction = instruction
 
         async for event in self._wrapped.run_async(ctx):

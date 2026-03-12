@@ -10,6 +10,7 @@ from .cross_dimension import CrossDimensionAnalysisStep
 from .decisions import (
     DrillDownDecisionAgent,
     DrillDownDecisionFunction,
+    FocusAwareDrillDownDecision,
     ProcessDrillDownDecision,
 )
 from .finalization import FinalizeAnalysisResults
@@ -32,7 +33,7 @@ print(
 )
 
 _drill_down_decision = (
-    DrillDownDecisionFunction() if USE_CODE_INSIGHTS else DrillDownDecisionAgent()
+    DrillDownDecisionFunction() if USE_CODE_INSIGHTS else FocusAwareDrillDownDecision()
 )
 
 hierarchical_drill_down_loop = LoopAgent(

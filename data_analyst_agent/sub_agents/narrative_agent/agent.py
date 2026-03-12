@@ -12,6 +12,7 @@ from google.genai.types import Content, Part
 from .prompt import NARRATIVE_AGENT_INSTRUCTION
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from ...utils.contract_summary import build_contract_metadata
+from ...utils.focus_directives import augment_instruction, focus_lines
 from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
 
 
@@ -158,14 +159,7 @@ class NarrativeWrapper(BaseAgent):
         return super().__getattr__(name)
     
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        analysis_focus = ctx.session.state.get("analysis_focus") or []
-        custom_focus = ctx.session.state.get("custom_focus") or ""
-        focus_lines = []
-        if analysis_focus:
-            focus_lines.append(f"Focus modes to prioritize: {', '.join(analysis_focus)}")
-        if custom_focus:
-            focus_lines.append(f"Custom directive: {custom_focus}")
-        focus_preamble = "\n".join(focus_lines)
+        focus_lines_list = focus_lines(ctx.session.state)
 
         contract = ctx.session.state.get("dataset_contract")
         display_name = getattr(contract, 'display_name', getattr(contract, 'name', 'dataset')) if contract else "dataset"
@@ -203,8 +197,7 @@ class NarrativeWrapper(BaseAgent):
             instr = instr.replace("{dataset_display_name}", str(display_name))
             instr = instr.replace("{variance_pct}", str(var_pct))
             instr = instr.replace("{variance_absolute}", str(var_abs))
-            if focus_preamble:
-                instr = f"{instr}\n\nFOCUS_DIRECTIVES:\n{focus_preamble}"
+            instr = augment_instruction(instr, ctx.session.state)
             self.wrapped_agent.instruction = instr
             print(f"[NarrativeAgent] Instruction updated for contract: {contract.name}")
 
@@ -324,7 +317,7 @@ class NarrativeWrapper(BaseAgent):
         independent_text = _truncate_text(independent_text, MAX_NARRATIVE_INDEPENDENT_CHARS, "independent findings")
 
 
-        focus_directives = focus_lines
+        focus_directives = focus_lines_list
         data_analyst_component = _loads_or_passthrough(data_analyst_result)
         stats_component = _loads_or_passthrough(statistical_summary)
 

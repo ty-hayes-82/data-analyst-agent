@@ -34,6 +34,10 @@ from .prompt import REPORT_SYNTHESIS_AGENT_INSTRUCTION, build_report_instruction
 from .tools import generate_markdown_report
 from ...utils import parse_bool_env
 from ...utils.contract_summary import build_contract_metadata
+from ...utils.focus_directives import (
+    augment_instruction,
+    focus_payload as build_focus_payload,
+)
 from ...utils.temporal_grain import (
     normalize_temporal_grain,
     temporal_grain_to_period_unit,
@@ -430,7 +434,7 @@ class ReportSynthesisWrapper(BaseAgent):
                     cache = json.load(f)
                 formatted_instruction = cache["instruction"]
                 injection_message = cache["injection"]
-                wrapped_agent.instruction = formatted_instruction
+                wrapped_agent.instruction = augment_instruction(formatted_instruction, ctx.session.state)
                 print(f"[REPORT_SYNTHESIS] Loaded prompt from cache: {cache_path}")
                 print(f"[REPORT_SYNTHESIS] Instruction: {len(formatted_instruction):,} chars, injection: {len(injection_message):,} chars")
             except Exception as e:
@@ -443,7 +447,7 @@ class ReportSynthesisWrapper(BaseAgent):
             # from the contract config rather than being hardcoded in the prompt.
             contract = ctx.session.state.get("dataset_contract")
             formatted_instruction = build_report_instruction(contract)
-            wrapped_agent.instruction = formatted_instruction
+            wrapped_agent.instruction = augment_instruction(formatted_instruction, ctx.session.state)
             if contract:
                 print(f"[REPORT_SYNTHESIS] Instruction built from contract: {contract.name}")
             else:
@@ -595,12 +599,7 @@ class ReportSynthesisWrapper(BaseAgent):
 
             # --- TEMPORAL CONTEXT: Mandatory grain and period anchoring ---
             # --- FOCUS CONTEXT: Capture analysis directives ---
-            analysis_focus = state.get("analysis_focus") or []
-            custom_focus = state.get("custom_focus") or ""
-            focus_payload = {
-                "modes": analysis_focus,
-                "custom_directive": custom_focus,
-            }
+            focus_payload = build_focus_payload(state)
 
             # --- TEMPORAL CONTEXT: Mandatory grain and period anchoring ---
             temporal_grain = state.get("temporal_grain", "unknown")

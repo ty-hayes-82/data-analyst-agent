@@ -43,6 +43,11 @@ from ...utils.contract_summary import (
     format_contract_context,
     format_contract_reference_block,
 )
+from ...utils.focus_directives import (
+    augment_instruction,
+    focus_block as build_focus_block,
+    focus_lines as get_focus_lines,
+)
 from ...utils.temporal_grain import (
     normalize_temporal_grain,
     temporal_grain_to_period_unit,
@@ -687,14 +692,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         if json_data:
             json_data = _backfill_missing_titles(json_data)
 
-        focus_modes = ctx.session.state.get("analysis_focus") or []
-        custom_focus = ctx.session.state.get("custom_focus") or ""
-        focus_lines = []
-        if focus_modes:
-            focus_lines.append(f"- Focus modes: {', '.join(focus_modes)}")
-        if custom_focus:
-            focus_lines.append(f"- Custom directive: {custom_focus}")
-        focus_block = "\n".join(focus_lines)
+        raw_focus_lines = get_focus_lines(ctx.session.state)
+        focus_block = "\n".join(f"- {line}" for line in raw_focus_lines)
+        focus_block_with_header = build_focus_block(ctx.session.state)
 
         use_json = parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_JSON", "true"))
         if use_json and json_data:
@@ -802,6 +802,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             dataset_specific_append=load_dataset_specific_append() + contract_context_text,
             prompt_variant_append=load_prompt_variant(os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")),
         )
+        instruction = augment_instruction(instruction, ctx.session.state)
         weather_block = _build_weather_context_block(ctx.session.state.get("weather_context"))
 
         temporal_grain = ctx.session.state.get("temporal_grain", "unknown")
@@ -819,7 +820,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             ),
         }
 
-        focus_preamble_text = f"FOCUS_DIRECTIVES:\n{focus_block}\n\n" if focus_block else ""
+        focus_preamble_text = f"{focus_block_with_header}\n\n" if focus_block_with_header else ""
         contract_summary_block = contract_context_text.strip()
         if contract_summary_block:
             contract_summary_block = contract_summary_block + "\n\n"
@@ -1033,6 +1034,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")
                             ),
                         )
+                        scoped_instruction = augment_instruction(scoped_instruction, ctx.session.state)
                         scoped_user_message = (
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"
