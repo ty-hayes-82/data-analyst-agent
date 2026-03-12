@@ -1,0 +1,9 @@
+metrics:
+  co2:
+    unit: "million tonnes"
+  co2_per_capita:
+    unit: "tonnes per capita"
+  population:
+    unit: "people"
+  gdp:
+    unit: "USD"

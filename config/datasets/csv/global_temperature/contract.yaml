@@ -1,0 +1,71 @@
+name: "Global Temperature"
+version: "1.0.0"
+display_name: "Global Temperature Anomalies (Monthly)"
+target_label: "Metric"
+description: >
+  Monthly global surface temperature anomalies from 1850-2024.
+  Combines data from GCAG (Global Component of Climate at a Glance) and GISTEMP (NASA).
+  Temperature anomalies are relative to a baseline period average.
+
+materiality:
+  variance_pct: 10.0
+  variance_absolute: 0.2
+
+presentation:
+  unit: "degrees_celsius"
+
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 1
+  max_scope_entities: 10
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/public/global_temp_monthly.csv"
+
+time:
+  column: "Year"
+  frequency: "monthly"
+  format: "%Y-%m"
+  range_months: 2088
+
+grain:
+  columns: ["Year", "Source"]
+
+metrics:
+  - name: "temperature_anomaly"
+    column: "Mean"
+    type: "intensive"
+    format: "float"
+    optimization: "minimize"
+    tags: ["climate", "temperature", "anomaly"]
+    description: "Global temperature anomaly in degrees Celsius relative to baseline"
+
+dimensions:
+  - name: "source"
+    column: "Source"
+    role: "primary"
+    description: "Data source: GCAG or GISTEMP"
+  - name: "year_month"
+    column: "Year"
+    role: "time"
+    description: "Year and month in YYYY-MM format"
+
+hierarchies:
+  - name: "data_source"
+    description: "Temperature data by source"
+    children: ["Source"]
+    level_names:
+      0: "Total"
+      1: "Source"
+
+capabilities:
+  - "long-term temperature trend analysis (1850-2024)"
+  - "monthly temperature anomaly tracking"
+  - "climate change pattern detection"
+  - "cross-source comparison (GCAG vs GISTEMP)"
+  - "seasonal temperature variation analysis"
+
+policies:
+  degradation_threshold: 0.20
