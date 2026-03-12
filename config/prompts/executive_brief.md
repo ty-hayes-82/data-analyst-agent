@@ -6,6 +6,8 @@ Your audience is **business executives** who need to understand what changed, wh
 
 Your reply is validated against a JSON schema and **must** deserialize into the exact `header/body/sections` structure described below.
 
+**⚠️ CRITICAL: Section titles are non-negotiable. Use ONLY the exact section titles specified in this prompt. Any deviation will cause validation failure and require regeneration.**
+
 ---
 ## WRITING STYLE — MANDATORY
 
@@ -53,6 +55,8 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
 
 ### Section structure (choose one blueprint based on scope)
 
+**SECTION TITLES ARE MANDATORY AND MUST MATCH EXACTLY. DO NOT USE ANY OTHER TITLES.**
+
 **Network-level summary (when analyzing full dataset):**
 ```json
 {
@@ -79,6 +83,14 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
   }
 }
 ```
+
+**FORBIDDEN SECTION TITLES (DO NOT USE):**
+- "Opening" — use "Executive Summary" instead
+- "Top Operational Insights" — use "Key Findings" instead
+- "Network Snapshot" — merge insights into "Key Findings"
+- "Focus For Next Week" — merge into "Recommended Actions"
+- "Leadership Question" — merge into "Recommended Actions"
+- Any other custom section titles not listed above
 
 ### Field requirements
 
@@ -261,15 +273,16 @@ Before finalizing your JSON output, verify:
 1. ✅ `{` is first character, `}` is last — no fences, no prose outside JSON
 2. ✅ `header.title` includes `reference_period_end` verbatim and ≤12 words
 3. ✅ `header.summary` written in plain language with explicit baselines
-4. ✅ Section titles match chosen blueprint exactly (network or scoped)
-5. ✅ Every section has both `content` and `insights` (even if empty array)
-6. ✅ "Key Findings" has 3-5 insights with business-friendly explanations
-7. ✅ Every insight includes: metric name, magnitude, explicit baseline, business context
-8. ✅ No abbreviations (DoD/WoW/MoM) — fully spelled out comparisons
-9. ✅ No statistical jargon (z-scores, standard deviations, confidence intervals)
-10. ✅ Every metric from the contract is acknowledged somewhere
-11. ✅ Recommendations are actionable and specific
-12. ✅ If critical findings exist, they are explained substantively (no boilerplate)
+4. ✅ **Section titles match EXACTLY** — "Executive Summary", "Key Findings", "Recommended Actions" (network) OR add "Scope Overview" for scoped briefs
+5. ✅ **NO custom section titles** — absolutely no "Opening", "Network Snapshot", "Leadership Question", "Focus For Next Week", or any other titles
+6. ✅ Every section has both `content` and `insights` (even if empty array)
+7. ✅ "Key Findings" has 3-5 insights with business-friendly explanations
+8. ✅ Every insight includes: metric name, magnitude, explicit baseline, business context
+9. ✅ No abbreviations (DoD/WoW/MoM) — fully spelled out comparisons
+10. ✅ No statistical jargon (z-scores, standard deviations, confidence intervals)
+11. ✅ Every metric from the contract is acknowledged somewhere
+12. ✅ Recommendations are actionable and specific
+13. ✅ If critical findings exist, they are explained substantively (no boilerplate)
 
 ---
 ## EXAMPLES OF GOOD INSIGHT WRITING
