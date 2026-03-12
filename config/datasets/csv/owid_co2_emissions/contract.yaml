@@ -41,6 +41,27 @@ metrics:
     optimization: "minimize"
     tags: ["emissions", "climate", "co2"]
     description: "Annual total CO2 emissions (million tonnes)"
+  - name: "coal_co2"
+    column: "coal_co2"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    tags: ["emissions", "climate", "co2", "coal"]
+    description: "Annual CO2 emissions from coal (million tonnes)"
+  - name: "gas_co2"
+    column: "gas_co2"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    tags: ["emissions", "climate", "co2", "gas"]
+    description: "Annual CO2 emissions from gas (million tonnes)"
+  - name: "oil_co2"
+    column: "oil_co2"
+    type: "additive"
+    format: "float"
+    optimization: "minimize"
+    tags: ["emissions", "climate", "co2", "oil"]
+    description: "Annual CO2 emissions from oil (million tonnes)"
   - name: "co2_per_capita"
     column: "co2_per_capita"
     type: "non_additive"

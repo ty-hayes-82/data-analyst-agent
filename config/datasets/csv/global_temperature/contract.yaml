@@ -43,7 +43,7 @@ metrics:
     description: "Global temperature anomaly in degrees Celsius relative to baseline"
 
 dimensions:
-  - name: "source"
+  - name: "temperature_source"
     column: "Source"
     role: "primary"
     description: "Data source: GCAG or GISTEMP"
@@ -55,7 +55,7 @@ dimensions:
 hierarchies:
   - name: "data_source"
     description: "Temperature data by source"
-    children: ["Source"]
+    children: ["temperature_source"]
     level_names:
       0: "Total"
       1: "Source"
