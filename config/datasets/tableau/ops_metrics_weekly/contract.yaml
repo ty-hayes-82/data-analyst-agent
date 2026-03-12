@@ -18,8 +18,9 @@ reporting:
   output_format: "pdf"
 
 data_source:
-  type: "csv"
-  file: "data/tableau/ops_metrics_weekly_extract.csv"
+  type: "tableau_hyper"
+  file: "data/tableau/Ops Metrics Weekly Scorecard.tdsx"
+  table: "Extract.Extract"
 
 time:
   column: "cal_dt"

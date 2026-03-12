@@ -1,0 +1,44 @@
+# Metric Units Configuration
+# Maps each metric to its appropriate unit for display and interpretation
+
+# Revenue Metrics
+ttl_rev_amt: "USD"
+lh_rev_amt: "USD"
+fuel_srchrg_rev_amt: "USD"
+acsrl_rev_amt: "USD"
+
+# Count Metrics
+ordr_cnt: "orders"
+rev_ordr_cnt: "orders"
+stop_count: "stops"
+truck_count: "trucks"
+team_truck_count: "trucks"
+solo_truck_count: "trucks"
+unmanned_truck_count: "trucks"
+non_operational_truck_count: "trucks"
+exprncd_drvr_cnt: "drivers"
+trmntd_drvr_cnt: "drivers"
+rnstd_drvr_cnt: "drivers"
+ocrnce_cnt: "occurrences"
+wk_day_cnt: "days"
+
+# Mileage Metrics
+ordr_miles: "miles"
+ttl_trf_mi: "miles"
+ld_trf_mi: "miles"
+dh_miles: "miles"
+ttl_qlcm_mi: "miles"
+cmpny_qlcm_mi: "miles"
+co_dsptch_miles: "miles"
+tot_qualcomm_miles: "miles"
+ld_mi_less_swift_billto: "miles"
+
+# Fuel Metrics
+ttl_fuel_qty: "gallons"
+idle_fuel_qty: "gallons"
+fuel_prchd: "gallons"
+
+# Time Metrics (in minutes)
+ttl_engn_tm: "minutes"
+idle_engn_tm: "minutes"
+drvr_engn_tm: "minutes"
