@@ -92,10 +92,24 @@ Your reply is validated against the Gemini `response_schema` and **must** deseri
 - Each dataset metric must appear either in an insight or in a monitoring/"no material change" line that cites its baseline.
 
 ---
-## ZERO-FALLBACK RULE
-If the digest lacks actionable evidence, still emit the JSON object populated with the fallback sentence everywhere. Do **not** echo the markdown or output refusal prose.
+## FALLBACK RULES (CRITICAL ENFORCEMENT)
+**WHEN FALLBACK IS FORBIDDEN:**
+- DO NOT use fallback text if ANY metric has insight cards or alerts with priority=CRITICAL or HIGH
+- DO NOT use fallback text if variance exceeds materiality thresholds (check alert_scoring.top_alerts)
+- DO NOT use fallback text if the digest contains specific variance values, entity breakdowns, or anomaly flags
 
-Fallback payload (only when no signals survive):
+**WHEN FALLBACK IS ALLOWED:**
+- ONLY when ALL metrics have variance below materiality AND no CRITICAL/HIGH alerts exist
+- The metric truly has no signal (empty insight_cards, no top_alerts, variance < threshold)
+
+**If critical findings exist but digest is thin:**
+Extract variance data from alert_scoring or hierarchical_analysis blocks and write substantive content with:
+- Current value vs baseline (cite specific comparison: WoW/MoM/YoY/rolling avg)
+- Magnitude (absolute and percentage change)
+- Entity responsible (which dimension value drove the variance)
+- Context (seasonality, mix shifts, concentration risk)
+
+Fallback payload (ONLY when truly no signals survive for ANY metric):
 ```json
 {
   "header": {

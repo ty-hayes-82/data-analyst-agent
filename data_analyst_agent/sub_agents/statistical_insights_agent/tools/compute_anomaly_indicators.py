@@ -40,6 +40,20 @@ def _robust_z(x: np.ndarray) -> np.ndarray:
     return (x - med) / denom
 
 
+def _detect_repo_root(contract_path: str | None) -> Path | None:
+    """Detect the repository root by searching for pyproject.toml."""
+    if not contract_path:
+        return None
+    from pathlib import Path
+    path = Path(contract_path).resolve()
+    search_path = path if path.is_dir() else path.parent
+    for candidate in [search_path] + list(search_path.parents):
+        marker = candidate / "pyproject.toml"
+        if marker.exists():
+            return candidate
+    return search_path
+
+
 def _example_from_row(row: dict, *, contract: object | None = None) -> dict:
     """Extract a small, dataset-agnostic example dict.
 
@@ -182,10 +196,19 @@ async def compute_anomaly_indicators() -> str:
 
                 datapoints_file = validation_cfg.get("datapoints_file")
                 if datapoints_file:
-                    repo_root = Path(__file__).resolve().parents[4]
-                    validation_path = repo_root / str(datapoints_file)
-                    if validation_path.exists():
-                        payload = json.loads(validation_path.read_text())
+                    path = Path(datapoints_file)
+                    if not path.is_absolute():
+                        contract_path = getattr(contract, "_source_path", None)
+                        repo_root = _detect_repo_root(contract_path)
+                        if repo_root:
+                            path = (repo_root / datapoints_file).resolve()
+                        else:
+                            path = path.resolve()
+                    else:
+                        path = Path(datapoints_file)
+                    
+                    if path.exists():
+                        payload = json.loads(path.read_text(encoding="utf-8"))
                         for s in payload.get("anomaly_scenarios") or []:
                             if isinstance(s, dict) and s.get("scenario_id") and s.get("grain"):
                                 validation_lookup[(str(s["scenario_id"]), str(s["grain"]))] = s
