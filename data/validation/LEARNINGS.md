@@ -1,92 +1,112 @@
 # Code Review — Last 10 Commits (HEAD~10..HEAD)
-**Reviewer:** Arbiter | **Date:** 2026-03-12 | **Range:** `718723b..3792577`
+**Reviewer:** Arbiter | **Date:** 2026-03-12 20:56 UTC | **Range:** `0d3659b..714cc4e`
 
 ## Scope Summary
-13 files changed, 1150 insertions, 250 deletions. Focus: executive brief prompt optimization (51% token reduction), thinking budget tuning, section title enforcement moved to system instruction, test fixture updates.
+15 files changed, 1400 insertions, 153 deletions. Focus: executive brief validation hardening (section title enforcement via system instruction), prompt optimization (51% token reduction), narrative agent thinking budget reduction (16K→14K), hardcoded Truck Count assumption documented, docs/session logs.
 
 ---
 
 ## Critical (must fix before merge)
 
-### 1. Hardcoded "Truck Count" aggregation logic
-- **`data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/period_totals.py:118`**
-  ```python
-  if denom_metric == "Truck Count" and "truck_count" in nd_df.columns ...
-  ```
-- **`data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/ratio_metrics.py:178`**
-  ```python
-  ratio_config.get("denominator_metric") == "Truck Count"
-  ```
-- **Issue:** These are dataset-specific hardcodes that will silently produce wrong results for any non-Swoop dataset. The new TODO comment at `period_totals.py:112-114` acknowledges this but doesn't fix it.
-- **Fix:** Add an `aggregation_method` property to the contract metric schema. Read it at runtime instead of string-matching `"Truck Count"`.
+*None identified.* Recent commits are docs, prompt tuning, and validation improvements — no data-integrity or pipeline-breaking changes.
 
 ---
 
 ## Warning (fix soon)
 
-### 2. `regional_analysis` / `regional_distribution` hardcoded card tags
-- **`report_synthesis_agent/tools/report_markdown/formatting.py:18`** — `"regional_analysis"` in ordered tag list
-- **`report_synthesis_agent/tools/report_markdown/sections/insight_cards.py:34-39`** — tag matching logic uses hardcoded `{"regional_distribution", "hierarchy", "regional_analysis"}`
-- **Issue:** These tags assume a "region" dimension exists. For datasets without regions, the narrative grouping logic silently skips these cards — not broken, but fragile and opaque.
-- **Fix:** Make tag-to-dimension mapping contract-driven or at least document the fallback behavior.
+### 1. Prompt Token Bloat — `executive_brief.md` (12,337 chars)
+- **File:** `config/prompts/executive_brief.md` — 12,337 bytes (~3,100 tokens)
+- Despite the 51% optimization in `37dcf7f`, the prompt is still 4× over the 3,000-char target.
+- `report_synthesis_agent/prompt.py` is also large at 6,022 bytes.
+- `narrative_agent/prompt.py` is fine at 2,791 bytes.
+- **Action:** Further compress `executive_brief.md` — move static examples to few-shot config or external reference. Break `report_synthesis_agent/prompt.py` into base + section-specific fragments loaded on demand.
 
-### 3. `Recommended Actions` insights changed from optional to required — test updated but schema not enforced
-- **`tests/unit/test_executive_brief_fallback.py`** — test now expects non-empty `insights` array for "Recommended Actions"
-- **`config/prompts/executive_brief.md`** — prompt says "array of 2-3 action items (REQUIRED — cannot be empty array)"
-- **Issue:** The JSON schema validation in the agent code should enforce `minItems: 2` on the Recommended Actions insights array. Currently only the prompt says it's required — the LLM can still return `[]` and pass validation.
-- **Fix:** Add schema-level enforcement in the section contract validator, not just prompt instructions.
+### 2. Massive Unused Import Debt (130+ instances)
+Across `data_analyst_agent/`, there are **130+ unused imports**. Hotspots:
+- **`from __future__ import annotations`** — ~50 files import this without using any forward-ref annotations. Harmless but noisy.
+- **`from typing import Dict, Any, List, Optional`** — ~30 files import typing symbols that are never referenced.
+- **Substantive unused imports (higher risk):**
+  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_new_lost_same_store.py:29` — `import numpy` (unused)
+  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_seasonal_decomposition.py:26` — `import numpy` (unused)
+  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/per_item_metrics.py:6` — `import pandas` (unused)
+  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/summary_enhancements.py:5` — `import numpy` (unused)
+  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_outlier_impact.py:26` — `from scipy import stats` (unused, heavy import)
+  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_pvm_decomposition.py:28` — `import pandas` (unused)
+  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_mix_shift_analysis.py:27` — `import pandas` (unused)
+  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/hierarchy.py:6` — `import pandas` (unused)
+  - `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py:26` — `import os` (unused)
+  - `data_analyst_agent/sub_agents/report_synthesis_agent/tools/export_pdf_report.py:44` — `from weasyprint import CSS` (unused, heavy)
+  - `data_analyst_agent/sub_agents/tableau_hyper_fetcher/fetcher.py:37` — `from hyper_connection import HyperConnectionManager` (unused)
+  - `data_analyst_agent/sub_agents/hierarchical_analysis_agent/agent.py:10` — `from decisions import DrillDownDecisionAgent` (unused)
+  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/materiality.py:6` — `from config.materiality_loader import get_thresholds_for_category` (unused)
+  - `data_analyst_agent/semantic/quality.py:5` — `from exceptions import QualityGateError` (unused)
+  - `data_analyst_agent/semantic/models.py:6` — `from exceptions import ContractValidationError` (unused)
+- **Action:** Run `ruff check --select F401 data_analyst_agent/` or autofix with `ruff check --select F401 --fix`. The `from __future__` ones are low-priority; focus on the substantive pandas/numpy/scipy/weasyprint imports first — they add import latency to agent startup.
 
-### 4. `executive_brief_optimized.md` added but appears unused
-- **`config/prompts/executive_brief_optimized.md`** — 142 lines added
-- **Issue:** No code references this file. If it's a candidate replacement, it should be wired up via `EXECUTIVE_BRIEF_PROMPT_VARIANT` or deleted.
-- **Fix:** Either integrate it as a variant or remove it to avoid config drift.
+### 3. `report_synthesis_agent` Hardcoded Tag — "regional_analysis"
+- **File:** `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/formatting.py:18`
+- `_DERIVED_TAGS` includes `"regional_analysis"` as a hardcoded tag. This is a card-tag taxonomy, not a column name, so it's not a data-integrity risk — but if the dataset has no geographic dimension, the tag will never match and the logic is dead code.
+- **File:** `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/sections/insight_cards.py:34-39`
+- `has_regional_narrative` check uses `{"regional_distribution", "hierarchy", "regional_analysis"}` to suppress hierarchy drill-down cards. If the pipeline ever runs on non-geographic data, this gate does nothing (harmless but misleading).
+- **Action:** Low priority. Consider making suppression tags configurable via contract metadata.
 
 ---
 
 ## ADK Compliance
 
-### Section title enforcement moved to system instruction ✅
-- Previously injected in user message, now appended to system instruction (`instruction = instruction + section_title_enforcement`). This is correct for Gemini — system instructions carry more weight than user-turn text.
-- **Minor concern:** The enforcement block is built *before* `_format_instruction()` for network briefs but *after* for scoped briefs. The ordering difference is cosmetic (both append to instruction) but inconsistent — could confuse future maintainers.
-
-### Scoped brief retry budget reduced from 3 → 2 ✅
-- Comment says "up to 2 attempts for scoped briefs" — sensible given scoped briefs are less prone to title drift.
+- ✅ Recent commits don't introduce new agents or modify agent registration.
+- ✅ `executive_brief_agent/agent.py` changes (152 lines modified) are validation/formatting logic, not agent lifecycle.
+- ✅ No global variable abuse — session state patterns intact.
+- ✅ `data_cache.py` sys.modules usage unchanged in this range.
 
 ---
 
-## Prompt Token Efficiency
+## Hardcoded Assumptions Audit
 
-| File | Size (chars) | Status |
-|------|-------------|--------|
-| `config/prompts/executive_brief.md` | 12,337 | ⚠️ Over 3K (4x threshold) |
-| `sub_agents/narrative_agent/prompt.py` | 2,791 | ✅ Under 3K |
-| `sub_agents/report_synthesis_agent/prompt.py` | 6,022 | ⚠️ Over 3K (2x threshold) |
+Searched for `trade_value|hs2|hs4|port_code|region|imports|exports` across `data_analyst_agent/` (excluding tests and contracts):
 
-- **`executive_brief.md`** was reduced from ~18.8K → 12.3K (36% reduction, good progress). Still 4x the 3K target. The removal of examples and verbose instructions is the right direction — consider further cuts to the COMPARISON LANGUAGE and DIGEST HANDLING sections which have significant overlap with the WRITING STYLE section.
-- **`report_synthesis_agent/prompt.py`** at 6K — review for redundant instructions.
+| Pattern | Status |
+|---------|--------|
+| `region` in `validation_data_loader.py` | ✅ Column mapping from CSV headers — driven by data shape, not hardcoded assumption |
+| `region` in `__main__.py` | ✅ CLI help text examples only (`--dimension region`) |
+| `region` in `narrative_agent/tools/generate_narrative_summary.py:101` | ⚠️ Heuristic priority sorter — prefers geographic keys for display ordering. Not a data-integrity risk but bakes in geographic-first assumption. |
+| `region` in `weather_context_agent/prompt.py` | ✅ LLM prompt context — agent is inherently geographic |
+| `region` in `executive_brief_agent/scope_utils.py:322` | ✅ Docstring reference |
+| `region` in `validation_csv_fetcher.py` | ✅ Filter parameter read from session state |
+| `region` in `core_agents/cli.py` | ✅ Docstring example |
+| `regional_*` tags in report_synthesis | ⚠️ See Warning #3 above |
+| `imports`/`exports` keywords | ✅ Only in Python import statements, not trade-data references |
+| `trade_value`, `hs2`, `hs4`, `port_code` | ✅ Zero matches — no hardcoded trade-specific column names |
+
+**Verdict:** No critical hardcoded dataset assumptions found. The codebase is contract-driven for column names. Two minor geographic-preference heuristics noted.
 
 ---
 
-## Unused Imports
+## Commit Quality Assessment
 
-**166 suspected unused imports** detected across the codebase. Most are:
-- `from __future__ import annotations` (41 instances) — these are PEP 563 annotations, **not actually unused** (they change runtime behavior). **False positives — ignore.**
-- `from typing import Optional/Dict/Any/List` — many of these ARE used in type hints that the AST scanner misses in string annotations mode. **Likely false positives given `__future__.annotations`.**
+| Commit | Quality | Notes |
+|--------|---------|-------|
+| `0d3659b` fix: section title enforcement → system instruction | ✅ Good | Correct Gemini compliance fix |
+| `1bd8ff6` perf: reduce thinking budget 16K→14K | ✅ Good | Measurable perf gain |
+| `37dcf7f` feat: optimize executive brief prompt (51%) | ✅ Good | Still over target but significant improvement |
+| `d177e4c` docs: investigation findings | ✅ Docs | — |
+| `ee5de71` docs: session report | ✅ Docs | — |
+| `688f0bd` feat: enhance recommendations section | ✅ Good | — |
+| `a3f36d9` docs: document Truck Count assumption | ✅ Good | Tech debt documented |
+| `3792577` docs: session summary | ✅ Docs | — |
+| `da51467` fix: stronger section title validation | ✅ Good | Defensive validation |
+| `714cc4e` docs: session log | ✅ Docs | — |
 
-**Genuine suspects worth checking:**
-- `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:8` — `import time` (appears unused in method bodies)
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_mad_outliers.py:27` — `from io import StringIO`
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_change_points.py:30` — `from io import StringIO`
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_outlier_impact.py:26` — `from scipy import stats`
-
-**Recommendation:** Run `ruff check --select F401 data_analyst_agent/` for authoritative unused import detection rather than AST heuristics.
+**6/10 commits are docs/session logs.** This is healthy for an iteration cycle but signals the dev agent is spending significant context on documentation. No code-quality issues in the 4 substantive commits.
 
 ---
 
 ## Observations
 
-1. **Good:** The prompt optimization work is well-structured — examples removed, redundant sections consolidated, token count tracked in commit messages.
-2. **Good:** Moving section title enforcement from user message to system instruction is the right ADK pattern for Gemini models.
-3. **Risk:** The `executive_brief_optimized.md` file looks like dead config. Track it or remove it.
-4. **Pattern:** The codebase has a growing number of `# TODO` comments for contract-driven refactors (Truck Count, aggregation methods). These should become tracked issues, not code comments.
-5. **Thinking budget:** Reducing from 16K → 14K tokens is a reasonable optimization. Monitor for quality regression in complex multi-metric scenarios.
+1. **Import debt is the biggest hygiene issue.** 130+ unused imports across the codebase. The `from __future__ import annotations` ones are cosmetic, but unused `numpy`, `pandas`, `scipy.stats`, and `weasyprint.CSS` imports add real startup latency. A single `ruff --fix` pass would clean this up.
+
+2. **Prompt size needs a strategy.** The executive brief prompt at 12K chars is the largest single prompt in the system. The 51% reduction was good progress but it's still the #1 token-cost driver per invocation. Consider: (a) structured JSON instruction format instead of prose, (b) moving examples to few-shot, (c) conditional sections loaded based on data shape.
+
+3. **No test regressions in this range.** The test fixture update in `test_executive_brief_fallback.py` aligns with the validation changes. No new test gaps introduced.
+
+4. **Session log volume.** 5 of 15 changed files are session logs/devlogs. These are useful for continuity but are growing the repo. Consider a `docs/sessions/` archive with `.gitignore` for anything older than 7 days, or move to a separate branch.
