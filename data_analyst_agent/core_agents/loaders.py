@@ -291,17 +291,19 @@ class AnalysisContextInitializer(BaseAgent):
         contract_override = normalize_temporal_grain(
             getattr(time_cfg, "temporal_grain_override", None) if time_cfg else None
         )
+        env_time_frequency = normalize_temporal_grain(os.environ.get("DATA_ANALYST_TIME_FREQUENCY"))
+        canonical_frequency = env_time_frequency if env_time_frequency != "unknown" else contract_frequency
         env_grain = normalize_temporal_grain(os.environ.get("TEMPORAL_GRAIN"))
 
-        if env_grain != "unknown":
-            temporal_grain = env_grain
-            grain_source = "env"
+        if canonical_frequency != "unknown":
+            temporal_grain = canonical_frequency
+            grain_source = "time_frequency_env" if env_time_frequency != "unknown" else "contract_frequency"
         elif contract_override != "unknown":
             temporal_grain = contract_override
             grain_source = "contract_override"
-        elif contract_frequency != "unknown":
-            temporal_grain = contract_frequency
-            grain_source = "contract_frequency"
+        elif env_grain != "unknown":
+            temporal_grain = env_grain
+            grain_source = "env"
         elif grain_result and grain_result.temporal_grain in ("weekly", "monthly"):
             temporal_grain = grain_result.temporal_grain
             grain_source = "detected"
@@ -309,7 +311,7 @@ class AnalysisContextInitializer(BaseAgent):
             temporal_grain = "monthly"
             grain_source = "fallback"
 
-        if grain_source in {"env", "contract_override", "contract_frequency"}:
+        if grain_source in {"time_frequency_env", "contract_override", "contract_frequency"}:
             grain_confidence = 1.0
         elif grain_source == "detected":
             grain_confidence = float(grain_result.detection_confidence) if grain_result else 0.0
@@ -326,7 +328,8 @@ class AnalysisContextInitializer(BaseAgent):
         if grain_source == "fallback":
             print("[TemporalGrain] WARNING: Ambiguous cadence; defaulting to monthly.")
 
-        ctx.session.state["time_frequency"] = raw_time_frequency
+        effective_time_frequency = canonical_frequency if canonical_frequency != "unknown" else None
+        ctx.session.state["time_frequency"] = effective_time_frequency or raw_time_frequency
         ctx.session.state["dimension_filters"] = dimension_filters
         ctx.session.state["hierarchy_filters"] = hierarchy_filters
 
@@ -341,7 +344,7 @@ class AnalysisContextInitializer(BaseAgent):
             temporal_grain_confidence=grain_confidence,
             detected_anchor=detected_anchor,
             period_end_column=time_col,
-            time_frequency=raw_time_frequency,
+            time_frequency=ctx.session.state["time_frequency"],
             dimension_filters=dimension_filters,
             hierarchy_filters=hierarchy_filters,
         )
@@ -356,10 +359,11 @@ class AnalysisContextInitializer(BaseAgent):
         print(f"[AnalysisContextInitializer] Created context for {len(df)} rows. Target: {target_metric.name}")
 
         period_end_value = final_period_end or ctx.session.state.get("primary_query_end_date")
+        frequency_for_period = ctx.session.state.get("time_frequency") or raw_time_frequency
         if period_end_value:
             analysis_period = describe_analysis_period(
                 period_end_value,
-                raw_time_frequency,
+                frequency_for_period,
                 temporal_grain,
             )
         else:
@@ -374,7 +378,7 @@ class AnalysisContextInitializer(BaseAgent):
             "temporal_grain": temporal_grain,
             "temporal_grain_confidence": grain_confidence,
             "temporal_grain_source": grain_source,
-            "time_frequency": raw_time_frequency,
+            "time_frequency": ctx.session.state["time_frequency"],
             "analysis_period": analysis_period,
         })
 
