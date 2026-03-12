@@ -221,4 +221,37 @@ def format_contract_reference_block(contract: Any | None) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-__all__ = ["build_contract_metadata", "format_contract_context", "format_contract_reference_block"]
+def get_default_grain_column(contract: Any | None, fallback: str = "entity") -> str:
+    """Return the first dimension column from the contract, or fallback if none found.
+    
+    This replaces hardcoded fallbacks to "terminal" with contract-driven defaults.
+    
+    Args:
+        contract: DatasetContract object or None
+        fallback: Default column name if no dimensions found (default: "entity")
+    
+    Returns:
+        Column name (str)
+    """
+    if not contract:
+        return fallback
+    
+    dimensions = _field(contract, "dimensions")
+    if not dimensions or not isinstance(dimensions, (list, tuple)):
+        return fallback
+    
+    # Get first dimension's column name
+    for dim in dimensions:
+        col = _field(dim, "column")
+        if col and isinstance(col, str):
+            return col.strip()
+    
+    return fallback
+
+
+__all__ = [
+    "build_contract_metadata",
+    "format_contract_context",
+    "format_contract_reference_block",
+    "get_default_grain_column",
+]
