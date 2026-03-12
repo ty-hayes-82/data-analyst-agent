@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from ... import data_cache
+from ....utils.cumulative_series import ensure_effective_metric_series
 
 
 def _to_datetime_safe(series: pd.Series) -> pd.Series:
@@ -107,7 +108,21 @@ async def compute_anomaly_indicators() -> str:
             .reset_index(drop=True)
         )
 
-        vals = agg[metric_col].astype(float).to_numpy()
+        metric_name = getattr(getattr(ctx, "target_metric", None), "name", None)
+        time_frequency = None
+        if ctx and getattr(ctx, "contract", None):
+            time_cfg = getattr(ctx.contract, "time", None)
+            time_frequency = getattr(time_cfg, "frequency", None) if time_cfg else None
+
+        effective_series = ensure_effective_metric_series(
+            agg,
+            metric_col=metric_col,
+            time_col=time_col,
+            metric_name=metric_name or metric_col,
+            time_frequency=time_frequency,
+        )
+
+        vals = agg[effective_series.column_name].astype(float).to_numpy()
         z = _robust_z(vals)
         agg["robust_z"] = z
         # Threshold tuned for deterministic behavior (not hyper-sensitive)
@@ -115,18 +130,29 @@ async def compute_anomaly_indicators() -> str:
 
         anomalies_out: list[dict] = []
         for _, r in flagged.iterrows():
-            anomalies_out.append(
-                {
-                    "period": str(r[time_col].date() if hasattr(r[time_col], "date") else r[time_col]),
-                    "value": float(r[metric_col]),
-                    "robust_z": float(r["robust_z"]),
-                    "direction": "positive" if float(r["robust_z"]) >= 0 else "negative",
-                    "severity": "high" if abs(float(r["robust_z"])) >= 5 else "medium",
-                    "example": {},
-                }
-            )
+            entry_value = float(r[effective_series.column_name])
+            anomaly_payload = {
+                "period": str(r[time_col].date() if hasattr(r[time_col], "date") else r[time_col]),
+                "value": entry_value,
+                "robust_z": float(r["robust_z"]),
+                "direction": "positive" if float(r["robust_z"]) >= 0 else "negative",
+                "severity": "high" if abs(float(r["robust_z"])) >= 5 else "medium",
+                "example": {},
+                "metric_variant": effective_series.column_name,
+            }
+            if effective_series.is_cumulative:
+                anomaly_payload["original_value"] = float(r[metric_col])
+            anomalies_out.append(anomaly_payload)
 
-        out: dict = {"anomalies": anomalies_out}
+        out: dict = {
+            "anomalies": anomalies_out,
+            "effective_metric_col": effective_series.column_name,
+            "cumulative_series_handled": effective_series.is_cumulative,
+        }
+        if effective_series.is_cumulative:
+            out["source_metric_col"] = metric_col
+            if effective_series.smoothing_window:
+                out["smoothing_window"] = effective_series.smoothing_window
 
         # Optional: labeled scenario summaries (synthetic datasets)
         # Contract-driven: only enabled when contract.validation declares the columns.

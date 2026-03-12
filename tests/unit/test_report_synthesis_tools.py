@@ -354,3 +354,34 @@ async def test_markdown_report_prefers_metric_units_over_contract(monkeypatch):
 
     clear_metric_units_cache()
     clear_dataset_cache()
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
+async def test_markdown_report_populates_anomalies_from_stats():
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+
+    stats_payload = {
+        "anomalies": [
+            {
+                "item": "California",
+                "period": "2020-05-01",
+                "value": 1250,
+                "z_score": 3.5,
+                "p_value": 0.0004,
+            }
+        ]
+    }
+
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        statistical_summary=json.dumps(stats_payload),
+        analysis_target="cases",
+    )
+
+    assert "## Anomalies" in report
+    anomaly_section = report.split("## Anomalies", 1)[1].split("##", 1)[0]
+    assert "California" in anomaly_section
+    assert "z=3.50" in anomaly_section

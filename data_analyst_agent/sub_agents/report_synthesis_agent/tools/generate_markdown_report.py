@@ -277,6 +277,150 @@ def _anomaly_actions(stats_data: dict, metric_label: str, unit: str, period_labe
     return actions
 
 
+def _normalize_anomaly_entry(anomaly: Any) -> Optional[dict]:
+    if not isinstance(anomaly, dict):
+        return None
+
+    period = anomaly.get("period") or anomaly.get("window")
+    first_period = anomaly.get("first_period")
+    last_period = anomaly.get("last_period")
+    if not period and first_period and last_period:
+        period = f"{first_period}–{last_period}" if first_period != last_period else first_period
+    elif not period and (first_period or last_period):
+        period = first_period or last_period
+
+    entity = (
+        anomaly.get("item_name")
+        or anomaly.get("item")
+        or anomaly.get("dimension")
+        or anomaly.get("name")
+        or anomaly.get("grain")
+        or anomaly.get("scenario_id")
+        or anomaly.get("entity")
+    )
+
+    value = _safe_float(anomaly.get("value") or anomaly.get("avg_anomaly_value") or anomaly.get("amount"))
+    deviation_pct = _safe_float(anomaly.get("deviation_pct") or anomaly.get("deviation_percent"))
+    z_score = _safe_float(anomaly.get("z_score") or anomaly.get("robust_z") or anomaly.get("score"))
+    p_value = _safe_float(anomaly.get("p_value"))
+    description = anomaly.get("ground_truth_insight") or anomaly.get("description")
+    severity = (anomaly.get("severity") or "").strip().lower() or None
+    source = anomaly.get("anomaly_type") or anomaly.get("metric_variant") or anomaly.get("scenario_id")
+
+    if not any([period, entity, value, deviation_pct, z_score, description]):
+        return None
+
+    return {
+        "period": str(period) if period is not None else None,
+        "entity": str(entity) if entity is not None else None,
+        "value": value,
+        "deviation_pct": deviation_pct,
+        "z": z_score,
+        "p": p_value,
+        "description": description.strip() if isinstance(description, str) else None,
+        "severity": severity,
+        "source": source,
+    }
+
+
+def _anomaly_entry_score(entry: dict) -> float:
+    if not isinstance(entry, dict):
+        return 0.0
+    z = abs(entry.get("z") or 0.0)
+    deviation = abs(entry.get("deviation_pct") or 0.0) / 5.0
+    value = abs(entry.get("value") or 0.0)
+    return max(z, deviation, value)
+
+
+def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> List[dict]:
+    entries: List[dict] = []
+    seen: set[tuple] = set()
+
+    stats_entries = stats_data.get("anomalies") if isinstance(stats_data, dict) else []
+    for raw in stats_entries or []:
+        normalized = _normalize_anomaly_entry(raw)
+        if not normalized:
+            continue
+        normalized.setdefault("source", "stat_summary")
+        key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append(normalized)
+
+    payload = anomaly_payload if isinstance(anomaly_payload, dict) else {}
+    for bucket_key in ("anomalies", "time_series_anomalies"):
+        raw_bucket = payload.get(bucket_key) if isinstance(payload, dict) else None
+        if not isinstance(raw_bucket, list):
+            continue
+        for raw in raw_bucket:
+            normalized = _normalize_anomaly_entry(raw)
+            if not normalized:
+                continue
+            normalized.setdefault("source", raw.get("anomaly_type") or bucket_key.rstrip("s"))
+            key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append(normalized)
+
+    entries.sort(key=_anomaly_entry_score, reverse=True)
+    return entries
+
+
+def _format_anomaly_line(entry: dict, unit: str) -> str:
+    period = entry.get("period") or "N/A"
+    entity = entry.get("entity") or "Metric"
+    value_clause = _format_amount_short(entry.get("value"), unit)
+    deviation_clause = f" Δ{entry['deviation_pct']:+.1f}%" if entry.get("deviation_pct") is not None else ""
+    z_clause = f" z={entry['z']:.2f}" if entry.get("z") is not None else ""
+    p_clause = f" p={entry['p']:.3f}" if entry.get("p") is not None else ""
+    description = f" — {entry['description']}" if entry.get("description") else ""
+    source = entry.get("source")
+    source_prefix = f"[{source}] " if source else ""
+    payload = value_clause or "deviation detected"
+    return f"- {source_prefix}{period} — {entity}: {payload}{deviation_clause}{z_clause}{p_clause}{description}".strip()
+
+
+def _derive_anomaly_actions(entries: List[dict], metric_label: str) -> List[str]:
+    actions: List[str] = []
+    for entry in entries[:3]:
+        period = entry.get("period") or "the latest period"
+        entity = entry.get("entity") or "the target metric"
+        z_clause = f" (z={entry['z']:.2f})" if entry.get("z") is not None else ""
+        deviation_clause = f" with Δ{entry['deviation_pct']:+.1f}%" if entry.get("deviation_pct") is not None else ""
+        actions.append(
+            f"Investigate anomaly at {entity} during {period}{z_clause}{deviation_clause} impacting {metric_label}."
+        )
+        if len(actions) >= 3:
+            break
+    return actions
+
+
+def _build_anomalies_section(
+    anomaly_payload: Any,
+    stats_data: dict,
+    unit: str,
+    metric_label: str,
+) -> tuple[List[str], List[str]]:
+    entries = _collect_anomaly_entries(anomaly_payload, stats_data)
+    should_render = bool(anomaly_payload) or bool(entries)
+    if not should_render:
+        return [], []
+
+    lines = ["## Anomalies", ""]
+    if entries:
+        for entry in entries[:5]:
+            lines.append(_format_anomaly_line(entry, unit))
+        lines.append("")
+    else:
+        lines.append("- No anomalies available.")
+        lines.append("")
+
+    actions = _derive_anomaly_actions(entries, metric_label)
+    return lines, actions
+
+
 def _parse_correlation_entry(entry: Any) -> Tuple[Optional[str], Optional[str], Optional[float]]:
     if isinstance(entry, dict):
         a = entry.get("metric_a") or entry.get("item_a") or entry.get("source")
@@ -591,45 +735,12 @@ async def generate_markdown_report(
 
         md.extend(build_variance_section(levels_analyzed, level_analyses, unit))
 
-        # Optional explicit Anomalies + Seasonality sections (used by incremental E2E)
-        if anomaly_indicators:
-            anoms = parse_json_safe(anomaly_indicators)
-            md.extend(["## Anomalies", ""])
-            items = anoms.get("anomalies", []) if isinstance(anoms, dict) else []
-            if items:
-                for a in items[:10]:
-                    sid = a.get("scenario_id")
-                    atype = a.get("anomaly_type")
-                    desc = a.get("ground_truth_insight") or a.get("description") or "Anomaly detected"
-                    dev = float(a.get("deviation_pct") or 0.0)
-                    md.append(f"- [{sid} | {atype}] {desc} (deviation {dev:+.1f}%)")
-            else:
-                md.append("- No anomalies available.")
-
-            # If narrative didn’t provide actionable recommendations, derive them from anomaly scenarios.
-            if isinstance(narrative_data, dict) and not narrative_data.get("recommended_actions") and items:
-                derived_actions = []
-                for a in items[:5]:
-                    sid = a.get("scenario_id")
-                    atype = a.get("anomaly_type")
-                    ex = a.get("example") or {}
-                    # Dataset-agnostic context from example dimensions
-                    bits = []
-                    if isinstance(ex, dict):
-                        for k, v in ex.items():
-                            if v in (None, ""):
-                                continue
-                            bits.append(f"{k}={v}")
-                            if len(bits) >= 4:
-                                break
-                    ctx_txt = (" (" + ", ".join(bits) + ")") if bits else ""
-                    dev = float(a.get("deviation_pct") or 0.0)
-                    derived_actions.append(
-                        f"Investigate {sid} ({atype}){ctx_txt} and validate drivers behind {dev:+.1f}% deviation; propose mitigation/monitoring steps."
-                    )
-                narrative_data["recommended_actions"] = derived_actions
-
-            md.append("")
+        anomaly_payload = parse_json_safe(anomaly_indicators) if anomaly_indicators else None
+        anomaly_section, derived_anomaly_actions = _build_anomalies_section(anomaly_payload, stats_data or {}, unit, metric_label)
+        if anomaly_section:
+            md.extend(anomaly_section)
+            if derived_anomaly_actions and isinstance(narrative_data, dict) and not narrative_data.get("recommended_actions"):
+                narrative_data["recommended_actions"] = derived_anomaly_actions
 
         if seasonal_decomposition:
             seas = parse_json_safe(seasonal_decomposition)

@@ -19,6 +19,7 @@ import json
 import pandas as pd
 
 from ... import data_cache
+from ....utils.cumulative_series import ensure_effective_metric_series
 
 
 def _to_datetime_safe(series: pd.Series) -> pd.Series:
@@ -59,21 +60,42 @@ async def compute_period_over_period_changes() -> str:
             .reset_index(drop=True)
         )
 
+        metric_name = getattr(getattr(ctx, "target_metric", None), "name", None)
+        time_frequency = None
+        if ctx and getattr(ctx, "contract", None):
+            time_cfg = getattr(ctx.contract, "time", None)
+            time_frequency = getattr(time_cfg, "frequency", None) if time_cfg else None
+
+        effective_series = ensure_effective_metric_series(
+            agg,
+            metric_col=metric_col,
+            time_col=time_col,
+            metric_name=metric_name or metric_col,
+            time_frequency=time_frequency,
+        )
+
         latest = agg.iloc[-1]
         prior = agg.iloc[-2] if len(agg) >= 2 else None
-        latest_val = float(latest[metric_col])
-        prior_val = float(prior[metric_col]) if prior is not None else 0.0
+        latest_val = float(effective_series.values.iloc[-1])
+        prior_val = float(effective_series.values.iloc[-2]) if len(effective_series.values) >= 2 else 0.0
         pct_change = ((latest_val - prior_val) / prior_val * 100.0) if prior_val else 0.0
 
         out: dict = {
             "time_col": time_col,
             "metric_col": metric_col,
+            "effective_metric_col": effective_series.column_name,
             "latest_period": str(latest[time_col].date() if hasattr(latest[time_col], "date") else latest[time_col]),
             "prior_period": str(prior[time_col].date() if (prior is not None and hasattr(prior[time_col], "date")) else (prior[time_col] if prior is not None else None)),
             "latest_value": latest_val,
             "prior_value": prior_val,
             "pct_change": pct_change,
+            "cumulative_series_handled": effective_series.is_cumulative,
         }
+
+        if effective_series.is_cumulative:
+            out["source_metric_col"] = metric_col
+            if effective_series.smoothing_window:
+                out["smoothing_window"] = effective_series.smoothing_window
 
         # Optional: contract-driven fixture flag support (synthetic datasets)
         # Back-compat: expose `avg_anomaly_value`/`avg_baseline_value`/`deviation_pct`.
