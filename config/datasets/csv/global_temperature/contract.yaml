@@ -36,7 +36,7 @@ grain:
 metrics:
   - name: "temperature_anomaly"
     column: "Mean"
-    type: "intensive"
+    type: "non_additive"
     format: "float"
     optimization: "minimize"
     tags: ["climate", "temperature", "anomaly"]

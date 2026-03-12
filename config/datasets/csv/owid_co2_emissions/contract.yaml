@@ -43,7 +43,7 @@ metrics:
     description: "Annual total CO2 emissions (million tonnes)"
   - name: "co2_per_capita"
     column: "co2_per_capita"
-    type: "intensive"
+    type: "non_additive"
     format: "float"
     optimization: "minimize"
     tags: ["emissions", "climate", "per_capita"]
