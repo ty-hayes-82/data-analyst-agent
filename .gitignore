@@ -79,6 +79,10 @@ temp_extracted/
 # Testing and Cache
 .pytest_cache/
 
+# ADK
+.adk/session.db
+.adk/*.db
+
 # Local backups and temporary scripts
 *.a2a_backup
 scripts/_*.py
