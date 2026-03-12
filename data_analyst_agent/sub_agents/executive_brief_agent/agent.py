@@ -64,6 +64,7 @@ from .prompt_utils import (
     SECTION_FALLBACK_TEXT,
     _apply_unit_to_text,
 )
+from .severity_guard import has_critical_or_high_findings, build_severity_enforcement_block
 from .report_utils import (
     _build_digest,
     _build_digest_from_json,
@@ -429,6 +430,8 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
 def _validate_structured_brief(
     brief: dict,
     section_contract: list[dict[str, str]] | None,
+    has_critical_findings: bool = False,
+    critical_metrics: list[str] | None = None,
 ) -> list[str]:
     """Return a list of validation errors for the structured brief payload."""
 
@@ -440,12 +443,54 @@ def _validate_structured_brief(
         errors.append("header.title is empty")
     if not header_summary:
         errors.append("header.summary is empty")
+    
+    # Check for forbidden fallback when critical findings exist
+    if has_critical_findings and critical_metrics:
+        fallback_lower = SECTION_FALLBACK_TEXT.lower()
+        if header_summary and fallback_lower in header_summary.lower():
+            errors.append(
+                f"CRITICAL VIOLATION: header.summary uses fallback text but critical findings exist in: {', '.join(critical_metrics)}"
+            )
 
     body = brief.get("body") or {}
     sections = body.get("sections") or []
     if not isinstance(sections, list) or not sections:
         errors.append("body.sections missing or empty")
         return errors
+    
+    # Check each section for forbidden fallback when critical findings exist
+    if has_critical_findings and critical_metrics:
+        fallback_lower = SECTION_FALLBACK_TEXT.lower()
+        for idx, section in enumerate(sections):
+            if not isinstance(section, dict):
+                continue
+            section_title = section.get("title", f"Section {idx}")
+            content = str(section.get("content") or "").strip().lower()
+            if content and fallback_lower in content:
+                # Allow fallback ONLY for sections that explicitly mention metrics without critical findings
+                # or for Leadership Question section
+                if section_title not in ("Leadership Question", "Focus For Next Week"):
+                    # Check if the content mentions any of the critical metrics
+                    critical_mention = any(
+                        metric.lower() in content for metric in critical_metrics
+                    )
+                    if critical_mention or section_title in ("Opening", "Top Operational Insights", "Network Snapshot"):
+                        errors.append(
+                            f"CRITICAL VIOLATION: Section '{section_title}' uses fallback text but critical findings exist in: {', '.join(critical_metrics)}"
+                        )
+            
+            # Check insights for fallback
+            insights = section.get("insights", [])
+            if isinstance(insights, list):
+                for insight in insights:
+                    if not isinstance(insight, dict):
+                        continue
+                    details = str(insight.get("details") or "").strip().lower()
+                    if details and fallback_lower in details:
+                        insight_title = insight.get("title", "Unknown")
+                        errors.append(
+                            f"CRITICAL VIOLATION: Insight '{insight_title}' in '{section_title}' uses fallback text but critical findings exist in: {', '.join(critical_metrics)}"
+                        )
 
     expected_titles = [spec["title"] for spec in section_contract] if section_contract else None
     actual_titles: list[str] = []
@@ -536,6 +581,8 @@ async def _llm_generate_brief(
     section_contract: list[dict[str, str]] | None = None,
     reports: dict[str, str] | None = None,
     unit: str | None = None,
+    has_critical_findings: bool = False,
+    critical_metrics: list[str] | None = None,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
 
@@ -601,7 +648,12 @@ async def _llm_generate_brief(
                 brief_data.setdefault("header", {})
                 brief_data.setdefault("body", {}).setdefault("sections", [])
 
-            structural_errors = _validate_structured_brief(brief_data, section_contract)
+            structural_errors = _validate_structured_brief(
+                brief_data, 
+                section_contract,
+                has_critical_findings=has_critical_findings,
+                critical_metrics=critical_metrics or []
+            )
             if structural_errors:
                 raise ValueError(
                     "Structured brief failed validation: " + '; '.join(structural_errors)
@@ -832,12 +884,21 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             "3. Do not add acknowledgements, apologies, or closing statements outside the JSON object.\n\n"
         )
 
+        # Check for CRITICAL/HIGH severity findings and build enforcement block
+        has_critical, critical_metrics = has_critical_or_high_findings(json_data)
+        severity_enforcement_block = build_severity_enforcement_block(has_critical, critical_metrics)
+        
+        if has_critical:
+            print(f"[BRIEF] CRITICAL/HIGH findings detected in: {', '.join(critical_metrics)}")
+            print("[BRIEF] Injecting severity enforcement to prevent fallback boilerplate")
+
         user_message = (
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
             f"{contract_metadata_block}"
             f"{contract_reference_block}"
             f"{metric_coverage_block}"
+            f"{severity_enforcement_block}"
             f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
             f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
             f"Use the above 'reference_period_end' when writing header.title.\n\n"
@@ -876,6 +937,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 section_contract=NETWORK_SECTION_CONTRACT,
                 reports=reports,
                 unit=presentation_unit,
+                has_critical_findings=has_critical,
+                critical_metrics=critical_metrics,
             )
 
             if used_fallback:
@@ -925,6 +988,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             section_contract=SCOPED_SECTION_CONTRACT,
                             reports=reports,
                             unit=presentation_unit,
+                            has_critical_findings=False,  # TODO: Implement scope-specific critical check
+                            critical_metrics=[],
                         )
                         if scoped_fallback:
                             print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
