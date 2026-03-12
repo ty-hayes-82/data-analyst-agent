@@ -1,0 +1,202 @@
+{
+  "examples": [
+    {
+      "name": "Basic Gross Margin Analysis",
+      "description": "Analyze gross margin variance by region",
+      "input": {
+        "request": "Analyze gross margin by region",
+        "dataset_name": "trade_data"
+      },
+      "expected_output": {
+        "status": "success",
+        "analysis_id": "uuid-placeholder",
+        "outputs": {
+          "executive_brief_pdf": "gs://project-outputs/executive_briefs/2024-03-12_gross_margin_region.pdf",
+          "executive_brief_md": "gs://project-outputs/executive_briefs/2024-03-12_gross_margin_region.md",
+          "analysis_json": "gs://project-outputs/analysis/2024-03-12_gross_margin_region.json"
+        },
+        "summary": {
+          "top_variance_driver": "West Region (-15.2%)",
+          "total_variance_amount": -2450000,
+          "alert_count": 3
+        }
+      }
+    },
+    {
+      "name": "Multi-Dimensional Drill-Down",
+      "description": "Drill down to terminal level for revenue analysis",
+      "input": {
+        "request": "Show me top revenue drivers at the terminal level",
+        "dataset_name": "trade_data"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "top_variance_driver": "Dallas Terminal (+$1.2M)",
+          "alert_count": 5,
+          "insight_cards": [
+            {
+              "title": "Dallas Terminal — Strong Growth",
+              "insight": "Revenue up 18% YoY driven by new customer acquisitions"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Cost Center Budget Variance",
+      "description": "Identify cost centers with largest budget overruns",
+      "input": {
+        "request": "What are the top 5 cost centers with budget overruns?",
+        "dataset_name": "operations_costs"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "top_variance_driver": "Marketing Dept (+$450K over budget)",
+          "alert_count": 5
+        }
+      }
+    },
+    {
+      "name": "Trend Analysis with Seasonality",
+      "description": "Analyze sales trends with seasonal baseline comparison",
+      "input": {
+        "request": "Analyze sales trends for the last 12 months",
+        "dataset_name": "retail_sales"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "top_variance_driver": "Holiday Season (-12% vs baseline)",
+          "insight_cards": [
+            {
+              "title": "Seasonal Pattern Detected",
+              "insight": "Sales consistently peak in November-December but 2024 Q4 underperformed seasonal baseline by 12%"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Outlier Detection",
+      "description": "Detect outliers in operating expenses",
+      "input": {
+        "request": "Identify outliers in operating expenses by department",
+        "dataset_name": "operations_costs"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "alert_count": 3,
+          "insight_cards": [
+            {
+              "title": "IT Department — Statistical Outlier",
+              "insight": "IT expenses 3.2 standard deviations above mean (MAD-based detection). Recommend investigation."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Alert-Only Focus (Skip Full Report)",
+      "description": "Get only critical alerts without full narrative",
+      "input": {
+        "request": "What are the critical issues in gross margin?",
+        "dataset_name": "trade_data",
+        "focus_directive": "alert_only"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "alert_count": 8,
+          "insight_cards": []
+        },
+        "metrics": {
+          "duration_seconds": 25
+        }
+      }
+    },
+    {
+      "name": "Custom Model Override (Testing)",
+      "description": "Test with a different model for performance comparison",
+      "input": {
+        "request": "Analyze revenue by product category",
+        "dataset_name": "retail_sales",
+        "override_model": "gemini-2.5-pro-exp"
+      },
+      "expected_output": {
+        "status": "success",
+        "metrics": {
+          "llm_calls": 15,
+          "total_tokens": 35000
+        }
+      }
+    },
+    {
+      "name": "Comparative Analysis",
+      "description": "Compare performance across regions",
+      "input": {
+        "request": "Compare West region performance to East region for Q4",
+        "dataset_name": "trade_data"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "insight_cards": [
+            {
+              "title": "Regional Performance Gap",
+              "insight": "West region gross margin declined 8.5% while East region grew 3.2% in Q4. Primary driver: higher COGS in West."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Time-Series Correlation",
+      "description": "Analyze correlation between metrics over time",
+      "input": {
+        "request": "Is there a correlation between gross margin and operating expenses?",
+        "dataset_name": "trade_data"
+      },
+      "expected_output": {
+        "status": "success",
+        "summary": {
+          "insight_cards": [
+            {
+              "title": "Lagged Correlation Detected",
+              "insight": "Gross margin and OpEx show -0.72 correlation with 1-month lag. When OpEx increases, gross margin tends to decline next month."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Error Handling — Missing Dataset",
+      "description": "Example of error response for invalid dataset",
+      "input": {
+        "request": "Analyze revenue",
+        "dataset_name": "nonexistent_dataset"
+      },
+      "expected_output": {
+        "status": "error",
+        "error": "Dataset 'nonexistent_dataset' not found. Available datasets: trade_data, retail_sales, operations_costs"
+      }
+    }
+  ],
+  
+  "integration_examples": [
+    {
+      "language": "python",
+      "code": "from google.cloud import aiplatform\n\n# Initialize Vertex AI\naiplatform.init(project='your-project-id', location='us-central1')\n\n# Invoke agent\nresponse = aiplatform.Agent('data-analyst-agent').invoke(\n    input={\n        'request': 'Analyze gross margin by region',\n        'dataset_name': 'trade_data'\n    }\n)\n\nprint(response['outputs']['executive_brief_pdf'])\n# Output: gs://project-outputs/executive_briefs/2024-03-12_gross_margin_region.pdf"
+    },
+    {
+      "language": "bash",
+      "code": "# Using gcloud CLI\ngcloud ai agents invoke data-analyst-agent \\\n  --region=us-central1 \\\n  --input='{\"request\": \"Analyze gross margin by region\", \"dataset_name\": \"trade_data\"}' \\\n  --format=json | jq -r '.outputs.executive_brief_pdf' | xargs gsutil cp - ./report.pdf"
+    },
+    {
+      "language": "javascript",
+      "code": "// Using Vertex AI Node.js client\nconst {AgentClient} = require('@google-cloud/aiplatform');\n\nconst client = new AgentClient({\n  projectId: 'your-project-id',\n  location: 'us-central1'\n});\n\nconst response = await client.invoke('data-analyst-agent', {\n  request: 'Analyze gross margin by region',\n  dataset_name: 'trade_data'\n});\n\nconsole.log(response.outputs.executive_brief_pdf);"
+    }
+  ]
+}

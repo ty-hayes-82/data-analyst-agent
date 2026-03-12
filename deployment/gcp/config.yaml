@@ -1,0 +1,98 @@
+# Environment-Specific Configuration for GCP Deployment
+
+# ============================================================================
+# Development Environment
+# ============================================================================
+dev:
+  project_id: "your-dev-project"
+  region: "us-central1"
+  datasets_bucket: "your-dev-project-data-analyst-datasets"
+  outputs_bucket: "your-dev-project-data-analyst-outputs"
+  
+  # Model configuration
+  models:
+    root_agent: "gemini-2.5-flash-exp"
+    planner: "gemini-2.5-flash-exp"
+    narrative: "gemini-2.5-flash-exp"
+    synthesis: "gemini-2.0-flash-exp"
+  
+  # Resource limits
+  resources:
+    cpu: "1"
+    memory: "4Gi"
+    timeout: "1800s"  # 30 min
+  
+  # Auto-scaling
+  autoscaling:
+    min_instances: 0
+    max_instances: 3
+  
+  # Feature flags
+  features:
+    phase_logging: true
+    code_insights: true
+    pdf_generation: false  # Disable PDF for faster dev iteration
+
+# ============================================================================
+# Staging Environment
+# ============================================================================
+staging:
+  project_id: "your-staging-project"
+  region: "us-central1"
+  datasets_bucket: "your-staging-project-data-analyst-datasets"
+  outputs_bucket: "your-staging-project-data-analyst-outputs"
+  
+  models:
+    root_agent: "gemini-2.5-flash-exp"
+    planner: "gemini-2.5-flash-exp"
+    narrative: "gemini-2.5-flash-exp"
+    synthesis: "gemini-2.5-pro-exp"
+  
+  resources:
+    cpu: "2"
+    memory: "8Gi"
+    timeout: "3600s"  # 1 hour
+  
+  autoscaling:
+    min_instances: 0
+    max_instances: 5
+  
+  features:
+    phase_logging: true
+    code_insights: true
+    pdf_generation: true
+
+# ============================================================================
+# Production Environment
+# ============================================================================
+prod:
+  project_id: "your-prod-project"
+  region: "us-central1"
+  datasets_bucket: "your-prod-project-data-analyst-datasets"
+  outputs_bucket: "your-prod-project-data-analyst-outputs"
+  
+  models:
+    root_agent: "gemini-2.5-pro-exp"  # More reliable for prod
+    planner: "gemini-2.5-flash-exp"
+    narrative: "gemini-2.5-flash-exp"
+    synthesis: "gemini-2.5-pro-exp"
+  
+  resources:
+    cpu: "2"
+    memory: "8Gi"
+    timeout: "3600s"
+  
+  autoscaling:
+    min_instances: 1  # Keep one warm instance
+    max_instances: 10
+  
+  features:
+    phase_logging: true
+    code_insights: true
+    pdf_generation: true
+  
+  # Monitoring
+  monitoring:
+    alert_email: "ty-hayes-82@example.com"
+    error_threshold: 0.05  # Alert at 5% error rate
+    latency_p95_threshold: 600  # Alert if p95 latency > 10 min

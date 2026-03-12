@@ -76,6 +76,8 @@ class OutputManager:
             "environment": {
                 "ACTIVE_DATASET": os.getenv("ACTIVE_DATASET"),
                 "DATA_ANALYST_METRICS": os.getenv("DATA_ANALYST_METRICS"),
+                "DATA_ANALYST_FOCUS": os.getenv("DATA_ANALYST_FOCUS"),
+                "DATA_ANALYST_CUSTOM_FOCUS": os.getenv("DATA_ANALYST_CUSTOM_FOCUS"),
             }
         }
         if extra_metadata:

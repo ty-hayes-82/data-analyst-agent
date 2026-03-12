@@ -89,8 +89,18 @@ class ExecutiveBriefConfig:
     
     @staticmethod
     def max_llm_retries() -> int:
-        """Maximum attempts for LLM brief generation."""
+        """Maximum attempts for LLM brief generation (network-level)."""
         return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_RETRIES", 3)
+    
+    @staticmethod
+    def max_scoped_retries() -> int:
+        """Maximum attempts for scoped brief generation.
+        
+        Scoped briefs often have less signal and fail more frequently.
+        Default is 2 (vs 3 for network brief) to reduce wasted retry time.
+        Set EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES=3 to match network behavior.
+        """
+        return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES", 2)
     
     @staticmethod
     def llm_timeout_seconds() -> float:
@@ -462,13 +472,45 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
 
 
 
+def _count_numeric_values(text: str) -> int:
+    """Count specific numeric values in text.
+    
+    Counts: integers, floats, percentages, currency amounts, numbers with units.
+    Examples: "503,687", "$420K", "158.2%", "z-score 2.06", "1.8M"
+    """
+    if not text:
+        return 0
+    import re
+    # Pattern matches: numbers with commas, decimals, percentages, currency, units (K, M, B)
+    # Also matches scientific notation and numbers in statistical contexts
+    patterns = [
+        r'\$[\d,]+(?:\.\d+)?[KMB]?',  # Currency: $420K, $1.5M
+        r'\d+(?:,\d{3})*(?:\.\d+)?%',  # Percentages: 158.2%, 22%
+        r'\d+(?:,\d{3})*(?:\.\d+)?[KMB](?!\w)',  # With units: 503K, 1.8M, 2.3B
+        r'\d+(?:,\d{3})*\.\d+',  # Decimals: 2.06, 0.33
+        r'\d+(?:,\d{3})+',  # Comma-separated: 503,687
+        r'(?:z-score|p-value|r=|correlation)\s*[=:]?\s*[-+]?\d+(?:\.\d+)?',  # Statistical: z-score 2.06, p-value 0.33, r=1.0
+    ]
+    matches = set()  # Use set to avoid counting the same value twice
+    for pattern in patterns:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            matches.add(match.group())
+    return len(matches)
+
+
 def _validate_structured_brief(
     brief: dict,
     section_contract: list[dict[str, str]] | None,
     has_critical_findings: bool = False,
     critical_metrics: list[str] | None = None,
+    min_insight_values: int = 3,
 ) -> list[str]:
-    """Return a list of validation errors for the structured brief payload."""
+    """Return a list of validation errors for the structured brief payload.
+    
+    Args:
+        min_insight_values: Minimum numeric values per Key Findings insight (default 3).
+                           Use 2 for scoped briefs with less signal.
+    """
 
     errors: list[str] = []
     header = brief.get("header") or {}
@@ -478,6 +520,13 @@ def _validate_structured_brief(
         errors.append("header.title is empty")
     if not header_summary:
         errors.append("header.summary is empty")
+    
+    # Validate header has minimum numeric values
+    header_value_count = _count_numeric_values(header_title + " " + header_summary)
+    if header_value_count < 2:
+        errors.append(
+            f"header contains only {header_value_count} numeric values (minimum: 2)"
+        )
     
     # Check for forbidden fallback when critical findings exist
     if has_critical_findings and critical_metrics:
@@ -529,6 +578,7 @@ def _validate_structured_brief(
 
     expected_titles = [spec["title"] for spec in section_contract] if section_contract else None
     actual_titles: list[str] = []
+    total_numeric_values = header_value_count  # Start with header values
     for idx, section in enumerate(sections):
         if not isinstance(section, dict):
             errors.append(f"body.sections[{idx}] is not an object")
@@ -545,6 +595,10 @@ def _validate_structured_brief(
                 f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
                 "LLM did not populate this section"
             )
+        
+        # Count values in section content
+        total_numeric_values += _count_numeric_values(content)
+        
         insights = section.get("insights")
         if insights is None:
             errors.append(f"{title or f'section[{idx}]'} missing insights array")
@@ -572,10 +626,30 @@ def _validate_structured_brief(
                 )
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
+            
+            # Validate numeric values in Key Findings insights
+            if title == "Key Findings" and details:
+                insight_text = title_field + " " + details
+                insight_value_count = _count_numeric_values(insight_text)
+                total_numeric_values += insight_value_count
+                if insight_value_count < min_insight_values:
+                    errors.append(
+                        f"Key Findings insight '{title_field or f'#{insight_idx + 1}'}' contains only "
+                        f"{insight_value_count} numeric values (minimum: {min_insight_values}). Include more specific amounts, "
+                        "percentages, baselines, or statistical values."
+                    )
 
     if expected_titles and actual_titles != expected_titles:
         errors.append(
             "Section titles/order mismatch: " + ", ".join(actual_titles or ["<empty>"])
+        )
+    
+    # Validate total numeric values across entire brief
+    MINIMUM_TOTAL_VALUES = 15
+    if total_numeric_values < MINIMUM_TOTAL_VALUES:
+        errors.append(
+            f"Brief contains only {total_numeric_values} total numeric values (minimum: {MINIMUM_TOTAL_VALUES}). "
+            "Include more specific amounts, percentages, baselines, entity breakdowns, and statistical context."
         )
 
     return errors
@@ -628,8 +702,14 @@ async def _llm_generate_brief(
     unit: str | None = None,
     has_critical_findings: bool = False,
     critical_metrics: list[str] | None = None,
+    max_attempts: int | None = None,
+    min_insight_values: int = 3,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
+
+    Args:
+        max_attempts: Maximum retry attempts. If None, uses BRIEF_CONFIG.max_llm_retries().
+        min_insight_values: Minimum numeric values per Key Findings insight (default 3 for network, 2 for scoped).
 
     Returns:
         Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
@@ -647,7 +727,8 @@ async def _llm_generate_brief(
     loop = asyncio.get_running_loop()
     fallback_payload: tuple[dict, str] | None = None
     last_err: Exception | None = None
-    max_attempts = BRIEF_CONFIG.max_llm_retries()
+    if max_attempts is None:
+        max_attempts = BRIEF_CONFIG.max_llm_retries()
 
     def _structured_fallback(reason: str) -> tuple[dict, str]:
         recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
@@ -731,7 +812,8 @@ async def _llm_generate_brief(
                 brief_data, 
                 section_contract,
                 has_critical_findings=has_critical_findings,
-                critical_metrics=critical_metrics or []
+                critical_metrics=critical_metrics or [],
+                min_insight_values=min_insight_values
             )
             if structural_errors:
                 # Check if errors include SECTION_FALLBACK_TEXT usage (indicates normalization failure)
@@ -1076,6 +1158,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             unit=presentation_unit,
                             has_critical_findings=False,  # TODO: Implement scope-specific critical check
                             critical_metrics=[],
+                            max_attempts=BRIEF_CONFIG.max_scoped_retries(),
+                            min_insight_values=2,  # Scoped briefs have less signal, require only 2 values
                         )
                         if scoped_fallback:
                             print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")

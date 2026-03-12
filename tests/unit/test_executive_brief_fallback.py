@@ -46,8 +46,8 @@ async def test_llm_generate_brief_falls_back_on_invalid_json(monkeypatch: pytest
 async def test_llm_generate_brief_parses_json_with_preamble(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = {
         "header": {
-            "title": "2024-03-10 – Demand up 2% from Southwest growth",
-            "summary": "Overall demand increased 2.1% compared to the prior week, driven primarily by Southwest region growth and electronics mix shift. Northeast region showed flat performance due to customs processing delays.",
+            "title": "2024-03-10 – Demand up $2.4M (+2.1%) from Southwest growth",
+            "summary": "Overall demand increased $2.4M (+2.1%) to $115M compared to the prior week baseline of $112.6M, driven primarily by Southwest region growth ($4.2M increase, 175% of total variance). Northeast region remained flat at $65M due to customs processing delays.",
         },
         "body": {
             "sections": [
@@ -62,15 +62,15 @@ async def test_llm_generate_brief_parses_json_with_preamble(monkeypatch: pytest.
                     "insights": [
                         {
                             "title": "Southwest e-commerce drove growth",
-                            "details": "Southwest region increased 4.2% compared to the prior week, driven by Arizona electronics orders. This represents the strongest regional performance and accounts for the majority of network growth.",
+                            "details": "Southwest region increased $4.2M (+4.2%) compared to the prior week baseline of $100M, driven by Arizona electronics orders accounting for $2.8M (67% of regional variance). This represents the strongest regional performance.",
                         },
                         {
                             "title": "Midwest auto sector declined",
-                            "details": "Midwest region declined 2.1% compared to the prior week, primarily from Michigan automotive suppliers. This appears to be a temporary pullback after strong prior-period performance.",
+                            "details": "Midwest region declined $1.8M (-2.1%) compared to the prior week baseline of $85M, primarily from Michigan automotive suppliers which dropped $1.5M (83% of regional decline). This appears temporary after strong +8.5% prior-period performance.",
                         },
                         {
                             "title": "Northeast customs delays persist",
-                            "details": "Northeast region remained flat compared to the prior week as New York customs backlog continued to clear slowly. Transaction counts suggest underlying demand is normal but processing delays are masking growth.",
+                            "details": "Northeast region remained flat at $65M (0.3% variance) compared to the prior week, as New York customs backlog cleared $18M in delayed shipments. Transaction counts averaged 2,450 daily vs normal 2,500, suggesting 2% processing drag.",
                         },
                     ],
                 },

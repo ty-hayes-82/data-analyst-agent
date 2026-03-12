@@ -1,0 +1,195 @@
+# Vertex AI Agent Engine Deployment Configuration
+# Deploy ADK-based Data Analyst Agent to Vertex AI Agent Engine
+
+apiVersion: agent-engine.google.com/v1
+kind: Agent
+metadata:
+  name: data-analyst-agent
+  displayName: "P&L Variance Data Analyst"
+  description: "Contract-driven multi-agent system for automated P&L variance analysis with hierarchical drill-down capabilities"
+  version: "1.0.0"
+  labels:
+    environment: production
+    domain: financial-analytics
+    framework: google-adk
+
+spec:
+  # Agent Entry Point
+  agentModule: "data_analyst_agent.agent"
+  agentClass: "root_agent"
+  
+  # Runtime Configuration
+  runtime:
+    pythonVersion: "3.11"
+    containerImage: "gcr.io/${PROJECT_ID}/data-analyst-agent:latest"
+    
+  # Resource Limits
+  resources:
+    cpu: "2"
+    memory: "8Gi"
+    timeout: "3600s"  # 1 hour max execution time
+    
+  # Auto-scaling
+  autoscaling:
+    minInstances: 0
+    maxInstances: 10
+    targetConcurrency: 1  # One analysis per instance
+    
+  # Model Configuration
+  models:
+    primary:
+      model: "gemini-2.0-flash-exp"
+      temperature: 0.0
+      maxTokens: 8192
+      safetySettings:
+        - category: HARM_CATEGORY_HATE_SPEECH
+          threshold: BLOCK_MEDIUM_AND_ABOVE
+        - category: HARM_CATEGORY_DANGEROUS_CONTENT
+          threshold: BLOCK_MEDIUM_AND_ABOVE
+    
+    # Sub-agent model overrides (from agent_models.yaml)
+    subAgents:
+      planner_agent:
+        model: "gemini-2.5-flash-exp"
+      narrative_agent:
+        model: "gemini-2.5-flash-exp"
+      report_synthesis_agent:
+        model: "gemini-2.5-pro-exp"
+  
+  # Environment Variables (sensitive values from Secret Manager)
+  environment:
+    - name: GOOGLE_CLOUD_PROJECT
+      value: "${PROJECT_ID}"
+    - name: GOOGLE_CLOUD_LOCATION
+      value: "${REGION}"
+    - name: ROOT_AGENT_MODEL
+      value: "gemini-2.5-flash-exp"
+    - name: MODEL_TEMPERATURE
+      value: "0.0"
+    - name: USE_CODE_INSIGHTS
+      value: "true"
+    - name: PHASE_LOGGING_ENABLED
+      value: "true"
+    - name: PHASE_LOG_LEVEL
+      value: "INFO"
+    - name: DATA_ANALYST_TEST_MODE
+      value: "false"
+    - name: EXECUTIVE_BRIEF_OUTPUT_FORMAT
+      value: "pdf"
+    - name: GOOGLE_GENAI_RPM_LIMIT
+      value: "60"
+    
+    # Secrets from Secret Manager
+    - name: GOOGLE_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: "google-api-key"
+          key: "latest"
+    - name: GOOGLE_APPLICATION_CREDENTIALS
+      valueFrom:
+        secretKeyRef:
+          name: "service-account-json"
+          key: "latest"
+  
+  # Cloud Storage Integration
+  storage:
+    # Mount GCS bucket for contracts and data
+    volumes:
+      - name: datasets
+        gcsBucket: "${PROJECT_ID}-data-analyst-datasets"
+        mountPath: "/app/config/datasets"
+        readOnly: true
+      - name: outputs
+        gcsBucket: "${PROJECT_ID}-data-analyst-outputs"
+        mountPath: "/app/outputs"
+        readOnly: false
+  
+  # IAM Permissions
+  serviceAccount: "data-analyst-agent@${PROJECT_ID}.iam.gserviceaccount.com"
+  
+  # Logging and Monitoring
+  logging:
+    enabled: true
+    logLevel: "INFO"
+    structuredLogging: true
+    destination: "cloud-logging"
+  
+  monitoring:
+    enabled: true
+    metrics:
+      - name: "analysis_duration"
+        type: "GAUGE"
+        description: "Time taken for complete analysis pipeline"
+      - name: "llm_calls"
+        type: "COUNTER"
+        description: "Total LLM API calls per analysis"
+      - name: "llm_tokens"
+        type: "COUNTER"
+        description: "Total tokens consumed per analysis"
+      - name: "error_count"
+        type: "COUNTER"
+        description: "Number of failed analyses"
+  
+  # Input/Output Schema
+  schema:
+    input:
+      type: object
+      required:
+        - request
+        - dataset_name
+      properties:
+        request:
+          type: string
+          description: "Natural language analysis request"
+          example: "Analyze gross margin by region"
+        dataset_name:
+          type: string
+          description: "Dataset identifier from config/datasets/"
+          example: "trade_data"
+        focus_directive:
+          type: string
+          description: "Optional focus directive (alert_only, narrative_only, report_only)"
+          enum: ["alert_only", "narrative_only", "report_only", null]
+        override_model:
+          type: string
+          description: "Optional model override for testing"
+          example: "gemini-2.5-pro-exp"
+    
+    output:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["success", "error"]
+        analysis_id:
+          type: string
+          description: "Unique identifier for this analysis run"
+        outputs:
+          type: object
+          properties:
+            executive_brief_pdf:
+              type: string
+              description: "GCS URL to executive brief PDF"
+            executive_brief_md:
+              type: string
+              description: "GCS URL to markdown source"
+            analysis_json:
+              type: string
+              description: "GCS URL to full analysis JSON"
+        metrics:
+          type: object
+          properties:
+            duration_seconds:
+              type: number
+            llm_calls:
+              type: integer
+            total_tokens:
+              type: integer
+        error:
+          type: string
+          description: "Error message if status=error"
+
+# Deployment Commands:
+# 1. Build container: gcloud builds submit --config cloudbuild.yaml
+# 2. Deploy agent: gcloud agent-engine agents deploy --config deployment/vertex_ai/agent_config.yaml
+# 3. Test: gcloud agent-engine agents invoke data-analyst-agent --input='{"request": "Analyze gross margin", "dataset_name": "trade_data"}'

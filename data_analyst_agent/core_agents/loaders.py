@@ -198,8 +198,45 @@ class AnalysisContextInitializer(BaseAgent):
                         df = df[df[filter_col].astype(str).isin([str(v) for v in filter_values])]
                         print(f"[AnalysisContextInitializer] Hierarchy filter {filter_col} in {filter_values}: {before} -> {len(df)} rows")
 
+            # --- TEMPORAL AGGREGATION based on focus directive ---
+            focus_temporal_grain = ctx.session.state.get("focus_temporal_grain")
+            if focus_temporal_grain and focus_temporal_grain in ["weekly", "monthly", "yearly"]:
+                from ..utils.temporal_aggregation import aggregate_to_temporal_grain
+                
+                time_cfg = getattr(contract, "time", None)
+                time_col = time_cfg.column if time_cfg else None
+                time_format = getattr(time_cfg, "format", "%Y-%m-%d") if time_cfg else "%Y-%m-%d"
+                
+                # Get metric columns for aggregation
+                metric_columns = [m.column for m in contract.metrics if hasattr(m, 'column') and m.column]
+                
+                # Get dimension columns to preserve (exclude time column)
+                dimension_columns = [d.column for d in contract.dimensions 
+                                     if hasattr(d, 'column') and d.column and d.column != time_col]
+                
+                if time_col and metric_columns:
+                    print(f"\n{'='*80}")
+                    print(f"[AnalysisContextInitializer] Applying temporal aggregation: {focus_temporal_grain}")
+                    print(f"  Time column: {time_col}")
+                    print(f"  Metrics: {', '.join(metric_columns)}")
+                    print(f"  Dimensions: {', '.join(dimension_columns)}")
+                    print(f"{'='*80}\n")
+                    
+                    df = aggregate_to_temporal_grain(
+                        df=df,
+                        time_column=time_col,
+                        target_grain=focus_temporal_grain,
+                        metric_columns=metric_columns,
+                        dimension_columns=dimension_columns,
+                        time_format=time_format,
+                    )
+                else:
+                    print(f"[AnalysisContextInitializer] WARNING: Cannot apply temporal aggregation (missing time_col or metrics)")
+
         except Exception as e:
             print(f"[AnalysisContextInitializer] ERROR: Failed to parse CSV: {e}")
+            import traceback
+            traceback.print_exc()
             yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
             return
 
@@ -386,22 +423,86 @@ class AnalysisContextInitializer(BaseAgent):
 
 class DateInitializer(BaseAgent):
     """Initializes date ranges in state using calculate_date_ranges tool.
-    Respects existing overrides in session state.
+    Respects existing overrides in session state and analysis_focus directives.
     """
     
     def __init__(self):
         super().__init__(name="date_initializer")
     
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        from datetime import datetime, timedelta
+        
         phase_logger = ctx.session.state.get("phase_logger")
         
         # Get defaults from tool
         date_ranges = calculate_date_ranges()
         
-        # Respect existing overrides in session state (e.g. from CLI)
+        # Check for focus directives and adjust date ranges accordingly
+        analysis_focus = ctx.session.state.get("analysis_focus", [])
+        focus_applied = False
+        temporal_grain_override = None
+        
+        if analysis_focus:
+            today = datetime.now()
+            focus_str = analysis_focus[0] if isinstance(analysis_focus, list) and analysis_focus else str(analysis_focus)
+            
+            # Map focus directives to date ranges and temporal grains
+            focus_config = {
+                "recent_weekly_trends": {
+                    "weeks": 8,
+                    "grain": "weekly",
+                    "description": "last 8 weeks"
+                },
+                "recent_monthly_trends": {
+                    "months": 6,
+                    "grain": "monthly",
+                    "description": "last 6 months"
+                },
+                "recent_yearly_trends": {
+                    "years": 3,
+                    "grain": "yearly",
+                    "description": "last 3 years"
+                },
+            }
+            
+            config = focus_config.get(focus_str.lower())
+            if config:
+                if "weeks" in config:
+                    start_date = (today - timedelta(weeks=config["weeks"])).strftime("%Y-%m-%d")
+                elif "months" in config:
+                    start_date = (today - timedelta(days=config["months"] * 30)).strftime("%Y-%m-%d")
+                elif "years" in config:
+                    start_date = (today - timedelta(days=config["years"] * 365)).strftime("%Y-%m-%d")
+                
+                end_date = today.strftime("%Y-%m-%d")
+                
+                # Apply focus-based date range
+                date_ranges["primary_query_start_date"] = start_date
+                date_ranges["primary_query_end_date"] = end_date
+                date_ranges["supplementary_query_start_date"] = start_date
+                date_ranges["supplementary_query_end_date"] = end_date
+                date_ranges["detail_query_start_date"] = start_date
+                date_ranges["detail_query_end_date"] = end_date
+                
+                temporal_grain_override = config["grain"]
+                focus_applied = True
+                
+                print(f"\n{'='*80}")
+                print(f"[DateInitializer] FOCUS DIRECTIVE APPLIED: {focus_str}")
+                print(f"  Adjusted date range: {config['description']}")
+                print(f"  Start: {start_date} | End: {end_date}")
+                print(f"  Temporal grain: {temporal_grain_override}")
+                print(f"{'='*80}\n")
+        
+        # Respect existing overrides in session state (e.g. from CLI) - these take priority over focus
         for key in date_ranges.keys():
-            if ctx.session.state.get(key):
-                date_ranges[key] = ctx.session.state.get(key)
+            existing_override = ctx.session.state.get(key)
+            if existing_override and key in ["primary_query_start_date", "primary_query_end_date", 
+                                              "supplementary_query_start_date", "supplementary_query_end_date",
+                                              "detail_query_start_date", "detail_query_end_date"]:
+                date_ranges[key] = existing_override
+                if focus_applied:
+                    print(f"[DateInitializer] WARNING: CLI override for {key} takes precedence over focus directive")
         
         if phase_logger:
             phase_logger.log_workflow_transition(
@@ -415,19 +516,27 @@ class DateInitializer(BaseAgent):
                 input_data=date_ranges
             )
         
-        print(f"\n{'='*80}")
-        print(f"[DateInitializer] Date ranges (including overrides):")
-        print(f"  Primary: {date_ranges['primary_query_start_date']} to {date_ranges['primary_query_end_date']}")
-        print(f"  Supplementary: {date_ranges['supplementary_query_start_date']} to {date_ranges['supplementary_query_end_date']}")
-        print(f"  Detail: {date_ranges['detail_query_start_date']} to {date_ranges['detail_query_end_date']}")
-        print(f"{'='*80}\n")
+        if not focus_applied:
+            print(f"\n{'='*80}")
+            print(f"[DateInitializer] Date ranges (including overrides):")
+            print(f"  Primary: {date_ranges['primary_query_start_date']} to {date_ranges['primary_query_end_date']}")
+            print(f"  Supplementary: {date_ranges['supplementary_query_start_date']} to {date_ranges['supplementary_query_end_date']}")
+            print(f"  Detail: {date_ranges['detail_query_start_date']} to {date_ranges['detail_query_end_date']}")
+            print(f"{'='*80}\n")
+        
+        # Store temporal grain override if focus was applied
+        state_delta = {**date_ranges}
+        if temporal_grain_override:
+            state_delta["focus_temporal_grain"] = temporal_grain_override
         
         # Also provide timeframe object for persistence
         timeframe = {
             "start": date_ranges.get("primary_query_start_date"),
             "end": date_ranges.get("primary_query_end_date"),
         }
-        actions = EventActions(state_delta={**date_ranges, "timeframe": timeframe})
+        state_delta["timeframe"] = timeframe
+        
+        actions = EventActions(state_delta=state_delta)
         yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=actions)
         print(f"[DateInitializer] Done yielding event")
 

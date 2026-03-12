@@ -1,0 +1,204 @@
+{
+  "displayName": "Data Analyst Agent — Production Dashboard",
+  "dashboardFilters": [],
+  "gridLayout": {
+    "columns": "2",
+    "widgets": [
+      {
+        "title": "Agent Invocations (Last 24h)",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"data-analyst-ui\" AND metric.type=\"run.googleapis.com/request_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_RATE"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "targetAxis": "Y1"
+            }
+          ],
+          "timeshiftDuration": "0s",
+          "yAxis": {
+            "label": "Requests/sec",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Error Rate (%)",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_count\" AND metric.label.response_code_class=\"5xx\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_RATE"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "targetAxis": "Y1"
+            }
+          ],
+          "thresholds": [
+            {
+              "value": 0.05,
+              "color": "YELLOW",
+              "direction": "ABOVE"
+            },
+            {
+              "value": 0.1,
+              "color": "RED",
+              "direction": "ABOVE"
+            }
+          ],
+          "yAxis": {
+            "label": "Error Rate",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Agent Execution Duration (p95)",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_DELTA",
+                    "crossSeriesReducer": "REDUCE_PERCENTILE_95"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "targetAxis": "Y1"
+            }
+          ],
+          "yAxis": {
+            "label": "Latency (ms)",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "LLM Token Usage (Last Hour)",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"generic_task\" AND metric.type=\"custom.googleapis.com/data_analyst_agent/llm_tokens\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_RATE"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "targetAxis": "Y1"
+            }
+          ],
+          "yAxis": {
+            "label": "Tokens/sec",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Analysis Success vs Failure",
+        "scorecard": {
+          "timeSeriesQuery": {
+            "timeSeriesFilter": {
+              "filter": "resource.type=\"generic_task\" AND metric.type=\"custom.googleapis.com/data_analyst_agent/analysis_status\"",
+              "aggregation": {
+                "alignmentPeriod": "3600s",
+                "perSeriesAligner": "ALIGN_SUM",
+                "crossSeriesReducer": "REDUCE_SUM",
+                "groupByFields": ["metric.label.status"]
+              }
+            }
+          },
+          "sparkChartView": {
+            "sparkChartType": "SPARK_LINE"
+          }
+        }
+      },
+      {
+        "title": "Active Agent Instances",
+        "scorecard": {
+          "timeSeriesQuery": {
+            "timeSeriesFilter": {
+              "filter": "resource.type=\"cloud_run_revision\" AND metric.type=\"run.googleapis.com/container/instance_count\"",
+              "aggregation": {
+                "alignmentPeriod": "60s",
+                "perSeriesAligner": "ALIGN_MAX"
+              }
+            }
+          },
+          "sparkChartView": {
+            "sparkChartType": "SPARK_LINE"
+          }
+        }
+      },
+      {
+        "title": "GCS Outputs Generated",
+        "xyChart": {
+          "chartOptions": {
+            "mode": "COLOR"
+          },
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "timeSeriesFilter": {
+                  "filter": "resource.type=\"gcs_bucket\" AND resource.labels.bucket_name=~\".*-data-analyst-outputs\" AND metric.type=\"storage.googleapis.com/api/request_count\"",
+                  "aggregation": {
+                    "alignmentPeriod": "300s",
+                    "perSeriesAligner": "ALIGN_RATE",
+                    "crossSeriesReducer": "REDUCE_SUM"
+                  }
+                }
+              },
+              "plotType": "LINE",
+              "targetAxis": "Y1"
+            }
+          ],
+          "yAxis": {
+            "label": "Writes/sec",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Recent Errors (Logs)",
+        "logsPanel": {
+          "resourceNames": [
+            "projects/${PROJECT_ID}/logs/run.googleapis.com%2Fstderr"
+          ],
+          "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"data-analyst-ui\" AND severity>=ERROR"
+        }
+      }
+    ]
+  }
+}

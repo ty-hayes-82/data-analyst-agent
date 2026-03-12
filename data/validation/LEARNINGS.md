@@ -1,150 +1,251 @@
-# Code Review — Reviewer Audit 2026-03-12
+# E2E Performance Regression — Narrative Synthesis Timeout (2026-03-12 15:55 UTC)
 
-**Commit range:** `7dd5b39..87f3346` (last 10 commits)
-**Scope:** 17 files changed, 69,424 insertions, 158 deletions
+**Tester:** Sentinel (tester agent)  
+**Test Run:** Cron job `tester-e2e-001`  
+**Finding:** Pipeline consistently times out during narrative generation (LLM calls >90s)
+
+---
+
+## Issue Summary
+
+### Symptoms
+1. **Multi-metric pipeline**: Timeout (300s) during `narrative_agent` LLM call for `trade_value_usd`
+   - Analysis stages complete successfully
+   - Narrative agent starts, builds prompt (6,751 chars payload + 1,775 chars instruction)
+   - LLM call hangs, never returns
+   - Killed by SIGTERM after 300s
+2. **Single-metric pipeline**: Timeout (90s) during `narrative_agent` LLM call for `volume_units`
+   - Analysis completes successfully
+   - Narrative agent hangs on LLM call
+   - Exit code 124 (timeout)
+
+### Performance Profile
+| Stage | Duration | % of Total |
+|-------|----------|------------|
+| Data fetch | 1.18s | 4% |
+| Analysis | 2.96s | 10% |
+| Narrative agent | **18.79s+** | **63%+** |
+| Alert scoring | 0.20s | <1% |
+| Report synthesis | Blocked | — |
+
+**Bottleneck**: Narrative agent LLM call dominates execution time and frequently times out.
+
+### Root Causes (Hypotheses)
+1. **Prompt payload size**: 6,751 chars for trade_value_usd (8,526 chars total prompt)
+   - Input: insight cards + hierarchical analysis + statistical summary
+   - Large context → slower LLM inference
+2. **LLM provider latency**: Gemini 2.5 Flash Lite (Google AI API)
+   - API call overhead (serialization, network, queue time)
+   - No retry logic or fallback
+3. **Missing timeout enforcement**: No safeguard at agent level
+   - Process-level timeout (300s/90s) is last resort, not graceful
+
+### Impact
+- **Production readiness**: ⚠️ **BLOCKED** — Cannot reliably complete multi-metric analysis
+- **Test coverage**: ✅ **GOOD** — 298/298 tests pass (unit + integration)
+- **Graceful degradation**: ⚠️ **PARTIAL** — Partial artifacts saved before timeout
+
+---
+
+## Action Items
+
+### High Priority (Fix This Week)
+1. **Prompt-engineer**: Reduce narrative prompt payload from 6,751 → <3,000 chars
+   - Pre-filter insight cards by priority (critical/high only)
+   - Summarize statistical summary (drop raw JSON, keep text summaries)
+   - Move examples/boilerplate to few-shot appendices
+2. **Dev**: Add 60s timeout to `narrative_agent` LLM call
+   - Wrap LLM call in `asyncio.wait_for(timeout=60)`
+   - Raise `TimeoutError` and propagate to fallback logic
+3. **Dev**: Add fallback narrative generation when LLM fails
+   - Use insight card summaries + template filling
+   - Log warning, proceed with partial report
+4. **Dev**: Add LLM call retry logic (max 2 retries with exponential backoff)
+   - Handle transient API errors (429, 500, 503)
+   - Fail gracefully after retries exhausted
+
+### Medium Priority (Fix Next Sprint)
+1. **Profiler**: Profile narrative_agent LLM call overhead
+   - Measure: serialization time, network latency, inference time
+   - Compare providers: Gemini vs Claude vs GPT
+2. **Prompt-engineer**: Test fast-path narrative (code-based, no LLM)
+   - Generate narrative from insight cards programmatically
+   - Compare quality vs LLM-generated narrative
+3. **Dev**: Add concurrent narrative generation for multi-metric pipelines
+   - Parallelize narrative_agent calls (one per metric)
+   - Use `asyncio.gather()` with timeout per task
+
+### Low Priority (Nice to Have)
+1. **Dev**: Add progress indicators during long LLM calls
+   - Log "Waiting for LLM response..." every 5s
+   - Help distinguish hang vs slow call
+2. **Tester**: Add smoke test for narrative agent (max 30s)
+   - Run with small payload (1 metric, 1 insight card)
+   - Flag regression if >30s
+
+---
+
+## Workarounds (Temporary)
+
+### For Testing
+- Use `MAX_DRILL_DEPTH=1` to reduce payload size
+- Use single-metric mode (`DATA_ANALYST_METRICS=volume_units`)
+- Skip narrative generation in CI (test up to statistical summary)
+
+### For Production
+- Enable fast-path report synthesis (skip narrative_agent)
+- Use code-based insight cards only (no LLM for insights)
+- Set process timeout to 120s (vs 300s) to fail fast
+
+---
+
+## Test Evidence
+
+### Test Suite (298 passed, 6 skipped, 0 failed)
+```
+============================= slowest 10 durations =============================
+5.99s call     tests/e2e/test_adk_integration.py::TestFullPipelineOrchestration::test_root_agent_run_async_completes_with_report_and_alerts
+1.79s call     tests/e2e/test_incremental_pipeline.py::TestLevel7_FullPipeline::test_end_to_end_sequence_produces_complete_report
+...
+======================= 298 passed, 6 skipped in 29.40s ========================
+```
+
+### Multi-Metric Pipeline Output (Partial)
+```
+[TIMER] >>> Starting agent: narrative_agent
+[NarrativeAgent] Instruction updated for contract: Trade Data
+[NarrativeAgent] Prompt size — instruction=1,775 chars, payload=6,751 chars
+[NarrativeAgent] DEBUG: Saved prompt to outputs/trade_data/20260312_155547/debug/narrative_prompt_trade_value_usd.txt
+[TIMER] <<< Finished agent: narrative_agent | Duration: 18.79s
+[... hangs, never completes report_synthesis_agent]
+Process exited with signal SIGTERM.
+```
+
+### Single-Metric Pipeline Output (Timeout)
+```
+[TIMER] >>> Starting agent: narrative_agent
+[NarrativeAgent] Instruction updated for contract: Trade Data
+[NarrativeAgent] Prompt size — instruction=1,775 chars, payload=2,557 chars
+[... hangs]
+Process exited with code 124.
+```
+
+---
+
+## Recommendations
+
+1. **Immediate**: Add timeout + fallback to narrative_agent (1-2 hours dev time)
+2. **Short-term**: Reduce prompt payload size (4-6 hours prompt engineering)
+3. **Long-term**: Switch to code-based narrative generation (8-12 hours dev time)
+4. **Monitor**: Track LLM call duration in production logs (add instrumentation)
+
+---
+
+# Code Review — Automated Audit (2026-03-12)
+
+**Reviewer:** Arbiter (reviewer agent)  
+**Scope:** Last 10 commits (`7bbb361..2a561bd`) — 23 files changed, +2195 / -251 lines  
+**Commit range:** Contract fixes, executive brief prompt hardening, UI improvements, docs
 
 ---
 
 ## Critical (must fix before merge)
 
-_None identified._ Recent commits are docs, contract fixes, and executive brief refactoring — no data integrity or pipeline stability risks.
+### 1. Hardcoded "terminal" fallback in stat tools — breaks non-trade datasets
+
+Several files fall back to `"terminal"` when `grain_col` is missing from the DataFrame, instead of reading the grain column from the contract. This will crash or silently produce wrong results on datasets like `us_airfare` that have no `terminal` column.
+
+| File | Line(s) | Issue |
+|------|---------|-------|
+| `sub_agents/statistical_insights_agent/tools/stat_summary/data_prep.py` | 146 | `grain_col if grain_col in denom_df.columns else "terminal"` |
+| `sub_agents/statistical_insights_agent/tools/compute_outlier_impact.py` | 133 | Same pattern — hardcoded `"terminal"` fallback |
+| `sub_agents/hierarchy_variance_agent/tools/level_stats/ratio_metrics.py` | 185-207, 277, 352-353 | 8 references to hardcoded `"terminal"` column |
+
+**Fix:** These should read the grain column from the contract/session state. If missing, raise a clear error rather than guessing `"terminal"`.
+
+### 2. `validation_data_loader.py` is entirely trade-data-specific
+
+`tools/validation_data_loader.py` hardcodes column names `["region", "terminal", "metric", "week_ending", "value"]` (lines 102, 143-144, 154, 172-175, 198). This loader cannot work with any other dataset schema.
+
+**Fix:** Either make it contract-driven or clearly scope it as trade-data-only (rename to `trade_validation_loader.py` and guard entry points).
 
 ---
 
 ## Warning (fix soon)
 
-### W1 — Hardcoded "regional_analysis" tag in report formatting
-- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/formatting.py:18` — `"regional_analysis"` is hardcoded in `_DERIVED_TAGS`
-- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/sections/insight_cards.py:34-39` — `"regional_distribution"`, `"regional_analysis"` hardcoded in tag matching
-- **Risk:** These tags assume a "regional" dimension concept. For datasets like `us_airfare` (which uses route/carrier, not region), this logic is inert but creates dead code paths. Consider making tag categories contract-driven or at least documenting why these are universal.
+### 3. Prompt token bloat — executive_brief.md is 5× over budget
 
-### W2 — Prompt token bloat: `executive_brief.md` = 14,027 chars
-- `config/prompts/executive_brief.md` — **14,027 chars** (threshold: 3,000)
-- `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` — **6,022 chars** (threshold: 3,000)
-- `data_analyst_agent/sub_agents/narrative_agent/prompt.py` — **1,853 chars** ✅ (under threshold)
-- **Impact:** At ~4 chars/token, `executive_brief.md` is ~3,500 tokens per invocation. On Gemini 2.5 at $10/M input tokens, that's ~$0.035/run — acceptable for production but worth watching. Consider extracting static formatting rules into a tool or system instruction to reduce per-call overhead.
+| File | Chars | Status |
+|------|-------|--------|
+| `config/prompts/executive_brief.md` | **14,920** | 🔴 5× over 3,000 char target |
+| `sub_agents/report_synthesis_agent/prompt.py` | **6,022** | 🟡 2× over 3,000 char target |
+| `sub_agents/narrative_agent/prompt.py` | 1,853 | ✅ Under budget |
 
-### W3 — Massive unused import debt (130+ instances across codebase)
-- **Most common:** `from __future__ import annotations` imported but unused in ~40 files (these are zero-cost at runtime but clutter the codebase)
-- **Actually wasteful (real modules imported but never used):**
-  - `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:8` — `import time` (dead import)
-  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_new_lost_same_store.py:29` — `import numpy as np` (unused, wastes load time)
-  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/per_item_metrics.py:6` — `import pandas as pd` (unused)
-  - `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_seasonal_decomposition.py:26` — `import numpy as np` (unused)
-  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_pvm_decomposition.py:28` — `import pandas as pd` (unused)
-  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_mix_shift_analysis.py:27` — `import pandas as pd` (unused)
-  - `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/hierarchy.py:6` — `import pandas as pd` (unused)
-  - `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py:26` — `import os` (unused)
-  - `data_analyst_agent/sub_agents/report_synthesis_agent/tools/export_pdf_report.py:44` — `from weasyprint import CSS` (unused, heavy import)
-  - `data_analyst_agent/sub_agents/tableau_hyper_fetcher/fetcher.py:37` — `HyperConnectionManager` (unused)
-  - `data_analyst_agent/semantic/quality.py:2` — `import numpy as np` (unused)
-  - `data_analyst_agent/semantic/quality.py:5` — `QualityGateError` (unused)
-  - `data_analyst_agent/semantic/models.py:6` — `ContractValidationError` (unused)
-  - `data_analyst_agent/semantic/policies.py:2` — `List, Dict, Union` (all unused)
-- **Recommendation:** Run `ruff check --select F401 data_analyst_agent/` and auto-fix with `ruff check --select F401 --fix`. This is a 5-minute cleanup that reduces import time and cognitive load.
+At ~4 tokens/char, `executive_brief.md` burns ~3,700 tokens per invocation. This is a significant cost and latency driver on every pipeline run.
+
+**Fix:** Extract examples and boilerplate into few-shot appendices loaded on demand. Core prompt should be ≤3,000 chars.
+
+### 4. `report_synthesis_agent/prompt.py` has dead `import os`
+
+Line 1 area — `os` is imported but never used. Harmless but sloppy. Part of the larger unused imports issue below.
+
+---
+
+## Unused Imports — 120+ instances
+
+**This is the single largest code hygiene issue in the codebase.** A bulk cleanup pass would reduce cognitive load and import overhead. Key categories:
+
+### Truly dead imports (will cause confusion or hide bugs)
+- `compute_new_lost_same_store.py`: unused `numpy`, `Dict`, `Any`, `List`
+- `detect_mad_outliers.py`: unused `Dict`, `Any`, `List`, `StringIO`
+- `compute_lagged_correlation.py`: unused `Dict`, `Any`, `List`
+- `compute_outlier_impact.py`: unused `Dict`, `Any`, `scipy_stats`
+- `compute_pvm_decomposition.py`: unused `pandas`, `Dict`, `Any`, `List`
+- `compute_mix_shift_analysis.py`: unused `pandas`, `Dict`, `Any`, `List`
+- `stat_summary/per_item_metrics.py`: unused `pandas`
+- `stat_summary/summary_enhancements.py`: unused `numpy`
+- `semantic/quality.py`: unused `numpy`, `Dict`, `Any`, `Optional`, `QualityGateError`
+- `semantic/policies.py`: unused `List`, `Dict`, `Union`
+- `dynamic_parallel_agent.py`: unused `List`, `Any`, `time`
+- `export_pdf_report.py`: unused `CSS` from weasyprint
+- `config.py`: unused `Optional`
+- `agent.py`: unused `statistical_insights_agent`, `hierarchical_analysis_agent` (these may be side-effect imports — verify)
+- `tableau_hyper_fetcher/fetcher.py`: unused `HyperConnectionManager`
+
+### `from __future__ import annotations` — 40+ files
+These are technically unused when no forward-reference annotations exist. Low priority but noisy. Consider removing in files that don't need them, or keep consistently everywhere as a project convention (decide and document).
+
+**Recommended action:** Run `autoflake --remove-all-unused-imports --in-place -r data_analyst_agent/` or equivalent. Then manually verify `agent.py` side-effect imports.
 
 ---
 
 ## ADK Compliance
 
-- ✅ Recent commits don't introduce new agents or modify agent wiring
-- ✅ `severity_guard.py` (new, +123 lines) is a utility module, not an agent — no ADK pattern concerns
-- ✅ No new global state or cross-agent communication patterns introduced
+### Agent name uniqueness — ✅ OK
+Recent commits don't introduce duplicate agent names.
 
----
+### Session state keys — ⚠️ Watch
+The hardcoded `"terminal"` fallbacks (Critical #1) suggest some agents may not be reading grain columns from state correctly. Audit all `grain_col` resolution paths.
 
-## Hardcoded Dataset Assumptions
-
-Most `region`/`imports`/`exports` references are **safe** — they appear in:
-- Comment strings and docstrings (`__main__.py`, `scope_utils.py`)
-- Generic column mapping logic (`validation_data_loader.py` — maps from CSV headers)
-- Narrative heuristics (`generate_narrative_summary.py:101` — checks if dimension *name* contains "region" to adjust phrasing)
-
-**One concern:**
-- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/sections/insight_cards.py:34-35` — Hardcoded `{"regional_distribution", "regional_analysis"}` tag set. These come from the insight card builder, not from contract. If a dataset uses "zone" or "district" instead of "region," the narrative dedup logic won't fire. Low risk (fails safe — just shows slightly more cards) but should be documented or made contract-aware.
+### Error handling — ✅ Improved
+Commit `a6ce3dc` added contract-driven grain column fallback utility, which is the right direction. The stat tools just haven't been updated to use it yet.
 
 ---
 
 ## Observations
 
-1. **Recent commit quality is high.** The last 10 commits show disciplined work: separate test commits, proper contract schema updates for the new `us_airfare` dataset, and clean feature additions.
-2. **69K+ insertions is mostly the new dataset.** The `us_airfare` contract and related data files account for the bulk — actual code changes are surgical.
-3. **`annotations` imports everywhere.** The codebase consistently imports `from __future__ import annotations` for PEP 604 style hints, but many files don't actually use type hints. Not harmful but adds noise.
-4. **No test regressions.** Executive brief fallback tests were updated alongside the feature change — good practice.
-5. **Import cleanup is the highest-ROI action.** The `weasyprint.CSS` unused import is especially wasteful — weasyprint is heavy. Removing it avoids loading a C library that's never used in that code path.
+1. **Docs-heavy sprint.** 8 of 10 commits are documentation. The code changes are focused and correct in isolation.
+2. **`find_long_functions.py` in repo root** — appears to be a dev utility. Should be in `scripts/` or `.gitignore`'d.
+3. **Web UI got significant work** (+303 lines in `index.html`, +137 in `style.css`). No review of frontend was requested but flag for manual testing.
+4. **Contract system is maturing.** The `us_airfare` contract addition (`1c57915`) and grain column utility (`a6ce3dc`) show the right architectural direction. The gap is that downstream stat tools haven't caught up.
 
 ---
 
-*Generated by Arbiter (reviewer agent) — 2026-03-12 14:34 UTC*
+## Priority Action Items for Dev Agent
 
----
-
-# Test Regression Report — 2026-03-12 14:59 UTC
-
-**Tester:** Sentinel (tester agent)
-**Run:** Full test suite + E2E pipeline validation
-
-## Test Results Summary
-
-- **Total:** 297 passed, 1 failed, 6 skipped
-- **Duration:** 29.46s
-- **Baseline:** 236+ expected ✅ (exceeded by 61 tests!)
-- **E2E:** Pipeline runs completed with timestamped output directories
-
-## ❌ Regression Found
-
-### test_all_contracts_loadable — FAILED
-
-**File:** `tests/integration/test_contract_to_context_flow.py:53`
-
-**Root cause:** Invalid format field values in `toll_data` contract
-
-**Error:**
-```
-pydantic_core._pydantic_core.ValidationError: 2 validation errors for DatasetContract
-metrics.4.format
-  Input should be 'currency', 'percent', 'integer' or 'float' [type=literal_error, input_value='percentage', input_type=str]
-metrics.6.format
-  Input should be 'currency', 'percent', 'integer' or 'float' [type=literal_error, input_value='percentage', input_type=str]
-```
-
-**Issue:** `config/contracts/toll_data.yaml` has two metrics using `format: percentage` instead of `format: percent`
-
-**Impact:** Contract validation fails on load. Pipeline won't run for toll_data dataset.
-
-**Fix:** Change `percentage` → `percent` for metrics at indices 4 and 6 in toll_data.yaml
-
-**Priority:** HIGH — breaks toll_data dataset entirely
-
-## ✅ Pipeline Validation
-
-### Test 1: Auto-metric extraction (no env vars)
-- **Command:** `python -m data_analyst_agent.agent "Analyze all metrics"`
-- **Result:** ✅ Metrics auto-extracted from contract (`trade_value_usd`, `volume_units`)
-- **Output:** `outputs/trade_data/20260312_145920/` created
-- **Files:** `metric_volume_units.json`, `metric_volume_units.md`, alerts, debug prompts, execution logs
-- **Note:** Process interrupted before completing `trade_value_usd` — timeout hit, but partial outputs confirmed working
-
-### Test 2: Single-metric override
-- **Command:** `DATA_ANALYST_METRICS=volume_units python -m data_analyst_agent.agent "Analyze volume"`
-- **Result:** ✅ Single metric processed
-- **Output:** Timestamped run directory created
-
-### Test 3: Output directory structure
-- **Result:** ✅ Timestamped dirs with structure:
-  ```
-  outputs/trade_data/YYYYMMDD_HHMMSS/
-  ├── alerts/
-  ├── debug/
-  ├── logs/
-  ├── metric_<name>.json
-  └── metric_<name>.md
-  ```
-
-## Recommendations
-
-1. **FIX IMMEDIATELY:** Update toll_data.yaml format fields (2 instances)
-2. **Add contract schema test:** Run `DatasetContract.from_yaml()` on ALL contracts in CI to catch this earlier
-3. **Monitor timeouts:** 180s timeout caused interruption — consider raising for multi-metric runs or adding progress indicators
-
-*Generated by Sentinel (tester agent) — 2026-03-12 14:59 UTC*
+1. **[P0]** Replace all hardcoded `"terminal"` fallbacks with contract-driven grain column resolution
+2. **[P0]** Run `autoflake` to purge dead imports across `data_analyst_agent/`
+3. **[P1]** Trim `executive_brief.md` prompt — extract examples to appendix, target ≤3,000 chars
+4. **[P1]** Scope `validation_data_loader.py` — rename or make contract-driven
+5. **[P2]** Move `find_long_functions.py` to `scripts/`
+6. **[P2]** Remove dead `import os` from `report_synthesis_agent/prompt.py`

@@ -119,7 +119,8 @@ TOTAL:                        ~168s (2.8 minutes)
 
 ### Executive Brief Tuning
 ```bash
-EXECUTIVE_BRIEF_MAX_RETRIES=3              # LLM generation retry attempts
+EXECUTIVE_BRIEF_MAX_RETRIES=3              # LLM generation retry attempts (network)
+EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES=2       # LLM retry attempts (scoped briefs)
 EXECUTIVE_BRIEF_TIMEOUT=300.0              # Timeout per LLM call (seconds)
 EXECUTIVE_BRIEF_RETRY_DELAY=5.0            # Delay between retries (seconds)
 EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=3        # Max scoped brief entities

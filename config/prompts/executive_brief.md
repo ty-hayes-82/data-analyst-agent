@@ -14,12 +14,15 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
 **Business Executive Audience:**
 - Write for someone with NO statistics background
 - Explain findings in terms of business impact, not mathematical properties
-- Use everyday language — avoid z-scores, standard deviations, technical abbreviations
+- **Keep statistical values (z-scores, p-values, correlations) but ADD context**
 - Replace "DoD" → "compared to the prior day"
 - Replace "WoW" → "compared to the prior week"
 - Replace "MoM" → "compared to the prior month"
 - Replace "YoY" → "compared to the same period last year"
-- Replace "z-score -9.47" → "strongly suggests a data reporting delay"
+- ✅ GOOD: "z-score of -9.47 strongly suggests a data reporting delay"
+- ❌ BAD: "z-score -9.47" (no context) OR "strongly suggests a data reporting delay" (omits the value)
+- ✅ GOOD: "perfect correlation (r=1.0) indicates synchronized movement"
+- ❌ BAD: "perfect correlation" (omits r=1.0) OR "r=1.0" (no explanation)
 - Replace "maintain monitoring posture" → specific, actionable recommendations
 
 **Focus on WHY, not just WHAT:**
@@ -127,11 +130,17 @@ Your reply is validated against a JSON schema and **must** deserialize into the 
    - `insights`: array of 3-5 insight objects, each with:
      - `title`: Short headline (5-8 words)
      - `details`: 2-4 sentences explaining WHAT changed, WHY it matters, and the business context
-   - **Every insight must include:**
+   - **Every insight must include AT LEAST 3 SPECIFIC NUMERIC VALUES:**
      - Specific metric/dimension mentioned by name
      - Current value vs explicit baseline (with comparison spelled out)
      - Business explanation (NOT just "variance detected")
      - Impact or implication
+     - **REQUIRED SPECIFICS (minimum 3 per insight):**
+       - Absolute values (e.g., "503,687 units", "$2.3M")
+       - Percentage changes (e.g., "+158.2%", "-12.5%")
+       - Comparison baselines (e.g., "vs rolling average of 195K")
+       - Statistical context when available (e.g., "z-score 2.06", "correlation r=1.0")
+       - Entity-specific breakdowns (e.g., "West region: $1.8M of $2.3M total change")
    - **Example insight:**
      ```json
      {
@@ -285,39 +294,62 @@ Before finalizing your JSON output, verify:
 13. ✅ If critical findings exist, they are explained substantively (no boilerplate)
 
 ---
+## NUMERIC VALUE REQUIREMENT (CRITICAL)
+
+**Each Key Finding insight MUST contain a MINIMUM of 3 specific numeric values.**
+
+Acceptable numeric values include:
+- **Absolute amounts**: "$420K", "503,687 units", "2.3M transactions"
+- **Percentages**: "+158.2%", "-8.4%", "12.5% share"
+- **Baseline values**: "vs 195K average", "compared to $380K baseline"
+- **Ratios/correlations**: "r=1.0", "3:1 ratio", "80% concentration"
+- **Statistical measures**: "z-score 2.06", "p-value 0.33", "±15K units"
+- **Entity-specific breakdowns**: "West: $1.8M, East: $0.5M"
+- **Counts**: "3 regions", "7 stores", "12 product categories"
+
+**MINIMUM COUNTS PER BRIEF:**
+- Total brief: ≥15 numeric values across all sections
+- Each Key Finding insight: ≥3 numeric values
+- Header summary: ≥2 numeric values
+
+---
 ## EXAMPLES OF GOOD INSIGHT WRITING
 
-**❌ Technical/Jargon Style (OLD):**
+**❌ INSUFFICIENT VALUES (BAD):**
 ```json
 {
   "title": "Revenue Variance Detected",
   "details": "Revenue showed -8.4% DoD variance (z-score: -3.2) concentrated in Eastern region. Maintain monitoring posture."
 }
 ```
+**Problem:** Only 2 numeric values (-8.4%, -3.2). Missing absolute amounts, baseline, entity breakdown.
 
-**✅ Business-Friendly Style (NEW):**
+**✅ SUFFICIENT VALUES (GOOD):**
 ```json
 {
   "title": "Eastern Region Revenue Declined Sharply",
-  "details": "Revenue in the Eastern region dropped $420K (8% compared to the prior day), accounting for the majority of company-wide decline. This appears to be a data reporting delay rather than actual sales drop, as transaction counts remained normal. IT team should verify data pipeline status for Eastern stores."
+  "details": "Revenue in the Eastern region dropped $420K (8% compared to the prior day vs baseline of $525K), accounting for $380K of the $450K company-wide decline. This appears to be a data reporting delay rather than actual sales drop, as transaction counts remained normal at 1,850 (vs typical 1,900)."
 }
 ```
+**Values included:** 7 total ($420K, 8%, $525K, $380K, $450K, 1,850, 1,900). ✅
 
-**❌ Technical/Jargon Style (OLD):**
+**❌ VAGUE STATEMENT (BAD):**
 ```json
 {
   "title": "Anomaly in Transaction Volume",
   "details": "Statistically significant deviation detected in Q2 vs Q1 baseline. Investigate root cause."
 }
 ```
+**Problem:** ZERO specific values. No magnitude, no baseline, no context.
 
-**✅ Business-Friendly Style (NEW):**
+**✅ SPECIFIC AND ACTIONABLE (GOOD):**
 ```json
 {
   "title": "Spring Campaign Drove 22% Volume Increase",
-  "details": "Transaction volume jumped 22% compared to the prior quarter, concentrated in March following the spring promotion launch. This matches historical seasonal patterns and campaign performance. Southern region showed strongest response with 31% growth, suggesting the messaging resonated well with that market."
+  "details": "Transaction volume jumped to 3.8M units (22% increase compared to the prior quarter's 3.1M baseline), concentrated in March with 1.4M units. This matches historical seasonal patterns and campaign performance. Southern region showed strongest response with 1.2M units (31% growth vs 915K in Q1)."
 }
 ```
+**Values included:** 8 total (3.8M, 22%, 3.1M, 1.4M, 1.2M, 31%, 915K). ✅
 
 ---
 ## FINAL REMINDER
