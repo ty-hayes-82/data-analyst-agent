@@ -66,6 +66,7 @@ temp_extracted/
 # Now stored within config/datasets/ folder
 *.tdsx
 !data/tableau/Bookshop.tdsx
+!data/tableau/Ops Metrics DS.tdsx
 
 # Legacy data folders (no longer used for datasets)
 # data/tableau/
