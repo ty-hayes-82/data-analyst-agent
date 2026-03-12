@@ -134,6 +134,7 @@ _base_agent = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_mime_type="application/json",
         temperature=0.0,
+        max_output_tokens=4096,
         thinking_config=get_agent_thinking_config("narrative_agent"),
     ),
 )
@@ -486,6 +487,7 @@ def create_narrative_agent():
         generate_content_config=types.GenerateContentConfig(
             response_mime_type="application/json",
             temperature=0.0,
+            max_output_tokens=4096,
             thinking_config=get_agent_thinking_config("narrative_agent"),
         ),
     )
