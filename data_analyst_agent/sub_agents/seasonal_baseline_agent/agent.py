@@ -125,10 +125,20 @@ class FocusAwareSeasonalInterpreter(BaseAgent):
     def __init__(self):
         super().__init__(name="seasonal_baseline_interpreter")
         self._wrapped = SeasonalInterpretationAgent()
-        self.output_key = getattr(self._wrapped, "output_key", "seasonal_baseline_result")
+        self._base_instruction = SEASONAL_BASELINE_INSTRUCTION
+        # Store the output_key as an attribute directly
+        object.__setattr__(self, 'output_key', getattr(self._wrapped, "output_key", "seasonal_baseline_result"))
+        object.__setattr__(self, 'description', getattr(self._wrapped, "description", ""))
+
+    def __getattr__(self, item):
+        # Redirect attribute access to wrapped agent if not found on self
+        if item in {"output_key", "description"}:
+            return getattr(self, item)
+        return getattr(self._wrapped, item)
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
-        self._wrapped.instruction = augment_instruction(SEASONAL_BASELINE_INSTRUCTION, ctx.session.state)
+        # Augment instruction with focus directives
+        self._wrapped.instruction = augment_instruction(self._base_instruction, ctx.session.state)
         async for event in self._wrapped.run_async(ctx):
             yield event
 
