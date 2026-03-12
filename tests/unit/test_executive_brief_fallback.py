@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from data_analyst_agent.sub_agents.executive_brief_agent import agent as executive_agent
@@ -38,3 +40,72 @@ async def test_llm_generate_brief_falls_back_on_invalid_json(monkeypatch: pytest
     assert "Executive Brief" in brief_md
     assert "Fallback" in brief_json["header"]["title"]
     assert brief_json["body"]["sections"], "Fallback JSON should include sections"
+
+
+@pytest.mark.asyncio
+async def test_llm_generate_brief_parses_json_with_preamble(monkeypatch: pytest.MonkeyPatch) -> None:
+    payload = {
+        "header": {
+            "title": "2024-03-10 – Network pulse",
+            "summary": "Demand up 2.1% vs prior week; focus on Southwest mix shifts.",
+        },
+        "body": {
+            "sections": [
+                {
+                    "title": "Opening",
+                    "content": "Network stabilized after prior-week volatility.",
+                    "insights": [],
+                },
+                {
+                    "title": "Top Operational Insights",
+                    "content": "Southwest drove the rebound while Northeast lagged.",
+                    "insights": [
+                        {
+                            "title": "SW e-commerce spiked",
+                            "details": "+4.2% vs prior week driven by AZ electronics.",
+                        },
+                        {
+                            "title": "Midwest auto drag",
+                            "details": "-2.1% vs prior week from MI suppliers.",
+                        },
+                        {
+                            "title": "Northeast import lag",
+                            "details": "Flat vs prior week as NY customs backlog cleared slowly.",
+                        },
+                    ],
+                },
+                {
+                    "title": "Network Snapshot",
+                    "content": "Mix shift toward higher-margin export lanes.",
+                    "insights": [],
+                },
+                {
+                    "title": "Focus For Next Week",
+                    "content": "Resolve NY backlog and sustain AZ growth.",
+                    "insights": [],
+                },
+                {
+                    "title": "Leadership Question",
+                    "content": "Is West Coast capacity enough for forecasted surge?",
+                    "insights": [],
+                },
+            ]
+        },
+    }
+    response_text = "Sure, synthesizing the brief now.\n" + json.dumps(payload) + "\nHope this helps!"
+    monkeypatch.setattr(executive_agent.genai, "Client", lambda: _DummyClient(text=response_text))
+
+    brief_json, brief_md, used_fallback = await executive_agent._llm_generate_brief(  # type: ignore[attr-defined]
+        model_name="test-model",
+        instruction="write",
+        user_message="hello",
+        thinking_config=None,
+        digest="- Sample metric signal",
+        section_contract=executive_agent.NETWORK_SECTION_CONTRACT,
+    )
+
+    assert used_fallback is False
+    assert brief_json["header"]["title"] == payload["header"]["title"]
+    sections = brief_json["body"].get("sections") or []
+    assert len(sections) == len(payload["body"]["sections"])
+    assert "Top Operational Insights" in brief_md

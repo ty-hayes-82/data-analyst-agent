@@ -108,6 +108,46 @@ def _ensure_block_titles(block: Any, prefix: str) -> Any:
     return json.dumps(data) if was_str else data
 
 
+_JSON_OBJECT_START = re.compile(r"\{")
+
+
+def _parse_brief_json_payload(raw_text: str) -> dict[str, Any]:
+    """Parse the LLM response into a JSON object, tolerating stray prose.
+
+    Models occasionally prepend acknowledgements ("Sure, here you go") or append
+    extra sentences even when response_mime_type requests JSON. This helper
+    strips code fences beforehand (handled by caller) and then attempts to load
+    the object directly. If that fails, it scans for the first opening brace and
+    lets json.JSONDecoder.raw_decode consume just the JSON object, ignoring any
+    prefix/suffix text. Raises ValueError when the decoded payload is not an
+    object so upstream logic can trigger structured fallbacks.
+    """
+
+    cleaned = (raw_text or "").strip()
+    if not cleaned:
+        raise json.JSONDecodeError("Empty response payload", raw_text or "", 0)
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        decoder = json.JSONDecoder()
+        for match in _JSON_OBJECT_START.finditer(cleaned):
+            try:
+                obj, _ = decoder.raw_decode(cleaned[match.start():])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict):
+                return obj
+        raise exc
+
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            f"Executive brief response must be a JSON object, received {type(parsed).__name__}"
+        )
+
+    return parsed
+
+
 _TEMPORAL_COMPARISON_PRIORITY = {
     "daily": [
         "current day vs prior day (DoD)",
@@ -517,10 +557,15 @@ async def _llm_generate_brief(
             raw = re.sub(r"^```(?:json)?\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
             try:
-                brief_data = json.loads(raw)
+                brief_data = _parse_brief_json_payload(raw)
             except json.JSONDecodeError as json_err:
                 print(f"[BRIEF] JSON parse failed: {json_err}. Falling back to structured digest.")
                 fallback_json, fallback_markdown = _structured_fallback(f"JSON parse failed: {json_err}")
+                return fallback_json, fallback_markdown, True
+            except ValueError as val_err:
+                reason = f"Invalid JSON payload: {val_err}"
+                print(f"[BRIEF] {reason} Falling back to structured digest.")
+                fallback_json, fallback_markdown = _structured_fallback(reason)
                 return fallback_json, fallback_markdown, True
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
@@ -756,6 +801,13 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         if contract_summary_block:
             contract_summary_block = contract_summary_block + "\n\n"
 
+        json_enforcement_block = (
+            "JSON_OUTPUT_CONSTRAINTS (hard fail if violated):\n"
+            "1. '{' must be the first character of your reply and '}' the last.\n"
+            "2. Do not wrap the JSON in markdown fences or include prose before/after it.\n"
+            "3. Do not add acknowledgements, apologies, or closing statements outside the JSON object.\n\n"
+        )
+
         user_message = (
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
@@ -768,6 +820,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
             f"{digest}\n\n"
             f"{weather_block}"
+            f"{json_enforcement_block}"
             "Generate the executive brief JSON as instructed and respond with ONLY the JSON object."
         )
 
