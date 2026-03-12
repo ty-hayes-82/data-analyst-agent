@@ -17,6 +17,33 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring and load balancers."""
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "service": "data-analyst-agent-web",
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {
+            "web_server": "ok"
+        }
+    }
+
+
+@app.get("/api/version")
+async def api_version():
+    """Version information endpoint."""
+    import sys
+    from data_analyst_agent import __version__, __build__
+    return {
+        "version": __version__,
+        "build": __build__,
+        "python": sys.version
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index():
     return (STATIC_DIR / "index.html").read_text(encoding="utf-8")

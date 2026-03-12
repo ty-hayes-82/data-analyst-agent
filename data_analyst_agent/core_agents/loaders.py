@@ -96,7 +96,30 @@ def _clamp_analysis_end_date(ctx, df, contract):
 
 
 class ContractLoader(BaseAgent):
-    """Loads the DatasetContract from config/datasets/<active_dataset>/contract.yaml."""
+    """Loads the DatasetContract from config/datasets/<active_dataset>/contract.yaml.
+    
+    This agent is the first step in the analysis pipeline. It:
+    1. Resolves the active dataset from environment variable or config
+    2. Loads the contract YAML (with caching for performance)
+    3. Stores the parsed contract in session.state["dataset_contract"]
+    
+    The contract defines all dataset metadata including:
+    - Metrics and dimensions
+    - Time configuration
+    - Hierarchies
+    - Materiality thresholds
+    - Data source location
+    
+    Session State Output:
+        dataset_contract: Parsed DatasetContract instance
+        active_dataset: Dataset identifier string
+        contract_name: Human-readable contract name
+        
+    Example:
+        >>> # Automatically run as first stage in root_agent pipeline
+        >>> # After execution, contract available at:
+        >>> contract = ctx.session.state["dataset_contract"]
+    """
 
     def __init__(self):
         super().__init__(name="contract_loader")
@@ -104,6 +127,7 @@ class ContractLoader(BaseAgent):
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         import sys
         from config.dataset_resolver import get_active_dataset, get_dataset_path
+        from ..utils.contract_cache import load_contract_cached
 
         dataset_name = get_active_dataset()
 
@@ -130,9 +154,15 @@ class ContractLoader(BaseAgent):
                     f"Expected: config/datasets/{dataset_name}/contract.yaml"
                 )
 
-        contract = DatasetContract.from_yaml(contract_path)
+        contract = load_contract_cached(contract_path)
 
-        print(f"[ContractLoader] Loaded contract: {contract.name} v{contract.version} (dataset: {dataset_name})")
+        from ..logging_config import logger
+        logger.info("Loaded contract", extra={
+            "agent": "ContractLoader",
+            "contract_name": contract.name,
+            "contract_version": contract.version,
+            "dataset": dataset_name
+        })
 
         ctx.session.state["dataset_contract"] = contract
         ctx.session.state["active_dataset"] = dataset_name
@@ -141,7 +171,43 @@ class ContractLoader(BaseAgent):
         yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=actions)
 
 class AnalysisContextInitializer(BaseAgent):
-    """Initializes the AnalysisContext after data is fetched and validated."""
+    """Initializes the AnalysisContext after data is fetched and validated.
+    
+    This critical agent bridges raw data and the analysis pipeline. It:
+    1. Loads primary CSV data from session state
+    2. Applies dimension and hierarchy filters
+    3. Performs optional temporal aggregation based on focus directives
+    4. Validates data schema against contract requirements
+    5. Detects temporal grain (daily/weekly/monthly)
+    6. Constructs the AnalysisContext object for downstream agents
+    
+    The AnalysisContext is the central data structure used by all analysis agents.
+    It contains the DataFrame, target metric, primary dimension, temporal metadata,
+    and filter state.
+    
+    Session State Inputs:
+        dataset_contract: Contract loaded by ContractLoader
+        primary_data_csv: CSV string from data fetcher
+        focus_temporal_grain: Optional grain override ("weekly", "monthly", "yearly")
+        request_analysis: Parsed request with metrics/dimensions
+        dimension: Override dimension name
+        dimension_value: Override dimension value for filtering
+        hierarchy_filters: Multi-value filters from web UI
+        
+    Session State Outputs:
+        analysis_context: Complete AnalysisContext instance
+        temporal_grain: Detected or overridden grain
+        temporal_grain_confidence: Detection confidence score
+        time_frequency: Contract time frequency
+        analysis_period: Human-readable period description
+        dimension_filters: Applied dimension filters
+        
+    Example:
+        >>> # After data fetch, this agent creates analysis_context:
+        >>> context = ctx.session.state["analysis_context"]
+        >>> print(context.df.shape)  # Filtered and aggregated DataFrame
+        >>> print(context.temporal_grain)  # "monthly"
+    """
     
     def __init__(self):
         super().__init__(name="analysis_context_initializer")
@@ -445,7 +511,43 @@ class AnalysisContextInitializer(BaseAgent):
 
 class DateInitializer(BaseAgent):
     """Initializes date ranges in state using calculate_date_ranges tool.
-    Respects existing overrides in session state and analysis_focus directives.
+    
+    This agent calculates the date ranges for data retrieval based on:
+    1. Focus directives (e.g., "recent_monthly_trends" → last 6 months)
+    2. CLI overrides (--start-date, --end-date)
+    3. Default ranges from calculate_date_ranges tool
+    
+    Priority order:
+    - CLI overrides (highest priority)
+    - Focus directive date ranges
+    - Tool-calculated defaults
+    
+    Focus directive mappings:
+    - recent_weekly_trends: Last 8 weeks, weekly grain
+    - recent_monthly_trends: Last 6 months, monthly grain
+    - recent_yearly_trends: Last 3 years, yearly grain
+    
+    Session State Inputs:
+        analysis_focus: List of focus directive strings
+        primary_query_start_date: Optional CLI override
+        primary_query_end_date: Optional CLI override
+        
+    Session State Outputs:
+        primary_query_start_date: Start date for primary query
+        primary_query_end_date: End date for primary query
+        supplementary_query_start_date: Start for supplementary data
+        supplementary_query_end_date: End for supplementary data
+        detail_query_start_date: Start for detail query
+        detail_query_end_date: End for detail query
+        focus_temporal_grain: Temporal grain from focus directive
+        timeframe: {start, end} dict for persistence
+        
+    Example:
+        >>> # With focus directive:
+        >>> ctx.session.state["analysis_focus"] = ["recent_monthly_trends"]
+        >>> # After DateInitializer runs:
+        >>> print(ctx.session.state["focus_temporal_grain"])  # "monthly"
+        >>> print(ctx.session.state["primary_query_start_date"])  # "2025-09-12" (6 months ago)
     """
     
     def __init__(self):

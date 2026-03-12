@@ -94,6 +94,52 @@ def _example_from_row(row: dict, *, contract: object | None = None) -> dict:
 
 
 async def compute_anomaly_indicators() -> str:
+    """Detect statistical anomalies in the target metric time series.
+    
+    Uses z-score analysis with a rolling window baseline to identify periods
+    where the metric value significantly deviates from historical patterns.
+    Detects both positive and negative anomalies with statistical significance.
+    
+    Algorithm:
+    1. Aggregate metric by time column (handles daily/weekly/monthly data)
+    2. Compute rolling average and standard deviation (window = min(12, len/2))
+    3. Calculate z-scores for each period
+    4. Flag periods with |z-score| > threshold (default 2.0)
+    5. Compute p-values for statistical significance
+    
+    Returns:
+        JSON string containing:
+        - anomalies: List of detected anomalies, each with:
+            - period: Timestamp of anomaly
+            - value: Actual metric value
+            - baseline: Rolling average baseline
+            - deviation_pct: Percentage deviation from baseline
+            - z_score: Statistical z-score
+            - p_value: Statistical significance (p-value)
+            - direction: "above" or "below"
+            - severity: "critical" (|z| > 3), "high" (|z| > 2.5), "moderate"
+            
+    Example Response:
+        {
+            "anomalies": [
+                {
+                    "period": "2025-02-28",
+                    "value": 2100000.0,
+                    "baseline": 1500000.0,
+                    "deviation_pct": 40.0,
+                    "z_score": 3.2,
+                    "p_value": 0.001,
+                    "direction": "above",
+                    "severity": "critical"
+                }
+            ],
+            "total_periods": 36,
+            "anomaly_count": 3
+        }
+        
+    Raises:
+        Returns error JSON if required columns missing or data empty
+    """
     try:
         df, time_col, metric_col, grain_col, name_col, ctx = data_cache.resolve_data_and_columns(
             "AnomalyIndicators"
