@@ -792,24 +792,17 @@ async def _llm_generate_brief(
                         f"Expected: {', '.join(expected_titles)}. "
                         f"Got: {', '.join(actual_titles or ['<empty>'])}"
                     )
-                    print(f"[BRIEF] {error_msg}")
+                    print(f"[BRIEF] Attempt {attempt}/{max_attempts}: {error_msg}")
                     if attempt < max_attempts:
-                        print(f"[BRIEF] Retrying with explicit section title enforcement...")
-                        # Update config to explicitly list required sections in the prompt
-                        config.system_instruction = (
-                            f"{instruction}\n\n"
-                            "SECTION TITLE ENFORCEMENT (MANDATORY):\n"
-                            "Your JSON body.sections array MUST have exactly these titles in this order:\n"
-                            + "\n".join(f"{i+1}. {title}" for i, title in enumerate(expected_titles))
-                            + "\n\nDO NOT use any other section titles. "
-                            "DO NOT include: 'Opening', 'Top Operational Insights', 'Network Snapshot', "
-                            "'Focus For Next Week', 'Leadership Question', or any similar variations.\n"
-                        )
+                        print(f"[BRIEF] Retrying with stronger section title enforcement...")
+                        await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
                         continue
                     else:
-                        # Don't raise - proceed to normalization instead
-                        print(f"[BRIEF] Exhausted retries, will normalize section titles to contract.")
-                        # Note: _apply_section_contract() will fix the titles below
+                        # After exhausting retries, RAISE to trigger fallback
+                        raise ValueError(
+                            f"LLM persistently returned wrong section titles after {max_attempts} attempts: "
+                            f"got {actual_titles}, expected {expected_titles}"
+                        )
             
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
@@ -1023,22 +1016,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         # Build mandatory section title enforcement (will be injected into system instruction)
         expected_sections = [spec["title"] for spec in NETWORK_SECTION_CONTRACT]
         section_title_enforcement = (
-            "\n\n⚠️ SECTION TITLE ENFORCEMENT (MANDATORY — VALIDATION WILL FAIL IF VIOLATED):\n"
-            "Your JSON body.sections array MUST contain EXACTLY these section titles in this order:\n"
-            + "\n".join(f"{i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+            "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
+            "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
+            + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
             + "\n\n"
-            "FORBIDDEN SECTION TITLES (DO NOT USE):\n"
-            "- \"Opening\" (use \"Executive Summary\" instead)\n"
-            "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
-            "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
-            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
-            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
-            "- Any other custom titles not listed above\n\n"
-            "VALIDATION PROCESS:\n"
-            "1. Parse your JSON response\n"
-            "2. Check body.sections[i].title matches expected titles exactly\n"
-            "3. If mismatch detected → automatic retry (up to 3 attempts)\n"
-            "4. After exhausting retries → structured fallback output\n"
+            "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
+            "   ❌ \"Opening\" → Use \"Executive Summary\" instead\n"
+            "   ❌ \"Top Operational Insights\" → Use \"Key Findings\" instead\n"
+            "   ❌ \"Network Snapshot\" → Merge into \"Key Findings\"\n"
+            "   ❌ \"Focus For Next Week\" → Merge into \"Recommended Actions\"\n"
+            "   ❌ \"Leadership Question\" → Merge into \"Recommended Actions\"\n"
+            "   ❌ Any other custom titles → FORBIDDEN\n\n"
+            "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
+            "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
         )
         
         instruction = _format_instruction(
@@ -1105,8 +1095,15 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 "- Format: 'Month1→Month2: X%, Month2→Month3: Y%'\n\n"
             )
 
+        # Build explicit section title reminder for user message (reinforces system instruction)
+        section_title_reminder = (
+            f"⚠️ REQUIRED SECTION TITLES (in this exact order):\n"
+            f"{', '.join(f'\"{t}\"' for t in expected_sections)}\n\n"
+        )
+        
         user_message = (
-            f"{json_enforcement_block}"  # FIRST — most visible position
+            f"{section_title_reminder}"  # FIRST — most visible position
+            f"{json_enforcement_block}"
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
             f"{contract_metadata_block}"
@@ -1349,8 +1346,15 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             "4. Your response must deserialize into the exact header/body/sections structure defined in the system instruction.\n\n"
                         )
                         
+                        # Build explicit section title reminder for scoped brief
+                        scoped_section_reminder = (
+                            f"⚠️ REQUIRED SECTION TITLES (in this exact order):\n"
+                            f"{', '.join(f'\"{t}\"' for t in scoped_expected_sections)}\n\n"
+                        )
+                        
                         scoped_user_message = (
-                            f"{scoped_json_enforcement}"  # FIRST — most visible
+                            f"{scoped_section_reminder}"  # FIRST — most visible
+                            f"{scoped_json_enforcement}"
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"
                             f"{contract_metadata_block}"
