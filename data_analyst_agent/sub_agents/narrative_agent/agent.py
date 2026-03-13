@@ -134,7 +134,7 @@ _base_agent = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_mime_type="application/json",
         temperature=0.0,
-        max_output_tokens=4096,
+        max_output_tokens=2048,  # Reduced from 4096: typical output is 3-5 cards (~800-1200 tokens)
         thinking_config=get_agent_thinking_config("narrative_agent"),
     ),
 )
