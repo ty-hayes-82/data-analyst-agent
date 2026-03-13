@@ -283,8 +283,8 @@ def _aggregate_from_validation_data(
     if nd_df.empty or "metric" not in nd_df.columns or "value" not in nd_df.columns:
         return None
 
-    tcol = time_col if time_col in nd_df.columns else "week_ending"
-    # Use contract-provided grain_col; no hardcoded fallback to trade-specific columns
+    # Use contract-provided time_col and grain_col; no hardcoded fallbacks to dataset-specific columns
+    tcol = time_col if time_col in nd_df.columns else time_col
     gcol = grain_col if grain_col in nd_df.columns else grain_col
     nd_df[tcol] = nd_df[tcol].astype(str)
     nd_df["value"] = pd.to_numeric(nd_df["value"], errors="coerce").fillna(0)
