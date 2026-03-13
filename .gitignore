@@ -100,3 +100,5 @@ data/public/global_temp_monthly.csv
 
 # Web UI run state (local)
 web/runs.json
+# Large data files
+data/tableau/*.csv

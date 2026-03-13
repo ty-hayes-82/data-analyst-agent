@@ -1,196 +1,115 @@
-# E2E Test Run Findings — 2026-03-12 21:55 UTC
+# Code Review — 2026-03-13 (Arbiter Audit)
 
-## Test Execution Summary
-
-**Cron Job:** `tester-e2e-001`  
-**Agent:** tester (Sentinel)  
-**Duration:** ~3min total
-
-### Results
-
-#### 1. Test Suite (✅ PASS — 298/298 + 6 skipped)
-```
-298 passed, 6 skipped, 1 warning in 33.63s
-Slowest: 5.87s (test_root_agent_run_async_completes_with_report_and_alerts)
-```
-
-**Breakdown:**
-- Unit tests: 293 pass
-- E2E tests: 5 pass
-- Integration tests: partial coverage (ops_metrics skipped due to missing contract)
-
-**Baseline comparison:**
-- Previous: 236 tests
-- Current: 298 tests
-- Growth: +62 tests (+26%)
-
-#### 2. Multi-Metric Pipeline WITHOUT Env Vars (❌ INCOMPLETE — SIGTERM)
-
-**Command:**
-```bash
-python -m data_analyst_agent.agent "Analyze all metrics"
-```
-
-**Behavior:**
-- ✅ Contract loader extracted 2 metrics: `['trade_value_usd', 'volume_units']`
-- ✅ Output directory created: `outputs/trade_data/20260312_215647/`
-- ✅ Parallel analysis started for both metrics
-- ✅ Statistical insights completed (2.56s for trade_value_usd, 2.34s for volume_units)
-- ✅ Hierarchical analysis completed (2.77s for trade_value_usd, 2.36s for volume_units)
-- ⚠️ Narrative generation started (15.26s LLM call observed for trade_value_usd)
-- ❌ Process terminated with SIGTERM before completion
-
-**Artifacts created:**
-```
-outputs/trade_data/20260312_215647/
-├── alerts/
-│   └── alerts_payload_Metric-_volume_units.json
-├── debug/
-│   └── narrative_prompt_volume_units.txt
-├── logs/
-│   ├── execution.log
-│   └── phase_summary.json
-├── metric_volume_units.json (37KB)
-└── metric_volume_units.md (3.9KB)
-```
-
-**Observations:**
-- volume_units completed fully (JSON + MD files present)
-- trade_value_usd narrative started but never finished
-- SIGTERM occurred ~2min after process start
-
-#### 3. Single-Metric Pipeline WITH Env Var (❌ INCOMPLETE — SIGTERM)
-
-**Command:**
-```bash
-DATA_ANALYST_METRICS=volume_units python -m data_analyst_agent.agent "Analyze volume"
-```
-
-**Behavior:**
-- ✅ ENV var recognized: `[CLIParameterInjector] No DATA_ANALYST_METRICS -- defaulting to contract metrics` (log shows it worked)
-- ✅ Output directory created: `outputs/trade_data/20260312_220000/`
-- ✅ Analysis context initialized (0.57s)
-- ✅ Hierarchical analysis started
-- ❌ Process terminated with SIGTERM before completion
-
-**Artifacts created:**
-```
-outputs/trade_data/20260312_220000/
-├── debug/
-└── logs/
-```
-
-**Observations:**
-- No metric output files (terminated earlier than multi-metric run)
-- SIGTERM occurred during hierarchical analysis phase
-
-#### 4. Output Directory Structure (✅ VERIFIED)
-
-**Confirmed:**
-- Timestamped directories created in `outputs/trade_data/YYYYMMDD_HHMMSS/` format
-- Subdirectories created: `alerts/`, `debug/`, `logs/`
-- Output files follow naming convention: `metric_{metric_name}.json` and `.md`
-
-## Root Cause Analysis
-
-### SIGTERM Source: Cron Timeout
-
-**Evidence:**
-1. Both runs terminated with SIGTERM exactly
-2. Timeout parameter in cron task: `timeout=180` (3 minutes)
-3. Multi-metric run logs show ~2min of execution before termination
-4. No OOM errors, no disk space issues, no other error signals
-
-**Pipeline timing breakdown (from logs):**
-```
-Data fetch:        1.28s
-Parallel analysis: 3.23s (longest agent)
-Narrative agent:   15.26s (LLM call)
-Alert scoring:     0.16s
-TOTAL observed:    ~20s before termination at 2min mark
-```
-
-**Conclusion:** The 180-second timeout is **insufficient** for full pipeline execution with 2 metrics and LLM narrative generation.
-
-### Narrative Agent Performance Issue
-
-**Observation:**
-```
-[TIMER] <<< Finished agent: narrative_agent | Duration: 15.26s
-```
-
-**Context:**
-- LLM call to Gemini 2.5 Flash Lite for narrative generation
-- Prompt size: instruction=1,775 chars, payload=6,751 chars
-- Total: ~8.5K chars (not excessive)
-
-**Questions:**
-1. Why does a Flash Lite call take 15 seconds for 8.5K prompt?
-2. Is this network latency, rate limiting, or model throttling?
-3. Can we parallelize narrative generation across metrics?
-
-## Regressions vs Baseline
-
-| Test | Baseline (2026-03-10) | Current (2026-03-12) | Status |
-|------|----------------------|---------------------|--------|
-| Test suite | 236 pass | 298 pass | ✅ IMPROVED |
-| E2E tests | 5/5 pass | 5/5 pass | ✅ STABLE |
-| Multi-metric pipeline | Complete | SIGTERM | ❌ REGRESSION |
-| Single-metric pipeline | Complete | SIGTERM | ❌ REGRESSION |
-| Output structure | Verified | Verified | ✅ STABLE |
-
-**Severity:** HIGH — Full pipeline execution is broken in cron context
-
-## Recommendations
-
-### Immediate Actions (P0)
-1. **Increase cron timeout to 5min (300s)** — Pipeline needs ~3-4min for 2 metrics with LLM calls
-2. **Add pipeline timeout guards** — Graceful shutdown with partial results saved
-3. **Split cron jobs:**
-   - Job 1: Test suite only (60s timeout)
-   - Job 2: Full pipeline E2E (5min timeout)
-
-### Short-Term Improvements (P1)
-1. **Profile narrative agent LLM calls** — Investigate 15s duration for 8.5K prompt
-2. **Parallelize narrative generation** — Run per-metric narratives concurrently
-3. **Add progress logging** — Every 30s heartbeat to aid debugging
-4. **Implement checkpoint/resume** — Save intermediate results, resume on timeout
-
-### Long-Term Enhancements (P2)
-1. **Fast-path narrative generation** — Skip LLM for simple cases (use templates)
-2. **Async LLM calls with callbacks** — Don't block pipeline on narrative generation
-3. **Pipeline orchestration refactor** — Use job queue with configurable timeouts per stage
-
-## Test Data Integrity
-
-**Verified:**
-- Dataset: 258,624 rows (trade_data)
-- Time range: 2024-03-12 to 2025-12-31 (436 weekly periods)
-- Metrics: trade_value_usd, volume_units
-- Dimensions: flow (imports/exports), geographic (region → state)
-
-**No data issues detected.**
-
-## Action Items for Dev Team
-
-- [ ] Update cron config: `timeout: 300` for E2E pipeline tests
-- [ ] Add narrative agent timeout guard (max 30s per metric)
-- [ ] Investigate Gemini Flash Lite call latency (15s for 8.5K prompt)
-- [ ] Add pipeline progress logging every 30s
-- [ ] Implement graceful shutdown on SIGTERM (save partial results)
-- [ ] Split E2E cron into separate test suite + pipeline jobs
-
-## Learnings for Future Tests
-
-1. **Cron timeouts are strict** — Account for LLM latency + data processing
-2. **Test in isolation first** — Run pipeline manually before scheduling cron
-3. **Monitor LLM provider latency** — 15s for small prompts suggests rate limiting or throttling
-4. **Checkpoint intermediate results** — Don't lose progress on timeout
-5. **Log aggressively** — Timestamps on every agent transition help diagnose hangs
+**Commit range:** `92aee99..acf7567` (10 commits)
+**Scope:** 7 files changed, 875 insertions, 19 deletions
 
 ---
 
-**Test conducted by:** Sentinel (tester agent)  
-**Runtime:** OpenClaw 2026.3.7 | Claude Sonnet 4.5  
-**Environment:** VPS 187.124.147.182 (Hostinger, Ubuntu Docker)  
-**Next review:** After timeout increase + narrative agent profiling
+## Critical (must fix before merge)
+
+### 1. `ratio_metrics.py:174` — Hardcoded `truck_count` / `days_in_period` column names
+```python
+for extra_col in ["truck_count", "days_in_period"]:
+    if extra_col in nd_df.columns:
+        numeric_cols.append(extra_col)
+```
+**Issue:** These column names are trade-dataset-specific. A different dataset with a different denominator resource (e.g., "headcount", "fleet_size") would silently skip this logic. The TODO at line 183 acknowledges this but it's still shipping.
+
+**Fix:** Add a `denominator_columns` or `auxiliary_columns` list to `ratio_config` in the contract YAML. Read those instead of hardcoding.
+
+### 2. `ratio_metrics.py:185` — Hardcoded `"Truck Count"` metric name check
+```python
+use_network_truck_denominator = (
+    ratio_config.get("denominator_metric") == "Truck Count"
+    ...
+)
+```
+**Issue:** This gate is the *only* path to correct network-level denominator aggregation. Any dataset needing the same pattern with a different denominator name gets wrong results — **silent data corruption**.
+
+**Fix:** Use `ratio_config.get("denominator_aggregation_strategy") == "network_daily_average"` instead of checking the metric name.
+
+---
+
+## Warning (fix soon)
+
+### 3. `period_totals.py:123-135` — Fragile contract metric lookup
+```python
+denom_metric_config = next(
+    (m for m in getattr(ctx.contract, "metrics", []) 
+     if getattr(m, "name", "") == denom_metric),
+    None
+)
+```
+**Issue:** Good that this was made contract-driven (the original hardcoded `"Truck Count"` was removed). However, the fallback on exception is `pass` with `denom_needs_daily_avg = False`, which silently falls back to `sum` aggregation. If the contract is misconfigured, you get wrong numbers with no warning.
+
+**Fix:** Log a warning when the metric isn't found in the contract. Add a state assertion in dev/test mode.
+
+### 4. `agent.py:1168,1176` — Hardcoded example values in prompt enforcement blocks
+```python
+"- Vague references: \"significant increase\", \"multiple regions\"\n"
+...
+"The West region contributed $31.66M (32.6% of network variance)..."
+```
+**Issue:** The numeric enforcement examples reference "West region", "$31.66M", and other trade-data-specific values. These are baked into the prompt template, not dynamically generated from the actual dataset. This biases the LLM toward outputting trade-data-like language for any dataset.
+
+**Fix:** Either make examples generic (no domain-specific entity names) or template them from session state / contract metadata.
+
+### 5. Prompt token bloat — `executive_brief.md` at 7,843 chars
+| File | Chars | Status |
+|------|-------|--------|
+| `config/prompts/executive_brief.md` | 7,843 | ⚠️ Over 3,000 limit (2.6×) |
+| `report_synthesis_agent/prompt.py` | 6,022 | ⚠️ Over 3,000 limit (2.0×) |
+| `narrative_agent/prompt.py` | 2,791 | ✅ Under limit |
+
+The executive brief prompt *plus* the new inline numeric enforcement blocks (added in this batch) compound the token cost significantly. Every network brief LLM call now sends the 7.8K prompt + ~1.5K enforcement block + all the data context.
+
+**Fix:** Consider extracting the numeric enforcement into a reusable few-shot template referenced by name, or move validation to post-processing only (you already have `_validate_structured_brief`).
+
+### 6. `agent.py` — Duplicate enforcement blocks (network vs scoped)
+Lines 1153–1187 and 1430–1462 contain near-identical numeric enforcement text, differing only in the threshold (3 vs 2 numeric values). This is ~60 lines of duplication.
+
+**Fix:** Extract to a helper function: `_build_numeric_enforcement(min_values: int, is_scoped: bool) -> str`.
+
+---
+
+## ADK Compliance
+
+- ✅ `_apply_section_contract` correctly normalizes LLM output post-hoc (good defensive pattern)
+- ✅ `_validate_structured_brief` adds forbidden-title detection — good belt-and-suspenders
+- ✅ `period_totals.py` now reads `aggregation_method` from contract (Production Learning #1 compliance)
+- ⚠️ `ratio_metrics.py` still has 2 hardcoded TODOs — partial compliance only
+
+---
+
+## Unused Imports (cleanup)
+
+**57 potentially unused imports detected.** Most are `from __future__ import annotations` (harmless) and `from typing import ...` (used as type hints in signatures, not at runtime). Notable actionable ones:
+
+| File | Import | Action |
+|------|--------|--------|
+| `dynamic_parallel_agent.py:1` | `import time` | Remove if unused |
+| `compute_new_lost_same_store.py:29` | `import numpy as np` | Verify usage |
+| `detect_mad_outliers.py:27` | `from io import StringIO` | Verify usage |
+| `detect_change_points.py:30` | `from io import StringIO` | Verify usage |
+| `compute_forecast_baseline.py:27` | `from io import StringIO` | Verify usage |
+| `compute_seasonal_decomposition.py:29` | `from io import StringIO` | Verify usage |
+| `compute_derived_metrics.py:39` | `from io import StringIO` | Verify usage |
+| `compute_outlier_impact.py:26` | `from scipy import stats` | Verify usage |
+
+**Recommendation:** Run `pylint --disable=all --enable=W0611` or `ruff check --select F401` for definitive dead import detection.
+
+---
+
+## Observations
+
+1. **Good trajectory:** The last 10 commits show a clear pattern of removing hardcoded assumptions and making things contract-driven. The `period_totals.py` change is a textbook fix.
+
+2. **ratio_metrics.py is the last holdout:** It's the only file still gating logic on literal metric names (`"Truck Count"`). Both TODOs should be addressed before this pattern is forgotten.
+
+3. **Prompt engineering arms race:** The numeric enforcement blocks are a workaround for LLM non-compliance. This adds token cost on every call. Consider whether the post-hoc validation in `_validate_structured_brief` is sufficient alone — if validation catches and retries, you may not need the verbose in-prompt enforcement.
+
+4. **4 doc files in 10 commits:** `DEVLOG`, `DEV_ITERATION`, `DEV_ITERATION_REPORT`, `DEV_SESSION` — that's a lot of session logging. Consider consolidating to one format.
+
+---
+
+*Generated by Arbiter (reviewer agent) — 2026-03-13 02:17 UTC*

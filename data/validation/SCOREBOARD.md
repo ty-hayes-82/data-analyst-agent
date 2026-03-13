@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-12T21:43:14
+**Last updated:** 2026-03-13T02:15:36
 
 ## Current State
 - **Unit Tests:** 298 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 202 files, 33,513 lines, **64 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (1497L)
-- **Commit:** `953fe18 docs: dev session summary - executive brie`
+- **Codebase:** 202 files, 33,646 lines, **64 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (1599L)
+- **Commit:** `acf7567 fix: add explicit numeric value enforcemen`
 
 ## Progress Over Time
 
@@ -182,78 +182,15 @@
 | 167 | 20:56 | `714cc4e` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 | 168 | 21:15 | `00cb048` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 | 169 | 21:43 | `953fe18` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 170 | 22:24 | `97dbe36` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 171 | 23:30 | `6b5e90a` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 172 | 00:51 | `ff6cf70` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 173 | 01:29 | `5061f7e` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 174 | 01:52 | `ed54880` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 175 | 02:15 | `acf7567` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
 - Tests: 247 → **298** (+51)
 - Failures: 0 → **0**
 - Files >200L: 50 → **64** (+14)
-- Iterations: 169
-
-## E2E Verification Run - 2026-03-12 21:37 UTC
-
-**Tester**: Sentinel (automated cron: tester-e2e-001)
-
-### Test Results
-| Metric | Value |
-|--------|-------|
-| Tests Passed | 298 |
-| Tests Skipped | 6 |
-| Tests Failed | 0 |
-| Duration | 30.95s |
-| Status | ✅ PASS |
-
-### Baseline Comparison
-- Baseline: 236 tests
-- Current: 298 tests
-- **Delta**: +62 tests (+26%)
-
-### Pipeline Component Tests
-
-#### 1. Auto-Extraction (No Env Vars)
-```bash
-python -m data_analyst_agent.agent "Analyze all metrics"
-```
-- ✅ Contract loaded: Trade Data v1.0.0
-- ✅ Auto-extracted metrics: `['trade_value_usd', 'volume_units']`
-- ✅ Output dir created: `outputs/trade_data/20260312_213753/`
-- ⏱️ Full completion: timeout (exec limit 180s)
-
-#### 2. Single Metric Test
-```bash
-DATA_ANALYST_METRICS=volume_units python -m data_analyst_agent.agent "Analyze volume"
-```
-- ✅ Env var parsed correctly
-- ✅ Output dir created: `outputs/trade_data/20260312_214106/`
-- ⏱️ Full completion: timeout (exec limit 180s)
-
-#### 3. Output Structure Verification
-```bash
-ls -la outputs/trade_data/
-```
-- ✅ 442 timestamped directories present
-- ✅ Format: `YYYYMMDD_HHMMSS/`
-- ✅ Subdirectories: `alerts/`, `debug/`, `logs/`
-- ✅ Artifacts: `metric_*.json`, `metric_*.md`
-
-### Component Health
-- ✅ Contract-driven metrics (no hardcoding)
-- ✅ Data fetch (258,624 rows, 30.8MB cache)
-- ✅ Rule-based planner (no LLM)
-- ✅ Code-based insights
-- ✅ Parallel execution (2 metrics)
-- ✅ Hierarchical drill-down (L0→L1→L2)
-- ✅ Alert scoring (17 alerts extracted)
-
-### Regressions
-**NONE DETECTED**
-
-### Notes
-- Pipeline timeouts due to exec timeout (180s), not code failures
-- All critical components verified working
-- Test suite expansion: +62 tests indicates growing coverage
-- Recommend increasing exec timeout to 240s for full E2E runs
-
-### Conclusion
-✅ **System healthy**. All core functionality verified. Test suite passing at 98% (298/304).
-
----
+- Iterations: 175
