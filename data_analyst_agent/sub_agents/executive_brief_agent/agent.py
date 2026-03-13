@@ -569,7 +569,32 @@ def _validate_structured_brief(
         is_scoped: True for entity-scoped briefs (relaxed validation).
     """
 
+    # Forbidden titles that should have been mapped by _apply_section_contract
+    FORBIDDEN_TITLES = {
+        "Opening",
+        "Top Operational Insights", 
+        "Network Snapshot",
+        "Focus For Next Week",
+        "Leadership Question",
+        "Recommended Actions",
+    }
+
     errors: list[str] = []
+    
+    # Check for forbidden section titles FIRST (these should never appear after normalization)
+    body = brief.get("body") or {}
+    sections = body.get("sections") or []
+    if isinstance(sections, list):
+        for idx, section in enumerate(sections):
+            if not isinstance(section, dict):
+                continue
+            title = str(section.get("title") or "").strip()
+            if title in FORBIDDEN_TITLES:
+                errors.append(
+                    f"FORBIDDEN section title '{title}' at position {idx}. "
+                    "Use required titles: Executive Summary, Key Findings, Forward Outlook"
+                )
+    
     header = brief.get("header") or {}
     header_title = str(header.get("title") or "").strip()
     header_summary = str(header.get("summary") or "").strip()
