@@ -360,8 +360,8 @@ def _apply_share_materiality(
         return nd_df
 
     m_col = level_col if level_col != "_total_agg" else grain_col
-    if use_network_truck_denominator and "terminal" in nd_df.columns:
-        _grain_terminal = nd_df.groupby([time_col, m_col, "terminal"], dropna=False).agg(
+    if use_network_truck_denominator and grain_col in nd_df.columns:
+        _grain_terminal = nd_df.groupby([time_col, m_col, grain_col], dropna=False).agg(
             truck_total=("truck_count", "max"),
             days_max=("days_in_period", "max"),
         ).reset_index()
