@@ -99,7 +99,8 @@ def load_validation_data(
     except FileNotFoundError:
         # In CI/dev environments the raw validation TSV may be absent.
         # Return an empty frame so downstream tests can skip gracefully.
-        return pd.DataFrame(columns=["region", "terminal", "metric", "week_ending", "value"])
+        # Note: Returning empty DataFrame with no columns - caller should handle missing data appropriately
+        return pd.DataFrame()
 
     # --- CACHE: Try to return full long-format DF from memory ---
     if (_cache['full_df'] is not None and 
