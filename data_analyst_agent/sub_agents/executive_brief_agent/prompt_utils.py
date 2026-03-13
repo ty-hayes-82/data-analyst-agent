@@ -255,10 +255,37 @@ def _format_brief(brief: dict[str, Any]) -> str:
 
 
 def _format_brief_with_fallback(brief_data: dict[str, Any], digest: str) -> tuple[str, bool]:
-    """Return (markdown, used_fallback) for the formatted brief."""
+    """Return (markdown, used_fallback) for the formatted brief.
+    
+    Checks for placeholder/fallback content that indicates LLM didn't generate
+    substantive analysis. Returns structured fallback if detected.
+    """
     formatted = _format_brief(brief_data)
     lines = [l for l in formatted.splitlines() if l.strip()]
+    
+    # Check 1: Too few lines (empty/minimal brief)
     if len(lines) <= 3:
         return _build_structured_fallback_markdown(digest), True
+    
+    # Check 2: Contains fallback placeholder text in body sections
+    fallback_lower = SECTION_FALLBACK_TEXT.lower()
+    body = brief_data.get("body", {})
+    sections = body.get("sections", [])
+    
+    # If Key Findings section contains ONLY fallback text → fallback
+    key_findings = next((s for s in sections if s.get("title") == "Key Findings"), None)
+    if key_findings:
+        content = str(key_findings.get("content", "")).strip().lower()
+        insights = key_findings.get("insights", [])
+        
+        # If content is ONLY fallback text AND no substantial insights → fallback
+        if fallback_lower in content:
+            has_substantial_insights = any(
+                len(str(i.get("details", "")).strip()) > len(SECTION_FALLBACK_TEXT) + 10
+                for i in insights if isinstance(i, dict)
+            )
+            if not has_substantial_insights:
+                return _build_structured_fallback_markdown(digest), True
+    
     return formatted, False
 
