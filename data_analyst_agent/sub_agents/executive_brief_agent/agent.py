@@ -854,7 +854,42 @@ async def _llm_generate_brief(
                 fallback_json, fallback_markdown = _structured_fallback(reason)
                 return fallback_json, fallback_markdown, True
             
-            # Apply normalization FIRST to fix structure, then validate
+            # Check for forbidden titles FIRST (before normalization auto-fixes them)
+            FORBIDDEN_TITLES = {
+                "Opening",
+                "Top Operational Insights",
+                "Network Snapshot",
+                "Focus For Next Week",
+                "Leadership Question",
+                "Recommended Actions",
+            }
+            body = brief_data.get("body") or {}
+            sections = body.get("sections") or []
+            forbidden_found: list[str] = []
+            if isinstance(sections, list):
+                for idx, section in enumerate(sections):
+                    if not isinstance(section, dict):
+                        continue
+                    title = str(section.get("title") or "").strip()
+                    if title in FORBIDDEN_TITLES:
+                        forbidden_found.append(f"{title} (position {idx})")
+            
+            if forbidden_found:
+                error_msg = (
+                    f"FORBIDDEN section titles detected: {', '.join(forbidden_found)}. "
+                    "Use required titles: Executive Summary, Key Findings, Forward Outlook."
+                )
+                print(f"[BRIEF] {error_msg}")
+                if attempt < max_attempts:
+                    print(f"[BRIEF] Retrying (attempt {attempt}/{max_attempts})...")
+                    await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
+                    continue
+                else:
+                    print(f"[BRIEF] Max retries exhausted. Falling back to structured digest.")
+                    fallback_json, fallback_markdown = _structured_fallback(error_msg)
+                    return fallback_json, fallback_markdown, True
+            
+            # Apply normalization AFTER validation to fix structure (add missing sections)
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
             else:
