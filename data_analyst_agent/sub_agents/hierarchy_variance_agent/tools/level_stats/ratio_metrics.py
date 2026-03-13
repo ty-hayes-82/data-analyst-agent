@@ -168,19 +168,44 @@ def _aggregate_wide_dataframe(
     nd_df[time_col] = nd_df[time_col].astype(str)
 
     numeric_cols = [ratio_config.get("numerator_metric"), ratio_config.get("denominator_metric")]
-    # Check for auxiliary columns used in network-level ratio aggregation
-    # (e.g., truck_count, days_in_period for trade datasets with vehicle-based denominators)
-    # TODO: Make this contract-driven by reading denominator aggregation strategy from ratio_config
+    
+    # =====================================================================
+    # HARDCODED TRADE-SPECIFIC LOGIC — NEEDS CONTRACT-DRIVEN REPLACEMENT
+    # =====================================================================
+    # Current: Hardcoded auxiliary columns for trade datasets with vehicle-based denominators
+    # 
+    # CONTRACT-DRIVEN REPLACEMENT PLAN:
+    # 1. Add to ratio config schema (contract.yaml metrics section):
+    #    auxiliary_columns: ["truck_count", "days_in_period"]
+    #    denominator_aggregation_strategy: "network_level_resource" | "sum"
+    # 
+    # 2. Replace this loop with:
+    #    auxiliary_cols = ratio_config.get("auxiliary_columns", [])
+    #    for col in auxiliary_cols:
+    #        if col in nd_df.columns:
+    #            numeric_cols.append(col)
+    # =====================================================================
     for extra_col in ["truck_count", "days_in_period"]:
         if extra_col in nd_df.columns:
             numeric_cols.append(extra_col)
     for col in sorted(set(filter(None, numeric_cols))):
         nd_df[col] = pd.to_numeric(nd_df[col], errors="coerce").fillna(0)
 
-    # Special handling: For denominators that represent network-level resources (e.g., "Truck Count"),
-    # aggregate at network level to avoid double-counting when grouping by hierarchy levels.
-    # This is necessary when the denominator is a shared resource (trucks) spread across locations.
-    # TODO: Replace hardcoded "Truck Count" check with ratio_config field: denominator_aggregation_strategy
+    # =====================================================================
+    # HARDCODED TRADE-SPECIFIC LOGIC — NEEDS CONTRACT-DRIVEN REPLACEMENT
+    # =====================================================================
+    # Current: Hardcoded check for "Truck Count" denominator metric name
+    # 
+    # Problem: Prevents ratio metrics from working with other datasets that have
+    # network-level resource denominators (e.g., "Server Count", "Agent Count")
+    # 
+    # CONTRACT-DRIVEN REPLACEMENT PLAN:
+    # Replace this boolean with:
+    #    use_network_level_aggregation = (
+    #        ratio_config.get("denominator_aggregation_strategy") == "network_level_resource"
+    #    )
+    # Then check auxiliary_columns from config instead of hardcoded column names.
+    # =====================================================================
     use_network_truck_denominator = (
         ratio_config.get("denominator_metric") == "Truck Count"
         and "truck_count" in nd_df.columns
