@@ -96,8 +96,8 @@ agents:
 
   # --- Executive Brief: pro — CONFIRMED (Phase 4+, 12.1s, richer specifics than standard 17.8s) ---
   executive_brief_agent:
-    tier: "pro"
-    description: "Cross-metric synthesis executive brief — final analysis tier"
+    tier: "advanced"
+    description: "Cross-metric synthesis executive brief — final analysis tier (optimized)"
 
   # --- Code-backed / file I/O agents: lite ---
   output_persistence_agent:
