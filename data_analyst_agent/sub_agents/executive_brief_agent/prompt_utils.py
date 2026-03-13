@@ -117,7 +117,7 @@ def _build_structured_fallback_markdown(
         lines.append("Metrics tracking within expected ranges compared to recent history.")
         lines.append("")
     action_lines = normalized_recs or []
-    lines.append("## Recommended Actions")
+    lines.append("## Forward Outlook")
     if action_lines:
         for rec in action_lines:
             lines.append(f"- {rec}")

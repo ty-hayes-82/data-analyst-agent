@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-13T02:32:25
+**Last updated:** 2026-03-13T03:45:04
 
 ## Current State
-- **Unit Tests:** 298 passed, 0 failed, 0 errors
+- **Unit Tests:** 291 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 202 files, 33,646 lines, **64 files >200L**
+- **Codebase:** 202 files, 33,680 lines, **64 files >200L**
 - **Largest:** sub_agents/executive_brief_agent/agent.py (1599L)
-- **Commit:** `b5f3b5c docs: dev iteration summary for 2026-03-13`
+- **Commit:** `80e5de0 docs: clarify contract-driven path for rat`
 
 ## Progress Over Time
 
@@ -189,9 +189,10 @@
 | 174 | 01:52 | `ed54880` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 | 175 | 02:15 | `acf7567` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 | 176 | 02:32 | `b5f3b5c` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 177 | 03:45 | `80e5de0` | 291 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **298** (+51)
+- Tests: 247 → **291** (+44)
 - Failures: 0 → **0**
 - Files >200L: 50 → **64** (+14)
-- Iterations: 176
+- Iterations: 177
