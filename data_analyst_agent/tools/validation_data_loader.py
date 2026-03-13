@@ -23,6 +23,37 @@ This loader melts it into a long-format DataFrame compatible with the
 validation_ops DatasetContract:
   - One row per (region, terminal, metric, week_ending) observation
   - Mixed value formats cleaned to numeric float
+
+⚠️  DATASET-SPECIFIC LIMITATION (trade_data validation format)
+================================================================================
+This loader contains HARDCODED column mappings specific to the trade_data
+validation CSV format:
+  - Line 144-148: Column rename map ("Region" → "region", "Terminal" → "terminal")
+  - Line 155: Sort order ["region", "terminal", "metric", "week_ending"]
+  - Line 199: Summary iteration over ("region", "terminal", "metric", "week_ending")
+
+This prevents reuse with datasets that have different validation CSV structures.
+
+TODO for multi-dataset validation support:
+1. Add validation_loader config to contract.yaml:
+   validation:
+     loader:
+       format: "wide_to_long"
+       id_columns: ["Region", "Terminal", "Metric"]
+       column_mapping:
+         Region: region
+         Terminal: terminal
+         Metric: metric
+       time_column: "week_ending"
+       sort_columns: ["region", "terminal", "metric", "week_ending"]
+
+2. Read config in this loader and use for dynamic column handling
+
+3. For datasets without validation CSVs, return empty DataFrame with
+   contract-driven columns instead of hardcoded schema
+
+See: Code Review 2026-03-13, Critical Issue #3
+================================================================================
 """
 
 import os
