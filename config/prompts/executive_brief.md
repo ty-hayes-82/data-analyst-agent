@@ -89,8 +89,8 @@ You are synthesizing {metric_count} metric analyses for {analysis_period} as a *
   - Made-up roles or owners
   - Prescriptive language ("should", "must", "need to")
 
-**❌ BAD:** "Management should monitor freight booking rates and implement corrective actions."  
-**✅ GOOD:** "Based on current trajectory and historical patterns, revenue is likely to remain in the $2.3-2.5M range next week. Best case: Volume recovers to seasonal baseline ($2.8M) if freight demand normalizes. Worst case: Further $500K decline if the East-Central corridor correlation persists. Watch freight booking rates (leading indicator with 5-day lag)."
+**❌ BAD:** "Management should monitor key metrics and implement corrective actions."  
+**✅ GOOD:** "Based on current trajectory and historical patterns, the primary metric is likely to remain in the $2.3-2.5M range next period. Best case: Performance recovers to seasonal baseline ($2.8M) if demand normalizes. Worst case: Further $500K decline if the cross-regional correlation persists. Watch early-cycle indicators (leading indicator with 5-day lag)."
 
 ---
 
@@ -110,7 +110,7 @@ Your job is to ANALYZE and EXPLAIN, not prescribe actions.
 - Prescriptive language ("should", "must", "need to")
 
 **Good Insight Example:**
-"The East region's $1.31M revenue decline correlates (r=0.99) with Central region performance, indicating a systemic freight demand shift affecting multiple interconnected corridors. This pattern mirrors Q4 2024 when similar synchronized drops preceded a 6-week volume recovery. Leading indicators suggest stabilization within 2-3 weeks if historical patterns hold."
+"The primary dimension's $1.31M metric decline correlates (r=0.99) with secondary dimension performance, indicating a systemic demand shift affecting multiple interconnected segments. This pattern mirrors historical precedent when similar synchronized drops preceded a 6-week recovery cycle. Leading indicators suggest stabilization within 2-3 weeks if historical patterns hold."
 
 **Bad Example:**
 "VP of Operations should review East region performance and implement recovery plan by Friday."
@@ -130,7 +130,7 @@ Your job is to ANALYZE and EXPLAIN, not prescribe actions.
 3. **Concrete language:**  
    - Active voice: "East region drove 60%" not "variance was driven by"  
    - Specific numbers: "Lost $1.2M" not "experienced downward pressure"  
-   - Use contract names: "Trucking, Rail, Intermodal" not "3 business lines"
+   - Use contract dimension values: Refer to specific segments by name from the dataset, not generic labels like "3 business lines"
 
 4. **Vary phrasing:** Don't repeat "total revenue" — alternate with "revenue", "top-line performance"
 
