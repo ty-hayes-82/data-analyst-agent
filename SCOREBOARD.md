@@ -105,6 +105,61 @@
 
 ---
 
+---
+
+## Run: 2026-03-13 05:52 UTC (Cron E2E Tester — COMPLETE SUCCESS)
+
+### Test Suite Results
+- **Total Tests**: 291 passed, 13 skipped
+- **Duration**: 31.48s
+- **Baseline**: 236 tests → **+55 tests** (23% growth from historical baseline)
+- **E2E Tests**: 5/5 pass
+- **Unit Tests**: 286/286 pass
+
+### Pipeline Execution Results
+- **Auto-extraction**: ✅ **SUCCESS** — Pipeline completed WITHOUT env vars, auto-extracted both metrics from contract (trade_value_usd, volume_units), full reports generated
+- **Single-metric mode**: ✅ **SUCCESS** — ENV var override (DATA_ANALYST_METRICS=volume_units) recognized, complete analysis with executive brief
+- **Output directories**: ✅ VERIFIED — Timestamped run dirs created (20260313_055252 for multi-metric, 20260313_055618 for single-metric)
+- **Directory structure**: ✅ VERIFIED — alerts/, debug/, logs/ subdirs present, metric JSON/MD files complete
+- **Executive brief**: ✅ GENERATED — brief.md (2.6KB), brief.json, brief.pdf for single-metric; both metrics fully synthesized in multi-metric run
+- **Multi-metric duration**: Pipeline successfully analyzed both metrics with hierarchical drill-down
+- **Single-metric duration**: ~40s (volume_units analysis with executive brief)
+
+### Test Coverage Summary
+- Contract loading: ✅ All pass
+- Statistical insights: ✅ All pass
+- Hierarchical analysis: ✅ All pass
+- Alert scoring: ✅ All pass (17 alerts per metric)
+- Report synthesis: ✅ All pass
+- Data validation: ✅ All pass
+- Integration tests: ✅ All pass
+
+### Critical Issues
+**NONE — All tests passing, BOTH pipeline modes (auto-extract and single-metric) working correctly end-to-end**
+
+### Drill-Down Results
+**trade_value_usd:**
+- Level 0: 1 insight card → CONTINUE
+- Level 1: 4 insight cards (West, South, Midwest, Northeast) → CONTINUE
+- Level 2: 5 insight cards (CA, TX, WA, FL, PA) → STOP (max depth reached)
+- Total variance: $97.2M (+3.0%)
+
+**volume_units:**
+- Level 0: 0 insight cards → STOP (no high-impact findings, correct early termination)
+- Total variance: 33,901 units
+
+### Notes
+1. ✅ **FULL E2E VALIDATION COMPLETE** — All 291 tests pass, both pipeline modes functional
+2. ✅ Auto-metric extraction: Pipeline correctly reads contract and analyzes all metrics when no env var set
+3. ✅ Single-metric override: ENV var correctly filters to single metric (volume_units)
+4. ✅ Hierarchical drill-down logic: Correctly continues on high-impact findings (trade_value_usd) and stops early on low variance (volume_units)
+5. ✅ Executive brief generation: Complete briefs with JSON, Markdown, and PDF outputs
+6. ✅ Alert scoring: Code-based pipeline extracting 17 alerts per metric
+7. ✅ Output persistence: All artifacts correctly saved to timestamped directories
+8. ✅ No regressions detected — system stable and fully functional
+
+---
+
 ## Historical Baseline (2026-03-10)
 - Tests: 236 pass
 - E2E: 5/5 pass
