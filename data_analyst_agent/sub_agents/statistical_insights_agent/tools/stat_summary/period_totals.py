@@ -112,15 +112,31 @@ def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> 
 
         if num_metric in nd_df.columns and denom_metric in nd_df.columns:
             num_agg = nd_df.groupby(tcol)[num_metric].sum()
-            # TODO: Make this contract-driven via metric.aggregation_method property
-            # Currently hardcoded for backward compatibility with Swoop Golf dataset
-            # Should check contract.get_metric(denom_metric).aggregation_method == "daily_average"
-            if denom_metric == "Truck Count" and "truck_count" in nd_df.columns and "days_in_period" in nd_df.columns:
+            # Contract-driven aggregation method check
+            denom_needs_daily_avg = False
+            if ctx and ctx.contract:
+                try:
+                    denom_metric_config = next(
+                        (m for m in getattr(ctx.contract, "metrics", []) 
+                         if getattr(m, "name", "") == denom_metric),
+                        None
+                    )
+                    if denom_metric_config:
+                        agg_method = getattr(denom_metric_config, "aggregation_method", "sum")
+                        denom_needs_daily_avg = agg_method == "daily_average"
+                except Exception:
+                    pass
+            
+            # Use daily average aggregation if specified in contract
+            denom_col = denom_metric.lower().replace(" ", "_")
+            if (denom_needs_daily_avg 
+                and denom_col in nd_df.columns 
+                and "days_in_period" in nd_df.columns):
                 period_totals = nd_df.groupby(tcol).agg(
-                    truck_total=("truck_count", "sum"),
+                    metric_total=(denom_col, "sum"),
                     days_max=("days_in_period", "max"),
                 )
-                net_denom = period_totals["truck_total"] / period_totals["days_max"].replace(0, float("nan"))
+                net_denom = period_totals["metric_total"] / period_totals["days_max"].replace(0, float("nan"))
                 denom_agg = net_denom
             else:
                 denom_agg = nd_df.groupby(tcol)[denom_metric].sum()
