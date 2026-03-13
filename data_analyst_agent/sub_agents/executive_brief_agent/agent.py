@@ -399,7 +399,21 @@ TOP_INSIGHT_MIN_COUNT = 3
 
 
 def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]]) -> dict:
-    """Ensure the LLM JSON matches the required section titles/order."""
+    """Ensure the LLM JSON matches the required section titles/order.
+    
+    This function maps forbidden section titles to their correct equivalents,
+    then ensures all required sections are present in the correct order.
+    """
+    # Title mapping for common LLM mistakes
+    FORBIDDEN_TITLE_MAPPING = {
+        "Opening": "Executive Summary",
+        "Top Operational Insights": "Key Findings",
+        "Network Snapshot": "Key Findings",  # Merge into Key Findings
+        "Focus For Next Week": "Forward Outlook",
+        "Leadership Question": "Forward Outlook",  # Merge into Forward Outlook
+        "Recommended Actions": "Forward Outlook",  # Actions belong in Forward Outlook (analytical)
+    }
+    
     header = brief.setdefault("header", {})
     header_title = str(header.get("title") or "").strip()
     header_summary = str(header.get("summary") or "").strip()
@@ -408,11 +422,45 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
 
     body = brief.setdefault("body", {})
     existing_sections = {}
-    for raw in body.get("sections", []) or []:
-        if isinstance(raw, dict):
-            title = str(raw.get("title") or "").strip()
-            if title:
-                existing_sections[title] = raw
+    
+    # First pass: map forbidden titles to correct ones, merging content when needed
+    raw_sections = body.get("sections", []) or []
+    for raw in raw_sections:
+        if not isinstance(raw, dict):
+            continue
+        title = str(raw.get("title") or "").strip()
+        if not title:
+            continue
+            
+        # Map forbidden title to correct one
+        correct_title = FORBIDDEN_TITLE_MAPPING.get(title, title)
+        
+        # If we already have this section (e.g., multiple sections mapped to Key Findings),
+        # merge the insights
+        if correct_title in existing_sections:
+            existing = existing_sections[correct_title]
+            new_insights = raw.get("insights", [])
+            if isinstance(new_insights, list):
+                existing_insights = existing.get("insights", [])
+                if not isinstance(existing_insights, list):
+                    existing_insights = []
+                existing_insights.extend(new_insights)
+                existing["insights"] = existing_insights
+            # Concatenate content
+            new_content = str(raw.get("content") or "").strip()
+            if new_content:
+                existing_content = str(existing.get("content") or "").strip()
+                if existing_content:
+                    existing["content"] = f"{existing_content} {new_content}"
+                else:
+                    existing["content"] = new_content
+        else:
+            # Create new section with correct title
+            existing_sections[correct_title] = {
+                "title": correct_title,
+                "content": raw.get("content", ""),
+                "insights": raw.get("insights", [])
+            }
 
     def _placeholder_insight(section_title: str, idx: int) -> dict[str, str]:
         suffix = f" {idx + 1}" if idx else ""
