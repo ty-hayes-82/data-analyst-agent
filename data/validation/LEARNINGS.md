@@ -524,3 +524,135 @@ Combined bloat: **~14K chars** of prompt text in the two over-limit files. With 
 Pipeline is validated for contract-driven multi-metric analysis. Both auto-extraction and override paths work as designed.
 
 **Full report:** `data/validation/E2E_VALIDATION_2026-03-13.md`
+
+---
+
+# Code Review — 2026-03-13 04:42 UTC (Arbiter Scheduled Audit)
+
+**Commit range:** `cdd0505..dd843d0` (last 10 commits)
+**New since last audit (04:12):** 6 commits (`ec8a3c9..dd843d0`)
+**Scope:** 13 files changed since `80e5de0`, +1113 / -105 lines
+**Trigger:** Scheduled cron audit `reviewer-audit-001`
+
+---
+
+## New Commits Since Last Audit
+
+| Commit | Type | Assessment |
+|--------|------|------------|
+| `dd843d0` docs: cron job summary for dev iterate | 📝 Docs | ✅ Good — audit trail |
+| `d031ec6` feat: add pipeline profiling infrastructure | ✨ Feature | ✅ Good — see review below |
+| `27f51a1` chore: verify pipeline quality | 🔍 Verification | ✅ OK — validation pass |
+| `b4c4ebd` doc: Dev Iterate 001 results summary | 📝 Docs | ✅ Good — iteration tracking |
+| `8384104` fix: 'Recommended Actions' → 'Forward Outlook' (renderers) | 🐛 Fix | ✅ Good — see review below |
+| `ec8a3c9` fix: 'Recommended Actions' → 'Forward Outlook' (schema) | 🐛 Fix | ✅ Good — see review below |
+
+**Verdict:** Clean. 2 code fixes + 1 feature + 3 docs. No issues.
+
+---
+
+## New Code Review
+
+### ✅ `ec8a3c9` + `8384104` — "Forward Outlook" rename (GOOD)
+
+Three files updated consistently:
+- **`prompt_utils.py`**: Fallback markdown + structured brief both emit `"Forward Outlook"` ✅
+- **`pdf_renderer.py`**: Added `"Forward Outlook"` as current + kept `"Recommended Actions"` as legacy ✅ (backward-compatible)
+- **`html_renderer.py`**: Added `"Forward Outlook"` to heading styles list ✅
+
+**One nit:** `html_renderer.py:170` now has *both* "Forward Outlook" and "Recommended Actions" in the style list, which is correct for backward compatibility. But if legacy briefs are never re-rendered, `"Recommended Actions"` could be pruned later. Not blocking.
+
+### ✅ `d031ec6` — Pipeline profiling infrastructure (GOOD)
+
+New files:
+- **`docs/PROFILING.md`** (130 lines): Documents performance baseline, optimization strategies, measurement methodology. Well-structured.
+- **`scripts/profile_pipeline.sh`** (50 lines): Wrapper script with `set -e`, parameterized dataset/metrics, tee to log file. Clean.
+- **`config/agent_models.yaml`** changes: Minor model config adjustments.
+
+**Assessment:** Good scaffolding for Goal 3 (performance optimization). The profiling doc correctly identifies narrative_agent (~17s) and report_synthesis_agent (~36s) as bottlenecks, which aligns with the prompt bloat findings below.
+
+---
+
+## 🔴 Critical — Still Open (1h 18m since first flagged)
+
+### 1. `ratio_metrics.py:174` — Hardcoded `["truck_count", "days_in_period"]`
+Trade-specific auxiliary columns. Other datasets silently skip network-level aggregation.
+→ **Fix:** `auxiliary_columns` list in `ratio_config` contract schema.
+→ **Note:** Developer added detailed TODO comments (lines 171-188) documenting the exact replacement plan. Good intent, needs execution.
+
+### 2. `ratio_metrics.py:185` — Hardcoded `"Truck Count"` string gate
+Controls denominator aggregation strategy. Wrong results for any other denominator name.
+→ **Fix:** `denominator_aggregation_strategy: "network_level_resource"` in contract.
+→ **Note:** Developer added detailed TODO comments (lines 190-207) with replacement plan. Needs execution.
+
+### 3. `validation_data_loader.py:137-199` — Full column schema hardcoded
+Core loading path hardcodes `"week_ending"`, rename map, sort order, validation columns. Cannot load non-trade datasets.
+→ **Fix:** Contract-driven column mapping.
+
+**Observation on #1 and #2:** The TODO comments added in `ratio_metrics.py` (visible in the diff) are *excellent* — they document exactly what the contract schema change should look like and what code to replace. This is the kind of debt annotation that makes future fixes trivial. But the comments alone don't fix the problem — the contract schema and code changes still need to happen.
+
+---
+
+## 🟡 Warning — Still Open
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 4 | `agent.py:1168,1176,1444` — Trade-specific example text | Open | prompt-engineer task |
+| 5 | `agent.py` duplicate enforcement blocks (~60 lines) | Open | dev task |
+| 6 | Prompt bloat: `executive_brief.md` 7,843 chars (2.6×) | Open | **Now higher priority** — profiling infra (d031ec6) identifies narrative+synthesis agents as bottlenecks; prompt compression directly addresses this |
+| 6b | Prompt bloat: `report_synthesis/prompt.py` 6,022 chars (2.0×) | Open | Same — synthesis agent is 36s, prompt is 2× over limit |
+| 7 | `"regional_analysis"` domain-specific tag names | Open | Low priority |
+
+**New connection:** The profiling infrastructure (Goal 3) and the prompt bloat warnings (#6, #6b) are now directly linked. The PROFILING.md doc recommends "prompt length reduction" as Strategy #1 with 20-30% latency improvement expected. This validates the prompt compression recommendation from earlier audits. **Prompt-engineer should prioritize items #6 and #6b as they directly support Goal 3.**
+
+---
+
+## 🟢 Unused Imports — Still Open
+
+**166 total flagged by AST scan** (many are `__future__` annotations and typing-only — not actionable).
+**~23 definite dead imports** (real code, not type hints).
+
+Top priority unchanged:
+- `dynamic_parallel_agent.py:8` — `import time` (dead)
+- `semantic/quality.py` — `numpy`, `QualityGateError` (dead)
+- `semantic/models.py` — `ContractValidationError` (dead)
+- `compute_new_lost_same_store.py:29` — `numpy as np` (dead)
+- `detect_mad_outliers.py:27` — `StringIO` (dead)
+- `detect_change_points.py:30` — `StringIO` (dead)
+
+**Fix:** `pip install ruff && ruff check --select F401 data_analyst_agent/ --fix`
+
+---
+
+## Prompt Token Efficiency — Unchanged
+
+| File | Chars | vs 3K Limit | Linked to |
+|------|-------|-------------|-----------|
+| `config/prompts/executive_brief.md` | **7,843** | ⚠️ 2.6× over | Goal 3 perf |
+| `report_synthesis_agent/prompt.py` | **6,022** | ⚠️ 2.0× over | Goal 3 perf (36s agent) |
+| `narrative_agent/prompt.py` | 2,791 | ✅ Under | Goal 3 perf (17s agent) |
+
+**New insight from PROFILING.md:** The two over-limit prompt files correspond to the two slowest agents. Prompt compression is the lowest-effort, highest-impact optimization available.
+
+---
+
+## Cumulative Action Items
+
+| # | Priority | Item | Owner | Since | Status |
+|---|----------|------|-------|-------|--------|
+| 1 | 🔴 | `auxiliary_columns` in ratio contract config | dev | 03:24 | Open (TODO comments added) |
+| 2 | 🔴 | `denominator_aggregation_strategy` in contract | dev | 03:24 | Open (TODO comments added) |
+| 3 | 🔴 | Contract-driven column mapping in loader | dev | 03:24 | Open |
+| 4 | 🟡 | Generic prompt examples (not trade-specific) | prompt-engineer | 03:24 | Open |
+| 5 | 🟡 | Extract duplicate enforcement blocks | dev | 03:24 | Open |
+| 6 | 🟡→🔶 | **Compress prompts <3K chars** | prompt-engineer | 03:24 | **Elevated** — directly supports Goal 3 perf targets |
+| 7 | 🟡 | Rename `regional_analysis` → `dimension_analysis` | dev | 03:24 | Open |
+| 8 | 🟢 | Remove ~23 unused imports (`ruff --fix`) | dev | 03:24 | Open |
+| 9 | 🟢 | Add synthetic dataset with alt columns for CI | tester | 03:46 | Open |
+| 10 | 🟢 | Monitor exec brief quality post-model downgrade | analyst | 03:46 | Open |
+
+**Priority change:** Item #6 elevated from 🟡 to 🔶 (high-warning). The profiling infrastructure confirms prompt compression is the #1 optimization lever for the two slowest agents (narrative: 17s, synthesis: 36s). This should be the next prompt-engineer task.
+
+---
+
+*Generated by Arbiter (reviewer agent) — 2026-03-13 04:42 UTC — Scheduled audit `reviewer-audit-001`*
