@@ -152,7 +152,8 @@ class ValidationCSVFetcher(BaseAgent):
 
         time_cfg = getattr(contract, "time", None)
         time_column = getattr(time_cfg, "column", None) if time_cfg else None
-        time_column = time_column or "week_ending"
+        if not time_column:
+            raise ValueError("ValidationCSVFetcher: contract.time.column is required but not configured")
         period_label = _friendly_label(
             getattr(time_cfg, "display_name", None)
             or getattr(time_cfg, "label", None)
