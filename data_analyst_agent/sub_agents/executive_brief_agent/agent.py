@@ -1153,8 +1153,33 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"{', '.join(f'\"{t}\"' for t in expected_sections)}\n\n"
         )
         
+        # Build numeric value enforcement for network briefs
+        network_numeric_enforcement = (
+            "⚠️ NUMERIC VALUE REQUIREMENT (MANDATORY — YOUR RESPONSE WILL BE REJECTED IF VIOLATED):\n"
+            "Each Key Findings insight MUST contain AT LEAST 3 SPECIFIC NUMERIC VALUES.\n\n"
+            "✅ VALID numeric values (count toward requirement):\n"
+            "- Dollar amounts: \"$420K\", \"$1.5M\", \"+$316,042\"\n"
+            "- Percentages: \"22%\", \"+3.2%\", \"-15.7%\"\n"
+            "- Units with scale: \"503K units\", \"1.8M\"\n"
+            "- Baseline comparisons: \"vs $2.1M prior week\", \"compared to 195K average\"\n"
+            "- Statistical measures: \"z-score 2.06\", \"p-value 0.003\", \"r=0.99\"\n"
+            "- Entity breakdowns: \"West: $1.8M, South: $1.2M, Midwest: $800K\"\n\n"
+            "❌ INVALID (do NOT count):\n"
+            "- Vague references: \"significant increase\", \"multiple regions\"\n"
+            "- Generic counts: \"3 states\", \"several ports\"\n"
+            "- Ordinal only: \"top driver\", \"primary segment\"\n\n"
+            "VALIDATION: Your response will be parsed and each Key Findings insight will be checked for ≥3 numeric values.\n"
+            "If ANY insight has <3 numeric values → AUTOMATIC RETRY (max 3 attempts).\n"
+            "After 3 failed attempts → your response is DISCARDED.\n\n"
+            "EXAMPLE VALID INSIGHT:\n"
+            "\"details\": \"Trade value increased $97.22M (+3.0%) compared to the prior week, reaching $3.35B. "
+            "The West region contributed $31.66M (32.6% of network variance), while the South added $28.40M (+3.3% WoW).\"\n"
+            "→ Contains 7 numeric values: $97.22M, +3.0%, prior week baseline, $3.35B, $31.66M, 32.6%, $28.40M ✅\n\n"
+        )
+        
         user_message = (
             f"{section_title_reminder}"  # FIRST — most visible position
+            f"{network_numeric_enforcement}"  # SECOND — critical for validation
             f"{json_enforcement_block}"
             f"{focus_preamble_text}"
             f"{contract_summary_block}"
@@ -1405,8 +1430,32 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             f"{', '.join(f'\"{t}\"' for t in scoped_expected_sections)}\n\n"
                         )
                         
+                        # Build numeric value enforcement for scoped briefs
+                        scoped_numeric_enforcement = (
+                            "⚠️ NUMERIC VALUE REQUIREMENT (MANDATORY — YOUR RESPONSE WILL BE REJECTED IF VIOLATED):\n"
+                            "Each Key Findings insight MUST contain AT LEAST 2 SPECIFIC NUMERIC VALUES.\n\n"
+                            "✅ VALID numeric values (count toward requirement):\n"
+                            "- Dollar amounts: \"$420K\", \"$1.5M\", \"+$316,042\"\n"
+                            "- Percentages: \"22%\", \"+3.2%\", \"-15.7%\"\n"
+                            "- Units with scale: \"503K units\", \"1.8M\"\n"
+                            "- Baseline comparisons: \"vs $2.1M prior week\", \"compared to 195K average\"\n"
+                            "- Statistical measures: \"z-score 2.06\", \"p-value 0.003\", \"r=0.99\"\n\n"
+                            "❌ INVALID (do NOT count):\n"
+                            "- Vague references: \"significant increase\", \"multiple regions\"\n"
+                            "- Generic counts: \"3 states\", \"several ports\"\n"
+                            "- Ordinal only: \"top driver\", \"primary segment\"\n\n"
+                            "VALIDATION: Your response will be parsed and each Key Findings insight will be checked for ≥2 numeric values.\n"
+                            "If ANY insight has <2 numeric values → AUTOMATIC RETRY (max 2 attempts).\n"
+                            "After 2 failed attempts → your response is DISCARDED.\n\n"
+                            "EXAMPLE VALID INSIGHT:\n"
+                            "\"details\": \"Trade value in {entity} increased $420K (+3.2%) compared to the prior week, reaching $1.8M. "
+                            "This growth represents 22% of the total network variance and was driven primarily by CA ports (+$316K).\"\n"
+                            "→ Contains 6 numeric values: $420K, +3.2%, prior week baseline, $1.8M, 22%, +$316K ✅\n\n"
+                        )
+                        
                         scoped_user_message = (
                             f"{scoped_section_reminder}"  # FIRST — most visible
+                            f"{scoped_numeric_enforcement}"  # SECOND — critical for validation
                             f"{scoped_json_enforcement}"
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"
