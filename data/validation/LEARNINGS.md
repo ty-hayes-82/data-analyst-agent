@@ -1,129 +1,112 @@
-# Code Review — 2026-03-13 05:50 UTC (Arbiter Audit)
+# Code Review — 2026-03-17 17:04 UTC (Arbiter Audit)
 
-**Commit range:** `dd843d0..dd5e477` (last 10 commits)  
-**Scope:** 19 files changed, 1845 insertions, 428 deletions  
-**Previous audit:** 05:15 UTC (1bed93f)
-
----
-
-## ✅ Fixed Since Last Audit
-
-### 1. Executive Brief Prompt Token Reduction ✅ (commit 1643033)
-`config/prompts/executive_brief.md` reduced from ~8000 chars → 4618 chars (42% reduction). Good. Still over 3000 char threshold — see Warning #2.
-
-### 2. Narrative Dimension Prioritization Now Contract-Driven ✅ (commit 0f4cc4d)
-`generate_narrative_summary.py` — `_generic_key_priority()` now accepts `dimension_priority` dict from contract hierarchy. Falls back to heuristic patterns only when contract doesn't specify. Clean fix.
-
-### 3. Executive Brief Fallback Detection Improved ✅ (commit 0f4cc4d)
-`prompt_utils.py` — `_format_brief_with_fallback()` now checks for placeholder text in Key Findings body, not just line count. Prevents briefs with SECTION_FALLBACK_TEXT from passing as valid.
-
-### 4. max_output_tokens Reduced ✅ (commit dae6111)
-- `narrative_agent/agent.py`: 4096 → 2048 (typical output ~800-1200 tokens)
-- `report_synthesis_agent/agent.py`: 4096 → 2048 (typical output ~600-800 tokens)
-Good cost optimization. Both locations updated consistently.
-
-### 5. Validation Data Loader Documentation ✅ (commit fb355be)
-`validation_data_loader.py` now has clear docstring noting dataset-specific limitations and TODO for contract-driven validation config. Acknowledges the tech debt properly.
+**Commit range:** `fb355be..cf881d8` (last 10 commits)  
+**Scope:** 7 source files changed + 9 doc files, ~1990 insertions  
+**Previous audit:** 2026-03-13 05:50 UTC (979ed10)
 
 ---
 
 ## Critical (must fix before merge)
 
-*None identified in this commit range.* Previous critical issues (hardcoded fallbacks in ratio_metrics, data_prep, outlier_impact, validation_csv_fetcher, validation_data_loader) remain fixed.
+_None._ No new data integrity or pipeline-breaking issues detected.
 
 ---
 
 ## Warning (fix soon)
 
-### 1. Unused Imports — 140+ across codebase (ELEVATED from previous audit)
-**Status: Persists.** This was flagged as critical in the 05:15 UTC audit. Still not addressed.
+### 1. Unused imports — 60+ across codebase (PERSISTENT)
 
-**Highest priority (non-`annotations` imports that indicate dead code):**
+This was flagged in the previous two audits and remains unaddressed. Key offenders:
 
-| File | Import | Risk |
-|------|--------|------|
-| `agent.py:79-80` | `root_agent as statistical_insights_agent`, `root_agent as hierarchical_analysis_agent` | Dead agent references — possible broken wiring |
-| `semantic/quality.py:2` | `numpy as np` | Unused heavy dependency |
-| `semantic/models.py:6` | `ContractValidationError` | Dead error handling path |
-| `hierarchy_variance_agent/tools/compute_mix_shift_analysis.py:27` | `pandas as pd` | Unused heavy dependency |
-| `hierarchy_variance_agent/tools/compute_pvm_decomposition.py:28` | `pandas as pd` | Unused heavy dependency |
-| `statistical_insights_agent/tools/compute_new_lost_same_store.py:29` | `numpy as np` | Unused heavy dependency |
-| `report_synthesis_agent/prompt.py:26` | `os` | Dead env access |
-| `report_synthesis_agent/tools/export_pdf_report.py:44` | `CSS` | Dead weasyprint dependency |
-| `tableau_hyper_fetcher/fetcher.py:37` | `HyperConnectionManager` | Dead connection manager reference |
-| `dynamic_parallel_agent.py:8` | `time` | Dead timing code |
+**High-priority (real library imports wasting load time):**
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_new_lost_same_store.py:29` — `import numpy` (unused)
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_outlier_impact.py:26` — `from scipy import stats` (unused, heavy import)
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_mad_outliers.py:27` — `from io import StringIO` (unused)
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_change_points.py:30` — `from io import StringIO` (unused)
+- `data_analyst_agent/semantic/quality.py:2` — `import numpy` (unused)
 
-**~60 `from __future__ import annotations` imports** — these are harmless PEP 563 forward refs, likely intentional. Low priority.
+**Medium-priority (typing imports — no runtime cost but code noise):**
+- `data_analyst_agent/config.py:19` — `Optional`
+- `data_analyst_agent/cli_validator.py:9` — `Optional`
+- `data_analyst_agent/tools/should_fetch_supplementary_data.py:17` — `Dict`
+- `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:1` — `List`, `Any`
+- `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:8` — `import time`
+- `data_analyst_agent/utils/phase_logger.py:39` — `List`
+- `data_analyst_agent/semantic/lag_utils.py:1` — `Optional`
+- `data_analyst_agent/semantic/policies.py:2` — `List`, `Dict`, `Union`
+- `data_analyst_agent/semantic/quality.py:3` — `Dict`, `Any`, `Optional`
+- `data_analyst_agent/semantic/quality.py:5` — `QualityGateError`
+- `data_analyst_agent/semantic/models.py:6` — `ContractValidationError`
+- Multiple `from __future__ import annotations` in files that don't use any PEP 604+ syntax
 
-**~30 unused `typing` imports** (Any, Dict, List, Optional, etc.) — cleanup noise but not harmful.
+**Recommendation:** Run `ruff check --select F401 data_analyst_agent/` to auto-detect, then `ruff check --select F401 --fix` to auto-remove. One commit, done.
 
-**The 10 items above are real dead code signals.** Particularly `agent.py:79-80` — if those agent modules aren't being imported correctly, sub-agent wiring may be silently broken.
+---
 
-**Recommendation:** Run `ruff check --select F401 data_analyst_agent/` for authoritative unused import detection. My AST scan is heuristic.
-
-### 2. Prompt Token Sizes Still Over Threshold
+### 2. Prompt token bloat — 2 of 3 files over threshold
 
 | File | Size | Status |
 |------|------|--------|
-| `config/prompts/executive_brief.md` | **4618 chars** | ⚠️ Over 3000 (was ~8000, reduced 42%) |
-| `report_synthesis_agent/prompt.py` | **6022 chars** | ⚠️ Over 3000, unchanged |
-| `narrative_agent/prompt.py` | **2791 chars** | ✅ Under threshold |
+| `config/prompts/executive_brief.md` | 4,618 chars | ⚠️ **Over 3,000 threshold** |
+| `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` | 6,022 chars | ⚠️ **Over 3,000 threshold (2x)** |
+| `data_analyst_agent/sub_agents/narrative_agent/prompt.py` | 2,791 chars | ✅ Under threshold |
 
-`report_synthesis_agent/prompt.py` at 6022 chars is the largest prompt file and was not touched in this commit range. Should be next target for optimization.
+**Note:** The previous audit (05:50 UTC) flagged this as "partially resolved." `narrative_agent/prompt.py` dropped below threshold (good), but `report_synthesis_agent/prompt.py` remains at 6K and `executive_brief.md` at 4.6K. These prompts fire every pipeline run — token cost adds up.
 
-### 3. Hardcoded Tag Strings in Report Synthesis
+**Recommendation:** Extract examples from `report_synthesis_agent/prompt.py` into few-shot config. For `executive_brief.md`, the forbidden-title validation added in cf881d8 may allow removing the lengthy "DO NOT" examples from the prompt itself.
 
-`report_markdown/formatting.py:18` — `"regional_analysis"` hardcoded tag  
-`report_markdown/sections/insight_cards.py:34-39` — `"regional_distribution"`, `"hierarchy"`, `"regional_analysis"` hardcoded tag set
+---
 
-These tags determine which insight cards get rendered in the "Regional Analysis" section. If a dataset uses geographic dimensions with different card tags, this section silently produces nothing. Should be contract-driven or at minimum use configurable tag sets.
+### 3. Hardcoded trade_data references — partially documented, not yet resolved
 
-### 4. Executive Brief Agent Example Text Contains Dataset-Specific Values
+**Already documented (validation_data_loader.py):** The TODO block added in the last cycle correctly identifies the hardcoded column mappings at lines 144-148, 155, 199. Good documentation, but no code fix yet.
 
-`executive_brief_agent/agent.py:1166` — `"West: $1.8M, South: $1.2M, Midwest: $800K"`  
-`executive_brief_agent/agent.py:1176` — `"West region contributed $31.66M (32.6% of network variance), while the South added $28.40M"`
+**Hardcoded card tags in report formatting:**
+- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/sections/insight_cards.py:35` — hardcoded tag set `{"regional_distribution", "hierarchy", "regional_analysis"}` for section grouping. These should come from the contract's dimension hierarchy.
+- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/formatting.py:18` — `"regional_analysis"` in section ordering
 
-These are in prompt example/template strings showing the LLM what good output looks like. Not a data integrity risk, but creates bias toward trade_data naming conventions. For true dataset-agnostic operation, these examples should be generated from contract metadata.
+**Hardcoded examples in executive_brief_agent prompts:**
+- `agent.py:1211` — `"The West region contributed $31.66M..."` — trade_data-specific example baked into prompt. If this agent runs against a different dataset, the example misleads the LLM.
+- `agent.py:1203, 1479` — `"multiple regions"` in anti-pattern examples (less critical, but still dataset-flavored)
+
+**Heuristic dimension keywords (acceptable with contract fallback):**
+- `narrative_agent/tools/generate_narrative_summary.py:125` — `_generic_key_priority()` uses keyword heuristics ("region", "country", etc.) BUT correctly falls through to contract-driven priority first. This is **fine** as a fallback.
 
 ---
 
 ## ADK Compliance
 
-### ✅ Commit Quality
-- All 10 commits follow conventional commit format (docs:, perf:, fix:, review:)
-- Code changes are well-scoped — no mixed concerns per commit
-- `max_output_tokens` changes applied consistently across both factory and direct instantiation paths
+### Good patterns observed in recent commits:
+- ✅ `max_output_tokens` reduced from 4096→2048 in narrative + synthesis agents (dae6111) — matches actual output size
+- ✅ Forbidden section title validation added BEFORE normalization (cf881d8) — prevents auto-fix masking LLM errors
+- ✅ Fallback detection improved with substantive content checks (0f4cc4d)
+- ✅ Contract-driven dimension prioritization added to narrative agent (0f4cc4d)
 
-### ✅ State Management
-- `_generic_key_priority()` contract-driven change correctly threads `dimension_priority` through without mutating shared state
-- Fallback detection in `prompt_utils.py` reads from brief_data dict (immutable pattern) — no side effects
-
-### ⚠️ agent.py Import Concern
-Lines 79-80 import `root_agent` from both `statistical_insights_agent` and `hierarchical_analysis_agent` but the names appear unused in the AST scan. If these are side-effect imports (registering agents), they should have `# noqa: F401` comments. If they're dead, they're masking that these agents aren't wired into the pipeline.
+### No issues:
+- Agent boundaries handle errors correctly (retry → fallback pattern)
+- State key isolation looks clean in the diff
+- No new global variables introduced
 
 ---
 
 ## Observations
 
-1. **Development velocity is high** — 10 commits in ~70 minutes, all docs or targeted fixes. The dev iterate loop is working well.
+1. **Documentation-heavy cycle.** 9 of 16 changed files are docs/session summaries. The code changes (7 files) are focused and surgical — good discipline.
 
-2. **Prompt optimization paid off** — 42% reduction on executive_brief.md is meaningful. report_synthesis_agent prompt.py should be next.
+2. **Retry+fallback pattern maturing.** The executive_brief_agent now has three validation layers: (a) forbidden title check, (b) section normalization, (c) fallback content detection. Well-structured defense-in-depth.
 
-3. **The unused import debt is accumulating.** 140+ detected. Most are harmless `annotations` or typing imports, but ~10 are real dead code that could mask broken wiring. A single `ruff` pass would clear this in minutes.
+3. **Unused imports are becoming technical debt.** Third consecutive audit flagging this. The `scipy.stats` and `numpy` unused imports in statistical tools suggest copy-paste scaffolding that was never cleaned up. This is a 5-minute fix with `ruff`.
 
-4. **Contract-driven pattern is maturing** — the narrative dimension prioritization fix (0f4cc4d) is exactly the right approach. Same pattern should be applied to insight card tag matching (Warning #3) and prompt example generation (Warning #4).
-
-5. **No test changes in this commit range.** The code fixes (fallback detection, dimension prioritization, token reduction) should have corresponding test updates. Risk of regression if behavior changes aren't covered.
+4. **Token efficiency improving.** `max_output_tokens` reductions and narrative prompt trimming show active cost awareness. Next target should be `report_synthesis_agent/prompt.py` at 6K chars.
 
 ---
 
-## Scoreboard Delta
+## Action Items for Dev Agent
 
-| Metric | Previous (05:15) | Current (05:50) | Δ |
-|--------|-------------------|------------------|---|
-| Unused imports | 140+ | 140+ | No change |
-| Prompt chars (exec brief) | ~8000 | 4618 | -42% ✅ |
-| Prompt chars (report synth) | 6022 | 6022 | No change |
-| Hardcoded assumptions | 3 remaining | 3 remaining | No change |
-| Open warnings | 4 | 4 | Stable |
-| Critical issues | 0 | 0 | Clean |
+| Priority | Item | Effort |
+|----------|------|--------|
+| P1 | Run `ruff check --select F401 --fix` to clear unused imports | 5 min |
+| P2 | Trim `report_synthesis_agent/prompt.py` — extract examples to config | 30 min |
+| P2 | Replace hardcoded card tags (`regional_analysis` etc.) with contract-driven tags | 30 min |
+| P3 | Parameterize executive_brief example text per dataset | 15 min |
+| P3 | Trim `executive_brief.md` prompt now that validation catches bad titles | 15 min |
