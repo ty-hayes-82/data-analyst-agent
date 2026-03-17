@@ -412,6 +412,8 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
         "Focus For Next Week": "Forward Outlook",
         "Leadership Question": "Forward Outlook",  # Merge into Forward Outlook
         "Recommended Actions": "Forward Outlook",  # Actions belong in Forward Outlook (analytical)
+        "Actions": "Forward Outlook",  # Short form
+        "Next Steps": "Forward Outlook",  # Alternative phrasing
     }
     
     header = brief.setdefault("header", {})
@@ -577,6 +579,8 @@ def _validate_structured_brief(
         "Focus For Next Week",
         "Leadership Question",
         "Recommended Actions",
+        "Actions",
+        "Next Steps",
     }
 
     errors: list[str] = []
@@ -862,6 +866,8 @@ async def _llm_generate_brief(
                 "Focus For Next Week",
                 "Leadership Question",
                 "Recommended Actions",
+                "Actions",
+                "Next Steps",
             }
             body = brief_data.get("body") or {}
             sections = body.get("sections") or []
@@ -1111,8 +1117,11 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             "   ❌ \"Opening\" → Use \"Executive Summary\" instead\n"
             "   ❌ \"Top Operational Insights\" → Use \"Key Findings\" instead\n"
             "   ❌ \"Network Snapshot\" → Merge into \"Key Findings\"\n"
-            "   ❌ \"Focus For Next Week\" → Merge into \"Recommended Actions\"\n"
-            "   ❌ \"Leadership Question\" → Merge into \"Recommended Actions\"\n"
+            "   ❌ \"Focus For Next Week\" → Use \"Forward Outlook\" instead\n"
+            "   ❌ \"Leadership Question\" → Merge into \"Forward Outlook\"\n"
+            "   ❌ \"Recommended Actions\" → Use \"Forward Outlook\" instead\n"
+            "   ❌ \"Actions\" → Use \"Forward Outlook\" instead\n"
+            "   ❌ \"Next Steps\" → Use \"Forward Outlook\" instead\n"
             "   ❌ Any other custom titles → FORBIDDEN\n\n"
             "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
             "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
@@ -1427,8 +1436,11 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             "- \"Opening\" (use \"Executive Summary\" instead)\n"
                             "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
                             "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
-                            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
-                            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
+                            "- \"Focus For Next Week\" (use \"Forward Outlook\" instead)\n"
+                            "- \"Leadership Question\" (merge into \"Forward Outlook\")\n"
+                            "- \"Recommended Actions\" (use \"Forward Outlook\" instead)\n"
+                            "- \"Actions\" (use \"Forward Outlook\" instead)\n"
+                            "- \"Next Steps\" (use \"Forward Outlook\" instead)\n"
                             "- Any other custom titles not listed above\n\n"
                             "VALIDATION PROCESS:\n"
                             "1. Parse your JSON response\n"
