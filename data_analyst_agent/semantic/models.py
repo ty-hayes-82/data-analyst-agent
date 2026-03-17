@@ -93,8 +93,10 @@ class ReportingConfig(BaseModel):
 class HierarchyNode(BaseModel):
     name: str
     parent: Optional[str] = None
-    children: List[str] = Field(default_factory=list)
+    children: List[str] = Field(default_factory=list, alias="levels")
     level_names: Dict[int, str] = Field(default_factory=dict, description="Map level index to human-readable name")
+    
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CrossDimensionConfig(BaseModel):

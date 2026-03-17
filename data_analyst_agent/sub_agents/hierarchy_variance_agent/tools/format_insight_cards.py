@@ -145,6 +145,39 @@ def format_hierarchy_insight_cards(
     total_variance = level_stats.get("total_variance_dollar", 0.0)
     is_last_level = level_stats.get("is_last_level", False)
     top_drivers = level_stats.get("top_drivers", [])
+    
+    # VALIDATION: Detect data structure mismatch
+    if top_drivers:
+        first_driver = top_drivers[0]
+        has_variance_fields = "variance_dollar" in first_driver and "variance_pct" in first_driver
+        has_statistical_fields = "slope_3mo" in first_driver or "avg" in first_driver
+        
+        if not has_variance_fields and has_statistical_fields:
+            # This is statistical summary data, not hierarchy level stats!
+            error_msg = (
+                f"Data structure mismatch at level {level}: "
+                f"format_hierarchy_insight_cards() expects hierarchy variance data "
+                f"(variance_dollar, variance_pct) but received statistical summary data "
+                f"(slope_3mo, avg). Use generate_statistical_insight_cards() instead."
+            )
+            print(f"\n[CardGen ERROR] {error_msg}", flush=True)
+            print(f"[CardGen ERROR] Received fields: {list(first_driver.keys())}", flush=True)
+            return {
+                "error": "DataStructureMismatch",
+                "message": error_msg,
+                "received_fields": list(first_driver.keys()),
+                "expected_fields": ["variance_dollar", "variance_pct", "current", "prior"],
+                "insight_cards": [],
+                "total_variance_dollar": 0.0,
+                "is_last_level": is_last_level,
+                "level": level,
+                "level_name": level_name,
+            }
+        
+        if not has_variance_fields:
+            # Missing variance fields but not statistical data - possible data quality issue
+            print(f"\n[CardGen WARNING] Level {level}: top_drivers missing variance fields", flush=True)
+            print(f"[CardGen WARNING] Available fields: {list(first_driver.keys())}", flush=True)
 
     # Compute total current for materiality weighting
     total_current = sum(abs(d.get("current", 0.0)) for d in top_drivers)
@@ -203,6 +236,7 @@ def format_hierarchy_insight_cards(
 
         if not _is_material_variance(var_dollar, var_pct):
             continue
+        item = str(driver.get("item", ""))
         item = str(driver.get("item", ""))
         current = driver.get("current", 0.0)
         prior = driver.get("prior", 0.0)
@@ -358,9 +392,35 @@ def should_continue_drilling(
       - At least one insight card with impact_score >= MIN_DRILL_IMPACT_SCORE
       - Not at last level or max depth
       - Not a duplicate level
+      - Level 0 always drills to Level 1 (Level 0 is aggregate baseline only)
+    
+    Test Mode:
+      - Set FORCE_DRILL_DOWN_DEPTH=N to force drilling to depth N regardless of impact
     """
     is_last_level = level_result.get("is_last_level", False)
     is_duplicate = level_result.get("is_duplicate", False)
+    
+    # Special case: Level 0 is always just an aggregate "Total" entity
+    # Always drill to Level 1 to find actual variance drivers
+    if current_level == 0 and not is_last_level and not is_duplicate:
+        return {
+            "action": "CONTINUE",
+            "reasoning": "Level 0 is aggregate baseline; drilling to Level 1 for variance drivers",
+            "material_variances": ["Analyzing first-level breakdown"],
+            "next_level": 1,
+        }
+    
+    # Test mode: force drill-down to specified depth
+    force_depth = os.environ.get("FORCE_DRILL_DOWN_DEPTH", "").strip()
+    if force_depth.isdigit():
+        force_depth_int = int(force_depth)
+        if current_level < force_depth_int and not is_last_level and not is_duplicate:
+            return {
+                "action": "CONTINUE",
+                "reasoning": f"[TEST MODE] Force drilling to depth {force_depth_int} (current: {current_level})",
+                "material_variances": ["[forced for testing]"],
+                "next_level": current_level + 1,
+            }
 
     if is_last_level:
         return {"action": "STOP", "reasoning": "Reached last level of the hierarchy.",
