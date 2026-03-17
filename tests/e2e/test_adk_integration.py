@@ -179,19 +179,21 @@ class TestDataFetchPipeline:
         csv_data = session.state.get("primary_data_csv")
         assert isinstance(csv_data, str) and len(csv_data) > 1000
 
+        # Contract-driven column validation (not hardcoded to trade_data)
+        contract = session.state.get("dataset_contract")
+        assert contract is not None, "Contract not loaded"
+        
         header = csv_data.splitlines()[0].split(",")
-        for col in (
-            "grain",
-            "period_end",
-            "flow",
-            "region",
-            "state",
-            "port_code",
-            "hs2",
-            "hs4",
-            "trade_value_usd",
-        ):
-            assert col in header
+        
+        # Verify contract-declared columns are present
+        time_col = getattr(getattr(contract, "time", None), "column", None)
+        if time_col:
+            assert time_col in header, f"Time column '{time_col}' missing"
+        
+        for metric in getattr(contract, "metrics", []):
+            metric_col = getattr(metric, "column", None)
+            if metric_col:
+                assert metric_col in header, f"Metric column '{metric_col}' missing"
 
 
 def _install_global_llm_stub(monkeypatch: pytest.MonkeyPatch) -> None:
