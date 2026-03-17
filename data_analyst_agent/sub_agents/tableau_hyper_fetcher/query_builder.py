@@ -66,13 +66,13 @@ class HyperQueryBuilder:
         
         # We use _q for the expression part and always wrap the alias in quotes.
         sum_cols_sql = [
-            f"SUM({self._q(c)}) AS \"{c}\"" for c in agg.sum_columns
+            f"SUM({self._qcol(c)}) AS \"{c}\"" for c in agg.sum_columns
         ]
         avg_cols_sql = [
-            f"AVG({self._q(c)}) AS \"{c}\"" for c in agg.avg_columns
+            f"AVG({self._qcol(c)}) AS \"{c}\"" for c in agg.avg_columns
         ]
         count_distinct_cols_sql = [
-            f"COUNT(DISTINCT {self._q(c)}) AS \"{c}\"" for c in agg.count_distinct_columns
+            f"COUNT(DISTINCT {self._qcol(c)}) AS \"{c}\"" for c in agg.count_distinct_columns
         ]
 
         where = self._build_where_clause(
@@ -159,6 +159,15 @@ class HyperQueryBuilder:
             
         # Otherwise, assume it's a SQL expression (contains (, /, +, -, etc.)
         return identifier
+
+    @staticmethod
+    def _qcol(column_name: str) -> str:
+        """Always double-quote a column name. Use for identifiers from config."""
+        if not column_name:
+            return ""
+        if column_name.startswith('"') and column_name.endswith('"'):
+            return column_name
+        return '"' + column_name.replace('"', '""') + '"'
 
     @staticmethod
     def _quote_table(table_spec: str) -> str:

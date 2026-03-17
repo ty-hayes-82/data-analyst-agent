@@ -1,0 +1,62 @@
+source:
+  type: tableau_hyper
+  format: long
+
+hyper:
+  tdsx_file: "Bookshop.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+  extract_dir: "temp_extracted/bookshop_sales"
+
+filter_columns:
+  genre: "Genre"
+  format: "Format"
+  date: "Sale Date"
+  publishing_house: "Publishing House"
+  publisher_country: "Publisher Country"
+  author_country: "Author Country"
+
+aggregation:
+  period_type: day
+  date_column: "Sale Date"
+  period_alias: "sale_date"
+  group_by_columns:
+    - "Genre"
+    - "Format"
+    - "Publishing House"
+    - "Publisher Country"
+    - "Author Country"
+  sum_columns:
+    - "Revenue"
+    - "Print Run (k)"
+  avg_columns:
+    - "Price"
+    - "Discount"
+    - "Pages"
+  count_distinct_columns:
+    - "Title"
+    - "OrderID"
+
+column_mapping:
+  sale_date: "Sale Date"
+
+date_parsing:
+  source_column: "Sale Date"
+  input_format: "%Y-%m-%d"
+  output_column: "sale_date"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "sale_date"
+  - "Genre"
+  - "Format"
+  - "Publishing House"
+  - "Publisher Country"
+  - "Author Country"
+  - "Revenue"
+  - "Print Run (k)"
+  - "Price"
+  - "Discount"
+  - "Pages"
+  - "Title"
+  - "OrderID"

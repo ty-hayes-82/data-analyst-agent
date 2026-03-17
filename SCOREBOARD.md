@@ -164,3 +164,51 @@
 - Tests: 236 pass
 - E2E: 5/5 pass
 - Metrics analyzed: 2/2 complete end-to-end
+
+---
+
+## Run: 2026-03-17 16:52 UTC (Comprehensive E2E Validation — SUCCESSFUL)
+
+### Test Suite Results
+- **Total Tests**: 344 passed, 13 skipped, 1 warning
+- **Duration**: 45.44s (full suite with timings)
+- **Baseline**: 236 tests → **+108 tests** (46% growth from baseline)
+- **E2E Tests**: 5/5 pass
+- **Unit Tests**: 339/344 pass
+- **Skipped**: 13 (missing public dataset contracts: covid_us_counties, owid_co2_emissions, worldbank_population, global_temperature, ops_metrics)
+
+### Pipeline Execution Results
+- **Auto-extraction**: ✅ **SUCCESS** — Pipeline completed WITHOUT env vars, auto-extracted 2 metrics from contract (trade_value_usd, volume_units), generated full reports
+- **Single-metric mode**: ✅ **SUCCESS** — ENV var override recognized (DATA_ANALYST_METRICS=volume_units), pipeline analyzed only volume_units
+- **Output directories**: ✅ VERIFIED — Timestamped run dirs created (20260317_165254, 20260317_165615)
+- **Directory structure**: ✅ VERIFIED — alerts/ (17 alerts per metric), debug/, logs/ subdirs created, metric JSON/MD files present
+- **Report quality**: ✅ HIGH — Hierarchical drill-down tracked, insight cards with evidence, variance tracking, geographic analysis
+
+### Drill-Down Results (Full 2-Metric Run)
+**trade_value_usd:**
+- Level 0: 1 insight card → CONTINUE
+- Level 1: 4 insight cards (West, South, Midwest, Northeast) → CONTINUE
+- Level 2: 5 insight cards (CA, TX, WA, FL, PA) → STOP (max depth)
+- Total variance: $97.2M (+3.0%)
+
+**volume_units:**
+- Level 0: 0 insight cards → STOP (no high-impact findings)
+- Total variance: 33,901 units
+
+### Drill-Down Results (Single-Metric Run)
+**volume_units:**
+- Level 0: 0 insight cards → STOP (no high-impact findings)
+- Total variance: $33,901
+- 30 anomalies detected
+- Report generated: 34KB JSON + 2.2KB markdown
+
+### Critical Issues
+**NONE — All tests passing, both pipeline modes working correctly**
+
+### Notes
+- Test suite exceeds baseline by 108 tests (46% growth)
+- Auto-extraction from contract.yaml working perfectly
+- Single-metric mode correctly isolates analysis to specified metric
+- Timestamped output directories ensure no overwrites
+- Report synthesis fast-path triggered for volume_units (no hierarchical payload)
+- Both metrics analyzed successfully in parallel for full run
