@@ -1,0 +1,70 @@
+name: "World Bank Population"
+version: "1.0.0"
+display_name: "World Bank Population Data"
+target_label: "Metric"
+description: >
+  Annual population data by country from 1960 to present, sourced from the World Bank's
+  World Development Indicators. Includes all countries and territories with standardized
+  ISO 3166-1 alpha-3 country codes.
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 1000000
+
+presentation:
+  unit: "persons"
+
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: "pdf"
+
+data_source:
+  type: "csv"
+  file: "data/public/worldbank_population.csv"
+
+time:
+  column: "Year"
+  frequency: "yearly"
+  format: "%Y"
+  range_months: 768
+
+grain:
+  columns: ["Year", "Country Name"]
+
+metrics:
+  - name: "population"
+    column: "Value"
+    type: "additive"
+    format: "integer"
+    optimization: "neutral"
+    tags: ["demographics", "census"]
+    description: "Total population (persons)"
+
+dimensions:
+  - name: "year"
+    column: "Year"
+    role: "time"
+    description: "Calendar year"
+  - name: "country_name"
+    column: "Country Name"
+    role: "primary"
+    description: "Country or territory name"
+  - name: "country_code"
+    column: "Country Code"
+    role: "secondary"
+    description: "ISO 3166-1 alpha-3 country code"
+
+hierarchies: []
+
+capabilities:
+  - "long-term population trend analysis (1960-present)"
+  - "country-level population tracking"
+  - "multi-country comparative analysis"
+  - "population growth rate calculation"
+  - "demographic trend detection"
+  - "year-over-year change analysis"
+
+policies:
+  degradation_threshold: 0.12

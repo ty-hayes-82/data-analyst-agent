@@ -140,6 +140,24 @@ class CLIParameterInjector(BaseAgent):
         focus_raw = os.environ.get("DATA_ANALYST_FOCUS", "")
         analysis_focus = [f.strip().lower() for f in focus_raw.split(",") if f.strip()]
         custom_focus_raw = os.environ.get("DATA_ANALYST_CUSTOM_FOCUS", "")
+        
+        # Validate focus modes
+        VALID_FOCUS_MODES = {
+            "recent_weekly_trends",
+            "recent_monthly_trends",
+            "anomaly_detection",
+            "revenue_gap_analysis",
+            "seasonal_patterns",
+            "yoy_comparison",
+            "forecasting",
+            "outlier_investigation",
+        }
+        unknown_modes = [m for m in analysis_focus if m not in VALID_FOCUS_MODES]
+        if unknown_modes:
+            print(f"[CLIParameterInjector] WARNING: Unknown focus modes: {unknown_modes}")
+            print(f"[CLIParameterInjector] Valid modes: {sorted(VALID_FOCUS_MODES)}")
+            # Filter out unknown modes
+            analysis_focus = [m for m in analysis_focus if m in VALID_FOCUS_MODES]
 
         def _sanitize_custom_focus(text: str, *, max_len: int = 500) -> str:
             # Remove control chars (incl. newlines/tabs) and collapse whitespace.
@@ -199,12 +217,18 @@ class CLIParameterInjector(BaseAgent):
         inferred_dim = _infer_primary_dimension(contract)
         inferred_total = _infer_total_label(contract)
         primary_dim = dim or inferred_dim
-        primary_val = dim_val or inferred_total
+        # FIX: Only use inferred_total if user explicitly provided a dimension value.
+        # If no CLI dimension value, leave blank to analyze all data (no filter).
+        primary_val = dim_val if dim_val is not None else None
 
         if primary_dim:
             state_delta["dimension"] = primary_dim
-        if primary_val:
+        # Only set dimension_value if explicitly provided via CLI
+        if primary_val is not None:
             state_delta["dimension_value"] = primary_val
+        else:
+            # Use the total label for display purposes only
+            state_delta["dimension_value_display"] = inferred_total
 
         focus = f"CLI analysis of {', '.join(metrics)}" if metrics else "CLI analysis"
         if analysis_focus:
@@ -212,11 +236,13 @@ class CLIParameterInjector(BaseAgent):
         if custom_focus:
             focus = f"{focus} | custom_focus={custom_focus}"
 
-        data_query = f"Retrieve {frequency} {display_name} for {primary_dim} {primary_val}."
+        # Use display label for total/aggregate level
+        dim_display = primary_val if primary_val else (inferred_total or "all")
+        data_query = f"Retrieve {frequency} {display_name} for {primary_dim} {dim_display}."
         state_delta["request_analysis"] = {
             "analysis_type": "operational_trend",
             "primary_dimension": primary_dim,
-            "primary_dimension_value": primary_val,
+            "primary_dimension_value": primary_val,  # None when analyzing all data
             "metrics": metrics,
             "focus": focus,
             "analysis_focus": analysis_focus,

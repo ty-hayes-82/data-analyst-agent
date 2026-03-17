@@ -137,13 +137,19 @@ class TableauHyperFetcher(BaseAgent):
         # ------------------------------------------------------------------ #
         # Step 4 — Build and execute SQL query                                #
         # ------------------------------------------------------------------ #
+        # [PROFILING] Query parameters
+        print(f"\n[HyperQuery] Building query with parameters:")
+        print(f"[HyperQuery]   Date range: {date_start} to {date_end}")
+        print(f"[HyperQuery]   Filters: {physical_filters}")
+        print(f"[HyperQuery]   Metrics requested: {req_analysis.get('metrics', 'N/A')}")
+        
         builder = HyperQueryBuilder(loader_config)
         sql = builder.build_query(
             date_start=date_start,
             date_end=date_end,
             filters=physical_filters,
         )
-        print(f"\n[TableauHyperFetcher] SQL:\n{sql}\n")
+        print(f"\n[HyperQuery] Generated SQL:\n{sql}\n")
 
         start_time = time.perf_counter()
         try:

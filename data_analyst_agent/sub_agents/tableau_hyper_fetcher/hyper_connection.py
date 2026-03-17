@@ -187,11 +187,23 @@ class HyperConnectionManager:
             raise ImportError("[HyperConnectionManager] pandas is required but not installed.")
 
         conn = self.get_connection()
+        
+        # [PROFILING] SQL execution timing
+        print(f"[SQL Query] Executing query...")
+        sql_start = time.perf_counter()
         with conn.execute_query(sql) as result_set:
             columns = [col.name.unescaped for col in result_set.schema.columns]
             rows = [list(row) for row in result_set]
-
-        return pd.DataFrame(rows, columns=columns)
+        sql_time = time.perf_counter() - sql_start
+        print(f"[SQL Execution] {sql_time:.2f}s for {len(rows)} rows")
+        
+        # [PROFILING] DataFrame conversion timing
+        convert_start = time.perf_counter()
+        df = pd.DataFrame(rows, columns=columns)
+        convert_time = time.perf_counter() - convert_start
+        print(f"[DataFrame Conversion] {convert_time:.2f}s")
+        
+        return df
 
     def execute_query_to_csv(self, sql: str) -> str:
         """Execute *sql* and return the result as a CSV string."""

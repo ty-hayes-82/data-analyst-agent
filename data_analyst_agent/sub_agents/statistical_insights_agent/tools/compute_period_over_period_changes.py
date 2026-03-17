@@ -282,6 +282,16 @@ async def compute_period_over_period_changes() -> str:
             .sort_values(time_col)
             .reset_index(drop=True)
         )
+        
+        # Focus-aware period filtering
+        from ....utils.focus_directives import get_focus_modes
+        focus_modes = get_focus_modes(ctx.session.state if ctx and hasattr(ctx, 'session') else None)
+        if "recent_weekly_trends" in focus_modes and len(agg) > 8:
+            agg = agg.tail(8)  # last 8 weeks
+            print("[PeriodOverPeriod] Focus mode 'recent_weekly_trends': filtering to last 8 periods")
+        elif "recent_monthly_trends" in focus_modes and len(agg) > 6:
+            agg = agg.tail(6)  # last 6 months
+            print("[PeriodOverPeriod] Focus mode 'recent_monthly_trends': filtering to last 6 periods")
 
         metric_name = getattr(getattr(ctx, "target_metric", None), "name", None)
         time_frequency = None

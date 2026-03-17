@@ -1,0 +1,21 @@
+source:
+  file: "data/public/owid_co2_data.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"
+
+sort_columns: ["year", "country"]
+
+output_columns:
+  - "country"
+  - "year"
+  - "iso_code"
+  - "population"
+  - "gdp"
+  - "co2"
+  - "coal_co2"
+  - "gas_co2"
+  - "oil_co2"
+  - "cement_co2"
+  - "flaring_co2"
+  - "co2_per_capita"
