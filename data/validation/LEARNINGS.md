@@ -1,112 +1,102 @@
-# Code Review — 2026-03-17 17:04 UTC (Arbiter Audit)
+# Code Review — 2026-03-17 17:33 UTC (Arbiter Audit)
 
-**Commit range:** `fb355be..cf881d8` (last 10 commits)  
-**Scope:** 7 source files changed + 9 doc files, ~1990 insertions  
-**Previous audit:** 2026-03-13 05:50 UTC (979ed10)
+**Commit range:** `dae6111..10ff2dc` (last 10 commits)  
+**Scope:** 4 source files changed + 12 doc/config/test files, ~1693 insertions  
+**Previous audit:** 2026-03-17 17:04 UTC (ff57120)
 
 ---
 
 ## Critical (must fix before merge)
 
-_None._ No new data integrity or pipeline-breaking issues detected.
+_None._ No data integrity or pipeline-breaking issues detected.
 
 ---
 
 ## Warning (fix soon)
 
-### 1. Unused imports — 60+ across codebase (PERSISTENT)
+### 1. Unused imports — 22 real offenders (4th consecutive flag)
 
-This was flagged in the previous two audits and remains unaddressed. Key offenders:
+This has been flagged in every audit since 2026-03-13. Still unaddressed.
 
-**High-priority (real library imports wasting load time):**
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_new_lost_same_store.py:29` — `import numpy` (unused)
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_outlier_impact.py:26` — `from scipy import stats` (unused, heavy import)
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_mad_outliers.py:27` — `from io import StringIO` (unused)
-- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_change_points.py:30` — `from io import StringIO` (unused)
-- `data_analyst_agent/semantic/quality.py:2` — `import numpy` (unused)
+**High priority (imported heavy libraries doing nothing):**
+- `data_analyst_agent/semantic/quality.py:2` — `import numpy` unused
+- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_mix_shift_analysis.py:27` — `import pandas` unused
+- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/compute_pvm_decomposition.py:28` — `import pandas` unused
+- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/hierarchy.py:6` — `import pandas` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_new_lost_same_store.py:29` — `import numpy` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_seasonal_decomposition.py:26` — `import numpy` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/per_item_metrics.py:6` — `import pandas` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/stat_summary/summary_enhancements.py:5` — `import numpy` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_outlier_impact.py:26` — `from scipy import scipy_stats` unused
 
-**Medium-priority (typing imports — no runtime cost but code noise):**
-- `data_analyst_agent/config.py:19` — `Optional`
-- `data_analyst_agent/cli_validator.py:9` — `Optional`
-- `data_analyst_agent/tools/should_fetch_supplementary_data.py:17` — `Dict`
-- `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:1` — `List`, `Any`
-- `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:8` — `import time`
-- `data_analyst_agent/utils/phase_logger.py:39` — `List`
-- `data_analyst_agent/semantic/lag_utils.py:1` — `Optional`
-- `data_analyst_agent/semantic/policies.py:2` — `List`, `Dict`, `Union`
-- `data_analyst_agent/semantic/quality.py:3` — `Dict`, `Any`, `Optional`
-- `data_analyst_agent/semantic/quality.py:5` — `QualityGateError`
-- `data_analyst_agent/semantic/models.py:6` — `ContractValidationError`
-- Multiple `from __future__ import annotations` in files that don't use any PEP 604+ syntax
+**Medium priority (unused module-level imports):**
+- `data_analyst_agent/sub_agents/dynamic_parallel_agent.py:8` — `import time` unused
+- `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py:26` — `import os` unused
+- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/export_pdf_report.py:44` — `from weasyprint import CSS` unused
+- `data_analyst_agent/sub_agents/tableau_hyper_fetcher/fetcher.py:37` — `from hyper_connection import HyperConnectionManager` unused
 
-**Recommendation:** Run `ruff check --select F401 data_analyst_agent/` to auto-detect, then `ruff check --select F401 --fix` to auto-remove. One commit, done.
+**Low priority (dead exception/IO imports):**
+- `data_analyst_agent/semantic/models.py:6` — `from exceptions import ContractValidationError` unused
+- `data_analyst_agent/semantic/quality.py:5` — `from exceptions import QualityGateError` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_derived_metrics.py:39` — `from io import StringIO` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_forecast_baseline.py:27` — `from io import StringIO` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/compute_seasonal_decomposition.py:29` — `from io import StringIO` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_change_points.py:30` — `from io import StringIO` unused
+- `data_analyst_agent/sub_agents/statistical_insights_agent/tools/detect_mad_outliers.py:27` — `from io import StringIO` unused
 
----
+**Questionable top-level agent imports (may be intentional for ADK registration):**
+- `data_analyst_agent/agent.py:79` — `from sub_agents.statistical_insights_agent.agent import statistical_insights_agent`
+- `data_analyst_agent/agent.py:80` — `from sub_agents.hierarchical_analysis_agent import hierarchical_analysis_agent`
+  - These _may_ be needed for ADK sub-agent registration even without explicit reference. Dev should verify.
 
 ### 2. Prompt token bloat — 2 of 3 files over threshold
 
 | File | Size | Status |
 |------|------|--------|
-| `config/prompts/executive_brief.md` | 4,618 chars | ⚠️ **Over 3,000 threshold** |
-| `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` | 6,022 chars | ⚠️ **Over 3,000 threshold (2x)** |
-| `data_analyst_agent/sub_agents/narrative_agent/prompt.py` | 2,791 chars | ✅ Under threshold |
+| `config/prompts/executive_brief.md` | 4,618 chars | ⚠️ Over 3,000 limit |
+| `data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py` | 6,022 chars | ⚠️ Over 3,000 limit (2x threshold) |
+| `data_analyst_agent/sub_agents/narrative_agent/prompt.py` | 2,791 chars | ✅ Under limit |
 
-**Note:** The previous audit (05:50 UTC) flagged this as "partially resolved." `narrative_agent/prompt.py` dropped below threshold (good), but `report_synthesis_agent/prompt.py` remains at 6K and `executive_brief.md` at 4.6K. These prompts fire every pipeline run — token cost adds up.
+`report_synthesis_agent/prompt.py` is the worst offender at 6KB. Consider extracting examples to a separate few-shot file or trimming redundant instructions.
 
-**Recommendation:** Extract examples from `report_synthesis_agent/prompt.py` into few-shot config. For `executive_brief.md`, the forbidden-title validation added in cf881d8 may allow removing the lengthy "DO NOT" examples from the prompt itself.
-
----
-
-### 3. Hardcoded trade_data references — partially documented, not yet resolved
-
-**Already documented (validation_data_loader.py):** The TODO block added in the last cycle correctly identifies the hardcoded column mappings at lines 144-148, 155, 199. Good documentation, but no code fix yet.
-
-**Hardcoded card tags in report formatting:**
-- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/sections/insight_cards.py:35` — hardcoded tag set `{"regional_distribution", "hierarchy", "regional_analysis"}` for section grouping. These should come from the contract's dimension hierarchy.
-- `data_analyst_agent/sub_agents/report_synthesis_agent/tools/report_markdown/formatting.py:18` — `"regional_analysis"` in section ordering
-
-**Hardcoded examples in executive_brief_agent prompts:**
-- `agent.py:1211` — `"The West region contributed $31.66M..."` — trade_data-specific example baked into prompt. If this agent runs against a different dataset, the example misleads the LLM.
-- `agent.py:1203, 1479` — `"multiple regions"` in anti-pattern examples (less critical, but still dataset-flavored)
-
-**Heuristic dimension keywords (acceptable with contract fallback):**
-- `narrative_agent/tools/generate_narrative_summary.py:125` — `_generic_key_priority()` uses keyword heuristics ("region", "country", etc.) BUT correctly falls through to contract-driven priority first. This is **fine** as a fallback.
+`executive_brief.md` was flagged last audit — still over threshold.
 
 ---
 
-## ADK Compliance
+## Hardcoded Dataset Assumptions
 
-### Good patterns observed in recent commits:
-- ✅ `max_output_tokens` reduced from 4096→2048 in narrative + synthesis agents (dae6111) — matches actual output size
-- ✅ Forbidden section title validation added BEFORE normalization (cf881d8) — prevents auto-fix masking LLM errors
-- ✅ Fallback detection improved with substantive content checks (0f4cc4d)
-- ✅ Contract-driven dimension prioritization added to narrative agent (0f4cc4d)
+**Clean.** No hardcoded `trade_value`, `hs2`, `hs4`, or `port_code` references found in source. All dataset-specific column names route through contract YAML. The `region`/`imports`/`exports` hits in grep are all:
+- Generic dimension classification logic (narrative_agent pattern matching)
+- Docstring examples in CLI help text
+- Comment references in validation_data_loader
+- Report section tag names (e.g., `regional_analysis`)
 
-### No issues:
-- Agent boundaries handle errors correctly (retry → fallback pattern)
-- State key isolation looks clean in the diff
-- No new global variables introduced
+No action needed.
+
+---
+
+## ADK Compliance — Recent Changes
+
+### `executive_brief_agent/agent.py` (main change in this range)
+- ✅ Forbidden section title set expanded (`Actions`, `Next Steps`) — good defensive pattern
+- ✅ Pre-normalization validation added (check forbidden titles BEFORE auto-fix) — correct ordering
+- ✅ Retry loop with fallback on max attempts — proper error handling
+- ✅ Prompt instructions updated to match forbidden title list — keeps LLM and code in sync
+- ⚠️ `FORBIDDEN_TITLES` set is duplicated in 3 locations (lines ~860, ~579, and in prompt strings at ~1117 and ~1436). Consider extracting to a module constant.
+
+### `tableau_hyper_fetcher/query_builder.py`
+- ✅ New `_qcol()` method always double-quotes column identifiers — fixes SQL injection risk from unquoted column names containing special characters
+- ✅ Correctly handles already-quoted columns and escapes internal double-quotes
+
+### `narrative_agent/agent.py` + `report_synthesis_agent/agent.py`
+- ✅ `max_output_tokens` reduced 4096→2048 — good cost/latency improvement per previous audit recommendation
 
 ---
 
 ## Observations
 
-1. **Documentation-heavy cycle.** 9 of 16 changed files are docs/session summaries. The code changes (7 files) are focused and surgical — good discipline.
-
-2. **Retry+fallback pattern maturing.** The executive_brief_agent now has three validation layers: (a) forbidden title check, (b) section normalization, (c) fallback content detection. Well-structured defense-in-depth.
-
-3. **Unused imports are becoming technical debt.** Third consecutive audit flagging this. The `scipy.stats` and `numpy` unused imports in statistical tools suggest copy-paste scaffolding that was never cleaned up. This is a 5-minute fix with `ruff`.
-
-4. **Token efficiency improving.** `max_output_tokens` reductions and narrative prompt trimming show active cost awareness. Next target should be `report_synthesis_agent/prompt.py` at 6K chars.
-
----
-
-## Action Items for Dev Agent
-
-| Priority | Item | Effort |
-|----------|------|--------|
-| P1 | Run `ruff check --select F401 --fix` to clear unused imports | 5 min |
-| P2 | Trim `report_synthesis_agent/prompt.py` — extract examples to config | 30 min |
-| P2 | Replace hardcoded card tags (`regional_analysis` etc.) with contract-driven tags | 30 min |
-| P3 | Parameterize executive_brief example text per dataset | 15 min |
-| P3 | Trim `executive_brief.md` prompt now that validation catches bad titles | 15 min |
+1. **Audit compliance improving**: `max_output_tokens` reduction was acted on from prior audit. Forbidden title expansion shows iterative hardening.
+2. **Unused imports are now a recurring theme** — 4 consecutive audits. Recommend dev agent batch-fixes these in one commit.
+3. **Good test coverage in this range**: 4 new test files (754 lines) for Tableau Hyper support. Integration + unit coverage.
+4. **FORBIDDEN_TITLES duplication** is a maintenance risk — when a new forbidden title is added, 3-4 locations must be updated manually.
+5. **No new state management issues** — parallel agent keys remain isolated, session state access patterns are clean.
