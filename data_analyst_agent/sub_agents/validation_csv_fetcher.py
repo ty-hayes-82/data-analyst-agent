@@ -210,8 +210,14 @@ class ValidationCSVFetcher(BaseAgent):
             )
             
             # --- NEW: Apply Date Range Filters from Session State ---
-            start_date = ctx.session.state.get("primary_query_start_date")
-            end_date = ctx.session.state.get("primary_query_end_date")
+            # VALIDATION CSV MODE: Use full dataset range, not dynamic "now" based filtering
+            # The calculate_date_ranges() function uses datetime.now() which breaks validation
+            # datasets that contain historical data (e.g., 2024 data analyzed in 2026).
+            # For validation datasets, we want to analyze the ENTIRE dataset, not just
+            # the last X days from "now".
+            print(f"[ValidationCSVFetcher] Using full dataset date range (no filtering)")
+            start_date = None  # Skip date filtering for validation datasets
+            end_date = None
             
             if not df.empty and (start_date or end_date):
                 if time_column not in df.columns:

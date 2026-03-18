@@ -64,6 +64,11 @@ def run_pipeline(metrics, dataset="ops_metrics_weekly_validation", extra_args=No
     env = os.environ.copy()
     env["SKIP_EXECUTIVE_BRIEF_LLM"] = "true"
     
+    # CRITICAL: Override conftest.py's autouse fixture that sets TEST_MODE=true
+    # E2E tests need to run with real data (VALIDATION_CSV_MODE), not mocks
+    env["DATA_ANALYST_TEST_MODE"] = "false"
+    env["DATA_ANALYST_VALIDATION_CSV_MODE"] = "true"
+    
     start_time = datetime.now()
     result = subprocess.run(
         cmd,
