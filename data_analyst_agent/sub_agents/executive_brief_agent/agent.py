@@ -803,6 +803,14 @@ async def _llm_generate_brief(
     Returns:
         Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
     """
+    # Fast-path for E2E tests: skip LLM call entirely if env var is set
+    if parse_bool_env("SKIP_EXECUTIVE_BRIEF_LLM", False):
+        print("[BRIEF] SKIP_EXECUTIVE_BRIEF_LLM=true — using deterministic fallback (E2E test mode)")
+        recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
+        brief_json = build_structured_fallback_brief(digest, "E2E test mode: LLM skipped", recs, unit=unit)
+        brief_markdown = _build_structured_fallback_markdown(digest, recs, unit=unit)
+        return brief_json, brief_markdown, True
+    
     import asyncio
 
     config = types.GenerateContentConfig(
