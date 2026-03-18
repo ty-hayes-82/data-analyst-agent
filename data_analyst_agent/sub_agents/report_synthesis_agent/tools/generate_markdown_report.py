@@ -890,7 +890,18 @@ async def generate_markdown_report(
             )
         )
 
-        return "\n".join(md)
+        report_text = "\n".join(md)
+        
+        # Post-process: Fix time period wording for trend analysis
+        # Replace "for the day ending" with "trend analysis ending" when discussing multi-period trends
+        report_text = re.sub(
+            r'\bfor the (day|week|month|year) ending\b',
+            r'trend analysis ending',
+            report_text,
+            flags=re.IGNORECASE
+        )
+        
+        return report_text
 
     except Exception as exc:  # pragma: no cover
         return f"# Error Generating Report\n\nError: {exc}"

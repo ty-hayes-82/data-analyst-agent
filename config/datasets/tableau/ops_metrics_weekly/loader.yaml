@@ -15,19 +15,20 @@ filter_columns:
   business_line: "ops_ln_of_bus_nm"
   cost_center: "icc_cst_ctr_cd"
 
-# Aggregation to daily/weekly grain
+# Aggregation to daily grain (respects contract grain.columns)
 aggregation:
   period_type: day  # Keep daily grain as-is
   date_column: "cal_dt"
   period_alias: "cal_dt"
   group_by_columns:
     # NOTE: cal_dt excluded here - it's handled by period_type/date_column
+    # Only include dimensions specified in contract.yaml grain.columns
     - "gl_rgn_nm"
     - "gl_div_nm"
     - "ops_ln_of_bus_nm"
-    - "ops_ln_of_bus_ref_nm"
     - "icc_cst_ctr_cd"
-    - "icc_cst_ctr_nm"
+    # REMOVED: "ops_ln_of_bus_ref_nm" (not in grain)
+    # REMOVED: "icc_cst_ctr_nm" (not in grain - name fields aggregate to code fields)
   sum_columns:
     - "ttl_rev_amt"
     - "lh_rev_amt"
@@ -55,15 +56,14 @@ date_parsing:
   output_column: "cal_dt"
   output_format: "%Y-%m-%d"
 
-# Output columns (all dimensions + metrics)
+# Output columns (contract grain dimensions + all additive metrics)
 output_columns:
   - "cal_dt"
   - "gl_rgn_nm"
   - "gl_div_nm"
   - "ops_ln_of_bus_nm"
-  - "ops_ln_of_bus_ref_nm"
   - "icc_cst_ctr_cd"
-  - "icc_cst_ctr_nm"
+  # Aggregated metrics (SUMmed at Hyper level)
   - "ttl_rev_amt"
   - "lh_rev_amt"
   - "fuel_srchrg_rev_amt"

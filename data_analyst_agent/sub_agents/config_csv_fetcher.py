@@ -100,7 +100,19 @@ class ConfigCSVFetcher(BaseAgent):
             duration = time.perf_counter() - start_time
             print(f"[TIMER] <<< ConfigCSVFetcher: Loaded {len(df)} rows in {duration:.2f}s")
 
-            if df.empty:
+            # --- Pre-flight validation logging ---
+            if not df.empty:
+                time_col = contract.time.column if contract.time else None
+                print("\n" + "="*80)
+                print("[ConfigCSVFetcher] PRE-FLIGHT VALIDATION")
+                print(f"  Rows: {len(df)}")
+                print(f"  Columns: {len(df.columns)}")
+                if time_col and time_col in df.columns:
+                    print(f"  Date range: {df[time_col].min()} to {df[time_col].max()}")
+                print(f"\nFirst 5 rows:")
+                print(df.head().to_string())
+                print("="*80 + "\n")
+            else:
                 print(
                     f"[ConfigCSVFetcher] WARNING: No rows returned for metric={metric_filter}, filters={describe_dimension_filters(contract, dimension_filters)}."
                 )

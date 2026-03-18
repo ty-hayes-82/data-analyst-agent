@@ -476,10 +476,13 @@ class AnalysisContextInitializer(BaseAgent):
         
         # Store in session state and global cache
         ctx.session.state["analysis_context"] = context
-        from ..sub_agents.data_cache import set_analysis_context
+        from ..sub_agents.data_cache import set_analysis_context, current_session_id
         # Use session ID for cache isolation in parallel runs
-        session_id = getattr(ctx.session, "id", None)
+        # The session.id already includes the target identifier from ParallelDimensionTargetAgent
+        # so we don't need to append it again to avoid double-naming issues
+        session_id = current_session_id.get() or getattr(ctx.session, "id", None) or "default"
         set_analysis_context(context, session_id=session_id)
+        print(f"[AnalysisContextInitializer] Stored context with session_id: {session_id}")
         
         print(f"[AnalysisContextInitializer] Created context for {len(df)} rows. Target: {target_metric.name}")
 

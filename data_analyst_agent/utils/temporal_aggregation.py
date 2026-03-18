@@ -176,3 +176,7 @@ def aggregate_temporal_data(
     print(f"[TemporalAggregation] Aggregated {len(df)} rows → {len(aggregated)} rows ({current_grain} → {target_grain})")
     
     return aggregated
+
+
+# Alias for backward compatibility
+aggregate_to_temporal_grain = aggregate_temporal_data

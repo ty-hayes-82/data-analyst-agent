@@ -264,7 +264,19 @@ def resolve_data_and_columns(caller: str = "Tool") -> tuple:
     # In parallel runs, we expect the tool to be called within a context where get_analysis_context 
     # might need a session_id. However, most tools currently don't have access to the session.
     # We fallback to the global cache which might be stomped, OR we can try to detect if we are in a parallel run.
+    
+    # Strategy: Try default session first, then iterate through all cached contexts
     ctx = get_analysis_context()
+    if not ctx or ctx.df is None:
+        # Fallback: try to find ANY valid context in the cache
+        global _analysis_context_cache
+        if _analysis_context_cache:
+            for session_id, cached_ctx in _analysis_context_cache.items():
+                if cached_ctx and hasattr(cached_ctx, 'df') and cached_ctx.df is not None:
+                    ctx = cached_ctx
+                    print(f"[{caller}] Using context from session: {session_id}")
+                    break
+    
     if not ctx or ctx.df is None:
         raise ValueError(f"[{caller}] AnalysisContext not found. Semantic layer is required.")
 

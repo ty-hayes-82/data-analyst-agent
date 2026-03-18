@@ -197,7 +197,7 @@ class ValidationCSVFetcher(BaseAgent):
         print(f"{'='*80}\n")
 
         # ------------------------------------------------------------------
-        # 5. Load data
+        # 5. Load data (contract-driven)
         # ------------------------------------------------------------------
         start_time = time.perf_counter()
         print(f"[TIMER] >>> ValidationCSVFetcher: Loading data for metric='{metric_label}'...")
@@ -206,6 +206,7 @@ class ValidationCSVFetcher(BaseAgent):
                 metric_filter=metric_filter,
                 dimension_filters=dimension_filters,
                 exclude_partial_week=exclude_partial,
+                contract=contract,
             )
             
             # --- NEW: Apply Date Range Filters from Session State ---
