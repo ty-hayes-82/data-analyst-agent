@@ -60,13 +60,18 @@ def run_pipeline(metrics, dataset="ops_metrics_weekly_validation", extra_args=No
     if extra_args:
         cmd.extend(extra_args)
     
+    # Enable fast E2E mode - skip executive brief LLM generation
+    env = os.environ.copy()
+    env["SKIP_EXECUTIVE_BRIEF_LLM"] = "true"
+    
     start_time = datetime.now()
     result = subprocess.run(
         cmd,
         cwd="/data/data-analyst-agent",
         capture_output=True,
         text=True,
-        timeout=600  # 10 minute timeout per test (allows for LLM calls + complex analysis)
+        timeout=600,  # 10 minute timeout per test (allows for LLM calls + complex analysis)
+        env=env
     )
     elapsed = (datetime.now() - start_time).total_seconds()
     
@@ -220,10 +225,11 @@ def test_01_line_haul_weekly_13weeks_region_terminal():
     print(f"\n[ANOMALIES] Detected: {anomalies}")
     
     # Basic sanity check: should detect some anomalies
-    assert len(anomalies) > 0, "No anomalies detected"
+    total_anomalies = sum(anomalies.values())
+    assert total_anomalies > 0, f"No anomalies detected across {len(anomalies)} metrics"
     
     print(f"✅ Test 1 PASSED - Runtime: {elapsed:.1f}s")
-    print(f"   Anomalies detected: {sum(anomalies.values())}")
+    print(f"   Anomalies detected: {total_anomalies}")
     print(f"   Critique: {critique}")
 
 
@@ -272,10 +278,11 @@ def test_02_dedicated_monthly_6months_region():
     anomalies = extract_anomaly_counts(output_dir)
     print(f"\n[ANOMALIES] Detected: {anomalies}")
     
-    assert len(anomalies) > 0, "No anomalies detected"
+    total_anomalies = sum(anomalies.values())
+    assert total_anomalies > 0, f"No anomalies detected across {len(anomalies)} metrics"
     
     print(f"✅ Test 2 PASSED - Runtime: {elapsed:.1f}s")
-    print(f"   Anomalies detected: {sum(anomalies.values())}")
+    print(f"   Anomalies detected: {total_anomalies}")
 
 
 # ============================================================================
