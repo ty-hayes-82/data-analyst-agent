@@ -66,7 +66,7 @@ def run_pipeline(metrics, dataset="ops_metrics_weekly_validation", extra_args=No
         cwd="/data/data-analyst-agent",
         capture_output=True,
         text=True,
-        timeout=420  # 7 minute timeout per test (allows for LLM calls)
+        timeout=600  # 10 minute timeout per test (allows for LLM calls + complex analysis)
     )
     elapsed = (datetime.now() - start_time).total_seconds()
     

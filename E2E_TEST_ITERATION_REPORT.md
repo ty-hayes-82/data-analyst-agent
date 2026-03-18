@@ -1,264 +1,200 @@
-# E2E Test Iteration Report - 2026-03-18
+# E2E Test Iteration Report (2026-03-18, Post-Configuration Optimization)
 
 ## Executive Summary
 
-**Planner Fix Status**: ✅ **COMPLETE AND VERIFIED**  
-**Regression Baseline**: ✅ **RESTORED** (23 anomalies detected in manual test)  
-**E2E Test Results**: ⚠️ **1/5 PASSING** (4 tests need investigation)
+**Target**: Achieve 4/5 E2E tests passing  
+**Actual**: 0/5 tests passing (as of 20:40 UTC)  
+**Root Cause**: Critical data pipeline bug - hierarchy variance agent receiving DataFrames without required dimension columns
 
 ---
 
-## Planner Multi-Metric Fix
+## Configuration Changes Applied
 
-### Problem Solved
-❌ **Before**: Planner output "No parallel agents selected by planner" in multi-metric mode  
-✅ **After**: Planner correctly selects analysis agents for all metrics
+### ✅ Timeout Increased
+- **Before**: 420 seconds (7 minutes)
+- **After**: 600 seconds (10 minutes)
+- **File**: `tests/e2e/test_ops_metrics_e2e_fast.py` line 54
+- **Commit**: Pending
 
-### Root Cause
-Session ID mismatch between `AnalysisContextInitializer` (storing context) and `generate_execution_plan()` (retrieving context). The context was stored with a double-appended metric name but retrieved with a single-appended name, causing cache misses.
+### ✅ Alert Scoring Thresholds Reviewed
+- **Config**: `config/alert_policy.yaml`
+- **Thresholds**: 
+  - Info: z_mad >= 2.0
+  - Warn: z_mad >= 3.0
+  - Critical: change_point detection
+- **Assessment**: Thresholds are reasonable and not the blocker
 
-### Fix Applied
-**File**: `data_analyst_agent/core_agents/loaders.py`
+---
 
-```python
-# Changed from:
-base_session_id = getattr(ctx.session, "id", None) or "default"
-session_id = f"{base_session_id}_{target_metric.name}"  # Double metric name
+## Test Results (Individual Runs)
 
-# To:
-session_id = current_session_id.get() or getattr(ctx.session, "id", None) or "default"
+### Test 1: Line Haul LOB, Weekly, 13 Weeks ✅ RUNTIME OK ❌ ANOMALY DETECTION
+- **Status**: PASSED (test framework)
+- **Runtime**: 291s (4.9 minutes) - well within 10-minute timeout
+- **Expected**: Anomalies in 4 metrics (ttl_rev_amt, lh_rev_amt, ordr_cnt, ordr_miles)
+- **Actual**: 0 anomalies detected (all alert payload files have empty `alerts: []`)
+- **Test passed because**: Test only checks `len(anomalies) > 0` on file count, not actual alert content
+- **Root Issue**: KeyError 'cal_dt' in hierarchy variance computation
+
+### Test 2: Dedicated LOB, Monthly, 6 Months ❌ TIMEOUT
+- **Status**: TIMEOUT at 600s (10 minutes)
+- **Expected**: Anomalies in 3 metrics (ttl_rev_amt, ordr_cnt, truck_count)
+- **Actual**: Pipeline timed out before completion
+- **Issue**: Runtime > 10 minutes for 3-metric analysis
+- **Root Cause**: Unknown (may be related to monthly aggregation or data volume)
+
+### Test 3: East Region, 4 Weeks, Fuel Efficiency ❌ ZERO ANOMALIES
+- **Status**: FAILED
+- **Runtime**: 574s (9.6 minutes) - within timeout
+- **Expected**: Deadhead spike anomaly (East-Northeast, Mar 4-6)
+- **Actual**: 0 anomalies for both dh_miles and fuel_srchrg_rev_amt
+- **Root Issue**: KeyError 'cal_dt' and missing 'gl_rgn_nm' column
+
+### Test 4: Revenue Anomaly, 8 Weeks ❌ ZERO ANOMALIES
+- **Status**: FAILED
+- **Runtime**: 292s (4.9 minutes) - within timeout
+- **Expected**: Revenue drop anomaly (East, Feb 15-18)
+- **Actual**: 0 anomalies for ttl_rev_amt
+- **Root Issue**: KeyError 'cal_dt' in hierarchy variance computation
+
+### Test 5: Cross-LOB Comparison, 12 Weeks ⏳ PENDING
+- **Status**: Not yet tested individually
+- **Expected**: Efficiency anomalies across Line Haul and Dedicated LOBs
+
+---
+
+## Root Cause Analysis
+
+### Critical Bug Identified: Missing Dimension Columns
+
+**Symptom**: All tests (except timeout) show same error pattern:
+```
+KeyError: 'cal_dt'
+InvalidDimension: Column 'gl_rgn_nm' (for dimension 'gl_rgn_nm') not found in data.
 ```
 
-**Result**: Session IDs now match, planner retrieves context successfully, agents selected correctly.
+**Location**: 
+- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/periods.py` line 24
+- `data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/core.py` line 82
+
+**Verification**: 
+- ✅ CSV file CONTAINS the columns: `cal_dt`, `gl_rgn_nm`, `gl_div_nm`, `ops_ln_of_bus_nm`
+- ✅ Dataset contract DEFINES the columns correctly
+- ❌ DataFrame arriving at hierarchy_variance_agent MISSING these columns
+
+**Hypothesis**: The planner agent or data preparation stage is filtering out dimension columns before passing data to analysis agents. The DataFrame likely only contains:
+- Metric columns (ttl_rev_amt, ordr_cnt, etc.)
+- No time dimension
+- No geographic/business dimensions
+
+**Impact**: 
+- Hierarchy variance ranker returns 0 insight cards (cannot compute period-over-period comparisons)
+- Statistical summary agent has no temporal context
+- Alert extraction finds 0 alerts (no statistical anomalies detected)
+- All anomaly detection fails
 
 ---
 
-## Regression Baseline Validation
+## Performance Analysis
 
-### Manual Multi-Metric Test
+### Runtime Distribution (Tests 1, 3, 4)
+- **Test 1**: 291s (4.9 min) - 4 metrics
+- **Test 3**: 574s (9.6 min) - 2 metrics
+- **Test 4**: 292s (4.9 min) - 1 metric
 
-**Command**:
-```bash
-python -m data_analyst_agent --dataset ops_metrics_weekly_validation \
-    --metrics "ttl_rev_amt,dh_miles,ordr_cnt" --validation
-```
+**Observation**: Runtime does NOT scale linearly with metric count. Test 3 (2 metrics) took 2x longer than Test 1 (4 metrics). Suggests variance in LLM call latency or planner complexity, not data volume.
 
-**Results**:
-```
-[RuleBasedPlanner] Plan: ['hierarchical_analysis_agent', 'statistical_insights_agent', 'alert_scoring_coordinator']
-[DynamicParallelAnalysis] Executing 2 agents in parallel: ['timed_hierarchical_analysis_agent', 'timed_statistical_insights_agent']
-```
-
-**Anomalies Detected**:
-- `ttl_rev_amt`: **9 anomalies**
-- `dh_miles`: **3 anomalies**
-- `ordr_cnt`: **11 anomalies**
-- **Total**: **23 anomalies**
-
-✅ **Baseline RESTORED** — Planner is working correctly and selecting analysis agents in multi-metric mode.
+### Timeout Analysis
+- **Test 2**: Timed out at 600s with 3 metrics
+- **Average successful test**: ~386s (6.4 minutes)
+- **Recommendation**: 10-minute timeout is appropriate for most cases, but Test 2 has a specific performance issue
 
 ---
 
-## E2E Test Suite Results
+## Remaining Issues
 
-### Test 1: Line Haul LOB, Weekly, 13 Weeks, Region → Terminal
-- **Status**: ✅ **PASSED**
-- **Runtime**: 296.5s (4m 57s)
-- **Metrics**: `ttl_rev_amt, ordr_cnt, ordr_miles, lh_rev_amt`
-- **Anomalies**: 0 (expected for this scope)
-- **Notes**: Test validates complete pipeline execution with multiple metrics and LOB filtering
-- **Planner**: ✅ Agents selected correctly
+### Priority 1: Fix Data Pipeline Bug
+**Task**: Investigate why dimension columns are stripped from DataFrame before hierarchy variance analysis  
+**Files to check**:
+- `data_analyst_agent/sub_agents/planner_agent/` - Execution plan may filter columns
+- `data_analyst_agent/core_agents/data_fetch_agent/` - Data loading logic
+- `data_analyst_agent/sub_agents/data_cache.py` - Caching may strip columns
 
----
+**Expected fix location**: Likely in planner agent's data preparation or cache initialization
 
-### Test 2: Dedicated LOB, Monthly, 6 Months, Region Only
-- **Status**: ❌ **TIMEOUT** (420s / 7m 0s)
-- **Metrics**: `ttl_rev_amt, ordr_cnt, truck_count`
-- **Issue**: Test exceeded 7-minute timeout
-- **Suspected Cause**: 3 metrics × hierarchical drill-down × LLM calls may exceed time budget
-- **Recommendation**: 
-  - Increase timeout to 10 minutes OR
-  - Reduce metrics to 2 OR
-  - Investigate why hierarchical analysis is taking so long
+### Priority 2: Debug Test 2 Timeout
+**Task**: Understand why Test 2 (monthly grain, 6 months) exceeds 10-minute timeout  
+**Possible causes**:
+- Monthly aggregation more expensive than daily/weekly
+- LLM agent timeout or retry loop
+- Data volume issue (though dataset is small at 1,080 rows)
+
+**Recommendation**: Add debug logging to track agent-level timing breakdown
 
 ---
 
-### Test 3: East Region, 4 Weeks, Fuel Efficiency
-- **Status**: ❌ **FAILED** (no anomalies detected)
-- **Runtime**: 331.9s (5m 32s)
-- **Metrics**: `fuel_srchrg_rev_amt, dh_miles`
-- **Anomalies**: **0** (expected deadhead spike in East-Northeast, Mar 4-6)
-- **Issue**: Expected `dh_miles` anomalies not detected
-- **Suspected Cause**: 
-  - Time window filtering may exclude Mar 4-6 window
-  - Alert scoring threshold too high
-  - Region filtering not applied correctly
-- **Recommendation**: 
-  - Check alert payload generation logs
-  - Verify time window includes Mar 4-6
-  - Review alert scoring thresholds for dh_miles
-
----
-
-### Test 4: Revenue Anomaly, 8 Weeks, Single Metric
-- **Status**: ❌ **FAILED** (no anomalies detected)
-- **Runtime**: 315.2s (5m 15s)
-- **Metrics**: `ttl_rev_amt` (single metric)
-- **Anomalies**: **0** (expected revenue drop in East, Feb 15-18)
-- **Issue**: Expected revenue anomalies not detected
-- **Suspected Cause**: 
-  - Time window may not include Feb 15-18
-  - Alert scoring threshold may be filtering out anomalies
-  - Hierarchical drill-down may not be flagging East region
-- **Recommendation**: 
-  - **CRITICAL**: Earlier manual test detected 9 ttl_rev_amt anomalies, so the planner/pipeline works
-  - **Root cause**: Likely test setup or time window issue, NOT a planner problem
-  - Review test's time window configuration
-  - Check alert payload for flagged anomalies that didn't meet scoring threshold
-
----
-
-### Test 5: Cross-LOB Comparison, 12 Weeks, Efficiency
-- **Status**: ❌ **TIMEOUT** (420s / 7m 0s)
-- **Metrics**: `ordr_miles, dh_miles`
-- **Issue**: Test exceeded 7-minute timeout
-- **Suspected Cause**: 2 metrics × hierarchical drill-down × 12 weeks × LLM calls
-- **Recommendation**: 
-  - Increase timeout to 10 minutes OR
-  - Review hierarchical drill-down depth settings
-
----
-
-## Summary Statistics
-
-| Test | Status | Runtime | Anomalies | Metrics | Notes |
-|------|--------|---------|-----------|---------|-------|
-| Test 1 | ✅ PASS | 296.5s | 0 | 4 | Complete pipeline validation |
-| Test 2 | ❌ TIMEOUT | 420.0s | N/A | 3 | Exceeded time budget |
-| Test 3 | ❌ FAIL | 331.9s | 0 | 2 | Expected anomalies missing |
-| Test 4 | ❌ FAIL | 315.2s | 0 | 1 | Expected anomalies missing |
-| Test 5 | ❌ TIMEOUT | 420.0s | N/A | 2 | Exceeded time budget |
-
-**Pass Rate**: 1/5 (20%)  
-**Average Runtime**: 356.7s (5m 57s)  
-**Timeout Count**: 2/5 (40%)
-
----
-
-## Root Cause Analysis: Why Tests Failed
-
-### The Planner is NOT the Problem
-✅ Manual regression test shows planner working perfectly:
-- Selected agents: `['hierarchical_analysis_agent', 'statistical_insights_agent', 'alert_scoring_coordinator']`
-- Parallel execution: `['timed_hierarchical_analysis_agent', 'timed_statistical_insights_agent']`
-- Anomalies detected: 23 across 3 metrics
-
-### Actual Issues
-
-#### Issue 1: Timeouts (Tests 2 & 5)
-- **Root Cause**: 7-minute timeout too aggressive for multi-metric + hierarchical analysis
-- **Evidence**: Test 1 (4 metrics) took 296s (under timeout), Test 2 (3 metrics) hit 420s timeout
-- **Fix**: Increase test timeout to 600s (10 minutes) or optimize hierarchical drill-down
-
-#### Issue 2: Zero Anomalies (Tests 3 & 4)
-- **Root Cause**: Time window or alert scoring thresholds filtering out known anomalies
-- **Evidence**: 
-  - Manual test detected 9 ttl_rev_amt anomalies
-  - Test 4 (ttl_rev_amt) detected 0 anomalies
-  - Anomalies exist in data (per ANOMALIES.md), but aren't in alert payloads
-- **Fix**: 
-  - Review test time window setup
-  - Check alert scoring coordinator thresholds
-  - Verify hierarchical drill-down is identifying the right regions/divisions
-
-#### Issue 3: Test Suite Design
-- **Problem**: Tests are too strict (require specific anomalies) vs pipeline validation
-- **Better approach**: 
-  - **Smoke test**: Does pipeline complete? ✅ (Test 1 proves this)
-  - **Anomaly detection**: Are ANY anomalies detected? (not specific ones)
-  - **Time budget**: Separate "fast" tests (<5min) from "comprehensive" tests (<15min)
-
----
-
-## Issues Found
-
-### High Priority
-1. **Test timeouts**: 40% of tests hitting 7-minute limit
-   - Impact: Can't validate full E2E pipeline
-   - Fix: Increase timeout to 10 minutes OR reduce scope
-
-2. **Alert scoring too strict**: Known anomalies not appearing in alert payloads
-   - Impact: False negatives in anomaly detection
-   - Fix: Review alert scoring thresholds, especially for revenue drops and deadhead spikes
-
-### Medium Priority
-3. **Time window configuration**: Tests may not be covering expected anomaly periods
-   - Impact: Expected anomalies fall outside analysis window
-   - Fix: Add explicit date range assertions in tests
-
-4. **Region filtering**: Tests 3-4 filter by region, but anomalies may not be scoped correctly
-   - Impact: Region-specific anomalies missed
-   - Fix: Verify dimension filtering works in pipeline
-
-### Low Priority
-5. **Test brittleness**: Tests rely on specific anomaly counts, making them fragile
-   - Impact: Minor threshold changes break tests
-   - Fix: Use ranges (e.g., "at least 1 anomaly") instead of exact counts
-
----
-
-## Fixes Applied (This Session)
-
-1. ✅ **Planner multi-metric agent selection** (`loaders.py`)
-   - Session ID consistency fix
-   - Verified working in manual tests
-
----
-
-## Recommended Next Steps
+## Next Steps
 
 ### Immediate (Next 30 minutes)
-1. ✅ Document planner fix (DONE)
-2. ✅ Run manual regression validation (DONE - 23 anomalies detected)
-3. ⏭️ Increase E2E test timeout to 600s (10 minutes)
-4. ⏭️ Re-run failing tests with increased timeout
-5. ⏭️ Review alert scoring thresholds
+1. ✅ Complete full test suite run (in progress)
+2. ✅ Document findings in this report
+3. ⏳ Investigate planner agent data preparation logic
+4. ⏳ Fix dimension column stripping bug
+5. ⏳ Re-run targeted tests (1, 3, 4) to verify fix
 
-### Short-term (Next session)
-1. Debug why Test 4 detected 0 anomalies when manual test detected 9
-2. Add logging for time window boundaries in tests
-3. Add alert payload inspection to test diagnostics
-4. Consider splitting "fast" tests (<5min) from "comprehensive" tests (<15min)
+### Follow-up (Next iteration)
+1. Optimize Test 2 performance (if timeout persists)
+2. Add data schema validation checks to prevent column stripping
+3. Add pre-flight assertions in hierarchy variance agent to fail fast on missing columns
+4. Update E2E tests to verify alert payload content, not just file count
 
-### Long-term
-1. Refactor tests to be less brittle (range-based assertions)
-2. Add smoke tests separate from anomaly-specific tests
-3. Add performance benchmarks for multi-metric analysis
-4. Consider caching or parallel test execution to reduce suite runtime
+---
+
+## Deliverables Status
+
+- ✅ **Updated test file** with 10-minute timeout
+- ✅ **E2E test results** (partial - 4/5 tests run individually, 1 full suite in progress)
+- ✅ **Updated E2E_TEST_ITERATION_REPORT.md** (this file)
+- ❌ **Git commit**: Blocked until bug is fixed
+- ❌ **4/5 pass rate**: Blocked by critical pipeline bug
 
 ---
 
 ## Conclusion
 
-### ✅ Mission Accomplished: Planner Fixed
-The primary objective—fixing the planner multi-metric logic—is **100% complete and verified**:
-- Planner selects agents correctly in multi-metric mode
-- Parallel execution works as designed
-- Anomaly detection baseline restored (23 anomalies in manual test)
+**Configuration optimization was NOT the blocker.** The 10-minute timeout is sufficient for most tests. The real issue is a **data pipeline bug** where dimension columns required for hierarchical analysis are being stripped from the DataFrame before reaching the hierarchy_variance_agent.
 
-### ⚠️ E2E Tests Need Refinement
-The E2E test failures are **NOT planner issues**—they are test configuration problems:
-- Timeouts are too aggressive (7 min insufficient for multi-metric + hierarchical analysis)
-- Alert scoring thresholds may be filtering out valid anomalies
-- Time window configuration may exclude expected anomaly periods
+**Impact**: All anomaly detection is broken. Tests "pass" due to weak assertions (file count vs. actual anomaly content).
 
-### 🎯 Delivery Status
-**Planner Fix**: ✅ Complete  
-**Regression Baseline**: ✅ Restored (23 anomalies detected)  
-**E2E Tests**: ⚠️ 1/5 passing (test issues, not planner issues)  
-**Documentation**: ✅ Complete  
+**Recommendation**: This is a **high-priority pipeline fix**, not a configuration tuning problem. Requires immediate investigation by dev team.
 
 ---
 
-**Total Session Runtime**: ~60 minutes  
-**Focus**: Diagnosis → Fix → Verification → Documentation (as requested)
+## Appendix: Error Stack Trace
+
+```
+File: data_analyst_agent/sub_agents/hierarchy_variance_agent/tools/level_stats/periods.py, line 24
+Function: determine_period_context
+
+Code:
+    periods = sorted(df[time_col].unique())
+                     ~~^^^^^^^^^
+
+Error:
+    KeyError: 'cal_dt'
+
+Upstream:
+    File: level_stats/core.py, line 82
+    ) = determine_period_context(df, ctx, time_col, analysis_period)
+
+Context:
+    - time_col = 'cal_dt' (from dataset contract)
+    - df.columns = [<metric columns only, no cal_dt>]
+    - Expected: df.columns should include cal_dt, gl_rgn_nm, gl_div_nm, ops_ln_of_bus_nm
+```
+
+---
+
+**Report Generated**: 2026-03-18 20:43 UTC  
+**Test Environment**: VPS (187.124.147.182), Python 3.13, Ubuntu Docker container  
+**Dataset**: ops_metrics_weekly_validation (1,080 rows, 2024-Q1)
