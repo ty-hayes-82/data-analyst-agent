@@ -60,7 +60,12 @@ leadership_focus:
 
 1. **bottom_line**: Exactly 2 sentences. First = headline verdict. Second = the "but" — what the headline hides about quality. Must include revenue $, WoW %, and a quality qualifier.
 
-2. **what_moved**: 3-5 items. Each item is ONE line: "Label: KPI value, change, context". Use computed KPIs (LRPM, TRPM, Rev/truck/day, Deadhead %, Miles/truck/week), NOT raw totals. Context = "above/below X-week average" or "vs target" or "highest/lowest in N weeks".
+2. **what_moved**: 3-4 items. Each item has a short label and a single-line value string.
+   - Label = category name: "Revenue / yield", "Productivity", "Network efficiency", "Service", "Capacity quality"
+   - Line = "KPI $value, +X.X% WoW, context". Context = "above/below N-week average" or "highest/lowest in N weeks"
+   - DO NOT repeat the label in the line. DO NOT write full sentences. Just "value, change, context".
+   - GOOD: "LRPM $2.48, +1.9% WoW, above the 4-week average"
+   - BAD: "Total Revenue reached $19.5M, representing a -64.1% WoW decline across all regions"
 
 3. **trend_status**: 2-4 items. Each is ONE sentence with classification naturally embedded: "Pricing remains positive momentum" or "Deadhead is now a developing trend". Classifications: positive momentum, developing trend, persistent issue, one-week noise, watchable. Include duration when available.
 
@@ -70,9 +75,22 @@ leadership_focus:
 
 6. **next_week_outlook**: Exactly 1-2 sentences. Conditional: "If X holds and Y normalizes, then Z; if not, W." Or: "One more week like this makes the issue material."
 
-7. **leadership_focus**: 3 items (not 4, not 5). Each starts with an imperative verb. Under 12 words each. No dollar amounts — actions only.
+7. **leadership_focus**: Exactly 3 items. Each starts with an imperative verb. Under 12 words each. No dollar amounts, no percentages — actions only.
+   - GOOD: "Hold price; do not trade yield for weak volume"
+   - GOOD: "Intervene immediately on Atlanta service recovery"
+   - GOOD: "Rebalance lanes driving repeated deadhead pressure"
+   - BAD: "Prioritize strategies for demand recovery" (too vague)
+   - BAD: "Analyze regional market health, especially East and Central" (not actionable)
 
 8. **Total length**: The entire brief should be readable in 60 seconds. If any section feels long, cut it.
+
+9. **Anti-patterns** (YOUR RESPONSE WILL BE REJECTED IF ANY APPEAR):
+   - NO "Prioritize strategies for..." — too vague
+   - NO "Analyze..." or "Assess..." as leadership actions — the CEO wants decisions, not analysis
+   - NO "Monitor..." or "Review..." — too passive
+   - NO "significant" without a number next to it
+   - NO full sentences in what_moved lines — just "value, change, context"
+   - NO repeating the label in what_moved line text
 
 ## CRITICAL
 

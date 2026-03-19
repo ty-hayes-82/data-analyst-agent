@@ -1298,25 +1298,63 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             "→ Contains 7 numeric values: $97.22M, +3.0%, prior week baseline, $3.35B, $31.66M, 32.6%, $28.40M ✅\n\n"
         )
         
-        user_message = (
-            f"{section_title_reminder}"  # FIRST — most visible position
-            f"{network_numeric_enforcement}"  # SECOND — critical for validation
-            f"{json_enforcement_block}"
-            f"{focus_preamble_text}"
-            f"{contract_summary_block}"
-            f"{contract_metadata_block}"
-            f"{contract_reference_block}"
-            f"{metric_coverage_block}"
-            f"{severity_enforcement_block}"
-            f"{monthly_enforcement_block}"
-            f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
-            f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
-            f"Use the above 'reference_period_end' when writing header.title.\n\n"
-            f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
-            f"{digest}\n\n"
-            f"{weather_block}"
-            "Generate the executive brief JSON as instructed. Your response must be ONLY the JSON object — no markdown fences, no preamble, no explanation."
-        )
+        if is_ceo_style():
+            # CEO style: lean user message with clear context
+            comparison_basis = brief_temporal_context.get("default_comparison_basis", "WoW")
+
+            # Enrich digest with Level 2 (terminal/division) drivers from JSON data
+            terminal_block = ""
+            if json_data:
+                terminal_lines = []
+                for metric_key, payload in json_data.items():
+                    h = payload.get("hierarchical_analysis", {})
+                    l2 = h.get("level_2", {})
+                    cards = l2.get("insight_cards", [])
+                    if cards:
+                        items = []
+                        for c in cards[:3]:
+                            title = c.get("title", "")
+                            ev = c.get("evidence", {})
+                            name = title.replace("Level 2 Variance Driver: ", "")
+                            pct = ev.get("variance_pct")
+                            dollar = ev.get("variance_dollar", 0)
+                            pct_str = f"{pct:+.1f}%" if pct is not None else ""
+                            items.append(f"{name} ({pct_str}, ${abs(dollar):,.0f})")
+                        terminal_lines.append(f"  {metric_key}: {', '.join(items)}")
+                if terminal_lines:
+                    terminal_block = "TERMINAL/DIVISION DRIVERS (Level 2):\n" + "\n".join(terminal_lines) + "\n\n"
+
+            user_message = (
+                f"COMPARISON BASIS: All variances are {comparison_basis} (week-over-week vs prior week).\n"
+                f"Say 'WoW' or 'vs prior week' — NOT 'vs plan'.\n"
+                f"Week ending: {period_end}\n"
+                f"Metrics: {', '.join(sorted(reports.keys()))}\n\n"
+                f"{terminal_block}"
+                f"{contract_summary_block}"
+                f"{digest}\n\n"
+                f"{weather_block}"
+                "Generate the CEO brief JSON."
+            )
+        else:
+            user_message = (
+                f"{section_title_reminder}"  # FIRST — most visible position
+                f"{network_numeric_enforcement}"  # SECOND — critical for validation
+                f"{json_enforcement_block}"
+                f"{focus_preamble_text}"
+                f"{contract_summary_block}"
+                f"{contract_metadata_block}"
+                f"{contract_reference_block}"
+                f"{metric_coverage_block}"
+                f"{severity_enforcement_block}"
+                f"{monthly_enforcement_block}"
+                f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
+                f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
+                f"Use the above 'reference_period_end' when writing header.title.\n\n"
+                f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
+                f"{digest}\n\n"
+                f"{weather_block}"
+                "Generate the executive brief JSON as instructed. Your response must be ONLY the JSON object — no markdown fences, no preamble, no explanation."
+            )
 
         metric_names = sorted(reports.keys())
         model_name = get_agent_model("executive_brief_agent")
