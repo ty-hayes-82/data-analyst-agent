@@ -430,7 +430,7 @@ def should_continue_drilling(
         return {"action": "STOP", "reasoning": f"Level {current_level} is a duplicate.",
                 "material_variances": [], "next_level": None}
 
-    if current_level >= max_depth - 1:
+    if current_level >= max_depth:
         return {"action": "STOP", "reasoning": f"Reached max drill depth ({max_depth}).",
                 "material_variances": [], "next_level": None}
 
