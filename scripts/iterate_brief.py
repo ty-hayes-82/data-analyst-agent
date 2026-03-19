@@ -15,6 +15,11 @@ sys.path.insert(0, str(PROJECT))
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
 from dotenv import load_dotenv
 load_dotenv(PROJECT / ".env")
+# Also check parent dirs for .env
+load_dotenv(PROJECT.parent / ".env", override=False)
+if not os.environ.get("GOOGLE_API_KEY"):
+    print("ERROR: GOOGLE_API_KEY not set. Add it to .env")
+    sys.exit(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--run", type=int, default=1, help="Number of iterations")
