@@ -51,12 +51,11 @@ def _max_cards_per_level() -> int:
 
 MAX_CARDS_PER_LEVEL = 15  # Legacy default; _max_cards_per_level() used at runtime
 MIN_DRILL_IMPACT_SCORE = 0.15  # top insight must beat this to justify drill-down
-MIN_VARIANCE_DOLLAR = 50_000.0
-HIGH_VARIANCE_DOLLAR = 200_000.0
-CRITICAL_VARIANCE_DOLLAR = 500_000.0
-MIN_VARIANCE_PCT = 5.0
-HIGH_VARIANCE_PCT = 10.0
-CRITICAL_VARIANCE_PCT = 20.0
+
+# Materiality is now relative (share of variance, % change magnitude)
+# not fixed dollar thresholds. These legacy values are only used as
+# fallbacks when contract materiality config is not available.
+_LEGACY_MIN_VARIANCE_PCT = 2.0  # lowered from 5.0 — relative scoring handles priority
 
 
 # ---------------------------------------------------------------------------
@@ -99,18 +98,25 @@ def _priority_from_score(score: float) -> str:
 
 
 def _is_material_variance(var_dollar: float, var_pct: float | None) -> bool:
+    """Check if a variance is material enough to include.
+
+    Uses relative % change — no fixed dollar thresholds.
+    A $5K variance is material if it's a 30% change for a driver manager.
+    """
     pct_val = abs(var_pct) if var_pct is not None else 0.0
-    return abs(var_dollar) >= MIN_VARIANCE_DOLLAR or pct_val >= MIN_VARIANCE_PCT
+    # Any % change above the minimum threshold is material
+    # regardless of absolute dollar amount
+    return pct_val >= _LEGACY_MIN_VARIANCE_PCT
 
 
 def _priority_from_variance(var_dollar: float, var_pct: float | None) -> str:
+    """Assign priority based on relative % change, not fixed dollar thresholds."""
     pct_val = abs(var_pct) if var_pct is not None else 0.0
-    abs_dollar = abs(var_dollar)
-    if pct_val >= CRITICAL_VARIANCE_PCT or abs_dollar >= CRITICAL_VARIANCE_DOLLAR:
+    if pct_val >= 20.0:
         return "critical"
-    if pct_val >= HIGH_VARIANCE_PCT or abs_dollar >= HIGH_VARIANCE_DOLLAR:
+    if pct_val >= 10.0:
         return "high"
-    if pct_val >= MIN_VARIANCE_PCT or abs_dollar >= MIN_VARIANCE_DOLLAR:
+    if pct_val >= 5.0:
         return "medium"
     return "low"
 
