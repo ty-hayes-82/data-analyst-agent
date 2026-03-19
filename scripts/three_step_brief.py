@@ -87,14 +87,13 @@ for jf in cache_dir.glob("metric_*.json"):
         _l0_totals_cur[m_kpi] = ev.get("current", 0)
         _l0_totals_pri[m_kpi] = ev.get("prior", 0)
     else:
-        # Fallback: sum L1 cards for network total
-        l1 = p_kpi.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", [])
-        if l1:
-            cur_sum = sum(c.get("evidence", {}).get("current", 0) for c in l1)
-            pri_sum = sum(c.get("evidence", {}).get("prior", 0) for c in l1)
-            if cur_sum > 0:
-                _l0_totals_cur[m_kpi] = cur_sum
-                _l0_totals_pri[m_kpi] = pri_sum
+        # Fallback: use current_total/prior_total from L0 level stats if available
+        l0_meta = p_kpi.get("hierarchical_analysis", {}).get("level_0", {})
+        ct = l0_meta.get("current_total")
+        pt = l0_meta.get("prior_total")
+        if ct and pt:
+            _l0_totals_cur[m_kpi] = ct
+            _l0_totals_pri[m_kpi] = pt
 
 # Compute derived KPIs from cross-metric L0 totals
 derived_kpis = {}
@@ -160,6 +159,9 @@ for m, p in all_metrics.items():
 
     l1_cards = hierarchy.get("level_1", {}).get("insight_cards", [])
     l2_cards = hierarchy.get("level_2", {}).get("insight_cards", [])
+    l3_cards = hierarchy.get("level_3", {}).get("insight_cards", [])
+    if l3_cards:
+        print(f"  {m}: {len(l3_cards)} L3 driver manager cards found")
 
     for card in l1_cards:
         ev = card.get("evidence", {})
@@ -207,7 +209,7 @@ for m, p in all_metrics.items():
 
         detail = ", ".join(parts)
 
-        # Build children from L2
+        # Build children from L2 with L3 grandchildren (driver managers)
         children = []
         for l2c in l2_cards[:3]:
             l2_ev = l2c.get("evidence", {})
@@ -215,11 +217,32 @@ for m, p in all_metrics.items():
             l2_item = l2c.get("title", "").replace("Level 2 Variance Driver: ", "")
             if l2_pct is not None and not l2_ev.get("is_new_from_zero"):
                 child_parts = [f"{l2_pct:+.1f}% WoW (${abs(l2_ev.get('variance_dollar', 0)):,.0f})"]
-                # Attach L2 anomaly if exists
                 l2_anom = anom_lookup.get(l2_item)
                 if l2_anom:
                     child_parts.append(f"z={l2_anom['z_score']:.1f}")
-                children.append({"item": l2_item, "detail": ", ".join(child_parts), "level": "L2"})
+                child_entry = {"item": l2_item, "detail": ", ".join(child_parts), "level": "L2"}
+                # Attach L3 driver managers as grandchildren
+                if l3_cards:
+                    dm_list = []
+                    for l3c in l3_cards[:3]:
+                        l3_ev = l3c.get("evidence", {})
+                        l3_pct = l3_ev.get("variance_pct")
+                        l3_item = l3c.get("title", "").replace("Level 3 Variance Driver: ", "")
+                        if l3_pct is not None:
+                            dm_list.append(f"{l3_item} ({l3_pct:+.1f}%)")
+                    if dm_list:
+                        child_entry["driver_managers"] = dm_list
+                        print(f"    Attached {len(dm_list)} DMs to {l2_item}")
+                children.append(child_entry)
+
+        # If no L2 children but L3 exists, attach L3 directly as children
+        if not children and l3_cards:
+            for l3c in l3_cards[:3]:
+                l3_ev = l3c.get("evidence", {})
+                l3_pct = l3_ev.get("variance_pct")
+                l3_item = l3c.get("title", "").replace("Level 3 Variance Driver: ", "")
+                if l3_pct is not None and not l3_ev.get("is_new_from_zero"):
+                    children.append({"item": l3_item, "detail": f"{l3_pct:+.1f}% WoW", "level": "L3 (driver manager)"})
 
         metric_label = label_for(m)
         add_insight(score, cat, f"{item} ({metric_label})", detail, m, "L1", children or None)
@@ -445,11 +468,12 @@ step2_schema = types.Schema(type=types.Type.OBJECT, properties={
 step2_instruction = (
     "You are a senior analyst reviewing pre-ranked operational insight cards for a trucking company.\n\n"
     "SELECT 4-6 insights that tell ONE coherent story about the week.\n"
-    "For each, include ALL supporting children/drill-down evidence — do not drop terminal names or percentages.\n\n"
+    "Include ALL children AND driver_managers from the input. These are the people responsible.\n"
+    "Do not drop terminal names, driver manager codes, or percentages.\n\n"
     "RULES:\n"
-    "- Preserve exact numbers, percentages, and terminal names from the input\n"
-    "- For each insight, fill in vs_average (how it compares to 13-week average) and trend_duration (how many weeks this trend has persisted)\n"
-    "- If an insight has an associated anomaly, fill anomaly_flag with the z-score and description\n"
+    "- Preserve exact numbers, percentages, terminal names, AND driver manager codes from input\n"
+    "- When an insight has 'driver_managers' field, include those names in supporting_evidence\n"
+    "- Fill vs_average, trend_duration, anomaly_flag where available\n"
     "- key_anomalies: list the 1-3 most notable statistical outliers from the ranked insights\n"
     "- business_implication must name the MECHANISM (yield compression, capacity underutilization) not just 'will pressure margins'\n"
     "- MUST include the highest-ranked POSITIVE signal if one exists. If no metric improved, say so explicitly.\n"
@@ -504,6 +528,13 @@ step3_input = (
     + "\n".join(f"  {k}: {v}" for k, v in totals.items())
     + f"\n\nCURATED INSIGHTS (use ALL of these — do not drop any):\n\n"
     + json.dumps(curated.get("selected_insights", []), indent=2)
+    + "\n\nDRIVER MANAGERS (name these specific people in leadership_focus):\n"
+    + "\n".join(
+        f"  {c.get('item','')}: DMs {c.get('driver_managers',[])} "
+        for entry in top_for_llm
+        for c in (entry.get("children") or [])
+        if c.get("driver_managers")
+    )[:500]
     + "\n\nRULES FOR THIS BRIEF:\n"
     "- bottom_line: 2 sentences. Sentence 1 = verdict. Sentence 2 = the 'but' quality insight.\n"
     "- what_moved: 4 items, each a different dimension. Fragment format with CONTEXT:\n"
@@ -514,7 +545,8 @@ step3_input = (
     "  Positive = genuinely improving. If nothing improved, 'No bright spots'\n"
     "- why_it_matters: Quantify the mechanism. 'yield compression at 0.7%/wk' not 'margins will suffer'\n"
     "- next_week_outlook: Short, decisive, varied each time.\n"
-    "- leadership_focus: 3 items. Name TERMINALS. Specific actions.\n"
+    "- leadership_focus: 3 items. Name TERMINALS and DRIVER MANAGERS where available.\n"
+    "  'Intervene on BURKC at Phoenix — revenue down 90.7%' not 'Fix Phoenix operations'\n"
     "- No duplication across sections.\n"
 )
 
