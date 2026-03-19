@@ -14,6 +14,7 @@ from .periods import (
     determine_period_context,
     resolve_full_year_yoy,
     resolve_prior_period_str,
+    resolve_rolling_average,
 )
 from .ratio_metrics import compute_ratio_aggregations
 
@@ -80,6 +81,16 @@ async def compute_level_statistics_impl(
         lag,
         _,
     ) = determine_period_context(df, ctx, time_col, analysis_period)
+
+    # Auto-detect grain and override variance_type for weekly/daily data
+    grain = getattr(ctx, "temporal_grain", None) or ""
+    if variance_type.lower() == "yoy" and grain.lower() in ("weekly", "daily", "w", "d"):
+        all_periods = sorted(pd.to_datetime(df[time_col].unique()))
+        if len(all_periods) >= 2:
+            median_gap = pd.Series(all_periods).diff().median()
+            if median_gap and median_gap.days <= 8:
+                variance_type = "wow"
+                print(f"[LevelStats] Auto-switched to WoW comparison for {grain} grain (median gap: {median_gap.days}d)")
 
     full_year_payload = None
     if variance_type.lower() == "yoy":
@@ -195,6 +206,28 @@ async def compute_level_statistics_impl(
             axis=1
         ).tolist()
 
+    # Enrich top drivers with rolling average context
+    try:
+        rolling_df = resolve_rolling_average(
+            df, time_col, metric_col, level_col, current_period, window=4
+        )
+        if not rolling_df.empty:
+            avg_map = dict(zip(rolling_df["item"].astype(str), rolling_df["rolling_avg"]))
+            periods_used = int(rolling_df["periods_used"].iloc[0]) if not rolling_df.empty else 0
+            for driver in top_drivers:
+                item = str(driver.get("item", ""))
+                if item in avg_map:
+                    avg_val = avg_map[item]
+                    driver["rolling_avg"] = round(float(avg_val), 2)
+                    driver["rolling_avg_window"] = periods_used
+                    current_val = driver.get("current", 0)
+                    if avg_val and avg_val != 0:
+                        driver["vs_rolling_avg_pct"] = round(
+                            (current_val - avg_val) / abs(avg_val) * 100, 2
+                        )
+    except Exception as e:
+        print(f"[LevelStats] Rolling average enrichment failed: {e}")
+
     total_variance_dollar = (
         network_variance
         if network_variance is not None
@@ -206,6 +239,7 @@ async def compute_level_statistics_impl(
         "level_name": level_name,
         "metric": metric_col,
         "analysis_period": current_period,
+        "prior_period": prior_period_str,
         "lag_metadata": (
             {
                 "lag_periods": lag,
@@ -217,6 +251,8 @@ async def compute_level_statistics_impl(
         ),
         "variance_type": variance_type.upper(),
         "total_variance_dollar": total_variance_dollar,
+        "current_total": float(total_current),
+        "prior_total": float(total_prior),
         "top_drivers": top_drivers,
         "items_analyzed": len(merged),
         "variance_explained_pct": round(variance_explained, 2),
