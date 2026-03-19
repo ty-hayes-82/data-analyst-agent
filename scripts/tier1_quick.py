@@ -6,7 +6,7 @@ PROJECT = Path(__file__).resolve().parent.parent
 os.chdir(str(PROJECT))
 sys.path.insert(0, str(PROJECT))
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
-os.environ["GOOGLE_API_KEY"] = "AIzaSyBuu7oBUo6qQRXEHDl068CazKdBOnhlTB4"
+os.environ["GOOGLE_API_KEY"] = "AIzaSyCOXMllf7s12okkfz5VmnEIUw5T8S0SCDk"
 
 digest = json.loads((sorted((PROJECT / "outputs/tableau-ops_metrics_weekly/global/all").iterdir())[-1] / ".cache/digest.json").read_text())["digest"]
 print(f"Digest: {len(digest)} chars")
