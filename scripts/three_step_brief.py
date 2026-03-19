@@ -214,12 +214,22 @@ step2_schema = types.Schema(type=types.Type.OBJECT, properties={
 }, required=["selected_insights", "narrative_thesis", "quality_assessment"])
 
 step2_instruction = (
-    "You are a senior analyst reviewing pre-ranked operational insight cards. "
-    "Select the 4-6 MOST SIGNIFICANT insights that tell a coherent story about the week. "
-    "For each selected insight, attach the supporting children/drill-down evidence that EXPLAINS it. "
-    "Determine the narrative thesis: was this week 'strong revenue weaker quality', "
-    "'flat revenue execution pressure', 'softer revenue healthier fundamentals', 'broad decline', or 'mixed signals'? "
-    "Every selected insight must have a business_implication — what does it mean for earnings/margin?"
+    "You are a senior analyst reviewing pre-ranked operational insight cards for a trucking company.\n\n"
+    "SELECT 4-6 insights that tell ONE coherent story about the week.\n"
+    "For each, include ALL supporting children/drill-down evidence — do not drop terminal names or percentages.\n\n"
+    "RULES:\n"
+    "- Preserve exact numbers, percentages, and terminal names from the input\n"
+    "- Include trend DURATION from statistical data (e.g. '13-week upward trend', 'p=0.086')\n"
+    "- business_implication must name the MECHANISM (yield compression, capacity underutilization) not just 'will pressure margins'\n"
+    "- MUST include the highest-ranked POSITIVE signal if one exists (e.g. a metric trending favorably). "
+    "If no metric improved, say so explicitly.\n"
+    "- quality_assessment drives the entire brief narrative — choose carefully\n\n"
+    "Classify the week:\n"
+    "- 'strong revenue weaker quality': topline up but efficiency/service declining\n"
+    "- 'flat revenue execution pressure': topline stable but operational metrics deteriorating\n"
+    "- 'softer revenue healthier fundamentals': topline down but efficiency/service improving\n"
+    "- 'broad decline': both topline and operations deteriorating\n"
+    "- 'mixed signals': some metrics improving, others declining, no clear pattern"
 )
 
 print(f"\n{'='*70}")
@@ -257,14 +267,32 @@ for k, v in {"metric_count": str(len(all_metrics)),
     prompt = prompt.replace("{" + k + "}", v)
 
 step3_input = (
-    "COMPARISON BASIS: WoW (week-over-week).\n"
-    "Week ending: 2026-02-21\n\n"
-    f"NARRATIVE THESIS: {curated.get('quality_assessment', 'mixed signals')} — {curated.get('narrative_thesis', '')}\n\n"
-    f"CURATED INSIGHTS (pre-selected by significance, with supporting evidence):\n\n"
-    + json.dumps(curated.get("selected_insights", []), indent=2)
-    + f"\n\nNETWORK TOTALS:\n"
+    "Week ending: 2026-02-21. All comparisons are WoW.\n\n"
+    f"WEEK THESIS: {curated.get('quality_assessment', 'mixed signals')}\n"
+    f"{curated.get('narrative_thesis', '')}\n\n"
+    f"NETWORK TOTALS:\n"
     + "\n".join(f"  {k}: {v}" for k, v in totals.items())
-    + "\n\nSynthesize into the CEO brief. The thesis and insights are pre-curated — follow them."
+    + f"\n\nCURATED INSIGHTS (use ALL of these — do not drop any):\n\n"
+    + json.dumps(curated.get("selected_insights", []), indent=2)
+    + "\n\nRULES FOR THIS BRIEF:\n"
+    "- bottom_line: Open with a VERDICT. 'The week was operationally weak' not 'The week saw a contraction'\n"
+    "- what_moved: Each item = ONE metric category, ONE line. 'East DH +9.4%, Syracuse +23.4%, Ocala +8.7%' — not sentences\n"
+    "  Labels must be: Revenue / yield, Productivity, Network efficiency, Capacity, or Volume — pick the best fit\n"
+    "- trend_status: MUST include duration from the data. '13-week upward trend' or 'down 3 straight weeks'\n"
+    "- where_it_came_from positive: ONLY genuinely positive signals (metrics that IMPROVED WoW or show positive trends). "
+    "If a metric got worse but less than others, that is NOT positive. "
+    "Look for: deadhead declining, volume growing, yield improving. If truly nothing improved, write 'No bright spots this week'\n"
+    "- what_moved: MUST have exactly 4 items. Each must cover a DIFFERENT dimension — no two items about the same region or metric\n"
+    "- Do NOT repeat the same data point in trend_status AND where_it_came_from. Each fact appears ONCE.\n"
+    "- why_it_matters: Do NOT use 'double-hit' or 'recipe for'. Name the specific mechanism: "
+    "'yield compression will cost us $X per week in margin' or 'the East is now a net-negative contributor to operating income'\n"
+    "- next_week_outlook: VARY the structure. Not always 'If X continues, Y will happen.' Try:\n"
+    "  'One more week like this makes the issue material.'\n"
+    "  'The setup favors margin recovery if volume stabilizes.'\n"
+    "  'We are one rate concession away from structural margin damage.'\n"
+    "- leadership_focus: Name TERMINALS not regions. 'Fix Syracuse dispatch' not 'Audit Central region'. "
+    "If the action is regional, pick the worst terminal in that region.\n"
+    "- bottom_line: Exactly 2 sentences. Do not repeat the same idea in both sentences.\n"
 )
 
 brief_schema = types.Schema(type=types.Type.OBJECT, properties={
