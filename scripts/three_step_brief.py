@@ -401,7 +401,16 @@ for entry in scored:
         seen.add(key)
         deduped.append(entry)
 
-top_raw = deduped[:args.top]
+# Select top N, but ensure L1 insights with children (driver managers) are included
+top_raw = []
+with_children = [e for e in deduped if e.get("children")]
+without_children = [e for e in deduped if not e.get("children")]
+
+# Take top insights, reserving 3 slots for L1 cards with drill-down
+n_with = min(3, len(with_children))
+n_without = args.top - n_with
+top_raw = without_children[:n_without] + with_children[:n_with]
+top_raw.sort(key=lambda x: x["_score"], reverse=True)
 
 # Strip internal score before sending to LLM
 top_for_llm = []
@@ -528,13 +537,15 @@ step3_input = (
     + "\n".join(f"  {k}: {v}" for k, v in totals.items())
     + f"\n\nCURATED INSIGHTS (use ALL of these — do not drop any):\n\n"
     + json.dumps(curated.get("selected_insights", []), indent=2)
-    + "\n\nDRIVER MANAGERS (name these specific people in leadership_focus):\n"
+    + "\n\nDRIVER MANAGERS TO NAME IN LEADERSHIP ACTIONS:\n"
     + "\n".join(
-        f"  {c.get('item','')}: DMs {c.get('driver_managers',[])} "
+        f"  Driver Manager {dm} at {c.get('item','')}"
         for entry in top_for_llm
         for c in (entry.get("children") or [])
         if c.get("driver_managers")
-    )[:500]
+        for dm in c.get("driver_managers", [])
+    )[:600]
+    + "\nUse the format: 'Intervene on Driver Manager DUFFV at New Boston — revenue down 36.6%'\n"
     + "\n\nRULES FOR THIS BRIEF:\n"
     "- bottom_line: 2 sentences. Sentence 1 = verdict. Sentence 2 = the 'but' quality insight.\n"
     "- what_moved: 4 items, each a different dimension. Fragment format with CONTEXT:\n"
