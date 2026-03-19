@@ -619,12 +619,14 @@ def _validate_structured_brief(
     if not header_summary:
         errors.append("header.summary is empty")
     
-    # Validate header has minimum numeric values
+    # Validate header has minimum numeric values (skip for CEO style — bottom_line is the header)
+    from .prompt import is_ceo_style as _ceo_header_check
     header_value_count = _count_numeric_values(header_title + " " + header_summary)
-    if header_value_count < 2:
-        errors.append(
-            f"header contains only {header_value_count} numeric values (minimum: 2)"
-        )
+    if not _ceo_header_check():
+        if header_value_count < 2:
+            errors.append(
+                f"header contains only {header_value_count} numeric values (minimum: 2)"
+            )
     
     # Check for forbidden fallback when critical findings exist
     if has_critical_findings and critical_metrics:
@@ -765,7 +767,8 @@ def _validate_structured_brief(
         )
     
     # Validate total numeric values across entire brief
-    MINIMUM_TOTAL_VALUES = 10 if is_scoped else 15
+    from .prompt import is_ceo_style as _ceo_total_check
+    MINIMUM_TOTAL_VALUES = 5 if _ceo_total_check() else (10 if is_scoped else 15)
     if total_numeric_values < MINIMUM_TOTAL_VALUES:
         errors.append(
             f"Brief contains only {total_numeric_values} total numeric values (minimum: {MINIMUM_TOTAL_VALUES}). "
@@ -1375,6 +1378,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
 
         try:
+            # CEO style uses terse fragments — relax numeric validation
+            _ceo_min_values = 1 if is_ceo_style() else 3
             brief_json, brief_md, used_fallback = await _llm_generate_brief(
                 model_name=model_name,
                 instruction=instruction,
@@ -1386,6 +1391,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 unit=presentation_unit,
                 has_critical_findings=has_critical,
                 critical_metrics=critical_metrics,
+                min_insight_values=_ceo_min_values,
             )
 
             if used_fallback:
