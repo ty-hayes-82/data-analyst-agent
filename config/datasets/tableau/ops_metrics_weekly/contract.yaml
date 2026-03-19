@@ -277,9 +277,11 @@ dimensions:
   # Management
   - name: "flt_mgr_cd"
     column: "flt_mgr_cd"
-    display_name: "Fleet Manager Code"
-    role: "secondary"
-    description: "Fleet manager code"
+    display_name: "Fleet Manager"
+    brief_category: "Leadership"
+    brief_label: "Fleet Manager"
+    role: "primary"
+    description: "Fleet manager code - driver leader responsible for a group of drivers"
     
   - name: "drvr_mgr_cd"
     column: "drvr_mgr_cd"
@@ -312,7 +314,8 @@ hierarchies:
     levels:
       - "gl_rgn_nm"
       - "gl_div_nm"
-  
+      - "flt_mgr_cd"
+
   - name: "business_line"
     display_name: "Business Line Hierarchy"
     levels:

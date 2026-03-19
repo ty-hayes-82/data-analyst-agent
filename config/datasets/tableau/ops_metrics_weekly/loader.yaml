@@ -23,6 +23,7 @@ aggregation:
   group_by_columns:
     - "gl_rgn_nm"
     - "gl_div_nm"
+    - "flt_mgr_cd"
     - "ops_ln_of_bus_ref_nm"
     - "ops_ln_of_bus_nm"
     - "icc_cst_ctr_cd"
@@ -55,6 +56,7 @@ output_columns:
   - "cal_dt"
   - "gl_rgn_nm"
   - "gl_div_nm"
+  - "flt_mgr_cd"
   - "ops_ln_of_bus_ref_nm"
   - "ops_ln_of_bus_nm"
   - "icc_cst_ctr_cd"
