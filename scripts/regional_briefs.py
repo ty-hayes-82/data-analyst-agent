@@ -465,6 +465,109 @@ for region in regions:
     else:
         print(f"  Skipped — no insights")
 
+# ── Terminal briefs (top 5 by absolute variance) ───────────────────
+# Rank terminals by total absolute variance across all metrics
+terminal_variance = {}
+for m, p in all_metrics.items():
+    for card in p.get("hierarchical_analysis", {}).get("level_2", {}).get("insight_cards", []):
+        terminal = card.get("title", "").replace("Level 2 Variance Driver: ", "")
+        ev = card.get("evidence", {})
+        var_dollar = abs(ev.get("variance_dollar", 0))
+        var_pct = ev.get("variance_pct")
+        if terminal not in terminal_variance:
+            terminal_variance[terminal] = {"total_var": 0, "metrics": {}, "region": None}
+        terminal_variance[terminal]["total_var"] += var_dollar
+        terminal_variance[terminal]["metrics"][m] = {
+            "var_pct": var_pct, "var_dollar": ev.get("variance_dollar", 0),
+            "current": ev.get("current", 0), "prior": ev.get("prior", 0),
+        }
+        # Find which region this terminal belongs to
+        for rgn, terminals in _region_terminals.items():
+            if terminal in terminals:
+                terminal_variance[terminal]["region"] = rgn
+                break
+
+# Sort by total variance, take top 5
+top_terminals = sorted(terminal_variance.items(), key=lambda x: x[1]["total_var"], reverse=True)[:5]
+
+for terminal, tdata in top_terminals:
+    rgn = tdata.get("region", "Unknown")
+    print(f"\n{'='*60}\nGenerating: {terminal} ({rgn})\n{'='*60}")
+    t0 = time.time()
+
+    # Filter insights for this terminal (L2 cards + any L3 driver managers)
+    terminal_insights = []
+    for e in deduped:
+        title = e.get("title", "")
+        # Include insights that mention this terminal or its parent region
+        if terminal in title or (rgn and rgn in e.get("_region", "")):
+            terminal_insights.append(e)
+    # Also include network-level cross-metric signals
+    terminal_insights += [e for e in deduped if e.get("_region") == "Network"]
+    terminal_insights = terminal_insights[:args.top]
+
+    # Build terminal totals
+    terminal_totals = {}
+    for metric_name, mdata in tdata["metrics"].items():
+        pct = mdata.get("var_pct")
+        pct_str = f"{pct:+.1f}%" if pct is not None else ""
+        terminal_totals[label_for(metric_name)] = f"${mdata.get('current', 0):,.0f} ({pct_str} WoW)"
+
+    # Add L3 driver manager context for this terminal
+    dm_block = ""
+    for m, p in all_metrics.items():
+        l3 = p.get("hierarchical_analysis", {}).get("level_3", {}).get("insight_cards", [])
+        for card in l3[:3]:
+            ev = card.get("evidence", {})
+            dm = card.get("title", "").replace("Level 3 Variance Driver: ", "")
+            pct = ev.get("variance_pct")
+            if pct is not None:
+                dm_block += f"  Driver Manager {dm}: {label_for(m)} {pct:+.1f}% WoW\n"
+        if dm_block:
+            break
+
+    if terminal_insights:
+        # Generate with terminal scope
+        scope_prompt = prompt + (
+            f"\n\nSCOPE: This brief covers {terminal} terminal ({rgn} region) ONLY.\n"
+            f"Name specific driver managers in leadership actions.\n"
+        )
+
+        clean = [{k: v for k, v in e.items() if not k.startswith("_")} for e in terminal_insights]
+        client = genai.Client()
+
+        # Step 2
+        s2_input = json.dumps({"scope": f"{terminal} ({rgn})", "totals": terminal_totals, "ranked_insights": clean}, indent=2, default=str)
+        r2 = client.models.generate_content(model=args.model, contents=s2_input,
+            config=types.GenerateContentConfig(system_instruction=step2_instruction, response_modalities=["TEXT"],
+                response_mime_type="application/json", response_schema=step2_schema, temperature=0.1))
+        curated = json.loads(r2.text)
+
+        # Step 3
+        network_context = ""
+        if hasattr(generate_brief, '_network_thesis'):
+            nt_data = generate_brief._network_thesis
+            network_context = f"NETWORK CONTEXT: {nt_data['assessment']} — {nt_data['thesis']}\n\n"
+
+        s3_input = (
+            f"Week ending: 2026-02-21. Scope: {terminal} terminal ({rgn} region). WoW.\n\n"
+            f"{network_context}"
+            f"THESIS: {curated.get('quality_assessment', 'mixed')} — {curated.get('narrative_thesis', '')}\n\n"
+            f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in terminal_totals.items())
+            + f"\n\nDRIVER MANAGERS AT {terminal.upper()}:\n{dm_block}\n"
+            + f"CURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
+            + "\n\nRules: Name driver managers in leadership. Fragments in what_moved."
+        )
+        r3 = client.models.generate_content(model=args.model, contents=s3_input,
+            config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
+                response_mime_type="application/json", response_schema=brief_schema, temperature=args.temp))
+        tb = json.loads(r3.text)
+        tt = curated.get("quality_assessment", "mixed")
+        print(f"  [{time.time()-t0:.1f}s] Thesis: {tt}")
+        all_briefs.append(render_brief(f"{terminal} Terminal ({rgn})", tb, tt))
+    else:
+        print(f"  Skipped — no insights")
+
 # ── Output combined document ────────────────────────────────────────
 total_time = time.time() - t_total
 header = f"# Weekly Performance Brief — Week Ending February 21, 2026\n\n*Generated in {total_time:.1f}s | {len(all_briefs)} sections | {args.model}*\n"
