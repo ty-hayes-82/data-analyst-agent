@@ -47,6 +47,44 @@ all_metrics = {}
 for jf in sorted(cache_dir.glob("metric_*.json")):
     all_metrics[jf.stem.replace("metric_", "")] = json.loads(jf.read_text())
 
+# Build region -> terminal mapping from hierarchy definitions
+# This should come from the data or contract; using data-derived mapping
+_region_terminals = {}
+for m, p in all_metrics.items():
+    # The raw data has gl_rgn_nm -> gl_div_nm mapping embedded in the hierarchy
+    # We can infer it from L1 + L2 cards if L2 cards carry parent info
+    # For now, build from the first available metric's L1/L2 structure
+    break
+# Load from cached data if available
+import glob as _glob
+_csv_files = _glob.glob(str(PROJECT / "outputs" / "**" / "primary_data_csv_*.csv"), recursive=True)
+if not _csv_files:
+    # Check VPS cache structure - use the run metadata if available
+    pass
+# Fallback: extract from the hierarchy structure in the contract
+# The contract defines hierarchies: geographic -> [gl_rgn_nm, gl_div_nm]
+# We need the actual data mapping - read from the metric JSONs
+# Since L2 cards don't carry parent region, we must extract from raw data
+# Use a static mapping derived from the dataset (updated when data changes)
+try:
+    import subprocess
+    result = subprocess.run(
+        ["ssh", "root@187.124.147.182",
+         "docker exec swoop-agent python3 -c \"import pandas as pd, glob, json; "
+         "csvs=glob.glob('/tmp/data_analyst_cache_0/primary_data_csv_*.csv'); "
+         "df=pd.read_csv(csvs[-1]) if csvs else None; "
+         "print(json.dumps({r: sorted(set(d)) for r, d in df.groupby('gl_rgn_nm')['gl_div_nm'].unique().items()})) if df is not None else print('{}')\""],
+        capture_output=True, text=True, timeout=10
+    )
+    _region_terminals = json.loads(result.stdout.strip()) if result.stdout.strip() else {}
+except Exception:
+    _region_terminals = {}
+
+if not _region_terminals:
+    print("WARNING: No region-terminal mapping available. L2 scoping will be approximate.")
+else:
+    print(f"Region-terminal mapping: {', '.join(f'{r}({len(t)})' for r, t in _region_terminals.items())}")
+
 # Collect L0 totals for derived KPIs
 _l0_cur = {}
 _l0_pri = {}
@@ -152,13 +190,19 @@ for m, p in all_metrics.items():
             parts.append(f"z-score {anom['z_score']:.1f} outlier")
             score *= 1.3
 
+        # Only attach L2 children that belong to THIS region
+        region_divs = set(_region_terminals.get(item, []))
         children = []
-        for l2c in l2_cards[:3]:
+        for l2c in l2_cards:
             l2_ev = l2c.get("evidence", {})
             l2_pct = l2_ev.get("variance_pct")
             l2_item = l2c.get("title", "").replace("Level 2 Variance Driver: ", "")
             if l2_pct is not None and not l2_ev.get("is_new_from_zero"):
-                children.append({"item": l2_item, "detail": f"{l2_pct:+.1f}% WoW (${abs(l2_ev.get('variance_dollar', 0)):,.0f})", "level": "L2"})
+                # Only include if this terminal belongs to this region (or no mapping available)
+                if not region_divs or l2_item in region_divs:
+                    children.append({"item": l2_item, "detail": f"{l2_pct:+.1f}% WoW (${abs(l2_ev.get('variance_dollar', 0)):,.0f})", "level": "L2"})
+            if len(children) >= 3:
+                break
 
         all_scored.append({
             "category": cat, "title": f"{item} ({label_for(m)})", "detail": ", ".join(parts),
@@ -293,13 +337,24 @@ def generate_brief(scope_name, scope_insights, scope_totals):
     # Step 3: Synthesize
     scope_prompt = prompt
     if scope_name != "Network":
-        scope_prompt += f"\n\nSCOPE: This brief covers the {scope_name} region ONLY. All insights must be specific to {scope_name}."
+        scope_prompt += f"\n\nSCOPE: This brief covers the {scope_name} region ONLY. All insights must be specific to {scope_name}. Only mention terminals within {scope_name}."
+
+    # Cascade network thesis to regional briefs
+    network_context = ""
+    if scope_name != "Network" and hasattr(generate_brief, '_network_thesis'):
+        nt = generate_brief._network_thesis
+        network_context = (
+            f"NETWORK CONTEXT: The network thesis this week is '{nt['assessment']}': {nt['thesis']}\n"
+            f"Explain how {scope_name} contributes to or diverges from this network story.\n\n"
+        )
+
     s3_input = (
         f"Week ending: 2026-02-21. Scope: {scope_name}. WoW comparisons.\n\n"
+        f"{network_context}"
         f"THESIS: {curated.get('quality_assessment', 'mixed')} -- {curated.get('narrative_thesis', '')}\n\n"
         f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in scope_totals.items())
         + f"\n\nCURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
-        + "\n\nRules: fragments not sentences in what_moved. Duration in trends. Terminals in leadership."
+        + "\n\nRules: fragments not sentences in what_moved. Duration in trends. Terminals in leadership. Use region-specific KPIs from totals."
     )
     r3 = client.models.generate_content(model=args.model, contents=s3_input,
         config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
@@ -358,6 +413,8 @@ print(f"\n{'='*60}\nGenerating: NETWORK\n{'='*60}")
 t0 = time.time()
 network_insights = deduped[:args.top]
 nb, nt = generate_brief("Network", network_insights, network_totals)
+# Store network thesis for cascading to regional briefs
+generate_brief._network_thesis = {"assessment": nt, "thesis": nb.get("bottom_line", "")}
 print(f"  [{time.time()-t0:.1f}s] Thesis: {nt}")
 all_briefs.append(render_brief("Network Overview", nb, nt))
 
@@ -373,6 +430,8 @@ for region in regions:
 
     # Build region totals from L1 cards
     region_totals = {}
+    _rgn_cur = {}
+    _rgn_pri = {}
     for m, p in all_metrics.items():
         for card in p.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", []):
             item = card.get("title", "").replace("Level 1 Variance Driver: ", "")
@@ -381,6 +440,23 @@ for region in regions:
                 pct = ev.get("variance_pct")
                 pct_str = f"{pct:+.1f}%" if pct is not None else ""
                 region_totals[label_for(m)] = f"${ev.get('current', 0):,.0f} ({pct_str} WoW)"
+                _rgn_cur[m] = ev.get("current", 0)
+                _rgn_pri[m] = ev.get("prior", 0)
+
+    # Compute region-specific derived KPIs
+    for kd in contract.get("derived_kpis", []):
+        nc = _rgn_cur.get(kd.get("numerator", ""))
+        np_ = _rgn_pri.get(kd.get("numerator", ""))
+        dc = _rgn_cur.get(kd.get("denominator", ""))
+        dp = _rgn_pri.get(kd.get("denominator", ""))
+        mult = kd.get("multiply", 1)
+        dd = kd.get("divide_by_days", 1)
+        if nc and dc and dc > 0 and dp and dp > 0:
+            cv = (nc / dc / dd) * mult
+            pv = (np_ / dp / dd) * mult
+            chg = (cv - pv) / abs(pv) * 100 if pv else 0
+            fmt = f"${cv:.2f}" if kd.get("format") == "currency" else (f"{cv:.1f}%" if kd.get("format") == "percentage" else f"{cv:,.0f}")
+            region_totals[kd.get("brief_label", kd["name"])] = f"{fmt} ({chg:+.1f}% WoW)"
 
     if region_insights:
         rb, rt = generate_brief(region, region_insights, region_totals)
