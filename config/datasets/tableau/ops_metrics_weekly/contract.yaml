@@ -285,9 +285,11 @@ dimensions:
     
   - name: "drvr_mgr_cd"
     column: "drvr_mgr_cd"
-    display_name: "Driver Manager Code"
-    role: "secondary"
-    description: "Driver manager code"
+    display_name: "Driver Manager"
+    brief_category: "Leadership"
+    brief_label: "Driver Manager"
+    role: "primary"
+    description: "Driver manager code - driver leader responsible for a group of drivers"
   
   # Flags
   - name: "ownr_oprtr_flg"
@@ -314,7 +316,7 @@ hierarchies:
     levels:
       - "gl_rgn_nm"
       - "gl_div_nm"
-      - "flt_mgr_cd"
+      - "drvr_mgr_cd"
 
   - name: "business_line"
     display_name: "Business Line Hierarchy"
