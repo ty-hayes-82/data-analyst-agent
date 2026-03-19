@@ -56,14 +56,76 @@ for jf in sorted(cache_dir.glob("metric_*.json")):
     m = jf.stem.replace("metric_", "")
     all_metrics[m] = p
 
-# Categorize metric
+# Load contract for metric categories and derived KPIs
+import yaml
+contract_path = PROJECT / "config" / "datasets" / "tableau" / "ops_metrics_weekly" / "contract.yaml"
+contract = yaml.safe_load(contract_path.read_text(encoding="utf-8")) if contract_path.exists() else {}
+
+# Build metric → brief_category and brief_label lookups from contract
+_metric_cat = {}
+_metric_label = {}
+for metric_def in contract.get("metrics", []):
+    name = metric_def.get("name", "")
+    _metric_cat[name] = metric_def.get("brief_category", "Operations")
+    _metric_label[name] = metric_def.get("brief_label", metric_def.get("display_name", name))
+
 def categorize(m):
-    if "dh_miles" in m: return "Network efficiency"
-    if "rev" in m or "fuel_srchrg" in m: return "Revenue / yield"
-    if "ordr" in m: return "Volume"
-    if "trf_mi" in m or "ld_trf" in m: return "Productivity"
-    if "truck" in m: return "Capacity"
-    return "Operations"
+    return _metric_cat.get(m, "Operations")
+
+def label_for(m):
+    return _metric_label.get(m, m)
+
+# First pass: collect network totals from L0 cards, fallback to L1 sum
+_l0_totals_cur = {}
+_l0_totals_pri = {}
+for jf in cache_dir.glob("metric_*.json"):
+    p_kpi = json.loads(jf.read_text())
+    m_kpi = jf.stem.replace("metric_", "")
+    l0 = p_kpi.get("hierarchical_analysis", {}).get("level_0", {}).get("insight_cards", [])
+    if l0:
+        ev = l0[0].get("evidence", {})
+        _l0_totals_cur[m_kpi] = ev.get("current", 0)
+        _l0_totals_pri[m_kpi] = ev.get("prior", 0)
+    else:
+        # Fallback: sum L1 cards for network total
+        l1 = p_kpi.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", [])
+        if l1:
+            cur_sum = sum(c.get("evidence", {}).get("current", 0) for c in l1)
+            pri_sum = sum(c.get("evidence", {}).get("prior", 0) for c in l1)
+            if cur_sum > 0:
+                _l0_totals_cur[m_kpi] = cur_sum
+                _l0_totals_pri[m_kpi] = pri_sum
+
+# Compute derived KPIs from cross-metric L0 totals
+derived_kpis = {}
+for kpi_def in contract.get("derived_kpis", []):
+    kpi_name = kpi_def["name"]
+    num_metric = kpi_def.get("numerator", "")
+    den_metric = kpi_def.get("denominator", "")
+    multiply = kpi_def.get("multiply", 1)
+    divide_days = kpi_def.get("divide_by_days", 1)
+
+    num_cur = _l0_totals_cur.get(num_metric)
+    num_pri = _l0_totals_pri.get(num_metric)
+    den_cur = _l0_totals_cur.get(den_metric)
+    den_pri = _l0_totals_pri.get(den_metric)
+
+    if num_cur and den_cur and den_cur > 0 and den_pri and den_pri > 0:
+        cur_val = (num_cur / den_cur / divide_days) * multiply
+        pri_val = (num_pri / den_pri / divide_days) * multiply
+        change_pct = (cur_val - pri_val) / abs(pri_val) * 100 if pri_val else 0
+        derived_kpis[kpi_name] = {
+            "label": kpi_def.get("brief_label", kpi_name),
+            "category": kpi_def.get("brief_category", "Operations"),
+            "current": cur_val,
+            "prior": pri_val,
+            "change_pct": change_pct,
+            "format": kpi_def.get("format", "float"),
+        }
+
+if derived_kpis:
+    kpi_strs = [f"{k}={v['current']:.2f} ({v['change_pct']:+.1f}%)" for k, v in derived_kpis.items()]
+    print(f"Derived KPIs: {', '.join(kpi_strs)}")
 
 # ── Build insight trees: L1 parent → L2 children + stat context ─────
 for m, p in all_metrics.items():
@@ -159,7 +221,8 @@ for m, p in all_metrics.items():
                     child_parts.append(f"z={l2_anom['z_score']:.1f}")
                 children.append({"item": l2_item, "detail": ", ".join(child_parts), "level": "L2"})
 
-        add_insight(score, cat, f"{item} ({m})", detail, m, "L1", children or None)
+        metric_label = label_for(m)
+        add_insight(score, cat, f"{item} ({metric_label})", detail, m, "L1", children or None)
 
 # ── Statistical trends (3-month slopes) ─────────────────────────────
 for m, p in all_metrics.items():
@@ -261,6 +324,24 @@ for m, p in all_metrics.items():
                 if score > 0.3:
                     add_insight(score, "Acceleration", f"{item} {m} acceleration", detail, m, "acceleration")
 
+# ── Derived KPIs as insight cards ────────────────────────────────────
+for kpi_name, kpi in derived_kpis.items():
+    cur = kpi["current"]
+    pri = kpi["prior"]
+    chg = kpi["change_pct"]
+    if kpi["format"] == "currency":
+        val_str = f"${cur:,.2f}"
+        pri_str = f"${pri:,.2f}"
+    elif kpi["format"] == "percentage":
+        val_str = f"{cur:.1f}%"
+        pri_str = f"{pri:.1f}%"
+    else:
+        val_str = f"{cur:,.0f}"
+        pri_str = f"{pri:,.0f}"
+    detail = f"{val_str}, {chg:+.1f}% WoW (prior: {pri_str})"
+    score = abs(chg) * 0.8  # KPIs are high-value signals
+    add_insight(score, kpi["category"], f"{kpi['label']} (derived)", detail, kpi_name, "derived_kpi")
+
 # ── Cross-metric signals ────────────────────────────────────────────
 l0_data = {}
 for m, p in all_metrics.items():
@@ -321,13 +402,22 @@ for i, entry in enumerate(top_raw, 1):
 from google import genai
 from google.genai import types
 
-# Network totals
+# Network totals with contract labels
 totals = {}
 for m in ["ttl_rev_amt", "lh_rev_amt", "dh_miles", "ld_trf_mi", "truck_count", "ordr_cnt"]:
     if m in l0_data:
         d = l0_data[m]
         pct = f"{d['var_pct']:+.1f}%" if d.get("var_pct") is not None else "flat"
-        totals[m] = f"${d['current']:,.0f} ({pct} WoW)"
+        totals[label_for(m)] = f"${d['current']:,.0f} ({pct} WoW)"
+
+# Add derived KPIs to totals
+for kpi_name, kpi in derived_kpis.items():
+    if kpi["format"] == "currency":
+        totals[kpi["label"]] = f"${kpi['current']:,.2f} ({kpi['change_pct']:+.1f}% WoW)"
+    elif kpi["format"] == "percentage":
+        totals[kpi["label"]] = f"{kpi['current']:.1f}% ({kpi['change_pct']:+.1f}% WoW)"
+    else:
+        totals[kpi["label"]] = f"{kpi['current']:,.0f} ({kpi['change_pct']:+.1f}% WoW)"
 
 step2_input = json.dumps({
     "network_totals": totals,
