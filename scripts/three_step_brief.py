@@ -42,7 +42,7 @@ def add_insight(score, category, title, detail, metric, level, children=None):
         "detail": detail,
         "metric": metric,
         "level": level,
-        "score": round(score, 3),
+        "_score": round(score, 3),  # internal only, stripped before sending to LLM
     }
     if children:
         entry["children"] = children
@@ -65,57 +65,105 @@ def categorize(m):
     if "truck" in m: return "Capacity"
     return "Operations"
 
-# ── Hierarchy variance cards ────────────────────────────────────────
+# ── Build insight trees: L1 parent → L2 children + stat context ─────
 for m, p in all_metrics.items():
     cat = categorize(m)
     hierarchy = p.get("hierarchical_analysis", {})
+    stats = p.get("statistical_summary", {})
 
-    for level_key in ["level_0", "level_1", "level_2"]:
-        level_num = int(level_key[-1])
-        level_data = hierarchy.get(level_key, {})
-        cards = level_data.get("insight_cards", [])
+    # Build statistical context lookup: item → {avg, slope, anomaly, etc.}
+    stat_ctx = {}
+    for driver in stats.get("top_drivers", []):
+        item_name = driver.get("item", "")
+        avg = driver.get("avg", 0)
+        stat_ctx[item_name] = {
+            "avg": avg, "std": driver.get("std", 0), "cv": driver.get("cv", 0),
+            "slope_pct": abs(driver.get("slope_3mo", 0) / avg * 100) if avg else 0,
+            "slope_dir": "up" if driver.get("slope_3mo", 0) > 0 else "down",
+            "slope_p": driver.get("slope_3mo_p_value"),
+            "min": driver.get("min", 0), "max": driver.get("max", 0),
+            "accel": driver.get("acceleration_3mo", 0),
+        }
 
-        for card in cards:
-            ev = card.get("evidence", {})
-            var_pct = ev.get("variance_pct")
-            var_dollar = ev.get("variance_dollar", 0)
-            current = ev.get("current", 0)
-            prior = ev.get("prior", 0)
-            share = ev.get("share_of_total", 0)
-            is_new = ev.get("is_new_from_zero", False)
-            item = card.get("title", "").replace(f"Level {level_num} Variance Driver: ", "")
+    # Anomaly lookup (skip first-period anomalies)
+    anom_lookup = {}
+    ss = stats.get("summary_stats", {})
+    first_period = ss.get("period_range", "").split(" to ")[0] if ss.get("period_range") else ""
+    for anom in stats.get("anomalies", []):
+        if anom.get("period") == first_period:
+            continue
+        anom_item = anom.get("item", "")
+        if anom_item not in anom_lookup and abs(anom.get("z_score", 0)) > 2.0:
+            anom_lookup[anom_item] = anom
 
-            if is_new or var_pct is None:
-                continue
+    l1_cards = hierarchy.get("level_1", {}).get("insight_cards", [])
+    l2_cards = hierarchy.get("level_2", {}).get("insight_cards", [])
 
-            level_weight = {0: 3.0, 1: 2.0, 2: 1.5}.get(level_num, 1.0)
-            magnitude = min(abs(var_pct) / 10, 5)
-            share_weight = max(share, 0.05)
-            score = magnitude * share_weight * level_weight
+    for card in l1_cards:
+        ev = card.get("evidence", {})
+        var_pct = ev.get("variance_pct")
+        var_dollar = ev.get("variance_dollar", 0)
+        current = ev.get("current", 0)
+        prior = ev.get("prior", 0)
+        share = ev.get("share_of_total", 0)
+        if ev.get("is_new_from_zero") or var_pct is None:
+            continue
+        item = card.get("title", "").replace("Level 1 Variance Driver: ", "")
 
-            direction = "+" if var_pct > 0 else ""
-            detail = f"{direction}{var_pct:.1f}% WoW (${abs(var_dollar):,.0f}), current ${current:,.0f} vs prior ${prior:,.0f}"
+        # Base score
+        magnitude = min(abs(var_pct) / 10, 5)
+        score = magnitude * max(share, 0.05) * 2.0
 
-            # Collect children (next level cards for same metric)
-            children = []
-            if level_num < 2:
-                next_level = f"level_{level_num + 1}"
-                next_cards = hierarchy.get(next_level, {}).get("insight_cards", [])
-                for nc in next_cards[:3]:
-                    nc_ev = nc.get("evidence", {})
-                    nc_pct = nc_ev.get("variance_pct")
-                    nc_item = nc.get("title", "").replace(f"Level {level_num+1} Variance Driver: ", "")
-                    if nc_pct is not None and not nc_ev.get("is_new_from_zero"):
-                        children.append({
-                            "item": nc_item,
-                            "detail": f"{nc_pct:+.1f}% WoW (${abs(nc_ev.get('variance_dollar',0)):,.0f})",
-                            "level": f"L{level_num+1}",
-                        })
+        # Build detail with multi-timeframe context
+        parts = [f"{var_pct:+.1f}% WoW (${abs(var_dollar):,.0f}), current ${current:,.0f}"]
 
-            add_insight(score, cat, f"{item} ({m})", detail, m, f"L{level_num}", children or None)
+        # vs average
+        sc = stat_ctx.get(item, {})
+        if sc.get("avg") and current:
+            vs_avg = (current - sc["avg"]) / sc["avg"] * 100
+            if abs(vs_avg) > 3:
+                parts.append(f"{vs_avg:+.0f}% vs 13-wk avg")
+            # Historical rank
+            if sc.get("max") and current >= sc["max"] * 0.95:
+                parts.append("near 13-wk high")
+            elif sc.get("min") and current <= sc["min"] * 1.05:
+                parts.append("near 13-wk low")
 
-# ── Statistical trends ──────────────────────────────────────────────
+        # Trend context
+        if sc.get("slope_p") is not None and sc["slope_p"] < 0.15 and sc.get("slope_pct", 0) > 0.5:
+            accel_note = ""
+            if sc.get("accel") and sc["avg"] and abs(sc["accel"] / sc["avg"]) > 0.02:
+                accel_note = " and accelerating"
+            parts.append(f"13-wk trend {sc['slope_dir']} ~{sc['slope_pct']:.1f}%/wk{accel_note}")
+            score *= 1.5  # boost for statistically significant trend
+
+        # Anomaly flag
+        anom = anom_lookup.get(item)
+        if anom:
+            parts.append(f"z-score {anom['z_score']:.1f} outlier in {anom['period']}")
+            score *= 1.3
+
+        detail = ", ".join(parts)
+
+        # Build children from L2
+        children = []
+        for l2c in l2_cards[:3]:
+            l2_ev = l2c.get("evidence", {})
+            l2_pct = l2_ev.get("variance_pct")
+            l2_item = l2c.get("title", "").replace("Level 2 Variance Driver: ", "")
+            if l2_pct is not None and not l2_ev.get("is_new_from_zero"):
+                child_parts = [f"{l2_pct:+.1f}% WoW (${abs(l2_ev.get('variance_dollar', 0)):,.0f})"]
+                # Attach L2 anomaly if exists
+                l2_anom = anom_lookup.get(l2_item)
+                if l2_anom:
+                    child_parts.append(f"z={l2_anom['z_score']:.1f}")
+                children.append({"item": l2_item, "detail": ", ".join(child_parts), "level": "L2"})
+
+        add_insight(score, cat, f"{item} ({m})", detail, m, "L1", children or None)
+
+# ── Statistical trends (3-month slopes) ─────────────────────────────
 for m, p in all_metrics.items():
+    cat = categorize(m)
     stats = p.get("statistical_summary", {})
     for driver in stats.get("top_drivers", [])[:5]:
         slope = driver.get("slope_3mo")
@@ -131,6 +179,87 @@ for m, p in all_metrics.items():
             score = sig * pct * 0.5
             detail = f"trending {direction} ~{pct:.1f}%/wk over 13 weeks (p={p_val:.3f}), avg ${avg:,.0f}"
             add_insight(score, "Trend", f"{item} {m} trend", detail, m, "statistical")
+
+# ── Vs-average context (current week vs 13-week avg) ────────────────
+for m, p in all_metrics.items():
+    cat = categorize(m)
+    stats = p.get("statistical_summary", {})
+    hierarchy = p.get("hierarchical_analysis", {})
+    l1_cards = hierarchy.get("level_1", {}).get("insight_cards", [])
+
+    for driver in stats.get("top_drivers", [])[:3]:
+        item = driver.get("item", "")
+        avg = driver.get("avg", 0)
+        std = driver.get("std", 0)
+        item_min = driver.get("min", 0)
+        item_max = driver.get("max", 0)
+
+        # Find current value from hierarchy cards
+        current = None
+        for card in l1_cards:
+            card_item = card.get("title", "").replace("Level 1 Variance Driver: ", "")
+            if card_item == item:
+                current = card.get("evidence", {}).get("current", 0)
+                break
+
+        if current and avg and avg > 0:
+            vs_avg_pct = (current - avg) / avg * 100
+            if abs(vs_avg_pct) > 5:  # material deviation
+                above_below = "above" if vs_avg_pct > 0 else "below"
+                detail = f"{item}: current ${current:,.0f} is {vs_avg_pct:+.1f}% vs 13-wk avg (${avg:,.0f})"
+
+                # Historical rank
+                if item_max and item_min:
+                    if current >= item_max * 0.95:
+                        detail += ", near 13-week high"
+                    elif current <= item_min * 1.05:
+                        detail += ", near 13-week low"
+
+                score = abs(vs_avg_pct) * 0.3
+                add_insight(score, f"{cat} vs avg", f"{item} {m} vs avg", detail, m, "vs_average")
+
+# ── Anomalies (z-score outliers) ────────────────────────────────────
+for m, p in all_metrics.items():
+    cat = categorize(m)
+    stats = p.get("statistical_summary", {})
+    ss = stats.get("summary_stats", {})
+
+    # Only recent anomalies (not the first partial week)
+    period_range = ss.get("period_range", "")
+    for anom in stats.get("anomalies", []):
+        z = anom.get("z_score")
+        item = anom.get("item_name", anom.get("item", ""))
+        period = anom.get("period", "")
+        value = anom.get("value", 0)
+        anom_avg = anom.get("avg", 0)
+
+        # Skip if it's the first period (likely partial week)
+        if period and period_range and period == period_range.split(" to ")[0]:
+            continue
+
+        if z and abs(z) > 2.5:
+            direction = "spike" if z > 0 else "dip"
+            detail = f"{item}: {m} {direction} in {period} (z={z:.1f}, value ${value:,.0f} vs avg ${anom_avg:,.0f})"
+            score = abs(z) * 0.4
+            add_insight(score, "Anomaly", f"{item} {m} anomaly", detail, m, "anomaly")
+
+# ── Acceleration signals (trend changing speed) ─────────────────────
+for m, p in all_metrics.items():
+    cat = categorize(m)
+    stats = p.get("statistical_summary", {})
+    for driver in stats.get("top_drivers", [])[:3]:
+        slope = driver.get("slope_3mo")
+        accel = driver.get("acceleration_3mo")
+        avg = driver.get("avg", 0)
+        item = driver.get("item", "")
+
+        if slope and accel and avg and abs(accel) > abs(slope) * 0.5:
+            # Acceleration is significant relative to slope
+            if (slope > 0 and accel > 0) or (slope < 0 and accel < 0):
+                detail = f"{item}: {m} trend is ACCELERATING ({'+' if slope > 0 else '-'}slope with same-direction acceleration)"
+                score = abs(accel / avg * 100) * 0.2
+                if score > 0.3:
+                    add_insight(score, "Acceleration", f"{item} {m} acceleration", detail, m, "acceleration")
 
 # ── Cross-metric signals ────────────────────────────────────────────
 l0_data = {}
@@ -157,7 +286,7 @@ if dh_pct is not None and ttl_mi_pct is not None:
         add_insight(abs(dh_pct - (ttl_mi_pct or 0)), "Efficiency signal", "DH vs Miles", detail, "cross", "cross")
 
 # Sort by score
-scored.sort(key=lambda x: x["score"], reverse=True)
+scored.sort(key=lambda x: x["_score"], reverse=True)
 
 # Deduplicate
 seen = set()
@@ -170,13 +299,19 @@ for entry in scored:
 
 top_raw = deduped[:args.top]
 
+# Strip internal score before sending to LLM
+top_for_llm = []
+for entry in top_raw:
+    clean = {k: v for k, v in entry.items() if not k.startswith("_")}
+    top_for_llm.append(clean)
+
 print(f"\n{'='*70}")
 print(f"STEP 1: Scored {len(scored)} -> {len(deduped)} unique -> sending top {len(top_raw)} to Step 2")
 print(f"{'='*70}\n")
 
 for i, entry in enumerate(top_raw, 1):
     kids = f" [{len(entry.get('children',[]))} children]" if entry.get("children") else ""
-    print(f"  {i:2d}. [{entry['score']:.2f}] {entry['category']}: {entry['title']} — {entry['detail'][:80]}{kids}")
+    print(f"  {i:2d}. [{entry['_score']:.2f}] {entry['category']}: {entry['title']} — {entry['detail'][:80]}{kids}")
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -196,7 +331,7 @@ for m in ["ttl_rev_amt", "lh_rev_amt", "dh_miles", "ld_trf_mi", "truck_count", "
 
 step2_input = json.dumps({
     "network_totals": totals,
-    "ranked_insights": top_raw,
+    "ranked_insights": top_for_llm,
 }, indent=2, default=str)
 
 step2_schema = types.Schema(type=types.Type.OBJECT, properties={
@@ -204,6 +339,9 @@ step2_schema = types.Schema(type=types.Type.OBJECT, properties={
         "headline": types.Schema(type=types.Type.STRING),
         "detail": types.Schema(type=types.Type.STRING),
         "supporting_evidence": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING)),
+        "vs_average": types.Schema(type=types.Type.STRING),
+        "trend_duration": types.Schema(type=types.Type.STRING),
+        "anomaly_flag": types.Schema(type=types.Type.STRING),
         "business_implication": types.Schema(type=types.Type.STRING),
         "category": types.Schema(type=types.Type.STRING),
     }, required=["headline", "detail", "supporting_evidence", "business_implication"])),
@@ -211,6 +349,7 @@ step2_schema = types.Schema(type=types.Type.OBJECT, properties={
     "quality_assessment": types.Schema(type=types.Type.STRING,
         enum=["strong revenue weaker quality", "flat revenue execution pressure",
               "softer revenue healthier fundamentals", "broad decline", "mixed signals"]),
+    "key_anomalies": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING)),
 }, required=["selected_insights", "narrative_thesis", "quality_assessment"])
 
 step2_instruction = (
@@ -219,10 +358,11 @@ step2_instruction = (
     "For each, include ALL supporting children/drill-down evidence — do not drop terminal names or percentages.\n\n"
     "RULES:\n"
     "- Preserve exact numbers, percentages, and terminal names from the input\n"
-    "- Include trend DURATION from statistical data (e.g. '13-week upward trend', 'p=0.086')\n"
+    "- For each insight, fill in vs_average (how it compares to 13-week average) and trend_duration (how many weeks this trend has persisted)\n"
+    "- If an insight has an associated anomaly, fill anomaly_flag with the z-score and description\n"
+    "- key_anomalies: list the 1-3 most notable statistical outliers from the ranked insights\n"
     "- business_implication must name the MECHANISM (yield compression, capacity underutilization) not just 'will pressure margins'\n"
-    "- MUST include the highest-ranked POSITIVE signal if one exists (e.g. a metric trending favorably). "
-    "If no metric improved, say so explicitly.\n"
+    "- MUST include the highest-ranked POSITIVE signal if one exists. If no metric improved, say so explicitly.\n"
     "- quality_assessment drives the entire brief narrative — choose carefully\n\n"
     "Classify the week:\n"
     "- 'strong revenue weaker quality': topline up but efficiency/service declining\n"
@@ -275,24 +415,17 @@ step3_input = (
     + f"\n\nCURATED INSIGHTS (use ALL of these — do not drop any):\n\n"
     + json.dumps(curated.get("selected_insights", []), indent=2)
     + "\n\nRULES FOR THIS BRIEF:\n"
-    "- bottom_line: Open with a VERDICT. 'The week was operationally weak' not 'The week saw a contraction'\n"
-    "- what_moved: Each item = ONE metric category, ONE line. 'East DH +9.4%, Syracuse +23.4%, Ocala +8.7%' — not sentences\n"
-    "  Labels must be: Revenue / yield, Productivity, Network efficiency, Capacity, or Volume — pick the best fit\n"
-    "- trend_status: MUST include duration from the data. '13-week upward trend' or 'down 3 straight weeks'\n"
-    "- where_it_came_from positive: ONLY genuinely positive signals (metrics that IMPROVED WoW or show positive trends). "
-    "If a metric got worse but less than others, that is NOT positive. "
-    "Look for: deadhead declining, volume growing, yield improving. If truly nothing improved, write 'No bright spots this week'\n"
-    "- what_moved: MUST have exactly 4 items. Each must cover a DIFFERENT dimension — no two items about the same region or metric\n"
-    "- Do NOT repeat the same data point in trend_status AND where_it_came_from. Each fact appears ONCE.\n"
-    "- why_it_matters: Do NOT use 'double-hit' or 'recipe for'. Name the specific mechanism: "
-    "'yield compression will cost us $X per week in margin' or 'the East is now a net-negative contributor to operating income'\n"
-    "- next_week_outlook: VARY the structure. Not always 'If X continues, Y will happen.' Try:\n"
-    "  'One more week like this makes the issue material.'\n"
-    "  'The setup favors margin recovery if volume stabilizes.'\n"
-    "  'We are one rate concession away from structural margin damage.'\n"
-    "- leadership_focus: Name TERMINALS not regions. 'Fix Syracuse dispatch' not 'Audit Central region'. "
-    "If the action is regional, pick the worst terminal in that region.\n"
-    "- bottom_line: Exactly 2 sentences. Do not repeat the same idea in both sentences.\n"
+    "- bottom_line: 2 sentences. Sentence 1 = verdict. Sentence 2 = the 'but' quality insight.\n"
+    "- what_moved: 4 items, each a different dimension. Fragment format with CONTEXT:\n"
+    "  'East DH +9.4% WoW, 19% above 13-wk avg, 13-week upward trend'\n"
+    "  Context must reference: vs avg, vs high/low, trend duration, or anomaly\n"
+    "- trend_status: Duration + direction + acceleration. 'East DH up 13 straight weeks and accelerating'\n"
+    "- where_it_came_from: Include anomaly context. 'Syracuse DH +23.4%, z-score outlier, well outside normal'\n"
+    "  Positive = genuinely improving. If nothing improved, 'No bright spots'\n"
+    "- why_it_matters: Quantify the mechanism. 'yield compression at 0.7%/wk' not 'margins will suffer'\n"
+    "- next_week_outlook: Short, decisive, varied each time.\n"
+    "- leadership_focus: 3 items. Name TERMINALS. Specific actions.\n"
+    "- No duplication across sections.\n"
 )
 
 brief_schema = types.Schema(type=types.Type.OBJECT, properties={
