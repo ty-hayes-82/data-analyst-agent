@@ -3,32 +3,30 @@ source:
   format: long
 
 hyper:
-  tdsx_file: "Ops Metrics Weekly Scorecard.tdsx"
-  tdsx_path: "data/tableau"
+  tdsx_file: "Ops Metrics DS.tdsx"
+  tdsx_path: "/data/data-analyst-agent"
   default_table: "Extract.Extract"
   extract_dir: "temp_extracted/ops_metrics_weekly"
 
-# Map contract column names to Hyper table columns
 filter_columns:
   region: "gl_rgn_nm"
   division: "gl_div_nm"
-  business_line: "ops_ln_of_bus_nm"
+  lob: "ops_ln_of_bus_nm"
+  lob_ref: "ops_ln_of_bus_ref_nm"
   cost_center: "icc_cst_ctr_cd"
+  date: "cal_dt"
 
-# Aggregation to daily grain (respects contract grain.columns)
 aggregation:
-  period_type: day  # Keep daily grain as-is
+  period_type: week_end
   date_column: "cal_dt"
   period_alias: "cal_dt"
   group_by_columns:
-    # NOTE: cal_dt excluded here - it's handled by period_type/date_column
-    # Only include dimensions specified in contract.yaml grain.columns
     - "gl_rgn_nm"
     - "gl_div_nm"
+    - "ops_ln_of_bus_ref_nm"
     - "ops_ln_of_bus_nm"
     - "icc_cst_ctr_cd"
-    # REMOVED: "ops_ln_of_bus_ref_nm" (not in grain)
-    # REMOVED: "icc_cst_ctr_nm" (not in grain - name fields aggregate to code fields)
+    - "icc_cst_ctr_nm"
   sum_columns:
     - "ttl_rev_amt"
     - "lh_rev_amt"
@@ -41,29 +39,26 @@ aggregation:
     - "ld_trf_mi"
     - "dh_miles"
     - "truck_count"
-    - "team_truck_count"
-    - "solo_truck_count"
     - "exprncd_drvr_cnt"
     - "ttl_fuel_qty"
     - "idle_fuel_qty"
     - "ttl_engn_tm"
     - "idle_engn_tm"
 
-# Date parsing
 date_parsing:
   source_column: "cal_dt"
   input_format: "%Y-%m-%d %H:%M:%S"
   output_column: "cal_dt"
   output_format: "%Y-%m-%d"
 
-# Output columns (contract grain dimensions + all additive metrics)
 output_columns:
   - "cal_dt"
   - "gl_rgn_nm"
   - "gl_div_nm"
+  - "ops_ln_of_bus_ref_nm"
   - "ops_ln_of_bus_nm"
   - "icc_cst_ctr_cd"
-  # Aggregated metrics (SUMmed at Hyper level)
+  - "icc_cst_ctr_nm"
   - "ttl_rev_amt"
   - "lh_rev_amt"
   - "fuel_srchrg_rev_amt"
@@ -75,8 +70,6 @@ output_columns:
   - "ld_trf_mi"
   - "dh_miles"
   - "truck_count"
-  - "team_truck_count"
-  - "solo_truck_count"
   - "exprncd_drvr_cnt"
   - "ttl_fuel_qty"
   - "idle_fuel_qty"

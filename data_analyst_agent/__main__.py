@@ -69,6 +69,12 @@ parser.add_argument("--interactive", action="store_true",
 parser.add_argument("--exclude-partial-week", action="store_true",
                      help="Drop the most recent partial week from the loaded data")
 
+# Cache / brief-only mode
+parser.add_argument("--from-cache", default=None, metavar="PATH",
+                     help="Path to an output directory with cached results (skips full analysis)")
+parser.add_argument("--brief-only", action="store_true",
+                     help="Only regenerate the brief (requires --from-cache)")
+
 # Legacy compat
 parser.add_argument("--validation", action="store_true",
                      help="Shorthand for --dataset trade_data")
@@ -76,6 +82,42 @@ parser.add_argument("--metric", default=None,
                      help="(Legacy) Same as --metrics")
 
 args = parser.parse_args()
+
+
+# ------------------------------------------------------------------
+# 2b. --from-cache / --brief-only early exit
+# ------------------------------------------------------------------
+if args.brief_only and not args.from_cache:
+    parser.error("--brief-only requires --from-cache <output_dir>")
+
+if args.from_cache:
+    import json
+    from pathlib import Path
+    from data_analyst_agent.cache import InsightCache
+
+    cache_dir = Path(args.from_cache) / ".cache"
+    digest_path = cache_dir / "digest.json"
+
+    if not digest_path.exists():
+        print(f"ERROR: No cached digest found at {digest_path}")
+        sys.exit(1)
+
+    cache = InsightCache(str(cache_dir))
+    digest = cache.load("digest")
+
+    if digest is None:
+        print(f"ERROR: Failed to load digest from {digest_path}")
+        sys.exit(1)
+
+    print(f"\n{'='*60}")
+    print(f"  Loaded cached digest from: {digest_path}")
+    print(f"  Cache keys: {', '.join(digest.keys()) if isinstance(digest, dict) else '(non-dict payload)'}")
+    if args.brief_only:
+        print(f"  Mode: brief-only (regeneration will be wired up later)")
+    print(f"{'='*60}\n")
+
+    # TODO: wire up actual brief regeneration here
+    sys.exit(0)
 
 
 # ------------------------------------------------------------------

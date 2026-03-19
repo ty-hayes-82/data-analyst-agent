@@ -24,6 +24,11 @@ model_tiers:
     thinking_level: "none"
     description: "Gemini 2.5 Flash Lite — ultra-fast fallback"
 
+  brief:
+    model: "gemini-3-flash-preview"
+    thinking_level: "none"
+    description: "Gemini 3 Flash — structured output, CEO brief (Tier 1 winner: 8.7s, 36 nums, 100% section accuracy)"
+
   flash_2_5:
     model: "gemini-2.5-flash"
     thinking_level: "none"
@@ -67,7 +72,7 @@ agents:
 
   # --- Narrative: advanced — CONFIRMED (Phase 3+, 14.5s/4 cards vs fast 18s/2 cards) ---
   narrative_agent:
-    tier: "advanced"
+    tier: "flash_2_5_thinking"
     description: "Evaluates insight cards, writes per-metric narrative with causal and statistical evidence"
 
   statistical_insights_agent:
@@ -87,7 +92,7 @@ agents:
     description: "Creates seasonal baselines from STL decomposition"
 
   report_synthesis_agent:
-    tier: "standard"
+    tier: "flash_2_5"
     description: "Report synthesis from structured insight report — gemini-3-flash-preview (no thinking)"
 
   alert_scoring_coordinator:
@@ -97,8 +102,8 @@ agents:
   # --- Executive Brief: pro — CONFIRMED (Phase 4+, 12.1s, richer specifics than standard 17.8s) ---
   # OPTIMIZATION: Switched to lite for E2E test performance (was: standard)
   executive_brief_agent:
-    tier: "lite"
-    description: "Cross-metric synthesis executive brief — ultra-fast for testing"
+    tier: "brief"
+    description: "Cross-metric synthesis executive brief — gemini-3-flash-preview (Tier 1 winner)"
 
   # --- Code-backed / file I/O agents: lite ---
   output_persistence_agent:

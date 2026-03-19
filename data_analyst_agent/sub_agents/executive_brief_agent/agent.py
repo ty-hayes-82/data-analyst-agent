@@ -404,17 +404,29 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
     This function maps forbidden section titles to their correct equivalents,
     then ensures all required sections are present in the correct order.
     """
-    # Title mapping for common LLM mistakes
-    FORBIDDEN_TITLE_MAPPING = {
-        "Opening": "Executive Summary",
-        "Top Operational Insights": "Key Findings",
-        "Network Snapshot": "Key Findings",  # Merge into Key Findings
-        "Focus For Next Week": "Forward Outlook",
-        "Leadership Question": "Forward Outlook",  # Merge into Forward Outlook
-        "Recommended Actions": "Forward Outlook",  # Actions belong in Forward Outlook (analytical)
-        "Actions": "Forward Outlook",  # Short form
-        "Next Steps": "Forward Outlook",  # Alternative phrasing
-    }
+    # Title mapping for common LLM mistakes — dynamic based on style
+    from .prompt import is_ceo_style as _is_ceo
+    if _is_ceo():
+        FORBIDDEN_TITLE_MAPPING = {
+            "Executive Summary": "What moved the business",
+            "Key Findings": "What moved the business",
+            "Forward Outlook": "Next-week outlook",
+            "Opening": "What moved the business",
+            "Recommended Actions": "Leadership focus",
+            "Actions": "Leadership focus",
+            "Next Steps": "Next-week outlook",
+        }
+    else:
+        FORBIDDEN_TITLE_MAPPING = {
+            "Opening": "Executive Summary",
+            "Top Operational Insights": "Key Findings",
+            "Network Snapshot": "Key Findings",
+            "Focus For Next Week": "Forward Outlook",
+            "Leadership Question": "Forward Outlook",
+            "Recommended Actions": "Forward Outlook",
+            "Actions": "Forward Outlook",
+            "Next Steps": "Forward Outlook",
+        }
     
     header = brief.setdefault("header", {})
     header_title = str(header.get("title") or "").strip()
@@ -674,13 +686,18 @@ def _validate_structured_brief(
         content = str(section.get("content") or "").strip()
         if not title:
             errors.append(f"body.sections[{idx}] missing title")
-        if not content:
+        # CEO insight sections may have empty content (insights carry the data)
+        from .prompt import is_ceo_style as _ceo_validate
+        _ceo_insight_titles = {"What moved the business", "Trend status", "Where it came from", "Leadership focus"}
+        if not content and not (_ceo_validate() and title in _ceo_insight_titles):
             errors.append(f"{title or f'section[{idx}]'} content empty")
         elif content == SECTION_FALLBACK_TEXT:
-            errors.append(
-                f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
-                "LLM did not populate this section"
-            )
+            # In CEO mode, content-only sections with fallback are errors; insight sections with fallback content are OK
+            if not (_ceo_validate() and title in _ceo_insight_titles):
+                errors.append(
+                    f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
+                    "LLM did not populate this section"
+                )
         
         # Count values in section content
         total_numeric_values += _count_numeric_values(content)
@@ -692,39 +709,55 @@ def _validate_structured_brief(
         if not isinstance(insights, list):
             errors.append(f"{title or f'section[{idx}]'} insights is not a list")
             continue
-        if title == "Key Findings":
+
+        # Determine which sections require insight validation
+        from .prompt import is_ceo_style as _ceo_check
+        _ceo_active = _ceo_check()
+        # CEO content-only sections: Why it matters, Next-week outlook (no insights required)
+        _ceo_content_only = {"Why it matters", "Next-week outlook"}
+        # CEO insight sections requiring numeric validation
+        _ceo_insight_sections = {"What moved the business", "Where it came from"}
+
+        if title == "Key Findings" and not _ceo_active:
             min_key_findings = 2 if is_scoped else TOP_INSIGHT_MIN_COUNT
             if len(insights) < min_key_findings:
                 errors.append(f"Key Findings must include at least {min_key_findings} entries")
             if len(insights) > 5:
                 errors.append("Key Findings must not include more than five entries")
+
         for insight_idx, insight in enumerate(insights):
             if not isinstance(insight, dict):
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} is not an object")
                 continue
             details = str(insight.get("details") or "").strip()
             title_field = str(insight.get("title") or "").strip()
-            if title == "Key Findings" and not details:
+            if title == "Key Findings" and not _ceo_active and not details:
                 errors.append(f"Key Findings entry {insight_idx} missing details")
             elif details == SECTION_FALLBACK_TEXT:
-                errors.append(
-                    f"Key Findings entry {insight_idx} contains only placeholder fallback text - "
-                    "LLM did not populate this insight"
-                )
+                # Skip fallback check for CEO content-only sections
+                if not (_ceo_active and title in _ceo_content_only):
+                    errors.append(
+                        f"{title} entry {insight_idx} contains only placeholder fallback text - "
+                        "LLM did not populate this insight"
+                    )
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
-            
-            # Validate numeric values in Key Findings insights
-            if title == "Key Findings" and details:
+
+            # Validate numeric values in insight-heavy sections
+            needs_numeric = (title == "Key Findings" and not _ceo_active) or (_ceo_active and title in _ceo_insight_sections)
+            if needs_numeric and details:
                 insight_text = title_field + " " + details
                 insight_value_count = _count_numeric_values(insight_text)
                 total_numeric_values += insight_value_count
                 if insight_value_count < min_insight_values:
                     errors.append(
-                        f"Key Findings insight '{title_field or f'#{insight_idx + 1}'}' contains only "
+                        f"{title} insight '{title_field or f'#{insight_idx + 1}'}' contains only "
                         f"{insight_value_count} numeric values (minimum: {min_insight_values}). Include more specific amounts, "
                         "percentages, baselines, or statistical values."
                     )
+            elif details:
+                # Still count numeric values for total even in non-validated sections
+                total_numeric_values += _count_numeric_values(title_field + " " + details)
 
     if expected_titles and actual_titles != expected_titles:
         errors.append(
@@ -818,7 +851,7 @@ async def _llm_generate_brief(
         response_modalities=["TEXT"],
         response_mime_type="application/json",
         response_schema=EXECUTIVE_BRIEF_RESPONSE_SCHEMA,
-        temperature=0.05,
+        temperature=0.2,
         thinking_config=thinking_config,
     )
     loop = asyncio.get_running_loop()
@@ -1029,6 +1062,22 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         digest = _apply_unit_to_text(digest, presentation_unit)
 
+        # --- Insight Cache: save digest for brief regeneration ---
+        try:
+            from ...cache import InsightCache
+            cache = InsightCache(str(outputs_dir))
+            cache.save_digest({
+                "digest": digest,
+                "metric_names": sorted(reports.keys()),
+                "json_data": json_data if json_data else {},
+                "analysis_period": analysis_period,
+                "period_end": period_end,
+                "presentation_unit": presentation_unit,
+            })
+            print(f"[BRIEF] Saved digest to insight cache (.cache/digest.json)")
+        except Exception as cache_err:
+            print(f"[BRIEF] WARNING: Failed to save digest cache: {cache_err}")
+
         drill_levels = 0
         max_scope_entities = 10
         min_scope_share_of_total = 0.0
@@ -1115,25 +1164,44 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         # Build mandatory section title enforcement (will be injected into system instruction)
-        expected_sections = [spec["title"] for spec in NETWORK_SECTION_CONTRACT]
-        section_title_enforcement = (
-            "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
-            "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
-            + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
-            + "\n\n"
-            "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
-            "   ❌ \"Opening\" → Use \"Executive Summary\" instead\n"
-            "   ❌ \"Top Operational Insights\" → Use \"Key Findings\" instead\n"
-            "   ❌ \"Network Snapshot\" → Merge into \"Key Findings\"\n"
-            "   ❌ \"Focus For Next Week\" → Use \"Forward Outlook\" instead\n"
-            "   ❌ \"Leadership Question\" → Merge into \"Forward Outlook\"\n"
-            "   ❌ \"Recommended Actions\" → Use \"Forward Outlook\" instead\n"
-            "   ❌ \"Actions\" → Use \"Forward Outlook\" instead\n"
-            "   ❌ \"Next Steps\" → Use \"Forward Outlook\" instead\n"
-            "   ❌ Any other custom titles → FORBIDDEN\n\n"
-            "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
-            "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
-        )
+        from .prompt import is_ceo_style, CEO_SECTION_CONTRACT
+        active_section_contract = CEO_SECTION_CONTRACT if is_ceo_style() else NETWORK_SECTION_CONTRACT
+        expected_sections = [spec["title"] for spec in active_section_contract]
+        if is_ceo_style():
+            section_title_enforcement = (
+                "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
+                "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
+                + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+                + "\n\n"
+                "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
+                "   ❌ \"Executive Summary\" → FORBIDDEN in CEO style\n"
+                "   ❌ \"Key Findings\" → FORBIDDEN in CEO style\n"
+                "   ❌ \"Forward Outlook\" → FORBIDDEN in CEO style\n"
+                "   ❌ \"Recommended Actions\" → FORBIDDEN\n"
+                "   ❌ \"Opening\" → FORBIDDEN\n"
+                "   ❌ Any other custom titles → FORBIDDEN\n\n"
+                "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
+                "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
+            )
+        else:
+            section_title_enforcement = (
+                "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
+                "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
+                + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+                + "\n\n"
+                "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
+                "   ❌ \"Opening\" → Use \"Executive Summary\" instead\n"
+                "   ❌ \"Top Operational Insights\" → Use \"Key Findings\" instead\n"
+                "   ❌ \"Network Snapshot\" → Merge into \"Key Findings\"\n"
+                "   ❌ \"Focus For Next Week\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ \"Leadership Question\" → Merge into \"Forward Outlook\"\n"
+                "   ❌ \"Recommended Actions\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ \"Actions\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ \"Next Steps\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ Any other custom titles → FORBIDDEN\n\n"
+                "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
+                "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
+            )
         
         instruction = _format_instruction(
             EXECUTIVE_BRIEF_INSTRUCTION,
@@ -1206,9 +1274,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         )
         
         # Build numeric value enforcement for network briefs
+        _insight_section_label = "What moved the business" if is_ceo_style() else "Key Findings"
         network_numeric_enforcement = (
             "⚠️ NUMERIC VALUE REQUIREMENT (MANDATORY — YOUR RESPONSE WILL BE REJECTED IF VIOLATED):\n"
-            "Each Key Findings insight MUST contain AT LEAST 3 SPECIFIC NUMERIC VALUES.\n\n"
+            f"Each {_insight_section_label} insight MUST contain AT LEAST 3 SPECIFIC NUMERIC VALUES.\n\n"
             "✅ VALID numeric values (count toward requirement):\n"
             "- Dollar amounts: \"$420K\", \"$1.5M\", \"+$316,042\"\n"
             "- Percentages: \"22%\", \"+3.2%\", \"-15.7%\"\n"
@@ -1274,7 +1343,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 user_message=user_message,
                 thinking_config=thinking_config,
                 digest=digest,
-                section_contract=NETWORK_SECTION_CONTRACT,
+                section_contract=active_section_contract,
                 reports=reports,
                 unit=presentation_unit,
                 has_critical_findings=has_critical,

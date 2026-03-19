@@ -42,18 +42,48 @@ Do NOT reference entities from other {scope_level_name}s unless explicitly compa
 
 
 def _load_executive_brief_instruction() -> str:
-    """Load the executive brief instruction template from config/prompts/executive_brief.md."""
+    """Load the executive brief instruction template.
+
+    Style selection via EXECUTIVE_BRIEF_STYLE env var:
+    - "ceo" -> config/prompts/executive_brief_ceo.md (CEO weekly format)
+    - default -> config/prompts/executive_brief.md (standard format)
+    """
+    import os
+    style = os.environ.get("EXECUTIVE_BRIEF_STYLE", "default").lower()
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+
+    if style == "ceo":
+        ceo_path = project_root / "config" / "prompts" / "executive_brief_ceo.md"
+        if ceo_path.exists():
+            print("[BRIEF] Using CEO brief style")
+            return ceo_path.read_text(encoding="utf-8").strip()
+        print("[BRIEF] Warning: CEO prompt not found, falling back to default")
+
     try:
-        # Resolve path relative to project root
-        project_root = Path(__file__).resolve().parent.parent.parent.parent
         path = project_root / "config" / "prompts" / "executive_brief.md"
         if path.exists():
             return path.read_text(encoding="utf-8").strip()
     except Exception as e:
         print(f"[BRIEF] Warning: Failed to load executive brief instruction: {e}")
-    
+
     # Fallback to hardcoded string if file missing
     return "You are an Executive Analyst. Synthesize individual metric reports into a brief."
 
 EXECUTIVE_BRIEF_INSTRUCTION = _load_executive_brief_instruction()
+
+
+def is_ceo_style() -> bool:
+    """Check if CEO brief style is active."""
+    import os
+    return os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower() == "ceo"
+
+
+CEO_SECTION_CONTRACT = [
+    {"title": "What moved the business", "mode": "insights"},
+    {"title": "Trend status", "mode": "insights"},
+    {"title": "Where it came from", "mode": "insights"},
+    {"title": "Why it matters", "mode": "content"},
+    {"title": "Next-week outlook", "mode": "content"},
+    {"title": "Leadership focus", "mode": "insights"},
+]
 
