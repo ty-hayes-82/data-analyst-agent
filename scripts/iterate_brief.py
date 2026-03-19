@@ -139,6 +139,58 @@ try:
     if rail_rev is not None and rail_ord is not None and rail_ord > 0 and rail_rev < 0:
         lines.append(f"  RAIL PRICING: Rail orders {rail_ord:+.1f}% but Rail revenue {rail_rev:+.1f}% — taking volume at lower rates")
 
+    # Rank and select top 5 insights from statistical cards
+    ranked_insights = []
+    for jf in cache_dir.glob("metric_*.json"):
+        p = json.loads(jf.read_text())
+        m = jf.stem.replace("metric_", "")
+        stats = p.get("statistical_summary", {})
+        if not stats:
+            continue
+
+        # Statistically significant trends (3-month slopes)
+        for driver in stats.get("top_drivers", [])[:3]:
+            slope = driver.get("slope_3mo")
+            p_val = driver.get("slope_3mo_p_value")
+            avg = driver.get("avg", 0)
+            item = driver.get("item", "")
+            if slope and p_val is not None and p_val < 0.15 and avg:
+                pct = abs(slope / avg * 100)
+                if pct > 1:
+                    direction = "up" if slope > 0 else "down"
+                    # Score: lower p-value and higher pct = more important
+                    score = (1 - p_val) * pct
+                    # Get L2 drill-down for this region
+                    l2_detail = ""
+                    l2_cards = p.get("hierarchical_analysis", {}).get("level_2", {}).get("insight_cards", [])
+                    for c in l2_cards[:2]:
+                        ev = c.get("evidence", {})
+                        terminal = c.get("title", "").replace("Level 2 Variance Driver: ", "")
+                        vpct = ev.get("variance_pct")
+                        if vpct:
+                            l2_detail += f" (drill: {terminal} {vpct:+.1f}% WoW)"
+                            break
+                    ranked_insights.append((score, f"TREND ({m}): {item} trending {direction} ~{pct:.1f}%/wk over 3 months (p={p_val:.3f}){l2_detail}"))
+
+        # Current vs average context for L0
+        l0_cards = p.get("hierarchical_analysis", {}).get("level_0", {}).get("insight_cards", [])
+        if l0_cards:
+            ev = l0_cards[0].get("evidence", {})
+            current = ev.get("current", 0)
+            var_pct = ev.get("variance_pct")
+            # Find the metric's network average from top drivers
+            all_avgs = [d.get("avg", 0) for d in stats.get("top_drivers", []) if d.get("avg")]
+            if all_avgs and current and var_pct is not None:
+                network_avg = sum(all_avgs)
+                vs_avg_pct = (current - network_avg) / abs(network_avg) * 100 if network_avg else 0
+                if abs(vs_avg_pct) > 3:  # material deviation from average
+                    ranked_insights.append((abs(vs_avg_pct), f"VS AVG ({m}): current ${current:,.0f} is {vs_avg_pct:+.1f}% vs 13-week average"))
+
+    # Sort by score, take top 5
+    ranked_insights.sort(key=lambda x: x[0], reverse=True)
+    for _, insight in ranked_insights[:5]:
+        lines.append(f"  {insight}")
+
     if len(lines) > 1:
         cross_metric = "\n".join(lines) + "\n\n"
 except Exception as e:
