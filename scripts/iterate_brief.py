@@ -54,19 +54,111 @@ terminal_block = ""
 if terminal_lines:
     terminal_block = "TERMINAL/DIVISION DRIVERS (Level 2 insight cards):\n" + "\n".join(terminal_lines) + "\n\n"
 
-# Build user message — insight cards only
+# Build cross-metric synthesis from insight cards (code-computed, not LLM)
+cross_metric = ""
+try:
+    metrics_data = {}
+    for jf in cache_dir.glob("metric_*.json"):
+        p = json.loads(jf.read_text())
+        m = jf.stem.replace("metric_", "")
+        l0 = p.get("hierarchical_analysis", {}).get("level_0", {}).get("insight_cards", [])
+        if l0:
+            ev = l0[0].get("evidence", {})
+            metrics_data[m] = {
+                "current": ev.get("current", 0),
+                "prior": ev.get("prior", 0),
+                "var_pct": ev.get("variance_pct"),
+                "var_dollar": ev.get("variance_dollar", 0),
+            }
+
+    lines = ["CROSS-METRIC SYNTHESIS (pre-computed from insight cards):"]
+
+    # Network totals
+    if "ttl_rev_amt" in metrics_data:
+        r = metrics_data["ttl_rev_amt"]
+        lines.append(f"  Total Revenue: ${r['current']:,.0f} (prior: ${r['prior']:,.0f}, {r['var_pct']:+.1f}% WoW)" if r['var_pct'] else f"  Total Revenue: ${r['current']:,.0f}")
+    if "lh_rev_amt" in metrics_data:
+        r = metrics_data["lh_rev_amt"]
+        lines.append(f"  Line Haul Revenue: ${r['current']:,.0f} ({r['var_pct']:+.1f}% WoW)" if r['var_pct'] else f"  Line Haul Revenue: ${r['current']:,.0f}")
+
+    # Yield signal: compare revenue % decline to volume % decline
+    rev_pct = metrics_data.get("ttl_rev_amt", {}).get("var_pct")
+    miles_pct = metrics_data.get("ld_trf_mi", {}).get("var_pct")
+    if rev_pct is not None and miles_pct is not None:
+        if abs(rev_pct) > abs(miles_pct) + 1:
+            lines.append(f"  YIELD SIGNAL: Revenue fell {rev_pct:+.1f}% but loaded miles only fell {miles_pct:+.1f}% — yield is compressing faster than volume")
+        elif abs(miles_pct) > abs(rev_pct) + 1:
+            lines.append(f"  YIELD SIGNAL: Loaded miles fell {miles_pct:+.1f}% but revenue only fell {rev_pct:+.1f}% — yield is improving despite volume loss")
+
+    # Efficiency signal: deadhead vs total miles
+    dh_pct = metrics_data.get("dh_miles", {}).get("var_pct")
+    ttl_mi_pct = metrics_data.get("ttl_trf_mi", {}).get("var_pct")
+    if dh_pct is not None and ttl_mi_pct is not None:
+        if dh_pct > 0 and ttl_mi_pct < 0:
+            lines.append(f"  EFFICIENCY SIGNAL: Deadhead rose {dh_pct:+.1f}% while total miles fell {ttl_mi_pct:+.1f}% — network efficiency deteriorating")
+        elif dh_pct < ttl_mi_pct:
+            lines.append(f"  EFFICIENCY SIGNAL: Deadhead {dh_pct:+.1f}% vs total miles {ttl_mi_pct:+.1f}% — deadhead improving relative to network")
+
+    # Capacity utilization: truck count vs loaded miles
+    truck_pct = metrics_data.get("truck_count", {}).get("var_pct")
+    if truck_pct is not None and miles_pct is not None:
+        if truck_pct is not None and abs(truck_pct) < 2 and abs(miles_pct) > 3:
+            lines.append(f"  UTILIZATION SIGNAL: Truck count {truck_pct:+.1f}% (flat) but loaded miles {miles_pct:+.1f}% — fleet underutilized")
+
+    # Order mix: compare order count changes across segments from L1 cards
+    ordr_l1 = p.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", []) if "ordr_cnt" in [jf.stem.replace("metric_","") for jf in cache_dir.glob("metric_ordr_cnt.json")] else []
+    ordr_data = json.loads((cache_dir / "metric_ordr_cnt.json").read_text()) if (cache_dir / "metric_ordr_cnt.json").exists() else {}
+    ordr_l1 = ordr_data.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", [])
+    pos_orders = [c for c in ordr_l1 if c.get("evidence", {}).get("variance_dollar", 0) > 0]
+    neg_orders = [c for c in ordr_l1 if c.get("evidence", {}).get("variance_dollar", 0) < 0]
+    if pos_orders and neg_orders:
+        pos_name = pos_orders[0].get("title", "").replace("Level 1 Variance Driver: ", "")
+        pos_ev = pos_orders[0].get("evidence", {})
+        neg_name = neg_orders[0].get("title", "").replace("Level 1 Variance Driver: ", "")
+        neg_ev = neg_orders[0].get("evidence", {})
+        lines.append(f"  ORDER MIX: {pos_name} orders +{pos_ev.get('variance_pct',0):+.1f}%, but {neg_name} orders {neg_ev.get('variance_pct',0):+.1f}%")
+
+    # Rail revenue vs Rail orders — pricing signal
+    rail_rev = None
+    rail_ord = None
+    for jf_name, key in [("metric_ttl_rev_amt.json", "ttl_rev_amt"), ("metric_lh_rev_amt.json", "lh_rev_amt")]:
+        jpath = cache_dir / jf_name
+        if jpath.exists():
+            d = json.loads(jpath.read_text())
+            for c in d.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", []):
+                if "Rail" in c.get("title", ""):
+                    rail_rev = c.get("evidence", {}).get("variance_pct")
+                    break
+            if rail_rev: break
+    if (cache_dir / "metric_ordr_cnt.json").exists():
+        d = json.loads((cache_dir / "metric_ordr_cnt.json").read_text())
+        for c in d.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", []):
+            if "Rail" in c.get("title", ""):
+                rail_ord = c.get("evidence", {}).get("variance_pct")
+                break
+    if rail_rev is not None and rail_ord is not None and rail_ord > 0 and rail_rev < 0:
+        lines.append(f"  RAIL PRICING: Rail orders {rail_ord:+.1f}% but Rail revenue {rail_rev:+.1f}% — taking volume at lower rates")
+
+    if len(lines) > 1:
+        cross_metric = "\n".join(lines) + "\n\n"
+except Exception as e:
+    print(f"Cross-metric synthesis failed: {e}")
+
+# Build user message — insight cards + cross-metric synthesis
+metric_names = sorted(jf.stem.replace("metric_", "") for jf in cache_dir.glob("metric_*.json"))
 user_msg = (
     "COMPARISON BASIS: All variances are WoW (week-over-week vs prior week).\n"
     "Say 'WoW' or 'vs prior week' - NOT 'vs plan'.\n"
-    "Week ending: 2026-03-14\n"
-    "Metrics: dh_miles, ttl_rev_amt\n\n"
+    "Week ending: 2026-02-21\n"
+    f"Metrics: {', '.join(metric_names)}\n\n"
+    f"{cross_metric}"
     f"{terminal_block}"
     f"{digest}"
 )
 
 # Load CEO prompt
 prompt = (PROJECT / "config/prompts/executive_brief_ceo.md").read_text(encoding="utf-8").strip()
-for k, v in {"metric_count": "2", "analysis_period": "the week ending 2026-03-14",
+for k, v in {"metric_count": "2", "analysis_period": "the week ending 2026-02-21",
              "scope_preamble": "", "dataset_specific_append": "", "prompt_variant_append": ""}.items():
     prompt = prompt.replace("{" + k + "}", v)
 
@@ -121,7 +213,7 @@ for i in range(args.run):
 
     # Render like the target examples
     print(f"[{el:.1f}s]")
-    print(f"\nWeek Ending March 14, 2026\n")
+    print(f"\nWeek Ending February 21, 2026\n")
     print(f"Bottom line: {b['bottom_line']}\n")
     print("What moved the business\n")
     for m in b["what_moved"]:

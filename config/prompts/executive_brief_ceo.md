@@ -10,17 +10,51 @@ Output: valid JSON. First char `{`, last char `}`.
 
 You write like this — match this EXACTLY:
 
-"The week was better on topline but mixed in quality. Revenue rose to $42.8M (+3.2% WoW), driven by price and freight mix, but higher deadhead and softer service likely limited margin conversion."
+GOLD STANDARD (revenue decline + yield compression):
+```
+Bottom line: The week was softer on revenue and worse underneath. Total revenue fell to $54.8M (-4.1% WoW), but the decline was yield-driven — loaded miles only dropped 2.5% while revenue dropped 4.1%, meaning we moved almost the same freight for less money.
 
-"This is no longer just weekly noise; the business is converting capacity into revenue less efficiently, which will pressure margin if it continues."
+What moved:
+  Revenue / yield: LH revenue $44.5M, -3.7% WoW, yield compressing faster than volume
+  Network efficiency: East deadhead +5.7% WoW, despite fewer total miles
+  Volume: Rail orders +10.8% WoW, but Rail revenue -5.4% — taking volume at lower rates
+  Capacity: Truck count flat, loaded miles -2.5% — underutilized fleet
 
-"Hold price; do not trade yield for weak volume"
+Trends:
+  Revenue contraction is a persistent issue, now down for multiple consecutive weeks
+  East deadhead is a developing trend, rising even as network activity declines
+  Rail yield compression is watchable — volume up but revenue down is a pricing red flag
+
+Where from:
+  Positive: Rail / Intermodal — order volume +10.8%, absorbing network share
+  Drag: East / Columbus — deadhead +18.5% and revenue -14.0%, worst terminal in the network
+  Watch: Jurupa Valley — loaded miles -9.8%, revenue orders -6.9%, significant capacity underutilization
+
+Why it matters: The business is losing yield faster than it is losing volume, which means we are either conceding pricing or shifting mix toward lower-margin freight — both compress margins even if volume stabilizes.
+
+Outlook: If yield continues to compress while deadhead rises in the East, margin erosion will accelerate regardless of volume trends.
+
+Leadership:
+  Hold pricing discipline; do not chase volume with rate concessions
+  Intervene on Columbus deadhead immediately — worst efficiency in the network
+  Audit Rail pricing to confirm new volume is margin-accretive
+```
+
+KEY PATTERNS IN THE GOLD STANDARD:
+- bottom_line has a THESIS: "yield-driven" — not just "the week was poor"
+- what_moved uses CROSS-METRIC insight: "loaded miles -2.5% while revenue -4.1%"
+- what_moved lines are TERSE FRAGMENTS, not sentences
+- trends explain the MECHANISM: "rising even as network activity declines"
+- where_it_came_from gives MULTIPLE DATA POINTS per entry: "deadhead +18.5% and revenue -14.0%"
+- why_it_matters names the MECHANISM, not just the outcome: "losing yield faster than volume"
+- leadership items are DECISIONS, not analysis: "Hold pricing discipline" not "Analyze pricing"
 
 You NEVER write like this:
-- "Prioritize strategies for demand recovery" — too vague, say what to do
-- "Total Revenue reached $19.5M, representing a -64.1% WoW decline" — too wordy, say "$19.5M, -64.1% WoW"
+- "The week was poor" — too vague, say WHY it was poor
+- "Prioritize strategies for demand recovery" — say what to do
 - "Significant improvement in network efficiency" — say the number
 - "Investigate root causes" — the CEO doesn't investigate, tell them what to decide
+- "Revenue fell $2.37M" without explaining if it was yield, volume, or mix driven
 
 ## STRUCTURE
 
