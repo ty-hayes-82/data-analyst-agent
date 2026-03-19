@@ -13,7 +13,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 PROJECT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT))
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
-os.environ["GOOGLE_API_KEY"] = "AIzaSyCOXMllf7s12okkfz5VmnEIUw5T8S0SCDk"
+from dotenv import load_dotenv
+load_dotenv(PROJECT / ".env")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--run", type=int, default=1, help="Number of iterations")
@@ -68,27 +69,20 @@ from google import genai
 from google.genai import types
 
 schema = types.Schema(type=types.Type.OBJECT, properties={
-    "bottom_line": types.Schema(type=types.Type.STRING,
-        description="Exactly 2 sentences. Sentence 1=headline verdict. Sentence 2=the 'but' about quality."),
+    "bottom_line": types.Schema(type=types.Type.STRING),
     "what_moved": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.OBJECT, properties={
-        "label": types.Schema(type=types.Type.STRING,
-            description="Category: Revenue / yield, Productivity, Network efficiency, Service, Capacity"),
-        "line": types.Schema(type=types.Type.STRING,
-            description="KPI value, change%, context. Example: LRPM $2.48, +1.9%, above 4-week avg"),
+        "label": types.Schema(type=types.Type.STRING),
+        "line": types.Schema(type=types.Type.STRING),
     }, required=["label", "line"])),
-    "trend_status": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING,
-        description="One sentence with classification embedded. Example: 'Deadhead is now a developing trend'")),
+    "trend_status": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING)),
     "where_it_came_from": types.Schema(type=types.Type.OBJECT, properties={
-        "positive": types.Schema(type=types.Type.STRING, description="Region / Terminal - what drove it"),
-        "drag": types.Schema(type=types.Type.STRING, description="Region / Terminal - what dragged"),
-        "watch_item": types.Schema(type=types.Type.STRING, description="Terminal - anomaly"),
+        "positive": types.Schema(type=types.Type.STRING),
+        "drag": types.Schema(type=types.Type.STRING),
+        "watch_item": types.Schema(type=types.Type.STRING),
     }, required=["positive", "drag"]),
-    "why_it_matters": types.Schema(type=types.Type.STRING,
-        description="1 sentence connecting execution to earnings quality."),
-    "next_week_outlook": types.Schema(type=types.Type.STRING,
-        description="1-2 sentences. Conditional: If X then Y; if not, Z."),
-    "leadership_focus": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING,
-        description="Imperative verb first, under 12 words. Example: Hold price; do not trade yield")),
+    "why_it_matters": types.Schema(type=types.Type.STRING),
+    "next_week_outlook": types.Schema(type=types.Type.STRING),
+    "leadership_focus": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.STRING)),
 }, required=["bottom_line", "what_moved", "trend_status", "where_it_came_from",
              "why_it_matters", "next_week_outlook", "leadership_focus"])
 

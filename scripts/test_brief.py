@@ -6,7 +6,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 PROJECT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT))
 os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
-os.environ["GOOGLE_API_KEY"] = "AIzaSyCOXMllf7s12okkfz5VmnEIUw5T8S0SCDk"
+from dotenv import load_dotenv
+load_dotenv(PROJECT / ".env")
 
 digest = json.loads((sorted((PROJECT / "outputs/tableau-ops_metrics_weekly/global/all").iterdir())[-1] / ".cache/digest.json").read_text())["digest"]
 
