@@ -85,20 +85,34 @@ if not _region_terminals:
 else:
     print(f"Region-terminal mapping: {', '.join(f'{r}({len(t)})' for r, t in _region_terminals.items())}")
 
-# Collect L0 totals for derived KPIs
+# Collect L0 totals for derived KPIs — use L0 card if available, else use
+# L0 metadata (current_total/prior_total which includes ALL entities, not just top N cards)
 _l0_cur = {}
 _l0_pri = {}
 for m, p in all_metrics.items():
-    l0 = p.get("hierarchical_analysis", {}).get("level_0", {}).get("insight_cards", [])
-    if l0:
-        ev = l0[0].get("evidence", {})
+    l0 = p.get("hierarchical_analysis", {}).get("level_0", {})
+    l0_cards = l0.get("insight_cards", [])
+    if l0_cards:
+        ev = l0_cards[0].get("evidence", {})
         _l0_cur[m] = ev.get("current", 0)
         _l0_pri[m] = ev.get("prior", 0)
-    else:
-        l1 = p.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", [])
-        if l1:
-            _l0_cur[m] = sum(c.get("evidence", {}).get("current", 0) for c in l1)
-            _l0_pri[m] = sum(c.get("evidence", {}).get("prior", 0) for c in l1)
+    elif l0.get("current_total"):
+        _l0_cur[m] = l0["current_total"]
+        _l0_pri[m] = l0.get("prior_total", 0)
+
+# Also collect per-region totals for regional KPI computation
+_region_metric_cur = {}  # {region: {metric: current}}
+_region_metric_pri = {}
+for m, p in all_metrics.items():
+    l1_cards = p.get("hierarchical_analysis", {}).get("level_1", {}).get("insight_cards", [])
+    for card in l1_cards:
+        region = card.get("title", "").replace("Level 1 Variance Driver: ", "")
+        ev = card.get("evidence", {})
+        if region not in _region_metric_cur:
+            _region_metric_cur[region] = {}
+            _region_metric_pri[region] = {}
+        _region_metric_cur[region][m] = ev.get("current", 0)
+        _region_metric_pri[region][m] = ev.get("prior", 0)
 
 # Compute derived KPIs
 derived_kpis = {}
@@ -358,14 +372,19 @@ def generate_brief(scope_name, scope_insights, scope_totals):
         f"THESIS: {curated.get('quality_assessment', 'mixed')} -- {curated.get('narrative_thesis', '')}\n\n"
         f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in scope_totals.items())
         + f"\n\nCURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
-        + "\n\nRules:\n"
-        "- Fragments not sentences in what_moved\n"
-        "- Duration in trends\n"
-        "- Terminals and driver managers in leadership\n"
-        "- Use scope-specific KPIs from totals, NOT network numbers\n"
-        "- next_week_outlook MUST be UNIQUE to this scope — do not use generic 'margin erosion will accelerate'\n"
-        "  Instead: name the specific risk for THIS scope and what triggers it\n"
-        "- leadership_focus: exactly 3 items, name driver managers where available\n"
+        + "\n\nRULES:\n"
+        "- bottom_line: MUST include absolute revenue $ amount AND WoW % in the FIRST sentence.\n"
+        "  GOOD: 'Revenue fell to $2.0M (-6.9% WoW)'\n"
+        "  BAD: 'Revenue collapsed 6.9% this week'\n"
+        "- what_moved: Fragments not sentences. Use KPIs from TOTALS section ONLY\n"
+        "  If a KPI like LRPM appears in the TOTALS section, USE IT. If it does not appear, omit it entirely.\n"
+        "- trend_status: MUST include duration ('13 weeks', '3 straight weeks'). Never just 'is a persistent issue'\n"
+        "- where_it_came_from drag: Name the PERSON or TERMINAL causing the problem, never the scope itself\n"
+        "  BAD: 'Drag: Richmond Terminal — revenue -13.4%'\n"
+        "  GOOD: 'Drag: Driver Manager DYSKC — revenue -89.0%, worst performer at Richmond'\n"
+        "- why_it_matters: Do NOT reuse 'burning cash on empty miles' or 'double-hit'. Each scope needs a unique mechanism\n"
+        "- next_week_outlook: UNIQUE to this scope. Name the specific trigger and consequence\n"
+        "- leadership_focus: exactly 3 items. Name driver managers at terminal level\n"
     )
     r3 = client.models.generate_content(model=args.model, contents=s3_input,
         config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
@@ -454,20 +473,33 @@ for region in regions:
                 _rgn_cur[m] = ev.get("current", 0)
                 _rgn_pri[m] = ev.get("prior", 0)
 
-    # Compute region-specific derived KPIs
+    # Compute region-specific derived KPIs from pre-collected per-region data
+    rgn_cur_data = _region_metric_cur.get(region, _rgn_cur)
+    rgn_pri_data = _region_metric_pri.get(region, _rgn_pri)
+    # Merge: L1 card evidence takes priority, then pre-collected
+    for mk in _rgn_cur:
+        if mk not in rgn_cur_data:
+            rgn_cur_data[mk] = _rgn_cur[mk]
+            rgn_pri_data[mk] = _rgn_pri.get(mk, 0)
+
     for kd in contract.get("derived_kpis", []):
-        nc = _rgn_cur.get(kd.get("numerator", ""))
-        np_ = _rgn_pri.get(kd.get("numerator", ""))
-        dc = _rgn_cur.get(kd.get("denominator", ""))
-        dp = _rgn_pri.get(kd.get("denominator", ""))
+        nc = rgn_cur_data.get(kd.get("numerator", ""))
+        np_ = rgn_pri_data.get(kd.get("numerator", ""))
+        dc = rgn_cur_data.get(kd.get("denominator", ""))
+        dp = rgn_pri_data.get(kd.get("denominator", ""))
         mult = kd.get("multiply", 1)
         dd = kd.get("divide_by_days", 1)
         if nc and dc and dc > 0 and dp and dp > 0:
             cv = (nc / dc / dd) * mult
             pv = (np_ / dp / dd) * mult
             chg = (cv - pv) / abs(pv) * 100 if pv else 0
+            if kd.get("format") == "percentage" and cv > 50:
+                continue
             fmt = f"${cv:.2f}" if kd.get("format") == "currency" else (f"{cv:.1f}%" if kd.get("format") == "percentage" else f"{cv:,.0f}")
             region_totals[kd.get("brief_label", kd["name"])] = f"{fmt} ({chg:+.1f}% WoW)"
+        else:
+            # KPI can't be computed for this region — don't include (avoid using network value)
+            pass
 
     if region_insights:
         rb, rt = generate_brief(region, region_insights, region_totals)
@@ -622,7 +654,16 @@ for terminal, tdata in top_terminals:
             f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in terminal_totals.items())
             + f"\n\nDRIVER MANAGERS AT {terminal.upper()}:\n{dm_block}\n"
             + f"CURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
-            + "\n\nRules: Name driver managers in leadership. Fragments in what_moved."
+            + "\n\nRULES:\n"
+            "- bottom_line: MUST start with this terminal's data from TOTALS. Do NOT use network totals.\n"
+            f"  If revenue is in TOTALS: 'Revenue fell to $X (-Y% WoW)'\n"
+            f"  If revenue is NOT in TOTALS: lead with the most significant metric available (orders, miles, etc.)\n"
+            f"  NEVER reference $25.9M — that is the network total, not this terminal.\n"
+            "- what_moved: Fragments. Use KPIs from TOTALS only. If LRPM not in TOTALS, omit it.\n"
+            "- trend_status: Include duration ('13 weeks', '3 straight weeks')\n"
+            "- where_it_came_from drag: Name the DRIVER MANAGER, not the terminal itself\n"
+            "- why_it_matters: Unique mechanism for this terminal\n"
+            "- leadership_focus: 3 items. Name driver managers.\n"
         )
         r3 = client.models.generate_content(model=args.model, contents=s3_input,
             config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
