@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -350,12 +350,24 @@ async def api_data_profile(dataset_id: str, sample_size: int = 1000):
         if df is None or df.empty:
             return {"error": "No data loaded"}
 
+        import math
+
+        def _safe_float(v):
+            """Convert to JSON-safe float (None for NaN/inf)."""
+            if v is None: return None
+            try:
+                f = float(v)
+                if math.isnan(f) or math.isinf(f): return None
+                return f
+            except (ValueError, TypeError):
+                return None
+
         # Build profile
         profile = {
             "row_count": len(df),
             "column_count": len(df.columns),
             "columns": [],
-            "sample_rows": df.head(5).astype(str).to_dict(orient="records"),
+            "sample_rows": df.head(5).fillna("").astype(str).to_dict(orient="records"),
         }
 
         for col in df.columns:
@@ -363,23 +375,15 @@ async def api_data_profile(dataset_id: str, sample_size: int = 1000):
                 "name": col,
                 "dtype": str(df[col].dtype),
                 "non_null": int(df[col].notna().sum()),
-                "null_pct": round(df[col].isna().mean() * 100, 1),
+                "null_pct": _safe_float(round(df[col].isna().mean() * 100, 1)) or 0,
                 "unique": int(df[col].nunique()),
             }
             if pd.api.types.is_numeric_dtype(df[col]):
                 col_info["type"] = "numeric"
-                try:
-                    col_info["min"] = float(df[col].min()) if df[col].notna().any() else None
-                    col_info["max"] = float(df[col].max()) if df[col].notna().any() else None
-                    col_info["mean"] = round(float(df[col].mean()), 2) if df[col].notna().any() else None
-                    col_info["std"] = round(float(df[col].std()), 2) if df[col].notna().any() else None
-                    # Handle NaN/inf
-                    import math
-                    for k in ["min", "max", "mean", "std"]:
-                        if col_info[k] is not None and (math.isnan(col_info[k]) or math.isinf(col_info[k])):
-                            col_info[k] = None
-                except Exception:
-                    col_info["min"] = col_info["max"] = col_info["mean"] = col_info["std"] = None
+                col_info["min"] = _safe_float(df[col].min()) if df[col].notna().any() else None
+                col_info["max"] = _safe_float(df[col].max()) if df[col].notna().any() else None
+                col_info["mean"] = _safe_float(round(df[col].mean(), 2)) if df[col].notna().any() else None
+                col_info["std"] = _safe_float(round(df[col].std(), 2)) if df[col].notna().any() else None
             else:
                 col_info["type"] = "categorical"
                 top_values = df[col].value_counts().head(10).to_dict()
