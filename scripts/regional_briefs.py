@@ -358,7 +358,14 @@ def generate_brief(scope_name, scope_insights, scope_totals):
         f"THESIS: {curated.get('quality_assessment', 'mixed')} -- {curated.get('narrative_thesis', '')}\n\n"
         f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in scope_totals.items())
         + f"\n\nCURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
-        + "\n\nRules: fragments not sentences in what_moved. Duration in trends. Terminals in leadership. Use region-specific KPIs from totals."
+        + "\n\nRules:\n"
+        "- Fragments not sentences in what_moved\n"
+        "- Duration in trends\n"
+        "- Terminals and driver managers in leadership\n"
+        "- Use scope-specific KPIs from totals, NOT network numbers\n"
+        "- next_week_outlook MUST be UNIQUE to this scope — do not use generic 'margin erosion will accelerate'\n"
+        "  Instead: name the specific risk for THIS scope and what triggers it\n"
+        "- leadership_focus: exactly 3 items, name driver managers where available\n"
     )
     r3 = client.models.generate_content(model=args.model, contents=s3_input,
         config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
