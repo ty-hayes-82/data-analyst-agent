@@ -36,8 +36,8 @@ model_tiers:
 
   flash_2_5_thinking:
     model: "gemini-2.5-flash"
-    thinking_budget: 8192
-    description: "Gemini 2.5 Flash — with thinking budget"
+    thinking_level: "none"
+    description: "Gemini 2.5 Flash — no thinking (ADK compat)"
 
   fast:
     model: "gemini-3-flash-preview"

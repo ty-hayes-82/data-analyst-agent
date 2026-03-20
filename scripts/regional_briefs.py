@@ -50,6 +50,23 @@ all_metrics = {}
 for jf in sorted(cache_dir.glob("metric_*.json")):
     all_metrics[jf.stem.replace("metric_", "")] = json.loads(jf.read_text())
 
+# Auto-detect comparison basis from data
+_sample = next(iter(all_metrics.values()), {})
+_num_periods = _sample.get("statistical_summary", {}).get("summary_stats", {}).get("total_periods", 14)
+_timeframe = _sample.get("timeframe", {})
+_start = _timeframe.get("start", "")
+_end = _timeframe.get("end", "")
+if _num_periods <= 14:
+    COMPARISON = "MoM (month-over-month)"
+    PERIOD_LABEL = f"Period: {_start} to {_end} ({_num_periods} months)"
+elif _num_periods <= 30:
+    COMPARISON = "WoW (week-over-week)"
+    PERIOD_LABEL = f"Week Ending {_end}"
+else:
+    COMPARISON = "vs prior period"
+    PERIOD_LABEL = f"Period: {_start} to {_end} ({_num_periods} periods)"
+print(f"Analysis: {PERIOD_LABEL} | Comparison: {COMPARISON}")
+
 # Build region -> terminal mapping from hierarchy definitions
 # This should come from the data or contract; using data-derived mapping
 _region_terminals = {}
@@ -370,7 +387,8 @@ def generate_brief(scope_name, scope_insights, scope_totals):
         )
 
     s3_input = (
-        f"Week ending: 2026-02-21. Scope: {scope_name}. WoW comparisons.\n\n"
+        f"{PERIOD_LABEL}. Scope: {scope_name}. {COMPARISON} comparisons.\n"
+        f"IMPORTANT: Use '{COMPARISON}' not 'WoW' for all change references. This is MONTHLY data.\n\n"
         f"{network_context}"
         f"THESIS: {curated.get('quality_assessment', 'mixed')} -- {curated.get('narrative_thesis', '')}\n\n"
         f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in scope_totals.items())
@@ -660,7 +678,8 @@ for terminal, tdata in top_terminals:
             network_context = f"NETWORK CONTEXT: {nt_data['assessment']} — {nt_data['thesis']}\n\n"
 
         s3_input = (
-            f"Week ending: 2026-02-21. Scope: {terminal} terminal ({rgn} region). WoW.\n\n"
+            f"{PERIOD_LABEL}. Scope: {terminal} terminal ({rgn} region). {COMPARISON}.\n"
+            f"IMPORTANT: Use '{COMPARISON}' not 'WoW' for all change references.\n\n"
             f"{network_context}"
             f"THESIS: {curated.get('quality_assessment', 'mixed')} — {curated.get('narrative_thesis', '')}\n\n"
             f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in terminal_totals.items())
@@ -694,7 +713,7 @@ for terminal, tdata in top_terminals:
 total_time = time.time() - t_total
 _end_date = next(iter(all_metrics.values()), {}).get("timeframe", {}).get("end", "")
 _start_date = next(iter(all_metrics.values()), {}).get("timeframe", {}).get("start", "")
-header = f"# Performance Brief — {_start_date} to {_end_date}\n\n*Generated in {total_time:.1f}s | {len(all_briefs)} sections | {args.model}*\n"
+header = f"# Performance Brief — {PERIOD_LABEL}\n\n*Generated in {total_time:.1f}s | {len(all_briefs)} sections | {args.model} | {COMPARISON}*\n"
 combined = header + "\n---\n".join(all_briefs)
 
 out_path = PROJECT / "benchmarks" / "regional_brief.md"
