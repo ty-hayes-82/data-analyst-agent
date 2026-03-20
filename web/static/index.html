@@ -333,16 +333,28 @@
     <!-- CONTRACT EDITOR TAB                                             -->
     <!-- ═══════════════════════════════════════════════════════════════ -->
     <div id="contract-editor" class="section">
-      <div class="section-header">
-        <h2>Dataset Settings</h2>
-        <p class="section-subtitle">Edit contract configuration, metrics, dimensions, and analysis defaults</p>
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <h2>Dataset Settings</h2>
+          <p class="section-subtitle">Edit contract configuration, metrics, dimensions, and analysis defaults</p>
+        </div>
+        <div class="form-group" style="min-width:250px;margin:0">
+          <select id="editor-dataset-select" onchange="loadContractEditor()">
+            <option value="">-- Select a dataset --</option>
+          </select>
+        </div>
       </div>
 
-      <div class="form-group" style="margin-bottom:1.5em">
-        <label for="editor-dataset-select">Select Dataset to Edit</label>
-        <select id="editor-dataset-select" onchange="loadContractEditor()">
-          <option value="">-- Select a dataset --</option>
-        </select>
+      <!-- Section Navigation -->
+      <div id="editor-nav" class="editor-nav" style="display:none">
+        <a href="#" onclick="scrollToEditorSection('editor-general');return false">General</a>
+        <a href="#" onclick="scrollToEditorSection('editor-metrics');return false">Metrics</a>
+        <a href="#" onclick="scrollToEditorSection('editor-dimensions');return false">Dimensions</a>
+        <a href="#" onclick="scrollToEditorSection('editor-kpis');return false">KPIs</a>
+        <a href="#" onclick="scrollToEditorSection('editor-defaults');return false">Defaults</a>
+        <a href="#" onclick="scrollToEditorSection('editor-refresh');return false">Refresh</a>
+        <a href="#" onclick="scrollToEditorSection('editor-profile');return false">Profile</a>
+        <span id="editor-dirty-indicator" class="dirty-indicator" style="display:none">Unsaved changes</span>
       </div>
 
       <div id="editor-content" style="display:none">
@@ -385,6 +397,12 @@
             <span class="step-toggle">▼</span>
           </div>
           <div class="form-step-content collapsed" id="editor-metrics">
+            <div style="display:flex;gap:0.5em;margin-bottom:0.75em">
+              <input type="text" id="ed-metrics-search" placeholder="Search metrics..." oninput="filterEditorMetrics(this.value)" style="flex:1">
+              <select id="ed-metrics-cat-filter" onchange="filterEditorMetrics(document.getElementById('ed-metrics-search').value)" style="max-width:180px">
+                <option value="">All Categories</option>
+              </select>
+            </div>
             <div id="ed-metrics-list"></div>
           </div>
         </div>
@@ -412,6 +430,31 @@
           </div>
           <div class="form-step-content collapsed" id="editor-kpis">
             <div id="ed-kpis-list"></div>
+            <div style="margin-top:0.75em">
+              <button class="btn btn-secondary btn-sm" onclick="addCustomKPI()">+ Add Custom KPI</button>
+            </div>
+            <div id="ed-kpi-add-form" style="display:none;margin-top:0.75em">
+              <div class="info-card">
+                <div class="form-grid">
+                  <div class="form-group"><label>KPI Name</label><input type="text" id="kpi-new-name" placeholder="e.g. loaded_pct"></div>
+                  <div class="form-group"><label>Display Name</label><input type="text" id="kpi-new-display" placeholder="e.g. Loaded %"></div>
+                  <div class="form-group"><label>Numerator (metric)</label>
+                    <select id="kpi-new-num"></select>
+                  </div>
+                  <div class="form-group"><label>Denominator (metric)</label>
+                    <select id="kpi-new-den"></select>
+                  </div>
+                  <div class="form-group"><label>Multiply by</label><input type="number" id="kpi-new-mult" value="1" step="1"></div>
+                  <div class="form-group"><label>Format</label>
+                    <select id="kpi-new-format"><option value="currency">Currency</option><option value="percentage">Percentage</option><option value="float">Number</option></select>
+                  </div>
+                </div>
+                <div class="actions" style="margin-top:0.75em">
+                  <button class="btn btn-primary btn-sm" onclick="confirmAddKPI()">Add KPI</button>
+                  <button class="btn btn-secondary btn-sm" onclick="document.getElementById('ed-kpi-add-form').style.display='none'">Cancel</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -450,6 +493,44 @@
           </div>
         </div>
 
+        <!-- Refresh Schedule -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-refresh')">
+            <span class="step-number">6</span>
+            <span class="step-title">Data Refresh</span>
+            <span class="step-summary" id="editor-refresh-summary">Manual</span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content collapsed" id="editor-refresh">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Data Source Type</label>
+                <input type="text" id="ed-source-type" disabled>
+              </div>
+              <div class="form-group">
+                <label>Source File</label>
+                <input type="text" id="ed-source-file" disabled>
+              </div>
+              <div class="form-group">
+                <label>Refresh Schedule</label>
+                <select id="ed-refresh-schedule">
+                  <option value="manual">Manual</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="hourly">Hourly</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Last Updated</label>
+                <input type="text" id="ed-last-updated" disabled value="Unknown">
+              </div>
+            </div>
+            <div class="actions" style="margin-top:0.75em">
+              <button class="btn btn-primary btn-sm" onclick="alert('Refresh would re-extract data from source. Not yet implemented.')">Refresh Now</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Data Profile -->
         <div class="form-step">
           <div class="form-step-header" onclick="toggleStep('editor-profile')">
@@ -470,9 +551,13 @@
           </div>
         </div>
 
-        <div class="actions" style="margin-top:1.5em">
-          <button class="btn btn-primary" onclick="saveAll()">Save All Changes</button>
-          <button class="btn btn-secondary" onclick="loadContractEditor()">Revert to Saved</button>
+        <!-- Sticky save bar -->
+        <div class="editor-save-bar" id="editor-save-bar">
+          <span id="editor-save-status" style="color:#8b949e;font-size:0.85em"></span>
+          <div style="display:flex;gap:0.5em">
+            <button class="btn btn-secondary btn-sm" onclick="loadContractEditor()">Revert</button>
+            <button class="btn btn-primary btn-sm" onclick="saveAll()">Save All Changes</button>
+          </div>
         </div>
       </div>
     </div>

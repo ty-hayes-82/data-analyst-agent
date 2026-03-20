@@ -994,6 +994,19 @@ async function loadContractEditor() {
   if (!res.ok) { alert('Failed to load contract'); return; }
   editorContract = await res.json();
   document.getElementById('editor-content').style.display = 'block';
+  document.getElementById('editor-nav').style.display = 'flex';
+  editorDirty = false;
+  const ind = document.getElementById('editor-dirty-indicator');
+  if (ind) ind.style.display = 'none';
+  const status = document.getElementById('editor-save-status');
+  if (status) status.textContent = '';
+
+  // Refresh section
+  const ds = editorContract.data_source || {};
+  const srcType = document.getElementById('ed-source-type');
+  if (srcType) srcType.value = ds.type || 'unknown';
+  const srcFile = document.getElementById('ed-source-file');
+  if (srcFile) srcFile.value = ds.file || 'Not configured';
 
   // General
   document.getElementById('ed-display-name').value = editorContract.display_name || '';
@@ -1013,8 +1026,15 @@ async function loadContractEditor() {
     if (!metricsByCat[cat]) metricsByCat[cat] = [];
     metricsByCat[cat].push({ ...m, _idx: i });
   });
+  // Populate category filter
+  const catFilterSel = document.getElementById('ed-metrics-cat-filter');
+  if (catFilterSel) {
+    catFilterSel.innerHTML = '<option value="">All Categories</option>' +
+      Object.keys(metricsByCat).map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
   ml.innerHTML = Object.entries(metricsByCat).map(([cat, items]) => `
-    <div style="margin-bottom:1em">
+    <div style="margin-bottom:1em" data-category="${escapeHtml(cat)}">
       <div style="font-size:0.8em;color:#58a6ff;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5em;padding-bottom:0.3em;border-bottom:1px solid #21262d">${escapeHtml(cat)} (${items.length})</div>
       ${items.map(m => `
         <div class="detect-item">
@@ -1122,10 +1142,96 @@ async function saveDefaults() {
 async function saveAll() {
   const id = document.getElementById('editor-dataset-select').value;
   if (!id) return;
-  const contractOk = await saveContract().then(() => true).catch(() => false);
+  const contractOk = await saveContract();
   const defaultsOk = await saveDefaults();
-  if (contractOk && defaultsOk) alert('All changes saved!');
-  else alert('Some changes may not have saved. Please check and try again.');
+  if (contractOk && defaultsOk) {
+    editorDirty = false;
+    const ind = document.getElementById('editor-dirty-indicator');
+    if (ind) ind.style.display = 'none';
+    const status = document.getElementById('editor-save-status');
+    if (status) status.textContent = 'All changes saved';
+    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+  } else {
+    alert('Some changes may not have saved. Please check and try again.');
+  }
+}
+
+
+// --- Editor Navigation & Dirty State ---
+function scrollToEditorSection(sectionId) {
+  const el = document.getElementById(sectionId);
+  if (el) {
+    if (el.classList.contains('collapsed')) el.classList.remove('collapsed');
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+let editorDirty = false;
+function markDirty() {
+  editorDirty = true;
+  const ind = document.getElementById('editor-dirty-indicator');
+  if (ind) ind.style.display = 'inline-flex';
+  const status = document.getElementById('editor-save-status');
+  if (status) status.textContent = 'Unsaved changes';
+}
+
+// Track changes on editor inputs
+document.addEventListener('change', (e) => {
+  if (e.target.closest('#editor-content')) markDirty();
+});
+document.addEventListener('input', (e) => {
+  if (e.target.closest('#editor-content') && e.target.tagName !== 'SELECT') markDirty();
+});
+
+
+// --- Metrics Search/Filter ---
+function filterEditorMetrics(searchTerm) {
+  const catFilter = document.getElementById('ed-metrics-cat-filter')?.value || '';
+  const items = document.querySelectorAll('#ed-metrics-list .detect-item');
+  const lower = (searchTerm || '').toLowerCase();
+  items.forEach(item => {
+    const name = item.querySelector('.item-name')?.textContent?.toLowerCase() || '';
+    const cat = item.closest('[data-category]')?.dataset?.category || '';
+    const matchSearch = !lower || name.includes(lower);
+    const matchCat = !catFilter || cat === catFilter;
+    item.style.display = (matchSearch && matchCat) ? '' : 'none';
+  });
+}
+
+
+// --- Custom KPI Editor ---
+function addCustomKPI() {
+  const form = document.getElementById('ed-kpi-add-form');
+  form.style.display = 'block';
+  // Populate metric selects
+  const metrics = editorContract?.metrics || [];
+  ['kpi-new-num', 'kpi-new-den'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    sel.innerHTML = '<option value="">Select metric...</option>' +
+      metrics.map(m => `<option value="${m.name}">${escapeHtml(m.display_name || m.name)}</option>`).join('');
+  });
+}
+
+function confirmAddKPI() {
+  const name = document.getElementById('kpi-new-name').value.trim();
+  const displayName = document.getElementById('kpi-new-display').value.trim();
+  const num = document.getElementById('kpi-new-num').value;
+  const den = document.getElementById('kpi-new-den').value;
+  const mult = parseInt(document.getElementById('kpi-new-mult').value) || 1;
+  const fmt = document.getElementById('kpi-new-format').value;
+
+  if (!name || !num || !den) { alert('Please fill in name, numerator, and denominator'); return; }
+
+  if (!editorContract.derived_kpis) editorContract.derived_kpis = [];
+  editorContract.derived_kpis.push({
+    name, display_name: displayName || name, brief_label: displayName || name,
+    brief_category: 'Operations', numerator: num, denominator: den,
+    multiply: mult, format: fmt, description: `${displayName || name} (user-defined)`
+  });
+
+  document.getElementById('ed-kpi-add-form').style.display = 'none';
+  markDirty();
+  loadContractEditor(); // refresh
 }
 
 
