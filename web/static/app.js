@@ -609,11 +609,12 @@ function renderHierarchyEditor(contract) {
 
 function setHierarchyLevels(hierarchy, contract) {
   const dims = contract.dimensions || [];
-  currentHierarchyLevels = (hierarchy.children || []).map(childName => {
+  currentHierarchyLevels = (hierarchy.children || hierarchy.levels || []).map(childName => {
     const dim = dims.find(d => d.name === childName || d.column === childName);
     return {
-      name: dim ? dim.name : childName,
+      name: dim ? (dim.display_name || dim.name) : childName,
       column: dim ? dim.column : childName,
+      displayName: dim ? (dim.display_name || dim.name) : childName,
       description: dim ? dim.description : ''
     };
   });
@@ -638,8 +639,7 @@ function renderHierarchyLevelsList(contract) {
          ondragstart="onLevelDragStart(event)" ondragover="onLevelDragOver(event)"
          ondrop="onLevelDrop(event)" ondragend="onLevelDragEnd(event)">
       <span class="level-number">${i + 1}</span>
-      <span class="level-name">${escapeHtml(level.name)}</span>
-      <span class="level-col">${escapeHtml(level.column)}</span>
+      <span class="level-name">${escapeHtml(level.displayName || level.name)}</span>
       <button class="btn-remove" onclick="removeHierarchyLevel(${i})" title="Remove level">&times;</button>
     </div>
   `).join('');
@@ -651,7 +651,7 @@ function renderHierarchyLevelsList(contract) {
   if (allDims.length) {
     availDiv.style.display = 'block';
     availList.innerHTML = allDims.map(d =>
-      `<span class="dim-chip" onclick="addDimensionToHierarchy('${d.name}', '${d.column}', '${(d.description || '').replace(/'/g, "\\'")}')" title="${escapeHtml(d.description || '')}">${escapeHtml(d.name)}</span>`
+      `<span class="dim-chip" onclick="addDimensionToHierarchy('${d.name}', '${d.column}', '${(d.description || '').replace(/'/g, "\\'")}')" title="${escapeHtml(d.description || '')}">${escapeHtml(d.display_name || d.name)}</span>`
     ).join('');
   } else {
     availDiv.style.display = 'none';
@@ -673,6 +673,22 @@ function removeHierarchyLevel(index) {
 
 function addHierarchyLevel() {
   document.getElementById('available-dimensions').style.display = 'block';
+}
+
+function addCustomFilterValue(index, column) {
+  const searchInput = document.querySelector(`#filter-level-${index} .filter-search`);
+  const value = searchInput?.value?.trim();
+  if (!value) return;
+  if (!hierarchyFilterCache[column]) {
+    hierarchyFilterCache[column] = { values: [], selected: new Set(), truncated: false };
+  }
+  if (!hierarchyFilterCache[column].values.includes(value)) {
+    hierarchyFilterCache[column].values.unshift(value);
+  }
+  hierarchyFilterCache[column].selected.add(value);
+  searchInput.value = '';
+  renderFilterValues(index, column);
+  renderFilterCount(index, column);
 }
 
 let dragIndex = null;
@@ -714,18 +730,19 @@ async function renderHierarchyFilters() {
     return `
       <div class="hierarchy-filter-level" id="filter-level-${i}">
         <div class="filter-header" onclick="toggleFilterLevel(${i}, '${level.column}')">
-          <span class="filter-title">${escapeHtml(level.name)}${badge}</span>
+          <span class="filter-title">${escapeHtml(level.displayName || level.name)}${badge}</span>
           <span>
             <span class="filter-count">${totalCount} values</span>
             <span class="filter-toggle">&#9660;</span>
           </span>
         </div>
         <div class="filter-body" id="filter-body-${i}">
-          <input type="text" class="filter-search" placeholder="Search values..." oninput="filterSearchValues(${i}, '${level.column}', this.value)">
+          <input type="text" class="filter-search" placeholder="Search or type a value..." oninput="filterSearchValues(${i}, '${level.column}', this.value)">
           <div class="filter-values" id="filter-values-${i}">Loading...</div>
           <div class="filter-actions">
             <button onclick="selectAllFilter(${i}, '${level.column}')">Select All</button>
             <button onclick="deselectAllFilter(${i}, '${level.column}')">Deselect All</button>
+            <button onclick="addCustomFilterValue(${i}, '${level.column}')">+ Add Typed Value</button>
           </div>
         </div>
       </div>

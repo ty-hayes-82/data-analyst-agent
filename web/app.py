@@ -149,20 +149,72 @@ async def api_dimension_values(dataset_id: str, column: str):
 
     from pathlib import Path as _Path
     project_root = _Path(__file__).resolve().parent.parent
-    full_path = (project_root / file_path).resolve()
-    if not full_path.exists():
-        raise HTTPException(404, "Data file not found")
 
-    try:
-        import pandas as pd
-        df = pd.read_csv(str(full_path), usecols=[column], dtype=str)
-        values = sorted(df[column].dropna().unique().tolist())
-        truncated = len(values) > 500
-        if truncated:
-            values = values[:500]
-        return {"column": column, "values": values, "total": len(values), "truncated": truncated}
-    except Exception as e:
-        raise HTTPException(500, f"Failed to read dimension values: {str(e)}")
+    source_type = data_source.get("type", "csv")
+
+    if source_type == "tableau_hyper":
+        # Read from Tableau Hyper file
+        try:
+            import yaml
+            loader_path = project_root / "config" / "datasets" / dataset_id / "loader.yaml"
+            if loader_path.exists():
+                loader_cfg = yaml.safe_load(loader_path.read_text())
+                hyper_cfg = loader_cfg.get("hyper", {})
+                tdsx_path = _Path(hyper_cfg.get("tdsx_path", ".")) / hyper_cfg.get("tdsx_file", "")
+                if not tdsx_path.exists():
+                    tdsx_path = project_root / hyper_cfg.get("tdsx_path", ".") / hyper_cfg.get("tdsx_file", "")
+            else:
+                tdsx_path = _Path(file_path)
+                if not tdsx_path.is_absolute():
+                    tdsx_path = project_root / file_path
+
+            if not tdsx_path.exists():
+                raise HTTPException(404, f"TDSX file not found: {tdsx_path}")
+
+            import zipfile, tempfile
+            from tableauhyperapi import HyperProcess, Telemetry, Connection, TableName
+
+            with zipfile.ZipFile(str(tdsx_path)) as z:
+                hyper_files = [f for f in z.namelist() if f.endswith(".hyper")]
+                if not hyper_files:
+                    raise HTTPException(500, "No .hyper file found in TDSX")
+                tmp = tempfile.mkdtemp()
+                z.extract(hyper_files[0], tmp)
+                hyper_path = _Path(tmp) / hyper_files[0]
+
+            import os
+            os.makedirs("/tmp/hyper_logs_tableau", exist_ok=True)
+            with HyperProcess(telemetry=Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU,
+                              parameters={"log_dir": "/tmp/hyper_logs_tableau"}) as proc:
+                with Connection(proc.endpoint, str(hyper_path)) as conn:
+                    safe_col = column.replace('"', '""')
+                    result = conn.execute_list_query(
+                        f'SELECT DISTINCT "{safe_col}" FROM "Extract"."Extract" '
+                        f'WHERE "{safe_col}" IS NOT NULL '
+                        f'ORDER BY "{safe_col}" LIMIT 500'
+                    )
+                    values = [str(row[0]) for row in result if row[0] is not None]
+
+            return {"column": column, "values": values, "total": len(values), "truncated": len(values) >= 500}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(500, f"Failed to read Hyper dimension values: {str(e)}")
+    else:
+        # CSV path
+        full_path = (project_root / file_path).resolve()
+        if not full_path.exists():
+            raise HTTPException(404, "Data file not found")
+        try:
+            import pandas as pd
+            df = pd.read_csv(str(full_path), usecols=[column], dtype=str)
+            values = sorted(df[column].dropna().unique().tolist())
+            truncated = len(values) > 500
+            if truncated:
+                values = values[:500]
+            return {"column": column, "values": values, "total": len(values), "truncated": truncated}
+        except Exception as e:
+            raise HTTPException(500, f"Failed to read dimension values: {str(e)}")
 
 # ---- Run APIs ----
 
