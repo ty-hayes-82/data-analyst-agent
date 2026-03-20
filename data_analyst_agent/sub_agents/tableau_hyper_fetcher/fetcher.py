@@ -143,6 +143,13 @@ class TableauHyperFetcher(BaseAgent):
         print(f"[HyperQuery]   Filters: {physical_filters}")
         print(f"[HyperQuery]   Metrics requested: {req_analysis.get('metrics', 'N/A')}")
         
+        # Allow CLI override of aggregation period_type via env var
+        period_override = os.environ.get("DATA_ANALYST_PERIOD_TYPE", "").strip().lower()
+        if period_override and loader_config.aggregation:
+            if period_override in ("month_end", "week_end", "day"):
+                print(f"[HyperQuery] Overriding period_type: {loader_config.aggregation.period_type} -> {period_override}")
+                loader_config.aggregation.period_type = period_override
+
         builder = HyperQueryBuilder(loader_config)
         sql = builder.build_query(
             date_start=date_start,
