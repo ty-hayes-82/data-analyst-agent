@@ -21,7 +21,9 @@ def determine_period_context(
     analysis_period: str,
 ) -> Tuple[str, Optional[str], Optional[Sequence[str]], int, List[str]]:
     """Return current_period plus lag metadata."""
-    periods = sorted(df[time_col].unique())
+    raw = df[time_col].unique()
+    # Filter NaT/null before sorting
+    periods = sorted([p for p in raw if pd.notna(p) and str(p).strip() not in ('', 'NaT', 'nan')])
     lag = (
         get_effective_lag_or_default(ctx.contract, ctx.target_metric)
         if ctx and ctx.contract and ctx.target_metric
@@ -107,9 +109,15 @@ def resolve_prior_period_str(
     current_period: str,
 ) -> str:
     """Return the best prior-period string for the variance calc."""
-    current_date = pd.to_datetime(current_period)
-    all_periods = sorted(pd.to_datetime(df[time_col].unique()))
+    current_date = pd.to_datetime(current_period, errors="coerce")
+    if pd.isna(current_date):
+        return str(current_period)
+    # Filter out NaT values before sorting
+    parsed = pd.to_datetime(df[time_col].unique(), errors="coerce")
+    all_periods = sorted([p for p in parsed if pd.notna(p)])
     fmt = _resolve_time_format(ctx)
+    if not all_periods:
+        return str(current_period)
 
     vtype = variance_type.lower()
     if vtype == "wow":
@@ -134,9 +142,10 @@ def resolve_prior_period_str(
             pass
 
     if all_periods:
-        best_prior = min(all_periods, key=lambda d: abs(d - prior_date))
+        best_prior = min(all_periods, key=lambda d: abs((d - prior_date).total_seconds()) if pd.notna(d) else float('inf'))
         max_gap = 3 if vtype == "wow" else 7
-        if abs((best_prior - prior_date).days) <= max_gap:
+        diff = best_prior - prior_date
+        if pd.notna(diff) and abs(diff.days) <= max_gap:
             # Return the ORIGINAL string from the data, not a reformatted version
             return parsed_to_raw.get(best_prior, best_prior.strftime(fmt))
 
@@ -161,8 +170,11 @@ def resolve_rolling_average(
 
     Returns DataFrame with columns: item, rolling_avg, periods_used.
     """
-    current_date = pd.to_datetime(current_period)
-    all_periods = sorted(pd.to_datetime(df[time_col].unique()))
+    current_date = pd.to_datetime(current_period, errors="coerce")
+    if pd.isna(current_date):
+        return pd.DataFrame(columns=["item", "rolling_avg", "periods_used"])
+    parsed = pd.to_datetime(df[time_col].unique(), errors="coerce")
+    all_periods = sorted([p for p in parsed if pd.notna(p)])
     earlier = [p for p in all_periods if p < current_date]
     lookback = earlier[-window:] if len(earlier) >= window else earlier
 

@@ -1377,6 +1377,26 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
 
+        # Pre-check: if all metric reports are error-state or empty, skip LLM call
+        _empty_reports = sum(1 for v in reports.values() if "No insights" in v or "Error" in v or len(v.strip()) < 100)
+        if _empty_reports == len(reports):
+            print("[BRIEF] All metric reports are empty or error-state. Skipping LLM call.")
+            _fallback_md = (
+                f"# Analysis Summary — {analysis_period}\n\n"
+                "Analysis could not generate insights for this period. "
+                "This is typically caused by:\n"
+                "- Date parsing issues in the source data\n"
+                "- Insufficient data coverage for the selected time range\n"
+                "- All metrics falling below materiality thresholds\n\n"
+                "**Recommended action:** Verify data freshness and date column format, "
+                "then re-run with a broader date range."
+            )
+            brief_path = outputs_dir / ("brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md")
+            brief_path.write_text(_fallback_md, encoding="utf-8")
+            print(f"[BRIEF] Saved error brief to {brief_path.name}")
+            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            return
+
         try:
             # CEO style uses terse fragments — relax numeric validation
             _ceo_min_values = 1 if is_ceo_style() else 3

@@ -85,10 +85,11 @@ async def compute_level_statistics_impl(
     # Auto-detect grain and override variance_type for weekly/daily data
     grain = getattr(ctx, "temporal_grain", None) or ""
     if variance_type.lower() == "yoy" and grain.lower() in ("weekly", "daily", "w", "d"):
-        all_periods = sorted(pd.to_datetime(df[time_col].unique()))
+        parsed = pd.to_datetime(df[time_col].unique(), errors="coerce")
+        all_periods = sorted([p for p in parsed if pd.notna(p)])
         if len(all_periods) >= 2:
             median_gap = pd.Series(all_periods).diff().median()
-            if median_gap and median_gap.days <= 8:
+            if pd.notna(median_gap) and median_gap.days <= 8:
                 variance_type = "wow"
                 print(f"[LevelStats] Auto-switched to WoW comparison for {grain} grain (median gap: {median_gap.days}d)")
 
