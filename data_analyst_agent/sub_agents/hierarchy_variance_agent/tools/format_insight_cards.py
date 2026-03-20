@@ -29,7 +29,19 @@ from typing import Any
 
 
 def _max_cards_per_level() -> int:
-    """Max insight cards per hierarchy level. Env MAX_HIERARCHY_CARDS_PER_LEVEL overrides default (5)."""
+    """Get maximum insight cards per hierarchy level from environment.
+    
+    Reads MAX_HIERARCHY_CARDS_PER_LEVEL environment variable. Default 5.
+    Clamped to range [3, 20] for safety.
+    
+    Returns:
+        int: Max cards per level (3-20).
+    
+    Example:
+        >>> os.environ["MAX_HIERARCHY_CARDS_PER_LEVEL"] = "10"
+        >>> _max_cards_per_level()
+        10
+    """
     raw = os.environ.get("MAX_HIERARCHY_CARDS_PER_LEVEL", "5").strip()
     try:
         return max(3, min(int(raw), 20))
@@ -305,7 +317,7 @@ def format_hierarchy_insight_cards(
         for card in top_cards:
             card.setdefault("discovery_method", discovery_method)
 
-    return {
+    result = {
         "insight_cards": top_cards,
         "total_variance_dollar": round(total_variance, 2),
         "is_last_level": is_last_level,
@@ -313,6 +325,20 @@ def format_hierarchy_insight_cards(
         "level_name": level_name,
         "total_candidates": len(cards),
     }
+
+    if isinstance(level_stats, dict):
+        if level_stats.get("is_duplicate"):
+            result["is_duplicate"] = True
+        if level_stats.get("skip_reason"):
+            result["skip_reason"] = level_stats.get("skip_reason")
+        if level_stats.get("dimension_filter_applied"):
+            result["dimension_filter_applied"] = True
+        if level_stats.get("filter_value") is not None:
+            result["filter_value"] = level_stats.get("filter_value")
+        if level_stats.get("dimension"):
+            result["dimension"] = level_stats.get("dimension")
+
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ from google.genai import types
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import SEASONAL_BASELINE_INSTRUCTION
 from ..statistical_insights_agent.tools.compute_seasonal_decomposition import compute_seasonal_decomposition
+from ...utils.focus_directives import augment_instruction
 
 
 class SeasonalComputationAgent(BaseAgent):
@@ -118,12 +119,36 @@ class SeasonalInterpretationAgent(LlmAgent):
         )
 
 
+class FocusAwareSeasonalInterpreter(BaseAgent):
+    """Wrapper that appends focus directives to the seasonal instruction."""
+
+    def __init__(self):
+        super().__init__(name="seasonal_baseline_interpreter")
+        self._wrapped = SeasonalInterpretationAgent()
+        self._base_instruction = SEASONAL_BASELINE_INSTRUCTION
+        # Store the output_key as an attribute directly
+        object.__setattr__(self, 'output_key', getattr(self._wrapped, "output_key", "seasonal_baseline_result"))
+        object.__setattr__(self, 'description', getattr(self._wrapped, "description", ""))
+
+    def __getattr__(self, item):
+        # Redirect attribute access to wrapped agent if not found on self
+        if item in {"output_key", "description"}:
+            return getattr(self, item)
+        return getattr(self._wrapped, item)
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        # Augment instruction with focus directives
+        self._wrapped.instruction = augment_instruction(self._base_instruction, ctx.session.state)
+        async for event in self._wrapped.run_async(ctx):
+            yield event
+
+
 # Main seasonal baseline agent - Sequential flow
 root_agent = SequentialAgent(
     name="seasonal_baseline_agent",
     sub_agents=[
-        SeasonalComputationAgent(),      # Compute seasonal decomposition
-        SeasonalInterpretationAgent(),   # LLM interprets findings
+        SeasonalComputationAgent(),            # Compute seasonal decomposition
+        FocusAwareSeasonalInterpreter(),       # LLM interprets findings
     ],
     description="Decomposes time series to identify TRUE anomalies after removing seasonal patterns. [Requires: 18+ periods of data]"
 )

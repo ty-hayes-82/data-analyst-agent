@@ -59,6 +59,254 @@ Open `http://localhost:8080` in your browser.
 6. Watch progress in the **Monitor** tab
 7. View results in the **Results** tab — the executive brief loads automatically
 
+## CLI Usage
+
+Run analysis directly from the command line for automation and scripting.
+
+### Basic Command
+
+```bash
+python -m data_analyst_agent --dataset <dataset_name> --metrics "metric1,metric2"
+```
+
+### Available Options
+
+```
+--dataset NAME              Dataset folder name (e.g., us_airfare, covid_us_counties)
+--metrics M1,M2             Comma-separated metric names (required)
+--dimension DIM             Primary dimension (e.g., region, state)
+--dimension-value VAL       Filter by dimension value (e.g., Central, California)
+--start-date YYYY-MM-DD     Override analysis start date
+--end-date YYYY-MM-DD       Override analysis end date
+--interactive               Interactive mode with guided menus
+```
+
+### Examples
+
+**1. Basic Single-Metric Analysis**
+```bash
+python -m data_analyst_agent \
+    --dataset covid_us_counties \
+    --metrics cases
+```
+
+**2. Multi-Metric Analysis**
+```bash
+python -m data_analyst_agent \
+    --dataset us_airfare \
+    --metrics "avg_fare,passengers"
+```
+
+**3. With Analysis Focus (Anomaly Detection)**
+```bash
+DATA_ANALYST_FOCUS=anomaly_detection \
+python -m data_analyst_agent \
+    --dataset us_airfare \
+    --metrics avg_fare
+```
+
+**4. Recent Monthly Trends**
+```bash
+DATA_ANALYST_FOCUS=recent_monthly_trends \
+python -m data_analyst_agent \
+    --dataset covid_us_counties \
+    --metrics "cases,deaths"
+```
+
+**5. Multi-Focus with Custom Instructions**
+```bash
+DATA_ANALYST_FOCUS=anomaly_detection,yoy_comparison \
+DATA_ANALYST_CUSTOM_FOCUS="Focus on Q4 performance and identify seasonal holiday patterns" \
+python -m data_analyst_agent \
+    --dataset us_airfare \
+    --metrics avg_fare
+```
+
+**6. Dimension Filter (Analyze Specific Region)**
+```bash
+python -m data_analyst_agent \
+    --dataset trade_data \
+    --metrics trade_value_usd \
+    --dimension region \
+    --dimension-value Midwest
+```
+
+**7. Interactive Mode (Guided Menus)**
+```bash
+python -m data_analyst_agent --interactive
+```
+
+### Analysis Focus Modes
+
+Set via `DATA_ANALYST_FOCUS` environment variable (comma-separated):
+
+- `recent_weekly_trends` - Focus on last 8 weeks
+- `recent_monthly_trends` - Focus on last 6 months  
+- `anomaly_detection` - Identify outliers and unusual patterns
+- `revenue_gap_analysis` - Find volume vs. value mismatches
+- `seasonal_patterns` - Detect cyclical behavior
+- `yoy_comparison` - Year-over-year comparisons
+- `forecasting` - Forward projections
+- `outlier_investigation` - Deep-dive on extreme values
+
+### Output Location
+
+Results are saved to:
+```
+outputs/<dataset>/<dimension>/<value>/<timestamp>/
+  ├── brief.md          # Executive summary (Markdown)
+  ├── brief.pdf         # Executive summary (PDF)
+  ├── brief.json        # Structured insights (JSON)
+  ├── metric_*.json     # Detailed metric analysis
+  └── run_metadata.json # Run configuration
+```
+
+## Web UI Usage
+
+The web interface provides a complete visual workflow for dataset management and analysis.
+
+### Starting the Web Server
+
+**Development Mode (with auto-reload):**
+```bash
+cd /data/data-analyst-agent
+uvicorn web.app:app --reload --host 0.0.0.0 --port 8080
+```
+
+**Production Mode:**
+```bash
+uvicorn web.app:app --host 0.0.0.0 --port 8080 --workers 4
+```
+
+**Background Mode (Linux/Mac):**
+```bash
+nohup uvicorn web.app:app --host 0.0.0.0 --port 8080 > web.log 2>&1 &
+```
+
+### Web UI Tabs
+
+**1. New Analysis**
+- Select dataset from dropdown
+- Choose metrics (single or multiple)
+- Select analysis focus mode (or multiple)
+- Add custom analysis instructions (optional)
+- Configure hierarchy and drill depth
+- Click "Run Analysis" to start
+
+**2. Monitor**
+- View all active and recent runs
+- See real-time progress logs (updates every 2 seconds)
+- Check run status (Running, Completed, Failed)
+- Track execution time
+- Cancel running analyses
+
+**3. Results**
+- Browse all completed analyses
+- Filter by dataset, date, status
+- Preview executive briefs in-browser (Markdown rendering)
+- Download outputs:
+  - `brief.md` - Markdown summary
+  - `brief.pdf` - PDF for leadership
+  - `brief.json` - Structured JSON
+  - `metric_*.json` - Detailed analysis per metric
+- View run metadata (configuration, timing, focus)
+
+**4. Add Dataset**
+- Upload CSV file (drag-and-drop)
+- Auto-detect structure:
+  - Time columns (date/week/month/quarter)
+  - Numeric metrics
+  - Categorical dimensions
+  - Hierarchical relationships
+- Review detected contract
+- Adjust confidence thresholds
+- Toggle fields on/off
+- Save and use immediately
+
+### API Integration
+
+The web UI is built on a REST API that you can call directly:
+
+**Start an Analysis:**
+```bash
+curl -X POST http://localhost:8080/api/runs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_id": "us_airfare",
+    "metrics": ["avg_fare"],
+    "focus": ["anomaly_detection"],
+    "custom_focus": "Focus on Q4 routes"
+  }'
+```
+
+**Check Run Status:**
+```bash
+curl http://localhost:8080/api/runs/{run_id}
+```
+
+**Get Live Logs:**
+```bash
+curl http://localhost:8080/api/runs/{run_id}/log
+```
+
+**Download Brief:**
+```bash
+curl http://localhost:8080/api/runs/{run_id}/files/brief.md > brief.md
+```
+
+**Health Check:**
+```bash
+curl http://localhost:8080/health
+# Returns: {"status": "healthy", "service": "data-analyst-agent-web", "version": "1.0.0"}
+```
+
+### Configuration
+
+Environment variables for the web server (add to `.env`):
+
+```bash
+# Server
+WEB_SERVER_PORT=8080           # Default port
+
+# CORS (for browser-based frontends)
+CORS_ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+
+# Performance
+EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=3    # Limit entity-level briefs
+EXECUTIVE_BRIEF_SCOPE_CONCURRENCY=3    # Parallel brief generation
+
+# Logging
+LOG_LEVEL=INFO                         # DEBUG, INFO, WARNING, ERROR
+PHASE_LOGGING_ENABLED=true            # Enable phase-based logging
+```
+
+### Troubleshooting
+
+**Port already in use:**
+```bash
+# Find process using port 8080
+lsof -i :8080
+# Kill it
+kill -9 <PID>
+# Or use a different port
+uvicorn web.app:app --port 8081
+```
+
+**Import errors:**
+```bash
+# Ensure you're in the project root
+cd /data/data-analyst-agent
+# Activate venv
+source .venv/bin/activate
+# Verify installation
+pip list | grep google-adk
+```
+
+**Slow performance:**
+- Reduce `EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` to 2
+- Increase `EXECUTIVE_BRIEF_SCOPE_CONCURRENCY` to 4
+- Use `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL=true` for faster synthesis
+
 ## Included Public Datasets
 
 These datasets are ready to analyze out of the box:
@@ -155,24 +403,6 @@ When starting a run, select one or more focus modes to guide the analysis:
 
 You can also type a **custom analysis direction** for specific questions.
 
-## CLI Usage
-
-Run analysis directly from the command line:
-
-```bash
-# Analyze all metrics for the trade dataset
-python -m data_analyst_agent.agent "Analyze trade_value_usd and volume_units"
-
-# With environment overrides
-export ACTIVE_DATASET=trade_data
-export DATA_ANALYST_METRICS=trade_value_usd,volume_units
-export DATA_ANALYST_HIERARCHY=geographic
-export DATA_ANALYST_MAX_DRILL_DEPTH=3
-export DATA_ANALYST_FOCUS=anomaly_detection,yoy_comparison
-export DATA_ANALYST_CUSTOM_FOCUS="Find the top 3 drivers of the Q4 trade decline"
-python -m data_analyst_agent.agent "Analyze trade metrics"
-```
-
 ## Output Files
 
 Each run generates a unique directory under `outputs/` containing:
@@ -223,6 +453,17 @@ python -m pytest --tb=short -q           # Full suite
 python -m pytest tests/unit/ -q          # Unit tests only
 python -m pytest tests/e2e/ -q           # End-to-end tests
 ```
+
+
+## Performance Controls
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` | `3` | Caps how many scoped briefs (Level 1/2 entities) the executive brief agent will spawn per run. Tune down when profiling or when metric fan-out overwhelms the LLM budget. |
+| `EXECUTIVE_BRIEF_SCOPE_CONCURRENCY` | `2` | Limits the asyncio semaphore that guards scoped brief fan-out to avoid saturating the GenAI backend. Set higher on beefier nodes or lower when profiling latency. |
+| `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL` | `false` | Forces the synthesis stage to skip the LLM and call `generate_markdown_report` directly. Useful for deterministic tests or when profiling tool latency. The agent now also auto-enables this fast-path whenever no hierarchical payload is available. |
+
+When `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL` is unset, the agent automatically detects missing hierarchical payloads and uses the deterministic Markdown tool. This prevents 300-second timeouts when upstream stages skip drill-downs.
 
 ## API Endpoints
 

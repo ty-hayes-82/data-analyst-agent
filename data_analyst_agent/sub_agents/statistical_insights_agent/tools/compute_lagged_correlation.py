@@ -24,6 +24,7 @@ import numpy as np
 from scipy.stats import pearsonr
 from typing import Dict, Any, List, Optional
 import json
+from ....utils.temporal_grain import normalize_temporal_grain, temporal_grain_to_period_unit
 
 async def compute_lagged_correlation(
     max_lag: int = 6,
@@ -32,8 +33,108 @@ async def compute_lagged_correlation(
     granger_max_lag: int = 3,
     pre_resolved: Optional[dict] = None
 ) -> str:
-    """
-    Compute time-lagged cross-correlations to identify leading indicators.
+    """Compute time-lagged cross-correlations to identify leading indicators.
+    
+    This tool tests whether one metric predicts another at a time lag. It computes
+    cross-correlation functions (CCF) for all metric pairs at different lags to
+    find relationships like "Orders at time t predict Revenue at time t+2".
+    
+    Leading indicators are valuable for:
+        - Forecasting (use today's Orders to predict next month's Revenue)
+        - Early warning systems (detect problems before they manifest)
+        - Causal inference (though correlation ≠ causation, leading indicators
+          suggest possible causal pathways)
+    
+    Optionally includes Granger Causality tests for stronger causal evidence.
+    
+    Use Cases:
+        - Supply chain: Shipments lead delivered revenue by 2 weeks
+        - Marketing: Ad spend leads conversions by 1 week
+        - Retail: Foot traffic leads sales by same day
+        - Finance: Expenses lead cash flow by 30 days
+    
+    Args:
+        max_lag: Maximum lag to test (in periods). Default 6.
+            Tests lags from -max_lag to +max_lag.
+            Positive lag: metric_a at t predicts metric_b at t+lag (a leads b).
+            Negative lag: metric_b leads metric_a.
+        min_r: Minimum correlation coefficient to report a leading indicator.
+            Default 0.5. Only reports relationships where lagged correlation
+            exceeds this threshold AND is at least 0.1 better than lag-0 correlation.
+        granger_test: If True, includes Granger Causality tests for each
+            leading indicator. Default False.
+            Requires statsmodels. Adds computational cost but provides stronger
+            evidence of predictive relationships.
+        granger_max_lag: Maximum lag for Granger Causality tests. Default 3.
+            Only used if granger_test=True.
+        pre_resolved: Pre-resolved data bundle from compute_statistical_summary.
+            If provided, skips data resolution. Must contain:
+            - ctx: ADK context with contract and temporal metadata
+    
+    Returns:
+        JSON string with:
+            leading_indicators: List of {
+                leader: Metric name that leads
+                follower: Metric name that follows
+                optimal_lag: Best lag (in periods)
+                lag_r: Correlation at optimal lag
+                contemporaneous_r: Correlation at lag 0
+                improvement: lag_r - |contemporaneous_r|
+                direction: Human-readable description
+                lag_unit: Temporal unit (e.g., "month", "week")
+                granger_causality (optional): {p_value, significant}
+            }
+            cross_correlation_functions: Dict mapping metric pairs to {
+                lags: List of lag values
+                correlations: List of correlation values at each lag
+            }
+            summary: {
+                metrics_analyzed, leading_pairs_found, strongest_leader,
+                temporal_grain, lag_unit
+            }
+        
+        Or {"skipped": True, "reason": "..."} or {"error": "..."}
+    
+    Raises:
+        ValueError: Via resolve_data_and_columns if pre_resolved not provided
+            and context/data resolution fails.
+    
+    Example:
+        >>> result = await compute_lagged_correlation(max_lag=4, granger_test=True)
+        >>> # Returns: {
+        >>> #   "leading_indicators": [{
+        >>> #     "leader": "orders",
+        >>> #     "follower": "revenue",
+        >>> #     "optimal_lag": 2,
+        >>> #     "lag_r": 0.87,
+        >>> #     "contemporaneous_r": 0.65,
+        >>> #     "improvement": 0.22,
+        >>> #     "direction": "orders leads revenue by 2 months",
+        >>> #     "lag_unit": "month",
+        >>> #     "granger_causality": {"p_value": 0.003, "significant": true}
+        >>> #   }],
+        >>> #   "summary": {
+        >>> #     "strongest_leader": {...},
+        >>> #     "temporal_grain": "monthly"
+        >>> #   }
+        >>> # }
+        
+        >>> # Interpretation: Orders today predict Revenue 2 months later
+        >>> # with r=0.87 (improvement of 0.22 over same-period correlation).
+        >>> # Granger test confirms predictive relationship (p<0.01).
+    
+    Note:
+        - Requires scipy (pip install scipy)
+        - Requires statsmodels for Granger tests (pip install statsmodels)
+        - Requires 12+ periods for reliable results (less than 12 periods triggers skip)
+        - Loads ALL metrics via validation_data_loader (not filtered to current target)
+        - Temporal grain (monthly/weekly) detected from contract or context
+        - Lag unit derived from temporal grain for human-readable output
+        - Granger Causality interpretation:
+          * p < 0.05: Significant evidence that leader predicts follower
+          * p ≥ 0.05: No significant predictive relationship
+        - "Improvement" threshold of 0.1 ensures lagged correlation is meaningfully
+          better than contemporaneous correlation
     """
     from ....tools.validation_data_loader import load_validation_data
 
@@ -60,8 +161,15 @@ async def compute_lagged_correlation(
             return json.dumps({"error": "No dataset contract available"}, indent=2)
 
         contract = ctx.contract
-        temporal_grain = getattr(ctx, "temporal_grain", "monthly")
-        lag_unit = "week" if temporal_grain == "weekly" else "month"
+        temporal_grain = normalize_temporal_grain(getattr(ctx, "temporal_grain", None))
+        if temporal_grain == "unknown":
+            time_cfg = getattr(contract, "time", None)
+            temporal_grain = normalize_temporal_grain(getattr(time_cfg, "frequency", None))
+            if temporal_grain == "unknown":
+                temporal_grain = "monthly"
+        lag_unit = temporal_grain_to_period_unit(temporal_grain)
+        if lag_unit == "period":
+            lag_unit = "month"
         available_metrics = [m for m in contract.metrics]
 
         if len(available_metrics) <= 1:
@@ -76,8 +184,13 @@ async def compute_lagged_correlation(
 
         # 3. Pivot to (period) x (metric) matrix, aggregated across all entities
         df_all["value"] = pd.to_numeric(df_all["value"], errors="coerce").fillna(0)
+        # Use contract-defined time column
+        time_col_to_use = contract.time.column if contract.time else "period"
+        # Validate the column exists in the dataframe
+        if time_col_to_use not in df_all.columns:
+            time_col_to_use = "period" if "period" in df_all.columns else df_all.columns[0]
         metric_pivot = df_all.pivot_table(
-            index="week_ending",
+            index=time_col_to_use,
             columns="metric",
             values="value",
             aggfunc="sum"

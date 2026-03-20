@@ -1,0 +1,8 @@
+materiality_min_share: 0.05
+ratio_metrics:
+  - metric_name: "LRPM"
+    numerator_metric: "Revenue xFuel"
+    denominator_metric: "Loaded Miles"
+  - metric_name: "Rev/Trk/Wk"
+    numerator_metric: "Revenue xFuel"
+    denominator_metric: "Truck Count"

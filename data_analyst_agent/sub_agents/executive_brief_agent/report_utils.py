@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import (
+    is_currency_unit,
+    normalize_unit,
+)
 
 def _metric_name_to_stem(name: str) -> str:
     """Convert metric name to filename stem (e.g. 'Loaded Miles' -> 'Loaded_Miles')."""
@@ -132,13 +136,65 @@ def _collect_metric_json_data(outputs_dir: Path) -> dict[str, dict[str, Any]]:
             payload = json.loads(json_file.read_text(encoding="utf-8", errors="replace"))
         except json.JSONDecodeError:
             continue
-        metric_name = payload.get("metric")
+        metric_name = (
+            payload.get("metric")
+            or payload.get("dimension_value")
+            or payload.get("analysis_target")
+            or payload.get("target_label")
+        )
         if metric_name:
             data[str(metric_name)] = payload
     return data
 
 
-def _build_cross_entity_table(json_data: dict[str, dict[str, Any]]) -> str:
+def _coerce_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def format_variance_amount(value: Any, unit: str | None) -> str:
+    """Return a human-friendly variance string that respects the contract unit."""
+
+    amount = _coerce_float(value)
+    if amount is None:
+        return ""
+
+    normalized_unit = normalize_unit(unit)
+    sign = "+" if amount >= 0 else "-"
+    abs_val = abs(amount)
+
+    if is_currency_unit(normalized_unit):
+        if abs_val >= 1_000_000_000:
+            scaled = abs_val / 1_000_000_000
+            suffix = "B"
+        elif abs_val >= 1_000_000:
+            scaled = abs_val / 1_000_000
+            suffix = "M"
+        elif abs_val >= 1_000:
+            scaled = abs_val / 1_000
+            suffix = "K"
+        else:
+            scaled = abs_val
+            suffix = ""
+        precision = 0 if scaled >= 100 or suffix == "" else 1
+        return f"{sign}${scaled:,.{precision}f}{suffix}"
+
+    formatted = f"{abs_val:,.0f}"
+    suffix = ""
+    unit_label = normalized_unit.strip()
+    if unit_label and unit_label.lower() not in {"count", "units", "unit"}:
+        suffix = f" {unit_label}"
+    return f"{sign}{formatted}{suffix}".strip()
+
+
+def _build_cross_entity_table(
+    json_data: dict[str, dict[str, Any]],
+    unit: str | None = None,
+) -> str:
     """Render a cross-entity table when structured JSON is available."""
     rows: list[str] = []
     for metric, payload in json_data.items():
@@ -148,9 +204,17 @@ def _build_cross_entity_table(json_data: dict[str, dict[str, Any]]) -> str:
         parts = [f"{metric}:"]
         for entity in leaders[:5]:
             name = entity.get("name") or entity.get("entity") or "unknown"
-            delta = entity.get("variance_dollar")
-            pct = entity.get("variance_pct")
-            formatted = f"{name} ({delta:+,.0f} / {pct:+.1f}%)" if delta is not None and pct is not None else name
+            delta = format_variance_amount(entity.get("variance_dollar"), unit)
+            pct_val = _coerce_float(entity.get("variance_pct"))
+            pct = f"{pct_val:+.1f}%" if pct_val is not None else ""
+            if delta and pct:
+                formatted = f"{name} ({delta} / {pct})"
+            elif delta:
+                formatted = f"{name} ({delta})"
+            elif pct:
+                formatted = f"{name} ({pct})"
+            else:
+                formatted = name
             parts.append(formatted)
         rows.append(" - ".join(parts))
     return "\n".join(rows)
@@ -159,10 +223,11 @@ def _build_cross_entity_table(json_data: dict[str, dict[str, Any]]) -> str:
 def _build_digest_from_json(
     reports: dict[str, str],
     json_data: dict[str, dict[str, Any]],
+    unit: str | None = None,
 ) -> str:
     """Return a markdown digest augmented with a cross-entity snapshot."""
     digest = _build_digest(reports)
-    cross_table = _build_cross_entity_table(json_data)
+    cross_table = _build_cross_entity_table(json_data, unit)
     if cross_table:
         digest = f"{digest}\n\n=== CROSS-ENTITY SNAPSHOT ===\n{cross_table}"
     return digest

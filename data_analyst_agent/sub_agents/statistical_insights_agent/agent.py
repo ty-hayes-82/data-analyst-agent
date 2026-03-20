@@ -38,6 +38,7 @@ from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import STATISTICAL_INSIGHTS_INSTRUCTION
 from .tools import compute_statistical_summary
 from .tools.generate_insight_cards import generate_statistical_insight_cards
+from ...utils.focus_directives import augment_instruction
 
 USE_CODE_INSIGHTS = os.environ.get("USE_CODE_INSIGHTS", "true").lower() == "true"
 
@@ -150,6 +151,20 @@ class StatisticalInsightsAgent(LlmAgent):
         )
 
 
+class FocusAwareStatisticalInterpreter(BaseAgent):
+    """Wrapper that appends focus directives to the statistical LLM."""
+
+    def __init__(self):
+        super().__init__(name="statistical_llm_interpreter")
+        self._wrapped = StatisticalInsightsAgent()
+        self.output_key = getattr(self._wrapped, "output_key", "data_analyst_result")
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        self._wrapped.instruction = augment_instruction(STATISTICAL_INSIGHTS_INSTRUCTION, ctx.session.state)
+        async for event in self._wrapped.run_async(ctx):
+            yield event
+
+
 class StatisticalInsightCardGenerator(BaseAgent):
     """Code-based insight card generator — replaces the LLM interpreter.
 
@@ -213,7 +228,7 @@ class StatisticalInsightCardGenerator(BaseAgent):
 
 # Select interpreter based on feature flag at import time
 _interpreter = (
-    StatisticalInsightCardGenerator() if USE_CODE_INSIGHTS else StatisticalInsightsAgent()
+    StatisticalInsightCardGenerator() if USE_CODE_INSIGHTS else FocusAwareStatisticalInterpreter()
 )
 
 print(

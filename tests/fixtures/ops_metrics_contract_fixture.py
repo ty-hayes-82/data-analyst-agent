@@ -10,6 +10,8 @@ import numpy as np
 from pathlib import Path
 from typing import Optional
 
+from tests.utils.dataset_paths import resolve_dataset_file
+
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 DATASETS_DIR = PROJECT_ROOT / "config" / "datasets"
 DATA_DIR = PROJECT_ROOT / "data"
@@ -19,13 +21,18 @@ class OpsMetricsTestDataLoader:
     """Loads and manages ops metrics test data."""
 
     def __init__(self):
-        self.contract_path = DATASETS_DIR / "ops_metrics" / "contract.yaml"
+        resolved_contract = resolve_dataset_file("ops_metrics")
+        default_contract = DATASETS_DIR / "ops_metrics" / "contract.yaml"
+        self.contract_path = resolved_contract if resolved_contract else default_contract
         self.line_haul_csv_path = DATA_DIR / "ops_metrics_line_haul_sample.csv"
         self.cc067_csv_path = DATA_DIR / "ops_metrics_067_sample.csv"
 
     def load_contract(self):
         """Load the ops_metrics_contract as a DatasetContract."""
         from data_analyst_agent.semantic.models import DatasetContract
+
+        if not self.contract_path.exists():
+            raise FileNotFoundError(f"Ops metrics contract not found: {self.contract_path}")
         return DatasetContract.from_yaml(str(self.contract_path))
 
     def load_line_haul_df(self) -> pd.DataFrame:

@@ -116,7 +116,7 @@ if not args.metrics:
     )
 
 if not args.dataset:
-    args.dataset = "validation_ops"
+    args.dataset = os.getenv("ACTIVE_DATASET", "trade_data")
 
 
 # ------------------------------------------------------------------

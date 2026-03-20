@@ -1,0 +1,224 @@
+# Cloud Monitoring Alert Policies for Data Analyst Agent
+# Apply with: gcloud alpha monitoring policies create --policy-from-file=alerts.yaml
+
+alerts:
+  - displayName: "Data Analyst Agent - High Error Rate"
+    documentation:
+      content: |
+        ## Data Analyst Agent - High Error Rate
+        
+        **Severity:** Warning
+        
+        **Description:**
+        The error rate for agent invocations has exceeded 10% over the last 5 minutes.
+        
+        **Impact:**
+        Users are experiencing failures when invoking the agent.
+        
+        **Troubleshooting:**
+        1. Check Cloud Logging for error stack traces:
+           ```
+           gcloud logging read "resource.type=cloud_run_revision AND severity>=ERROR" --limit 50
+           ```
+        
+        2. Check if it's a specific dataset or query pattern:
+           - Review recent invocation patterns
+           - Check contract.yaml validity
+        
+        3. Verify Secret Manager secrets are accessible:
+           ```
+           gcloud secrets versions access latest --secret=google-api-key
+           ```
+        
+        4. Check LLM quota limits:
+           - Navigate to Vertex AI > Quotas
+           - Look for exceeded quotas
+        
+        **Escalation:**
+        If error rate stays above 20% for >15 minutes, page on-call engineer.
+    
+    conditions:
+      - displayName: "Error rate > 10%"
+        conditionThreshold:
+          filter: |
+            resource.type="cloud_run_revision"
+            AND resource.labels.service_name="data-analyst-ui"
+            AND metric.type="run.googleapis.com/request_count"
+            AND metric.label.response_code_class="5xx"
+          comparison: COMPARISON_GT
+          thresholdValue: 0.1
+          duration: 300s
+          aggregations:
+            - alignmentPeriod: 60s
+              perSeriesAligner: ALIGN_RATE
+    
+    notificationChannels:
+      - projects/${PROJECT_ID}/notificationChannels/${EMAIL_CHANNEL_ID}
+    
+    alertStrategy:
+      autoClose: 7200s  # Auto-close after 2 hours if resolved
+
+  - displayName: "Data Analyst Agent - Slow Response Time"
+    documentation:
+      content: |
+        ## Data Analyst Agent - Slow Response Time
+        
+        **Severity:** Warning
+        
+        **Description:**
+        Agent execution time (p95) has exceeded 10 minutes.
+        
+        **Impact:**
+        Users experiencing slow analysis results.
+        
+        **Possible Causes:**
+        - Large dataset size (>50K rows)
+        - Complex hierarchical drill-down
+        - LLM API throttling
+        - Parallel analysis bottleneck
+        
+        **Troubleshooting:**
+        1. Check Cloud Trace for bottlenecks
+        2. Review dataset size and complexity
+        3. Check if specific sub-agent is slow (StatisticalInsights, HierarchyVariance)
+        4. Consider scaling up resources (CPU/memory)
+    
+    conditions:
+      - displayName: "p95 latency > 10 minutes"
+        conditionThreshold:
+          filter: |
+            resource.type="cloud_run_revision"
+            AND metric.type="run.googleapis.com/request_latencies"
+          comparison: COMPARISON_GT
+          thresholdValue: 600000  # 10 minutes in ms
+          duration: 300s
+          aggregations:
+            - alignmentPeriod: 60s
+              perSeriesAligner: ALIGN_DELTA
+              crossSeriesReducer: REDUCE_PERCENTILE_95
+    
+    notificationChannels:
+      - projects/${PROJECT_ID}/notificationChannels/${EMAIL_CHANNEL_ID}
+
+  - displayName: "Data Analyst Agent - High Token Usage"
+    documentation:
+      content: |
+        ## Data Analyst Agent - High Token Usage
+        
+        **Severity:** Info
+        
+        **Description:**
+        LLM token consumption rate is abnormally high, indicating potential cost spike.
+        
+        **Impact:**
+        Higher than expected costs for Gemini API usage.
+        
+        **Actions:**
+        1. Review recent analyses for unusually large datasets
+        2. Check if narrative_agent or synthesis_agent generating excessive outputs
+        3. Consider using Gemini Flash instead of Pro for non-critical stages
+        4. Implement caching for repeated queries
+    
+    conditions:
+      - displayName: "Token rate > 100K/min"
+        conditionThreshold:
+          filter: |
+            resource.type="generic_task"
+            AND metric.type="custom.googleapis.com/data_analyst_agent/llm_tokens"
+          comparison: COMPARISON_GT
+          thresholdValue: 100000
+          duration: 300s
+          aggregations:
+            - alignmentPeriod: 60s
+              perSeriesAligner: ALIGN_RATE
+    
+    notificationChannels:
+      - projects/${PROJECT_ID}/notificationChannels/${EMAIL_CHANNEL_ID}
+
+  - displayName: "Data Analyst Agent - Instance Count High"
+    documentation:
+      content: |
+        ## Data Analyst Agent - High Instance Count
+        
+        **Severity:** Info
+        
+        **Description:**
+        Number of active Cloud Run instances is high, indicating heavy load.
+        
+        **Impact:**
+        Increased costs due to many concurrent instances.
+        
+        **Actions:**
+        1. Review autoscaling configuration
+        2. Check if legitimate traffic spike or potential abuse
+        3. Consider increasing max concurrency per instance
+        4. Implement request queuing if needed
+    
+    conditions:
+      - displayName: "Active instances > 8"
+        conditionThreshold:
+          filter: |
+            resource.type="cloud_run_revision"
+            AND metric.type="run.googleapis.com/container/instance_count"
+          comparison: COMPARISON_GT
+          thresholdValue: 8
+          duration: 600s
+          aggregations:
+            - alignmentPeriod: 60s
+              perSeriesAligner: ALIGN_MAX
+    
+    notificationChannels:
+      - projects/${PROJECT_ID}/notificationChannels/${SLACK_CHANNEL_ID}
+
+  - displayName: "Data Analyst Agent - No Traffic"
+    documentation:
+      content: |
+        ## Data Analyst Agent - No Traffic
+        
+        **Severity:** Warning
+        
+        **Description:**
+        No agent invocations received in the last 24 hours.
+        
+        **Impact:**
+        Agent may be unavailable or users not aware of service.
+        
+        **Actions:**
+        1. Verify agent is deployed and running
+        2. Check if web UI is accessible
+        3. Review access logs for connection issues
+        4. Confirm Agent Garden listing is active
+    
+    conditions:
+      - displayName: "Zero requests for 24h"
+        conditionAbsent:
+          filter: |
+            resource.type="cloud_run_revision"
+            AND metric.type="run.googleapis.com/request_count"
+          duration: 86400s
+          aggregations:
+            - alignmentPeriod: 3600s
+              perSeriesAligner: ALIGN_RATE
+    
+    notificationChannels:
+      - projects/${PROJECT_ID}/notificationChannels/${EMAIL_CHANNEL_ID}
+
+# Notification channels (create these first)
+notification_channels_setup:
+  email:
+    type: email
+    labels:
+      email_address: "ty-hayes-82@example.com"
+    displayName: "Data Analyst Agent Alerts"
+  
+  slack:
+    type: slack
+    labels:
+      channel_name: "#data-analyst-agent-alerts"
+    displayName: "Slack Notifications"
+    
+  pagerduty:
+    type: pagerduty
+    labels:
+      service_key: "YOUR_PAGERDUTY_SERVICE_KEY"
+    displayName: "PagerDuty Escalation"

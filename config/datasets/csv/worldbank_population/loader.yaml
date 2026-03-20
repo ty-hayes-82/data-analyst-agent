@@ -4,8 +4,6 @@ source:
   delimiter: ","
   format: "long"
 
-numeric_columns: ["Value"]
-
 sort_columns: ["Year", "Country Name"]
 
 output_columns:

@@ -141,3 +141,8 @@ capabilities:
 
 policies:
   degradation_threshold: 0.12
+
+validation:
+  scenario_id_column: "scenario_id"
+  anomaly_flag_column: "anomaly_flag"
+  datapoints_file: "data/validation/validation_datapoints.json"

@@ -34,6 +34,7 @@ from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import HIERARCHY_VARIANCE_RANKER_INSTRUCTION
+from ...utils.focus_directives import augment_instruction
 from .tools import (
     compute_level_statistics,
     compute_pvm_decomposition,
@@ -185,11 +186,12 @@ class HierarchyRankerWrapper(BaseAgent):
             var_pct = materiality.get("variance_pct", 5.0)
             var_abs = materiality.get("variance_absolute", 50000.0)
             
-            self.wrapped_agent.instruction = HIERARCHY_VARIANCE_RANKER_INSTRUCTION.format(
+            instr = HIERARCHY_VARIANCE_RANKER_INSTRUCTION.format(
                 dataset_display_name=display_name,
                 variance_pct=var_pct,
                 variance_absolute=var_abs
             )
+            self.wrapped_agent.instruction = augment_instruction(instr, ctx.session.state)
             print(f"[HierarchyRankerAgent] Instruction updated for contract: {contract.name}")
             
         async for event in self.wrapped_agent.run_async(ctx):

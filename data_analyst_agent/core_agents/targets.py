@@ -20,7 +20,42 @@ from .loaders import AnalysisContextInitializer
 
 
 class TargetIteratorAgent(BaseAgent):
-    """Iterates through extracted targets and seeds per-target state."""
+    """Iterates through extracted targets and seeds per-target state.
+    
+    This agent implements the loop control for multi-metric analysis. It
+    uses the iterate_analysis_targets tool to maintain loop state and
+    emit the next target for analysis.
+    
+    This agent is primarily used in sequential multi-metric mode. For
+    parallel execution, ParallelDimensionTargetAgent is preferred.
+    
+    Session State Inputs:
+        extracted_targets: List of metric/dimension values to analyze
+        target_loop_state: Loop iteration state from previous cycle
+        target_label: Human-readable label for targets (e.g., "Metric")
+        
+    Session State Outputs:
+        current_analysis_target: Current target being analyzed
+        target_loop_state: Updated loop state for next iteration
+        target_loop_complete: True when all targets processed
+        phase_logger: PhaseLogger instance for current target
+        
+    Behavior:
+        - If target_loop_complete: escalates to parent agent
+        - Otherwise: emits next target and updates loop state
+        
+    Example:
+        >>> # With 3 metrics:
+        >>> ctx.session.state["extracted_targets"] = ["revenue", "orders", "margin"]
+        >>> # First iteration:
+        >>> # current_analysis_target = "revenue"
+        >>> # Second iteration:
+        >>> # current_analysis_target = "orders"
+        >>> # Third iteration:
+        >>> # current_analysis_target = "margin"
+        >>> # Fourth iteration:
+        >>> # target_loop_complete = True, escalate
+    """
 
     def __init__(self):
         super().__init__(name="target_iterator")
@@ -55,8 +90,6 @@ class TargetIteratorAgent(BaseAgent):
         ctx.session.state["phase_logger"] = phase_logger
 
         ctx.session.state["current_analysis_target"] = target
-        ctx.session.state["dimension_value"] = target
-        ctx.session.state["primary_target_value"] = target
 
         yield Event(
             invocation_id=ctx.invocation_id,
@@ -66,15 +99,66 @@ class TargetIteratorAgent(BaseAgent):
                     "target_loop_state": new_state,
                     "target_loop_complete": False,
                     "current_analysis_target": target,
-                    "dimension_value": target,
-                    "primary_target_value": target,
                 }
             ),
         )
 
 
 class ParallelDimensionTargetAgent(BaseAgent):
-    """Executes the per-target pipeline with a configurable concurrency cap."""
+    """Executes the per-target pipeline with a configurable concurrency cap.
+    
+    This agent is the core parallelization engine for multi-metric analysis.
+    It creates isolated session contexts for each target (metric or dimension
+    value) and runs them concurrently using asyncio with a semaphore-based
+    concurrency limit.
+    
+    Architecture:
+        - Creates SingleTargetRunner instances (one per target)
+        - Each runner gets an isolated session with cloned state
+        - Runners share a semaphore to enforce MAX_PARALLEL_METRICS cap
+        - Results stream back via asyncio.Queue
+        - Each runner gets a unique session ID for cache isolation
+        
+    Concurrency Control:
+        Environment variable MAX_PARALLEL_METRICS controls parallelism:
+        - 0 or negative: All targets in parallel (use with caution)
+        - 1: Sequential execution (one target at a time)
+        - N > 1: Up to N targets concurrently
+        - Default: 4
+        
+    Session State Inputs:
+        extracted_targets: List of targets to analyze in parallel
+        dataset_contract: Contract for creating per-target contexts
+        [all state keys needed by target_analysis_pipeline]
+        
+    Session State Outputs:
+        [Per-target outputs from target_analysis_pipeline]
+        - analysis_context: Per-target AnalysisContext
+        - statistical_summary: Per-target stats
+        - hierarchy_results: Per-target hierarchy analysis
+        - narrative_cards: Per-target narrative
+        - alert_scores: Per-target alerts
+        - executive_brief: Per-target synthesis
+        
+    Performance Notes:
+        - Each target gets ~1-2 minutes of LLM-powered analysis
+        - With 10 metrics and MAX_PARALLEL_METRICS=4:
+          * Sequential: ~10-20 minutes
+          * Parallel (cap=4): ~3-5 minutes
+        - High parallelism (>8) may hit rate limits or memory constraints
+        
+    Example:
+        >>> # Analyze 5 LOBs in parallel (cap=3):
+        >>> ctx.session.state["extracted_targets"] = ["Retail", "Wholesale", "Services", "Digital", "Other"]
+        >>> os.environ["MAX_PARALLEL_METRICS"] = "3"
+        >>> # Execution:
+        >>> # Wave 1: Retail, Wholesale, Services (parallel)
+        >>> # Wave 2: Digital, Other (parallel)
+        
+    Note:
+        Session isolation is achieved via contextvars (current_session_id token)
+        to prevent data_cache collisions between parallel runners.
+    """
 
     def __init__(self):
         super().__init__(name="parallel_dimension_target_analysis")
@@ -131,8 +215,6 @@ class ParallelDimensionTargetAgent(BaseAgent):
                     run_config=inner_ctx.run_config or RunConfig(),
                 )
                 new_ctx.session.state["current_analysis_target"] = self.target_val
-                new_ctx.session.state["dimension_value"] = self.target_val
-                new_ctx.session.state["primary_target_value"] = self.target_val
                 new_ctx.session.state["phase_logger"] = PhaseLogger(dimension_value=self.target_val)
                 try:
                     async for event in self.inner_pipeline.run_async(new_ctx):
@@ -189,6 +271,24 @@ class ParallelDimensionTargetAgent(BaseAgent):
 
 
 def _read_parallel_cap() -> int:
+    """Read the MAX_PARALLEL_METRICS environment variable.
+    
+    Parses MAX_PARALLEL_METRICS as an integer with safe fallback to 4.
+    
+    Args:
+        None (reads from environment).
+        
+    Returns:
+        int: Concurrency cap (0 = unlimited, 1 = sequential, N > 1 = parallel cap).
+        
+    Example:
+        >>> os.environ["MAX_PARALLEL_METRICS"] = "8"
+        >>> _read_parallel_cap()
+        8
+        >>> os.environ["MAX_PARALLEL_METRICS"] = "invalid"
+        >>> _read_parallel_cap()
+        4  # Safe fallback
+    """
     raw = os.environ.get("MAX_PARALLEL_METRICS", "4").strip()
     try:
         return max(0, int(raw))

@@ -18,9 +18,10 @@ import json
 import pytest
 from pathlib import Path
 
+from tests.utils.dataset_paths import resolve_dataset_file
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DATASETS_DIR = PROJECT_ROOT / "config" / "datasets"
+VALIDATION_CONTRACT_PATH = resolve_dataset_file("validation_ops")
 
 
 def test_ratio_config_resolution_rev_trk_wk():
@@ -30,8 +31,8 @@ def test_ratio_config_resolution_rev_trk_wk():
         get_ratio_config_for_metric,
     )
 
-    contract_path = DATASETS_DIR / "validation_ops" / "contract.yaml"
-    if not contract_path.exists():
+    contract_path = VALIDATION_CONTRACT_PATH
+    if not contract_path or not contract_path.exists():
         pytest.skip("validation_ops contract not found")
     contract = DatasetContract.from_yaml(str(contract_path))
     contract._source_path = str(contract_path)
@@ -49,8 +50,8 @@ def test_ratio_config_returns_none_for_additive_metric():
         get_ratio_config_for_metric,
     )
 
-    contract_path = DATASETS_DIR / "validation_ops" / "contract.yaml"
-    if not contract_path.exists():
+    contract_path = VALIDATION_CONTRACT_PATH
+    if not contract_path or not contract_path.exists():
         pytest.skip("validation_ops contract not found")
     contract = DatasetContract.from_yaml(str(contract_path))
     contract._source_path = str(contract_path)
@@ -66,8 +67,8 @@ def test_ratio_config_lrpm():
         get_ratio_config_for_metric,
     )
 
-    contract_path = DATASETS_DIR / "validation_ops" / "contract.yaml"
-    if not contract_path.exists():
+    contract_path = VALIDATION_CONTRACT_PATH
+    if not contract_path or not contract_path.exists():
         pytest.skip("validation_ops contract not found")
     contract = DatasetContract.from_yaml(str(contract_path))
     contract._source_path = str(contract_path)
@@ -98,7 +99,9 @@ async def test_statistical_summary_additive_metric_unchanged():
         if df.empty:
             pytest.skip("No validation data")
         set_validated_csv(df.to_csv(index=False))
-        contract_path = DATASETS_DIR / "validation_ops" / "contract.yaml"
+        contract_path = VALIDATION_CONTRACT_PATH
+        if not contract_path or not contract_path.exists():
+            pytest.skip("validation_ops contract not found")
         contract = DatasetContract.from_yaml(str(contract_path))
         contract._source_path = str(contract_path)
         ctx = AnalysisContext(

@@ -20,18 +20,30 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any, Optional
 
 from google.adk import Agent
 from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
+from google.adk.events.event_actions import EventActions
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import REPORT_SYNTHESIS_AGENT_INSTRUCTION, build_report_instruction
 from .tools import generate_markdown_report
 from ...utils import parse_bool_env
+from ...utils.contract_summary import build_contract_metadata
+from ...utils.focus_directives import (
+    augment_instruction,
+    focus_payload as build_focus_payload,
+)
+from ...utils.temporal_grain import (
+    normalize_temporal_grain,
+    temporal_grain_to_period_unit,
+)
+from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_range
+from ...utils.stub_guard import contains_stub_content, stub_outputs_allowed
 
 
 _base_agent = Agent(
@@ -119,6 +131,9 @@ def _slim_alert(alert: dict) -> dict:
     triggered = [k for k, v in signals_dict.items() if v]
 
     details = alert.get("details", {})
+    description = details.get("description", "")
+    if isinstance(description, str) and len(description) > 240:
+        description = description[:240].rstrip() + " …"
 
     return {
         "item": alert.get("item_name") or alert.get("dimension_value") or alert.get("gl_code") or alert.get("item_id", "Unknown"),
@@ -127,8 +142,32 @@ def _slim_alert(alert: dict) -> dict:
         "priority": alert.get("priority", ""),
         "variance_pct": alert.get("variance_pct"),
         "variance_amount": alert.get("variance_amount"),
-        "description": details.get("description", ""),
+        "description": description,
         "signals": triggered,
+    }
+
+
+def _compact_json(payload: Any) -> str:
+    try:
+        return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+    except TypeError:
+        return str(payload)
+
+
+def _loads_or_passthrough(value: Any) -> Any:
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return value
+    return value
+
+
+def _note_for_truncation(label: str, max_chars: int) -> dict[str, str]:
+    return {
+        "warning": f"{label} payload exceeded {max_chars} chars; truncated for prompt budget."
     }
 
 
@@ -139,10 +178,171 @@ def _safe_int_env(name: str, default: int) -> int:
         return default
 
 
-_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 5)
-_MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 3)
-_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 8)
-_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 5)
+_MAX_REPORT_NARRATIVE_CARDS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CARDS", 3)
+_MAX_REPORT_ACTIONS = _safe_int_env("REPORT_SYNTHESIS_MAX_ACTIONS", 2)
+_MAX_STATS_TOP_DRIVERS = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_DRIVERS", 3)
+_MAX_STATS_ANOMALIES = _safe_int_env("REPORT_SYNTHESIS_MAX_STATS_ANOMALIES", 2)
+
+_MAX_NARRATIVE_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_NARRATIVE_CHARS", 1300)
+_MAX_DATA_ANALYST_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_DA_CHARS", 900)
+_MAX_HIERARCHICAL_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_HIERARCHICAL_CHARS", 1100)
+_MAX_INDEPENDENT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_INDEPENDENT_CHARS", 650)
+_MAX_ALERT_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_ALERT_CHARS", 650)
+_MAX_STAT_SUMMARY_CHARS = _safe_int_env("REPORT_SYNTHESIS_MAX_STAT_SUMMARY_CHARS", 900)
+
+
+_FAST_PATH_PLACEHOLDER_PHRASES = (
+    "no hierarchical analysis results available",
+    "no hierarchical data available",
+    "no drill-down results available",
+)
+
+
+def _string_has_hierarchical_signal(text: str | None) -> bool:
+    if not text:
+        return False
+    normalized = str(text).strip()
+    if not normalized:
+        return False
+    lowered = normalized.lower()
+    return not any(phrase in lowered for phrase in _FAST_PATH_PLACEHOLDER_PHRASES)
+
+
+def _entry_has_hierarchical_signal(entry: Any) -> bool:
+    if entry is None:
+        return False
+    parsed = _loads_or_passthrough(entry)
+    if isinstance(parsed, dict):
+        if parsed.get("insight_cards"):
+            return True
+        for key in ("level_summary", "summary", "message"):
+            if parsed.get(key):
+                return True
+        return False
+    if isinstance(parsed, list):
+        return any(_entry_has_hierarchical_signal(item) for item in parsed)
+    if isinstance(parsed, str):
+        return _string_has_hierarchical_signal(parsed)
+    return bool(parsed)
+
+
+def _has_hierarchical_signal(payload: dict[str, Any], fallback_text: str | None) -> bool:
+    if payload:
+        for value in payload.values():
+            if _entry_has_hierarchical_signal(value):
+                return True
+        return False
+    return _string_has_hierarchical_signal(fallback_text)
+
+
+def _contract_has_hierarchy(contract: Any) -> bool:
+    if not contract:
+        return False
+    hierarchies = getattr(contract, "hierarchies", None)
+    if hierarchies is None and isinstance(contract, dict):
+        hierarchies = contract.get("hierarchies")
+    try:
+        return bool(hierarchies)
+    except Exception:
+        return False
+
+
+def _deterministic_plan_hint(plan_entry: Any) -> Optional[str]:
+    if not plan_entry:
+        return None
+    parsed: Any = plan_entry
+    if isinstance(plan_entry, str):
+        try:
+            parsed = json.loads(plan_entry)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            lowered = plan_entry.lower()
+            if "rule-based plan" in lowered or "rule based plan" in lowered:
+                return "rule-based execution plan"
+            return None
+    if isinstance(parsed, dict):
+        summary = str(parsed.get("summary", ""))
+        if summary and "rule-based plan" in summary.lower():
+            return "rule-based execution plan"
+        context_summary = parsed.get("context_summary") or {}
+        if isinstance(context_summary, dict):
+            planner_mode = str(context_summary.get("planner_mode", "")).strip().lower()
+            if planner_mode in {"rule_based", "deterministic"}:
+                return f"{planner_mode.replace('_', ' ')} planner"
+        metadata = parsed.get("metadata") or {}
+        if isinstance(metadata, dict):
+            planner_mode = str(metadata.get("planner_mode", "")).strip().lower()
+            if planner_mode in {"rule_based", "deterministic"}:
+                return f"{planner_mode.replace('_', ' ')} planner"
+    return None
+
+
+def _truncate_block(block: str | None, max_chars: int, label: str) -> str:
+    if not block:
+        return ""
+    text = str(block)
+    if len(text) <= max_chars:
+        return text
+    suffix = f" … [truncated {label} to {max_chars} chars]"
+    keep = max(0, max_chars - len(suffix))
+    return text[:keep].rstrip() + suffix
+
+
+_PRUNABLE_ANALYST_KEYS = {
+    "level_results",
+    "entity_rows",
+    "child_rows",
+    "dimension_rows",
+    "dimension_results",
+    "raw_rows",
+    "raw_children",
+    "records",
+    "detailed_rows",
+}
+
+
+_PRUNABLE_LEVEL_KEYS = {
+    "level_results",
+    "entity_rows",
+    "child_rows",
+    "raw_rows",
+    "raw_children",
+    "dimension_rows",
+    "dimension_results",
+    "level_summary",
+    "level_summary_table",
+    "entity_rankings",
+    "records",
+}
+
+
+
+
+def _prune_analysis_dict(payload):
+    """Strip bulky table artifacts from serialized analysis payloads (recursive)."""
+    if isinstance(payload, dict):
+        for key in list(payload.keys()):
+            if key in _PRUNABLE_ANALYST_KEYS:
+                payload.pop(key, None)
+                continue
+            payload[key] = _prune_analysis_dict(payload.get(key))
+        return payload
+    if isinstance(payload, list):
+        return [_prune_analysis_dict(item) for item in payload]
+    return payload
+
+
+def _prune_level_payload(payload):
+    """Remove bulky table fields before sending to the LLM (recursive)."""
+    if isinstance(payload, dict):
+        for key in list(payload.keys()):
+            if key in _PRUNABLE_LEVEL_KEYS:
+                payload.pop(key, None)
+                continue
+            payload[key] = _prune_level_payload(payload.get(key))
+        return payload
+    if isinstance(payload, list):
+        return [_prune_level_payload(item) for item in payload]
+    return payload
 
 
 def _slim_narrative_payload(raw: str | dict | None) -> str:
@@ -152,7 +352,7 @@ def _slim_narrative_payload(raw: str | dict | None) -> str:
     try:
         payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
     except (json.JSONDecodeError, TypeError, ValueError):
-        return raw if isinstance(raw, str) else json.dumps(raw, indent=2)
+        return raw if isinstance(raw, str) else _compact_json(raw)
 
     cards = payload.get("insight_cards")
     if isinstance(cards, list) and cards:
@@ -166,7 +366,41 @@ def _slim_narrative_payload(raw: str | dict | None) -> str:
     if isinstance(summary, str) and len(summary) > 600:
         payload["narrative_summary"] = summary[:600].rstrip() + " …"
 
-    return json.dumps(payload, indent=2)
+    return _compact_json(payload)
+
+
+def _compact_contract_context(contract) -> dict[str, Any]:
+    metadata = build_contract_metadata(contract)
+    if not metadata:
+        return {}
+    metrics = [m.get("name") for m in metadata.get("metrics", []) if m.get("name")]
+    primary_dims = [
+        d.get("name")
+        for d in metadata.get("dimensions", [])
+        if (d.get("role") or "").lower() == "primary" and d.get("name")
+    ]
+    hierarchies = []
+    for entry in metadata.get("hierarchies", [])[:2]:
+        if not entry:
+            continue
+        hierarchies.append(
+            {
+                "name": entry.get("name"),
+                "path": entry.get("children"),
+                "level_names": entry.get("level_names"),
+            }
+        )
+    return {
+        "display_name": metadata.get("display_name"),
+        "description": metadata.get("description"),
+        "time": metadata.get("time"),
+        "metrics": metrics,
+        "primary_dimensions": primary_dims,
+        "hierarchies": hierarchies,
+        "materiality": metadata.get("materiality"),
+        "capabilities": metadata.get("capabilities"),
+    }
+
 
 
 class ReportSynthesisWrapper(BaseAgent):
@@ -189,6 +423,8 @@ class ReportSynthesisWrapper(BaseAgent):
 
         # --- CACHE LOAD: Use cached prompt if REPORT_SYNTHESIS_USE_PROMPT_CACHE is set ---
         cache_path = os.environ.get("REPORT_SYNTHESIS_USE_PROMPT_CACHE")
+        tool_arguments = None
+
         if cache_path:
             if not os.path.isabs(cache_path):
                 project_root = Path(__file__).resolve().parent.parent.parent.parent
@@ -198,7 +434,7 @@ class ReportSynthesisWrapper(BaseAgent):
                     cache = json.load(f)
                 formatted_instruction = cache["instruction"]
                 injection_message = cache["injection"]
-                wrapped_agent.instruction = formatted_instruction
+                wrapped_agent.instruction = augment_instruction(formatted_instruction, ctx.session.state)
                 print(f"[REPORT_SYNTHESIS] Loaded prompt from cache: {cache_path}")
                 print(f"[REPORT_SYNTHESIS] Instruction: {len(formatted_instruction):,} chars, injection: {len(injection_message):,} chars")
             except Exception as e:
@@ -211,11 +447,12 @@ class ReportSynthesisWrapper(BaseAgent):
             # from the contract config rather than being hardcoded in the prompt.
             contract = ctx.session.state.get("dataset_contract")
             formatted_instruction = build_report_instruction(contract)
-            wrapped_agent.instruction = formatted_instruction
+            wrapped_agent.instruction = augment_instruction(formatted_instruction, ctx.session.state)
             if contract:
                 print(f"[REPORT_SYNTHESIS] Instruction built from contract: {contract.name}")
             else:
                 print("[REPORT_SYNTHESIS] WARNING: No contract in state. Using generic fallback instruction.")
+            contract_context = _compact_contract_context(contract)
 
             # Collect results from session state and inject as a conversation message.
             # DynamicParallelAnalysisAgent stores results via state_delta only (no message
@@ -247,8 +484,8 @@ class ReportSynthesisWrapper(BaseAgent):
                             "temporal_grain": temporal_grain,
                             "period_unit": period_unit
                         },
-                        "top_drivers": (stats_dict.get("enhanced_top_drivers") or stats_dict.get("top_drivers") or [])[:MAX_STATS_TOP_DRIVERS],
-                        "anomalies": (stats_dict.get("anomalies") or [])[:MAX_STATS_ANOMALIES],
+                        "top_drivers": (stats_dict.get("enhanced_top_drivers") or stats_dict.get("top_drivers") or [])[:_MAX_STATS_TOP_DRIVERS],
+                        "anomalies": (stats_dict.get("anomalies") or [])[:_MAX_STATS_ANOMALIES],
                         "correlations": correlations_list[:3],
                         "dq_flags": stats_dict.get("dq_flags"),
                         "metadata": {
@@ -257,7 +494,7 @@ class ReportSynthesisWrapper(BaseAgent):
                             "period_unit": period_unit
                         }
                     }
-                    statistical_summary = json.dumps(slim_stats, indent=2)
+                    statistical_summary = _compact_json(slim_stats)
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -269,12 +506,12 @@ class ReportSynthesisWrapper(BaseAgent):
             raw_da_result = state.get("data_analyst_result") or ""
             data_analyst_result = raw_da_result
 
-            # --- OPTIMIZATION: Remove redundant level_results from data_analyst_result ---
+            # --- OPTIMIZATION: Remove bulky level_results/raw rows from data_analyst_result ---
             if raw_da_result:
                 try:
                     da_dict = json.loads(raw_da_result)
-                    da_dict.pop("level_results", None)  # Redundant with HIERARCHICAL_ANALYSIS
-                    data_analyst_result = json.dumps(da_dict, indent=2)
+                    da_dict = _prune_analysis_dict(da_dict)
+                    data_analyst_result = _compact_json(da_dict)
                 except (json.JSONDecodeError, TypeError):
                     pass
 
@@ -290,7 +527,7 @@ class ReportSynthesisWrapper(BaseAgent):
                         alert_dict["message"] = f"Showing top 10 of {len(top_alerts)} alerts"
                     else:
                         alert_dict["top_alerts"] = [_slim_alert(a) for a in top_alerts]
-                    alert_scoring_result = json.dumps(alert_dict, indent=2)
+                    alert_scoring_result = _compact_json(alert_dict)
                 except (json.JSONDecodeError, TypeError):
                     alert_scoring_result = raw_alert_result
             else:
@@ -298,54 +535,85 @@ class ReportSynthesisWrapper(BaseAgent):
 
             # Collect hierarchical level analyses
             level_parts = []
-            for lvl in range(6):
+            hierarchical_payload: dict[str, Any] = {}
+            for lvl in hierarchy_level_range(state, contract):
                 val = state.get(f"level_{lvl}_analysis")
-                if val:
-                    try:
-                        lvl_dict = json.loads(val)
-                        cards = lvl_dict.get("insight_cards", [])
-                        # Slim and cap: only keep high-impact cards
-                        if len(cards) > 3:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:3]]
-                            lvl_dict["message"] = f"Showing top 3 of {len(cards)} hierarchical candidates"
-                        else:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
-                        val = json.dumps(lvl_dict, indent=2)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                    level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{val}")
+                if not val:
+                    continue
+                parsed_level = None
+                had_rows = False
+                try:
+                    lvl_dict = json.loads(val)
+                    cards = lvl_dict.get("insight_cards", [])
+                    # Slim and cap: only keep high-impact cards
+                    if len(cards) > 3:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:3]]
+                        lvl_dict["message"] = f"Showing top 3 of {len(cards)} hierarchical candidates"
+                    else:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
+                    had_rows = bool(lvl_dict.get("level_results"))
+                    lvl_dict = _prune_level_payload(lvl_dict)
+                    parsed_level = lvl_dict
+                    val = _compact_json(lvl_dict)
+                except (json.JSONDecodeError, TypeError):
+                    parsed_level = None
+                if parsed_level:
+                    has_cards = bool(parsed_level.get("insight_cards"))
+                    if not (has_cards or had_rows):
+                        continue
+                level_parts.append(f"HIERARCHICAL_LEVEL_{lvl}:\n{val}")
+                entry_key = f"level_{lvl}"
+                hierarchical_payload[entry_key] = parsed_level if parsed_level else _loads_or_passthrough(val)
             hierarchical_text = "\n\n".join(level_parts) if level_parts else "No hierarchical analysis results available."
 
             # Collect independent flat-scan findings (only present when INDEPENDENT_LEVEL_ANALYSIS=true)
             independent_parts = []
-            for lvl in range(1, 6):
+            independent_payload: dict[str, Any] = {}
+            for lvl in independent_level_range(state, contract):
                 val = state.get(f"independent_level_{lvl}_analysis")
-                if val:
-                    try:
-                        lvl_dict = json.loads(val)
-                        cards = lvl_dict.get("insight_cards", [])
-                        # Slim and cap: only keep high-impact net-new cards
-                        if len(cards) > 2:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:2]]
-                            lvl_dict["message"] = f"Showing top 2 of {len(cards)} independent scans"
-                        else:
-                            lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
-                        val = json.dumps(lvl_dict, indent=2)
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-                    independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{val}")
+                if not val:
+                    continue
+                parsed_independent = None
+                try:
+                    lvl_dict = json.loads(val)
+                    cards = lvl_dict.get("insight_cards", [])
+                    # Slim and cap: only keep high-impact net-new cards
+                    if len(cards) > 2:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards[:2]]
+                        lvl_dict["message"] = f"Showing top 2 of {len(cards)} independent scans"
+                    else:
+                        lvl_dict["insight_cards"] = [_slim_card(c) for c in cards]
+                    lvl_dict = _prune_level_payload(lvl_dict)
+                    parsed_independent = lvl_dict
+                    val = _compact_json(lvl_dict)
+                except (json.JSONDecodeError, TypeError):
+                    parsed_independent = None
+                if parsed_independent:
+                    has_cards = bool(parsed_independent.get("insight_cards"))
+                    if not has_cards:
+                        continue
+                independent_parts.append(f"INDEPENDENT_LEVEL_{lvl}:\n{val}")
+                entry_key = f"level_{lvl}"
+                independent_payload[entry_key] = parsed_independent if parsed_independent else _loads_or_passthrough(val)
             independent_findings_text = "\n\n".join(independent_parts) if independent_parts else ""
+
+            # --- TEMPORAL CONTEXT: Mandatory grain and period anchoring ---
+            # --- FOCUS CONTEXT: Capture analysis directives ---
+            focus_payload = build_focus_payload(state)
 
             # --- TEMPORAL CONTEXT: Mandatory grain and period anchoring ---
             temporal_grain = state.get("temporal_grain", "unknown")
             period_end = state.get("primary_query_end_date")
             timeframe = state.get("timeframe", {})
-            analysis_period_val = state.get("analysis_period", "the period ending")
+            analysis_period_val = state.get("analysis_period")
+            if not analysis_period_val:
+                analysis_period_val = f"the period ending {period_end}" if period_end else "the period ending"
             
+            canonical_grain = normalize_temporal_grain(temporal_grain)
             temporal_context = {
-                "temporal_grain": temporal_grain,
-                "period_unit": "week" if temporal_grain == "weekly" else "month",
-                "analysis_period": f"{analysis_period_val} {period_end}" if period_end else analysis_period_val,
+                "temporal_grain": canonical_grain,
+                "period_unit": temporal_grain_to_period_unit(canonical_grain),
+                "analysis_period": analysis_period_val,
                 "reference_period_end": period_end,
                 "timeframe": timeframe
             }
@@ -354,7 +622,7 @@ class ReportSynthesisWrapper(BaseAgent):
             if parse_bool_env(os.environ.get("REPORT_SYNTHESIS_PRE_SUMMARIZE")):
                 from .pre_summarize import summarize_components
                 components_raw = {
-                    "temporal_context": json.dumps(temporal_context, indent=2),
+                    "temporal_context": _compact_json(temporal_context),
                     "narrative_results": narrative_results,
                     "data_analyst_result": data_analyst_result,
                     "hierarchical_text": hierarchical_text,
@@ -362,15 +630,28 @@ class ReportSynthesisWrapper(BaseAgent):
                     "statistical_summary": statistical_summary,
                 }
                 summarized = await summarize_components(components_raw)
-                temporal_context_str = summarized.get("temporal_context") or json.dumps(temporal_context, indent=2)
-                narrative_results = summarized["narrative_results"]
-                data_analyst_result = summarized["data_analyst_result"]
-                hierarchical_text = summarized["hierarchical_text"]
-                alert_scoring_result = summarized["alert_scoring_result"]
-                statistical_summary = summarized["statistical_summary"]
+                temporal_context_str = summarized.get("temporal_context") or _compact_json(temporal_context)
+                narrative_results = summarized.get("narrative_results", narrative_results)
+                data_analyst_result = summarized.get("data_analyst_result", data_analyst_result)
+                alert_scoring_result = summarized.get("alert_scoring_result", alert_scoring_result)
+                statistical_summary = summarized.get("statistical_summary", statistical_summary)
+                # Preserve canonical hierarchical/independent payload structure for downstream tooling.
+                summarized_hier = summarized.get("hierarchical_text")
+                if summarized_hier and "HIERARCHICAL_LEVEL_" in summarized_hier:
+                    hierarchical_text = summarized_hier
+                summarized_independent = summarized.get("independent_findings")
+                if summarized_independent and "INDEPENDENT_LEVEL_" in summarized_independent:
+                    independent_findings_text = summarized_independent
                 print("[REPORT_SYNTHESIS] Pre-summarized components via fast LLM")
             else:
-                temporal_context_str = json.dumps(temporal_context, indent=2)
+                temporal_context_str = _compact_json(temporal_context)
+
+            narrative_results = _truncate_block(narrative_results, _MAX_NARRATIVE_CHARS, "narrative_results")
+            data_analyst_result = _truncate_block(data_analyst_result, _MAX_DATA_ANALYST_CHARS, "data_analyst_result")
+            hierarchical_text = _truncate_block(hierarchical_text, _MAX_HIERARCHICAL_CHARS, "hierarchical_analysis")
+            independent_findings_text = _truncate_block(independent_findings_text, _MAX_INDEPENDENT_CHARS, "independent_findings")
+            alert_scoring_result = _truncate_block(alert_scoring_result, _MAX_ALERT_CHARS, "alert_scoring_result")
+            statistical_summary = _truncate_block(statistical_summary, _MAX_STAT_SUMMARY_CHARS, "statistical_summary")
 
             # Log prompt component sizes for diagnostics
             print(f"[REPORT_SYNTHESIS] Prompt component sizes:")
@@ -382,35 +663,95 @@ class ReportSynthesisWrapper(BaseAgent):
             print(f"  alert_scoring_result: {len(str(alert_scoring_result)):,} chars")
             print(f"  statistical_summary: {len(str(statistical_summary)):,} chars")
 
-            # Build canonical format guidance for consistent tool inputs
-            canonical_format = (
-                "\n**CANONICAL FORMAT for generate_markdown_report:**\n"
-                "Pass parameters in one call. hierarchical_results: JSON with level_0, level_1, etc., "
-                "AND independent_level_results if present in INDEPENDENT_LEVEL_FINDINGS. "
-                "Each level has insight_cards array and total_variance_dollar. narrative_results: from NARRATIVE_RESULTS as-is. "
-                "statistical_summary: PASS THE FULL JSON BLOCK from STATISTICAL_SUMMARY context unchanged. "
-                "analysis_target and analysis_period: Use exact values provided in TEMPORAL_CONTEXT.\n"
-            )
-            
-            independent_section = (
-                f"\n\nindependent_findings (anomalies masked at higher levels, net-new):\n{independent_findings_text}"
-                if independent_findings_text else ""
-            )
-            injection_message = (
-                "Here are the results from the specialized analysis agents:\n\n"
-                f"TEMPORAL_CONTEXT:\n{temporal_context_str}\n\n"
-                f"NARRATIVE_RESULTS:\n{narrative_results}\n\n"
-                f"DATA_ANALYST_RESULT (Statistical Insight Cards):\n{data_analyst_result}\n\n"
-                f"hierarchical_analysis:\n{hierarchical_text}"
-                f"{independent_section}\n\n"
-                f"ALERT_SCORING_RESULT:\n{alert_scoring_result}\n\n"
-                f"STATISTICAL_SUMMARY (Full Data Context):\n{statistical_summary}\n\n"
-                "Synthesize these into the final executive report. "
-                "Call generate_markdown_report EXACTLY ONCE with all parameters. Do NOT call the tool again. "
-                "Do NOT output report text directly." + canonical_format
-            )
+            narrative_component = _loads_or_passthrough(narrative_results)
+            data_analyst_component = _loads_or_passthrough(data_analyst_result)
+            alert_component = _loads_or_passthrough(alert_scoring_result)
+            stats_component = _loads_or_passthrough(statistical_summary)
 
-            print(f"  TOTAL injection: {len(injection_message):,} chars")
+            dataset_display_name = (
+                contract_context.get("display_name")
+                or getattr(contract, "display_name", None)
+                or getattr(contract, "name", None)
+            )
+            dataset_description = contract_context.get("description")
+            if not dataset_description and getattr(contract, "description", None):
+                dataset_description = contract.description
+
+            presentation_unit = None
+            if contract and getattr(contract, "presentation", None):
+                try:
+                    presentation_unit = (contract.presentation or {}).get("unit")
+                except AttributeError:
+                    presentation_unit = None
+
+            analysis_target_value = state.get("current_analysis_target") or ctx.session.state.get("analysis_target")
+            report_payload = {
+                "dataset_context": contract_context,
+                "dataset_display_name": dataset_display_name,
+                "dataset_description": dataset_description,
+                "analysis_target": analysis_target_value,
+                "focus": focus_payload,
+                "temporal_context": temporal_context,
+                "components": {
+                    "narrative_results": narrative_component,
+                    "data_analyst_result": data_analyst_component,
+                    "hierarchical_analysis": hierarchical_payload,
+                    "independent_findings": independent_payload,
+                    "alert_scoring_result": alert_component,
+                    "statistical_summary": stats_component,
+                },
+                "tool_contract": {
+                    "tool": "generate_markdown_report",
+                    "call_once": True,
+                    "required_arguments": [
+                        "temporal_context",
+                        "analysis_target",
+                        "narrative_results",
+                        "statistical_summary",
+                        "hierarchical_analysis",
+                        "independent_findings",
+                        "alert_scoring_result",
+                        "dataset_display_name",
+                        "dataset_description",
+                    ],
+                    "output_format": "markdown",
+                    "no_raw_markdown": True,
+                },
+            }
+
+            def _json_arg(value):
+                if value in (None, ""):
+                    return ""
+                if isinstance(value, str):
+                    return value
+                try:
+                    return json.dumps(value, separators=(',', ':'), ensure_ascii=False)
+                except TypeError:
+                    return str(value)
+
+            tool_arguments = {
+                "hierarchical_results": _json_arg(hierarchical_payload),
+                "analysis_target": analysis_target_value,
+                "analysis_period": temporal_context.get("analysis_period"),
+                "statistical_summary": _json_arg(stats_component),
+                "narrative_results": _json_arg(narrative_component),
+                "target_label": state.get("target_label") or "Metric",
+                "anomaly_indicators": _json_arg(alert_component),
+                "dataset_display_name": dataset_display_name,
+                "dataset_description": dataset_description or "",
+                "presentation_unit": presentation_unit,
+            }
+
+            plan_hint = _deterministic_plan_hint(ctx.session.state.get("execution_plan"))
+            contract_has_hierarchy = _contract_has_hierarchy(contract)
+
+            payload_json = json.dumps(report_payload, separators=(',', ':'), ensure_ascii=False)
+            injection_message = (
+                "REPORT_SYNTHESIS_INPUT_JSON (strict JSON — do not change keys):\n"
+                f"{payload_json}\n"
+                "Use this JSON to decide on a single generate_markdown_report tool call."
+            )
+            print(f"  TOTAL payload: {len(payload_json):,} chars")
 
             # DEBUG: Save prompt to txt and JSON cache for optimization/benchmarking
             try:
@@ -446,6 +787,37 @@ class ReportSynthesisWrapper(BaseAgent):
                 print(f"[REPORT_SYNTHESIS] DEBUG: Saved cache to {cache_path_out}")
             except Exception as e:
                 print(f"[REPORT_SYNTHESIS] DEBUG ERROR: Failed to save prompt: {e}")
+
+        fast_path_reason = None
+        if tool_arguments:
+            force_direct = parse_bool_env(os.environ.get("REPORT_SYNTHESIS_FORCE_DIRECT_TOOL"))
+            has_hierarchy_signal = _has_hierarchical_signal(hierarchical_payload, hierarchical_text)
+            if force_direct:
+                fast_path_reason = "REPORT_SYNTHESIS_FORCE_DIRECT_TOOL=1"
+            elif not has_hierarchy_signal:
+                if plan_hint:
+                    fast_path_reason = f"{plan_hint}; no hierarchical payload detected"
+                elif not contract_has_hierarchy:
+                    fast_path_reason = "no hierarchical payload expected"
+                else:
+                    fast_path_reason = "no hierarchical payload detected"
+
+        if fast_path_reason and tool_arguments:
+            print(f"[REPORT_SYNTHESIS] Fast-path triggered ({fast_path_reason}); calling generate_markdown_report directly.", flush=True)
+            try:
+                direct_markdown = await generate_markdown_report(**tool_arguments)
+            except Exception as fast_exc:
+                print(f"[REPORT_SYNTHESIS] Fast-path failed: {fast_exc}; continuing with LLM path.", flush=True)
+            else:
+                ctx.session.state["report_markdown"] = direct_markdown
+                ctx.session.state["report_synthesis_result"] = direct_markdown
+                yield Event(
+                    invocation_id=ctx.invocation_id,
+                    author=self.name,
+                    actions=EventActions(state_delta={"report_markdown": direct_markdown, "report_synthesis_result": direct_markdown}),
+                )
+                print("[REPORT_SYNTHESIS] Fast-path completed; skipping LLM agent.", flush=True)
+                return
 
         ctx.session.events.append(Event(
             invocation_id="result_injection",
@@ -530,6 +902,29 @@ class ReportSynthesisWrapper(BaseAgent):
             import traceback
             print(f"[REPORT_SYNTHESIS] ERROR: {str(e) or type(e).__name__}", flush=True)
             traceback.print_exc()
+
+        report_output = ctx.session.state.get("report_markdown") or ctx.session.state.get("report_synthesis_result")
+        fallback_reason = None
+        if not report_output:
+            fallback_reason = "missing LLM output"
+        elif contains_stub_content(report_output) and not stub_outputs_allowed():
+            fallback_reason = "stub output detected"
+        elif isinstance(report_output, str) and report_output.lstrip().startswith("# Error"):
+            fallback_reason = "LLM returned error payload"
+
+        if fallback_reason and tool_arguments:
+            print(f"[REPORT_SYNTHESIS] Fallback triggered ({fallback_reason}); calling generate_markdown_report directly.", flush=True)
+            try:
+                fallback_markdown = await generate_markdown_report(**tool_arguments)
+                ctx.session.state["report_markdown"] = fallback_markdown
+                ctx.session.state["report_synthesis_result"] = fallback_markdown
+                yield Event(
+                    invocation_id=ctx.invocation_id,
+                    author=self.name,
+                    actions=EventActions(state_delta={"report_markdown": fallback_markdown, "report_synthesis_result": fallback_markdown}),
+                )
+            except Exception as fallback_exc:
+                print(f"[REPORT_SYNTHESIS] Fallback failed: {fallback_exc}", flush=True)
 
         print(f"\n{'='*80}")
         print(f"[REPORT_SYNTHESIS] Report synthesis agent complete ({event_count} events)", flush=True)

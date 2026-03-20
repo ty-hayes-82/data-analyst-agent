@@ -38,15 +38,14 @@ from .hyper_connection import HyperConnectionManager, get_or_create_manager
 from .loader_config import HyperLoaderConfig
 from .query_builder import HyperQueryBuilder
 
-# Project root is four levels up from this file:
-# sub_agents/tableau_hyper_fetcher/fetcher.py
-# -> sub_agents/
-# -> data_analyst_agent/
-# -> pl_analyst/  (project root)
-_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.resolve()
+
+def _project_root() -> Path:
+    """Project root (directory containing config/ and data/). Single source of truth via dataset_resolver."""
+    from config.dataset_resolver import get_project_root
+    return get_project_root()
 
 # Values that mean "no filter — load everything"
-_UNFILTERED = frozenset({"all", "total", "none", "", "all regions", "all terminals"})
+_BASE_UNFILTERED = frozenset({"all", "total", "none", "", "entire network", "entire scope"})
 
 
 class TableauHyperFetcher(BaseAgent):
@@ -76,6 +75,7 @@ class TableauHyperFetcher(BaseAgent):
         )
 
         loader_config = self._load_loader_config(active_dataset)
+        unfiltered_tokens = _build_unfiltered_tokens(contract)
         if loader_config is None:
             yield self._error_event(
                 ctx,
@@ -90,7 +90,7 @@ class TableauHyperFetcher(BaseAgent):
         manager = get_or_create_manager(active_dataset, loader_config)
 
         try:
-            manager.ensure_extracted(_PROJECT_ROOT)
+            manager.ensure_extracted(_project_root())
         except FileNotFoundError as exc:
             yield self._error_event(ctx, str(exc))
             return
@@ -128,7 +128,7 @@ class TableauHyperFetcher(BaseAgent):
                 continue
                 
             value = req_analysis.get(logical_key) or req_analysis.get("primary_dimension_value")
-            if value and str(value).lower() not in _UNFILTERED:
+            if value and str(value).lower() not in unfiltered_tokens:
                 primary_dim = req_analysis.get("primary_dimension", "")
                 if not primary_dim or primary_dim.lower() == logical_key.lower():
                     physical_filters[physical_col] = [str(value)]
@@ -374,3 +374,26 @@ def _first_non_time_grain(contract) -> Optional[str]:
         if col != time_col:
             return col
     return contract.grain.columns[0] if contract.grain.columns else None
+
+
+
+def _build_unfiltered_tokens(contract) -> set[str]:
+    tokens = set(_BASE_UNFILTERED)
+    dimensions = getattr(contract, "dimensions", []) or []
+    for dim in dimensions:
+        label_candidates = {
+            str(getattr(dim, "name", "")).replace("_", " "),
+            str(getattr(dim, "column", "")).replace("_", " "),
+            str(getattr(dim, "description", "")).split("(")[0].strip(),
+        }
+        tags = getattr(dim, "tags", []) or []
+        label_candidates.update(tag.replace("_", " ") for tag in tags)
+        for label in label_candidates:
+            clean = label.strip().lower()
+            if not clean:
+                continue
+            tokens.add(f"all {clean}")
+            tokens.add(f"entire {clean}")
+            tokens.add(f"{clean} (all)")
+    return tokens
+

@@ -1,0 +1,127 @@
+name: "Ops Metrics"
+version: "2.1.0"
+display_name: "Ops Metrics (Test Stub)"
+description: >
+  Contract-only stub used in tests when the production ops_metrics contract
+  is not available. Mirrors the schema of the sample CSVs in data/ops_metrics_*.
+target_label: "Cost Center"
+data_source:
+  type: "csv"
+time:
+  column: "cal_dt"
+  frequency: "weekly"
+  format: "%Y-%m-%d"
+  timezone: "UTC"
+  range_months: 24
+grain:
+  columns: ["cal_dt", "lob", "terminal", "dimension_value"]
+  description: "Weekly totals by LOB and terminal"
+metrics:
+  - name: "total_revenue"
+    column: "total_revenue"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    tags: ["financial", "revenue"]
+    pvm_role: "total"
+  - name: "revenue_xfuel"
+    column: "Revenue xFuel"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+    tags: ["financial"]
+    pvm_role: "price"
+  - name: "fuel_surcharge"
+    column: "fuel_surcharge"
+    type: "additive"
+    format: "currency"
+    optimization: "maximize"
+  - name: "loaded_miles"
+    column: "Loaded Miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+    pvm_role: "volume"
+  - name: "total_miles"
+    column: "total_miles"
+    type: "additive"
+    format: "float"
+    optimization: "maximize"
+  - name: "order_count"
+    column: "order_count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+  - name: "stop_count"
+    column: "stop_count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+  - name: "truck_count"
+    column: "Truck Count"
+    type: "additive"
+    format: "integer"
+    optimization: "maximize"
+  - name: "dot_incidents"
+    column: "dot_incidents"
+    type: "additive"
+    format: "integer"
+    optimization: "minimize"
+dimensions:
+  - name: "lob"
+    column: "lob"
+    role: "primary"
+    description: "Line of business"
+  - name: "region"
+    column: "region"
+    role: "secondary"
+  - name: "terminal"
+    column: "terminal"
+    role: "secondary"
+  - name: "driver_leader"
+    column: "driver_leader"
+    role: "secondary"
+  - name: "fleet_leader"
+    column: "fleet_leader"
+    role: "secondary"
+  - name: "dimension_value"
+    column: "dimension_value"
+    role: "auxiliary"
+    description: "Cost center / dimension label"
+  - name: "division_code"
+    column: "division_code"
+    role: "auxiliary"
+hierarchies:
+  - name: "operational_structure"
+    description: "Region → Terminal → Driver Leader → Fleet Leader"
+    children: ["region", "terminal", "driver_leader", "fleet_leader"]
+    level_names:
+      0: "Network"
+      1: "Region"
+      2: "Terminal"
+      3: "Driver Leader"
+      4: "Fleet Leader"
+  - name: "lob_terminal"
+    description: "LOB → Terminal drill path"
+    children: ["lob", "terminal"]
+    level_names:
+      0: "Network"
+      1: "Line of Business"
+      2: "Terminal"
+reporting:
+  max_drill_depth: 4
+  executive_brief_drill_levels: 2
+  max_scope_entities: 12
+presentation:
+  unit: "USD"
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 25000
+policies:
+  item_classification:
+    company_drivers:
+      values: ["Company"]
+    owner_operators:
+      values: ["Owner Operator"]
+validation:
+  scenario_id_column: null

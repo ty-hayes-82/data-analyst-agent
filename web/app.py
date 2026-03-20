@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import asyncio
+import sys
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -11,10 +13,41 @@ from pydantic import BaseModel
 
 from . import contract_loader, run_manager
 
+# Avoid noisy Windows Proactor shutdown assertions with active sockets.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 app = FastAPI(title="Data Analyst Agent", docs_url="/docs")
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for monitoring and load balancers."""
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "service": "data-analyst-agent-web",
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "checks": {
+            "web_server": "ok"
+        }
+    }
+
+
+@app.get("/api/version")
+async def api_version():
+    """Version information endpoint."""
+    import sys
+    from data_analyst_agent import __version__, __build__
+    return {
+        "version": __version__,
+        "build": __build__,
+        "python": sys.version
+    }
 
 
 @app.get("/", response_class=HTMLResponse)

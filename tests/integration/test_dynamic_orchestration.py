@@ -243,6 +243,96 @@ async def test_full_dynamic_orchestration_flow():
     clear_all_caches()
 
 
+@pytest.mark.asyncio
+async def test_analysis_context_prefers_contract_frequency_over_temp_env(monkeypatch):
+    """TEMPORAL_GRAIN env override should not beat the contract cadence."""
+    from google.adk.sessions.in_memory_session_service import InMemorySessionService
+    from google.adk.agents.invocation_context import InvocationContext
+    from data_analyst_agent.agent import AnalysisContextInitializer
+    from data_analyst_agent.semantic.models import DatasetContract
+    from data_analyst_agent.sub_agents.data_cache import clear_all_caches
+
+    contract = DatasetContract.from_yaml('tests/fixtures/minimal_contract.yaml')
+    sample_csv = (
+        "date,category_name,row_count\n"
+        "2024-01-01,A,10\n"
+        "2024-01-02,A,20\n"
+    )
+
+    session_service = InMemorySessionService()
+    session = await session_service.create_session(app_name="pl_analyst", user_id="test_temporal_env")
+    session.state.update({
+        "dataset_contract": contract,
+        "validated_pl_data_csv": sample_csv,
+        "max_drill_depth": 2,
+    })
+
+    monkeypatch.setenv("TEMPORAL_GRAIN", "weekly")
+    monkeypatch.delenv("DATA_ANALYST_TIME_FREQUENCY", raising=False)
+
+    agent = AnalysisContextInitializer()
+    ctx = InvocationContext(
+        session=session,
+        agent=agent,
+        invocation_id="test-temporal-env",
+        session_service=session_service,
+    )
+
+    async for _ in agent.run_async(ctx):
+        pass
+
+    ctx_obj = session.state["analysis_context"]
+    assert ctx_obj.temporal_grain == "daily"
+    assert ctx_obj.time_frequency == "daily"
+    assert session.state["time_frequency"] == "daily"
+    clear_all_caches()
+
+
+@pytest.mark.asyncio
+async def test_analysis_context_env_time_frequency_override(monkeypatch):
+    """DATA_ANALYST_TIME_FREQUENCY env should override the contract cadence."""
+    from google.adk.sessions.in_memory_session_service import InMemorySessionService
+    from google.adk.agents.invocation_context import InvocationContext
+    from data_analyst_agent.agent import AnalysisContextInitializer
+    from data_analyst_agent.semantic.models import DatasetContract
+    from data_analyst_agent.sub_agents.data_cache import clear_all_caches
+
+    contract = DatasetContract.from_yaml('tests/fixtures/minimal_contract.yaml')
+    sample_csv = (
+        "date,category_name,row_count\n"
+        "2024-01-01,A,10\n"
+        "2024-01-02,A,20\n"
+    )
+
+    session_service = InMemorySessionService()
+    session = await session_service.create_session(app_name="pl_analyst", user_id="test_temporal_override")
+    session.state.update({
+        "dataset_contract": contract,
+        "validated_pl_data_csv": sample_csv,
+        "max_drill_depth": 2,
+    })
+
+    monkeypatch.setenv("DATA_ANALYST_TIME_FREQUENCY", "yearly")
+    monkeypatch.setenv("TEMPORAL_GRAIN", "weekly")
+
+    agent = AnalysisContextInitializer()
+    ctx = InvocationContext(
+        session=session,
+        agent=agent,
+        invocation_id="test-temporal-override",
+        session_service=session_service,
+    )
+
+    async for _ in agent.run_async(ctx):
+        pass
+
+    ctx_obj = session.state["analysis_context"]
+    assert ctx_obj.temporal_grain == "yearly"
+    assert ctx_obj.time_frequency == "yearly"
+    assert session.state["time_frequency"] == "yearly"
+    clear_all_caches()
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v", "-s"])
+

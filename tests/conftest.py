@@ -19,17 +19,21 @@ from pathlib import Path
 from unittest.mock import MagicMock
 from io import StringIO
 
+from tests.utils.dataset_paths import resolve_dataset_file
+
 # ---------------------------------------------------------------------------
 # Path setup
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).parent.parent
 DATASETS_DIR = PROJECT_ROOT / "config" / "datasets"
 DATA_DIR = PROJECT_ROOT / "data"
+FIXTURE_DATASETS_DIR = PROJECT_ROOT / "tests" / "fixtures" / "datasets"
 
-OPS_CONTRACT_PATH = DATASETS_DIR / "ops_metrics" / "contract.yaml"
-OPS_DATASET_AVAILABLE = OPS_CONTRACT_PATH.exists()
-ACCOUNT_CONTRACT_PATH = DATASETS_DIR / "account_research" / "contract.yaml"
-ACCOUNT_DATASET_AVAILABLE = ACCOUNT_CONTRACT_PATH.exists()
+OPS_CONTRACT_PATH = resolve_dataset_file("ops_metrics")
+OPS_DATASET_AVAILABLE = OPS_CONTRACT_PATH is not None
+ACCOUNT_CONTRACT_PATH = resolve_dataset_file("account_research")
+ACCOUNT_DATASET_AVAILABLE = ACCOUNT_CONTRACT_PATH is not None
+ORDER_DISPATCH_CONTRACT_PATH = resolve_dataset_file("order_dispatch")
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -73,10 +77,10 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture(scope="session")
 def ops_metrics_contract():
-    """Load the Ops Metrics DatasetContract from YAML."""
+    """Load the Ops Metrics DatasetContract from YAML or test fixtures."""
     from data_analyst_agent.semantic.models import DatasetContract
 
-    if not OPS_DATASET_AVAILABLE:
+    if not OPS_CONTRACT_PATH:
         pytest.skip("ops_metrics contract not available in this workspace")
 
     return DatasetContract.from_yaml(str(OPS_CONTRACT_PATH))
@@ -87,7 +91,7 @@ def account_research_contract():
     """Load the Account Research DatasetContract from YAML."""
     from data_analyst_agent.semantic.models import DatasetContract
 
-    if not ACCOUNT_DATASET_AVAILABLE:
+    if not ACCOUNT_CONTRACT_PATH:
         pytest.skip("account_research contract not available in this workspace")
 
     return DatasetContract.from_yaml(str(ACCOUNT_CONTRACT_PATH))
@@ -97,9 +101,10 @@ def account_research_contract():
 def order_dispatch_contract():
     """Load the Order Dispatch DatasetContract from YAML."""
     from data_analyst_agent.semantic.models import DatasetContract
-    path = DATASETS_DIR / "order_dispatch" / "contract.yaml"
-    if not path.exists():
-        pytest.skip(f"Contract not found: {path}")
+
+    path = resolve_dataset_file("order_dispatch")
+    if not path:
+        pytest.skip("order_dispatch contract not found")
     return DatasetContract.from_yaml(str(path))
 
 

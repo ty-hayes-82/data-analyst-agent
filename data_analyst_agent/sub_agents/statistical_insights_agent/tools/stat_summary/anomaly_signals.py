@@ -10,6 +10,39 @@ from ..stat_summary.state import SummaryState
 
 
 def compute_anomalies_and_correlations(state: SummaryState) -> None:
+    """Detect anomalies and compute correlations, updating SummaryState in place.
+    
+    This function orchestrates anomaly detection and correlation analysis,
+    storing results in the provided SummaryState object. It uses configurable
+    z-threshold from focus_settings and detects uniform growth patterns.
+    
+    Args:
+        state: SummaryState instance with:
+            - pivot: DataFrame with items × periods
+            - names_map: Dict mapping items to display names
+            - latest_period: Most recent period identifier
+            - focus_settings: Dict with optional 'z_threshold' and 'focus_periods'
+            - ctx: ADK context with contract
+    
+    Modifies:
+        state.anomalies: All detected anomalies (list of dicts)
+        state.anomalies_sorted: Top 20 anomalies sorted by recency and magnitude
+        state.anomaly_latest_flag: Dict mapping items to True if anomaly in latest period
+        state.suspected_uniform_growth: Boolean flag for uniform growth pattern
+        state.correlations: Dict of significant correlations between items
+    
+    Example:
+        >>> state = SummaryState(pivot=..., focus_settings={'z_threshold': 3.0})
+        >>> compute_anomalies_and_correlations(state)
+        >>> print(len(state.anomalies_sorted))  # Top 20 anomalies
+        >>> print(state.suspected_uniform_growth)  # True if all items move together
+    
+    Note:
+        - Default z-threshold: 2.0 (can override via focus_settings)
+        - Focus periods (recency window): From focus_settings or env ANALYSIS_FOCUS_PERIODS
+        - Uniform growth flag: True if >50% of item pairs have |r| ≥ 0.95
+        - Correlations computed on revenue-related items (from contract policies)
+    """
     pivot = state.pivot
     focus_settings = state.focus_settings or {}
     z_threshold = float(focus_settings.get("z_threshold", 2.0))
@@ -73,8 +106,11 @@ def compute_anomalies_and_correlations(state: SummaryState) -> None:
 
 
 def _compute_uniform_growth_flag(pivot) -> bool:
+    if pivot.shape[1] < 2:
+        return False
     try:
-        corr_matrix = np.corrcoef(pivot.values)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr_matrix = np.corrcoef(pivot.values)
         n = corr_matrix.shape[0]
         if n < 2:
             return False
@@ -128,7 +164,8 @@ def _compute_correlations(state: SummaryState, pivot) -> dict[str, dict]:
                     corr = float(corr) if not np.isnan(corr) else 0.0
                     p_val = float(p_val) if not np.isnan(p_val) else 1.0
                 except Exception:
-                    corr = float(np.corrcoef(a_vals, b_vals)[0, 1]) if len(a_vals) > 1 else 0.0
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        corr = float(np.corrcoef(a_vals, b_vals)[0, 1]) if len(a_vals) > 1 else 0.0
                     p_val = 1.0
                 if abs(corr) > 0.7 and p_val < 0.05:
                     key = f"{acc1}_vs_{acc2}"

@@ -56,10 +56,15 @@ async function onDatasetChange() {
 
   // Metrics
   const mg = document.getElementById('metrics-group');
+  const metricsActions = document.getElementById('metrics-actions');
   mg.innerHTML = '';
-  (c.metrics || []).forEach(m => {
+  const metricsList = c.metrics || [];
+  metricsList.forEach(m => {
     mg.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" checked> ${m.name}${m.description ? ' (' + m.description.slice(0, 50) + ')' : ''}</label>`;
   });
+  if (metricsActions) {
+    metricsActions.style.display = metricsList.length > 0 ? 'inline' : 'none';
+  }
 
   // Hierarchies — editor with filtering
   renderHierarchyEditor(c);
@@ -89,7 +94,8 @@ document.getElementById('run-btn').addEventListener('click', submitRun);
 async function submitRun() {
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
-  btn.textContent = 'Starting...';
+  const originalHTML = btn.innerHTML;
+  btn.innerHTML = '<span class="btn-icon">⏳</span> Starting Analysis...';
 
   const sel = document.getElementById('dataset-select');
   const metrics = [...document.querySelectorAll('input[name="metric"]:checked')].map(c => c.value);
@@ -127,10 +133,13 @@ async function submitRun() {
     showTab('monitor');
     pollRun(run.id);
   } catch (e) {
-    alert('Failed to start run: ' + e.message);
+    const userMsg = e.message.includes('Server error') 
+      ? 'Unable to start analysis. Please try again or contact support.' 
+      : 'Error: ' + e.message;
+    alert(userMsg);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Run Analysis';
+    btn.innerHTML = originalHTML;
   }
 }
 
@@ -322,6 +331,14 @@ async function viewFile(runId, filename) {
 // --- Helpers ---
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function selectAllMetrics() {
+  document.querySelectorAll('input[name="metric"]').forEach(cb => { cb.checked = true; });
+}
+
+function deselectAllMetrics() {
+  document.querySelectorAll('input[name="metric"]').forEach(cb => { cb.checked = false; });
 }
 
 

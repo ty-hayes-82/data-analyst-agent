@@ -37,6 +37,7 @@ from google.genai.types import Content, Part
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import WEATHER_CONTEXT_AGENT_INSTRUCTION
+from ...utils.focus_directives import augment_instruction
 
 
 def _collect_insight_cards_from_reports(outputs_dir: Path, max_cards: int = 5) -> str:
@@ -135,11 +136,12 @@ class WeatherContextWrapper(BaseAgent):
 
         from google.adk.tools import google_search
 
+        instruction_with_focus = augment_instruction(_base_agent.instruction, ctx.session.state)
         agent_with_search = Agent(
             model=_base_agent.model,
             name=_base_agent.name,
             description=_base_agent.description,
-            instruction=_base_agent.instruction,
+            instruction=instruction_with_focus,
             output_key=_base_agent.output_key,
             tools=[google_search],
             generate_content_config=_base_agent.generate_content_config,

@@ -13,10 +13,10 @@ from typing import Any
 
 RUNS_FILE = Path(__file__).resolve().parent / "runs.json"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-import sys
-import platform
+import sys as _sys
+import platform as _platform
 
-if platform.system() == "Windows":
+if _platform.system() == "Windows":
     PYTHON = str(PROJECT_ROOT / ".venv" / "Scripts" / "python.exe")
 else:
     PYTHON = str(PROJECT_ROOT / ".venv" / "bin" / "python")
@@ -54,9 +54,16 @@ def _refresh_status(run: dict) -> dict:
             # Check if run.log has error indicators
             log_path = Path(run["output_dir"]) / "run.log"
             if log_path.exists():
-                log_tail = log_path.read_text(errors="replace")[-2000:]
+                log_text = log_path.read_text(errors="replace")
+                log_tail = log_text[-2000:]
                 last_lines = log_tail.split("\n")[-10:]
-                if "Analysis failed:" in log_tail or any("Traceback" in line for line in last_lines):
+                if not log_text.strip():
+                    run["status"] = "failed"
+                    run["error"] = "Run process exited before producing output."
+                elif "Analysis cancelled by user." in log_tail:
+                    run["status"] = "failed"
+                    run["error"] = "Run was cancelled."
+                elif "Analysis failed:" in log_tail or any("Traceback" in line for line in last_lines):
                     run["status"] = "failed"
                     # Extract last error line
                     for line in reversed(log_tail.splitlines()):
@@ -107,6 +114,14 @@ def start_run(params: dict[str, Any]) -> dict:
         env["DATA_ANALYST_HIERARCHY_LEVELS"] = ",".join(hierarchy_levels)
     if hierarchy_filters:
         env["DATA_ANALYST_HIERARCHY_FILTERS"] = json.dumps(hierarchy_filters)
+        # When the first hierarchy filter has a single selected value, set primary dimension
+        # so request_analysis.primary_dimension_value is that value (e.g. Arizona). This
+        # keeps data, narrative, and executive brief scoped to the selected geography.
+        # Derive from hierarchy_filters only so we don't depend on hierarchy_levels (can be empty).
+        first_col = next(iter(hierarchy_filters), None)
+        if first_col and isinstance(hierarchy_filters.get(first_col), list) and len(hierarchy_filters[first_col]) == 1:
+            env["DATA_ANALYST_DIMENSION"] = first_col
+            env["DATA_ANALYST_DIMENSION_VALUE"] = str(hierarchy_filters[first_col][0])
     env["DATA_ANALYST_OUTPUT_DIR"] = output_dir
     env["ACTIVE_DATASET"] = dataset_id.split("/")[-1] if "/" in dataset_id else dataset_id
 
@@ -134,13 +149,21 @@ def start_run(params: dict[str, Any]) -> dict:
     log_path = Path(output_dir) / "run.log"
     log_file = open(log_path, "w", encoding="utf-8")
 
+    popen_kwargs = {
+        "cwd": str(PROJECT_ROOT),
+        "env": env,
+        "stdout": log_file,
+        "stderr": subprocess.STDOUT,
+        "start_new_session": True,
+    }
+    if os.name == "nt":
+        popen_kwargs["creationflags"] = (
+            subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        )
+
     proc = subprocess.Popen(
         [PYTHON, "-m", "data_analyst_agent.agent", query],
-        cwd=str(PROJECT_ROOT),
-        env=env,
-        stdout=log_file,
-        stderr=subprocess.STDOUT,
-        start_new_session=True,
+        **popen_kwargs,
     )
 
     run = {

@@ -65,6 +65,8 @@ temp_extracted/
 # Tableau packaged data sources (large binaries, stored locally only)
 # Now stored within config/datasets/ folder
 *.tdsx
+!data/tableau/Bookshop.tdsx
+!data/tableau/Ops Metrics DS.tdsx
 
 # Legacy data folders (no longer used for datasets)
 # data/tableau/
@@ -77,6 +79,10 @@ temp_extracted/
 
 # Testing and Cache
 .pytest_cache/
+
+# ADK
+.adk/session.db
+.adk/*.db
 
 # Local backups and temporary scripts
 *.a2a_backup
@@ -95,5 +101,3 @@ data/public/global_temp_monthly.csv
 
 # Web UI run state (local)
 web/runs.json
-data/PL-067-REVENUE-ONLY.csv
-data/ops_metrics_*.csv

@@ -29,6 +29,7 @@ def build_summary_stats(state: SummaryState) -> None:
         "items_with_high_volatility": int(len([a for a in state.account_stats if a["cv"] > 0.5])),
         "temporal_grain": state.temporal_grain,
         "period_unit": state.period_unit,
+        "time_frequency": state.time_frequency,
     }
 
 

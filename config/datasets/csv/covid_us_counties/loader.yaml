@@ -4,28 +4,12 @@ source:
   delimiter: ","
   format: "long"
 
-date_parsing:
-  source_column: "date"
-  input_format: "%Y-%m-%d"
-  output_column: "period_end"
-  output_format: "%Y-%m-%d"
-
-column_mapping:
-  period_end: "date"
-  state: "state"
-  county: "county"
-  fips: "fips"
-  cases: "cases"
-  deaths: "deaths"
-
-numeric_columns: ["cases", "deaths"]
-
 sort_columns: ["date", "state", "county"]
 
 output_columns:
   - "date"
-  - "state"
   - "county"
+  - "state"
   - "fips"
   - "cases"
   - "deaths"

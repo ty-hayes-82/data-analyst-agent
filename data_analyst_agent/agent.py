@@ -73,6 +73,7 @@ from google.adk.agents.sequential_agent import SequentialAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.genai import types
+from typing import AsyncGenerator
 
 # Import analysis sub-agents
 from .sub_agents.statistical_insights_agent.agent import root_agent as statistical_insights_agent
@@ -243,7 +244,7 @@ class _OutputDirInitializer(BaseAgent):
     def __init__(self):
         super().__init__(name="output_dir_initializer")
 
-    async def _run_async_impl(self, ctx):
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         import os as _os
         from datetime import datetime as _dt
         from pathlib import Path as _P

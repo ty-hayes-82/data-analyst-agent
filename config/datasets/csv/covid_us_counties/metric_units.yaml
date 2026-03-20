@@ -1,0 +1,5 @@
+metrics:
+  cases:
+    unit: "people"
+  deaths:
+    unit: "people"

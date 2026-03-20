@@ -12,6 +12,52 @@ from scipy import stats as scipy_stats
 def generate_account_statistics(
     pivot: pd.DataFrame, names_map: Dict[Any, Any]
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], float]:
+    """Generate comprehensive statistics for each item (account/entity) in the pivot table.
+    
+    Computes per-item statistics including averages, volatility, momentum (slope),
+    and acceleration. Returns sorted lists of top drivers and most volatile items.
+    
+    Args:
+        pivot: DataFrame with items as index, time periods as columns.
+            Shape: (n_items, n_periods). Values are metric amounts.
+        names_map: Dict mapping item identifiers to display names.
+            Example: {4001: "Downtown Store", 4002: "Airport Store"}
+    
+    Returns:
+        Tuple of (account_stats, top_drivers, most_volatile, total_avg_mag):
+            account_stats: List of dicts with:
+                - item: Item identifier
+                - item_name: Display name from names_map
+                - avg: Average value across periods
+                - std: Standard deviation
+                - cv: Coefficient of variation (std/avg)
+                - slope_3mo: Slope of last 3 periods (linear regression)
+                - slope_3mo_p_value: Statistical significance of slope
+                - slope_3mo_r_value: R-value of slope fit
+                - acceleration_3mo: Change in slope (current 3mo - prior 3mo)
+                - min/max: Min and max values
+            top_drivers: Top 10 items by absolute average (largest magnitude)
+            most_volatile: Top 10 items by coefficient of variation (highest cv)
+            total_avg_mag: Sum of absolute averages across all items (for normalization)
+    
+    Example:
+        >>> pivot = pd.DataFrame({
+        ...     '2025-01': [100, 200],
+        ...     '2025-02': [110, 190],
+        ...     '2025-03': [120, 185]
+        ... }, index=['Store_A', 'Store_B'])
+        >>> names_map = {'Store_A': 'Downtown', 'Store_B': 'Airport'}
+        >>> stats, drivers, volatile, total = generate_account_statistics(pivot, names_map)
+        >>> # stats[0]: {'item': 'Store_A', 'avg': 110, 'slope_3mo': 10, ...}
+        >>> # drivers: [Store_B, Store_A] (sorted by avg magnitude)
+        >>> # volatile: [Store_B, Store_A] (sorted by cv)
+    
+    Note:
+        - Skips items with all NaN values
+        - Slope uses scipy.stats.linregress for last 3 periods (if available)
+        - Acceleration requires 6+ periods (compares last 3 vs prior 3)
+        - CV (coefficient of variation) measures relative volatility
+    """
     account_stats: List[Dict[str, Any]] = []
     for account in pivot.index:
         values = pivot.loc[account].values
@@ -78,6 +124,47 @@ def detect_anomalies(
     latest_period: str,
     recent_periods: Sequence[str],
 ) -> Tuple[List[Dict[str, Any]], Dict[Any, bool]]:
+    """Detect statistical anomalies using z-score method (values >2σ from mean).
+    
+    Identifies periods where an item's value deviates significantly from its
+    historical average. Prioritizes recent anomalies over historical ones.
+    
+    Args:
+        pivot: DataFrame with items as index, time periods as columns.
+        names_map: Dict mapping item identifiers to display names.
+        latest_period: Most recent period identifier (for flagging).
+        recent_periods: Sequence of recent period identifiers (for prioritization).
+    
+    Returns:
+        Tuple of (anomalies_sorted, anomaly_latest_flag):
+            anomalies_sorted: Top 20 anomalies sorted by (recency, z-score).
+                Each anomaly is a dict with:
+                - period: Period identifier
+                - item: Item identifier
+                - item_name: Display name
+                - value: Actual value
+                - z_score: Z-score ((value - mean) / std)
+                - p_value: Two-tailed p-value for z-score
+                - avg/std: Item's historical average and std dev
+            anomaly_latest_flag: Dict mapping item -> True for items with
+                anomalies in latest_period.
+    
+    Example:
+        >>> pivot = pd.DataFrame({
+        ...     '2025-01': [100, 200],
+        ...     '2025-02': [105, 500],  # 500 is anomalous for item B
+        ...     '2025-03': [110, 210]
+        ... }, index=['A', 'B'])
+        >>> anomalies, flags = detect_anomalies(pivot, {}, '2025-03', ['2025-02', '2025-03'])
+        >>> # anomalies: [{'item': 'B', 'period': '2025-02', 'z_score': 2.8, ...}]
+        >>> # flags: {} (no anomalies in latest period '2025-03')
+    
+    Note:
+        - Z-score threshold: |z| ≥ 2.0 (approximately 95% confidence)
+        - Skips items with zero standard deviation (constant values)
+        - Sorts by (recency=1 if in recent_periods else 0, abs(z_score))
+        - Returns max 20 anomalies to avoid overwhelming output
+    """
     anomalies: List[Dict[str, Any]] = []
     for account in pivot.index:
         values = pivot.loc[account].values
@@ -172,7 +259,8 @@ def compute_correlations(
                     corr = float(corr) if not np.isnan(corr) else 0.0
                     p_val = float(p_val) if not np.isnan(p_val) else 1.0
                 except Exception:
-                    corr = float(np.corrcoef(a_vals, b_vals)[0, 1])
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        corr = float(np.corrcoef(a_vals, b_vals)[0, 1])
                     p_val = 1.0
 
                 if abs(corr) > 0.7 and p_val < 0.05:
@@ -180,8 +268,11 @@ def compute_correlations(
                     correlations[key] = {"r": round(corr, 3), "p_value": round(p_val, 6)}
 
     suspected_uniform_growth = False
+    if pivot.shape[1] < 2:
+        return correlations, False
     try:
-        corr_matrix = np.corrcoef(pivot.values)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            corr_matrix = np.corrcoef(pivot.values)
         n = corr_matrix.shape[0]
         if n >= 2:
             upper = []

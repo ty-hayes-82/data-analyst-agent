@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 import pytest
@@ -25,14 +26,48 @@ def _load_contract(dataset: str) -> DatasetContract:
     return DatasetContract.from_yaml(_contract_path(dataset))
 
 
-def test_covid_us_counties_contract_and_sample_columns():
+def _resolve_data_path(contract: DatasetContract) -> Path:
+    data_source = contract.data_source
+    if data_source is None or not data_source.file:
+        pytest.skip(f"contract {contract.name} is missing data_source.file")
+    path = REPO_ROOT / data_source.file
+    if not path.exists():
+        pytest.skip(f"data file {data_source.file} not found")
+    return path
+
+
+def _normalize_columns(columns: Iterable[str]) -> set[str]:
+    return {c.strip().lower() for c in columns if isinstance(c, str)}
+
+
+def _expected_contract_columns(contract: DatasetContract) -> set[str]:
+    """Return the set of canonical columns that the CSV must contain."""
+    expected: set[str] = set()
+
+    if contract.time.column:
+        expected.add(contract.time.column)
+
+    if contract.grain and contract.grain.columns:
+        expected.update(contract.grain.columns)
+
+    expected.update(m.column for m in contract.metrics if m.column)
+
+    expected.update(
+        d.column for d in contract.dimensions if d.role in {"primary", "secondary", "time"}
+    )
+
+    return _normalize_columns(expected)
+
+
+def test_covid_us_counties_dataset_loads_and_has_core_columns():
     contract = _load_contract("covid_us_counties")
     assert contract.metrics, "contract missing metrics"
-    csv_path = PUBLIC_DATA_ROOT / "us_counties_covid_sampled.csv"
-    assert csv_path.exists()
+    csv_path = _resolve_data_path(contract)
     df = pd.read_csv(csv_path)
-    expected = {contract.time.column, "state", "county", "cases", "deaths"}
-    assert expected.issubset({c.lower() for c in df.columns})
+
+    expected = _expected_contract_columns(contract)
+
+    assert expected.issubset(_normalize_columns(df.columns)), "core contract columns missing from CSV"
     assert len(df) > 10_000
 
 
@@ -47,15 +82,21 @@ def test_owid_co2_emissions_contract_and_sample_columns():
     assert df["co2"].astype(float).abs().max() > 0
 
 
-def test_worldbank_population_contract_and_sample_columns():
+def test_worldbank_population_dataset_loads_and_has_population():
     contract = _load_contract("worldbank_population")
     assert contract.metrics[0].name == "population"
-    csv_path = PUBLIC_DATA_ROOT / "worldbank_population.csv"
-    assert csv_path.exists()
+    csv_path = _resolve_data_path(contract)
     df = pd.read_csv(csv_path)
-    expected = {contract.time.column.lower(), contract.metrics[0].column.lower(), contract.dimensions[0].column.lower()}
-    assert expected.issubset({c.lower() for c in df.columns})
-    assert df[contract.metrics[0].column].astype(float).sum() > 0
+
+    metric_column = contract.metrics[0].column
+    assert metric_column, "population metric is missing a source column"
+    country_dimension = next((d.column for d in contract.dimensions if d.role == "primary"), None)
+    assert country_dimension, "contract missing a primary dimension"
+
+    expected = _expected_contract_columns(contract)
+
+    assert expected.issubset(_normalize_columns(df.columns)), "population columns missing from CSV"
+    assert df[metric_column].astype(float).sum() > 0
 
 
 def test_global_temperature_contract_and_sample_columns():

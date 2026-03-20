@@ -11,6 +11,7 @@ from google.adk.events.event_actions import EventActions
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
+from ...utils.focus_directives import augment_instruction
 
 from .prompt import DRILL_DOWN_DECISION_INSTRUCTION
 
@@ -68,6 +69,20 @@ class DrillDownDecisionAgent(LlmAgent):
                 thinking_config=get_agent_thinking_config("drill_down_decision_agent"),
             ),
         )
+
+
+class FocusAwareDrillDownDecision(BaseAgent):
+    """Wrapper to append focus directives when LLM drill-down is enabled."""
+
+    def __init__(self) -> None:
+        super().__init__(name="drill_down_decision_agent")
+        self._wrapped = DrillDownDecisionAgent()
+        self.output_key = getattr(self._wrapped, "output_key", "drill_down_decision")
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        self._wrapped.instruction = augment_instruction(DRILL_DOWN_DECISION_INSTRUCTION, ctx.session.state)
+        async for event in self._wrapped.run_async(ctx):
+            yield event
 
 
 class ProcessDrillDownDecision(BaseAgent):

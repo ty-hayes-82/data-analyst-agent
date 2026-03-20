@@ -13,16 +13,66 @@ from google.genai import types
 from .prompt import PLANNER_INSTRUCTION
 from .tools.generate_execution_plan import generate_execution_plan, refine_plan
 from config.model_loader import get_agent_model, get_agent_thinking_config
+from ...utils.focus_directives import (
+    augment_instruction,
+    focus_search_text,
+    get_custom_focus,
+    get_focus_modes,
+)
 
 USE_CODE_INSIGHTS = os.environ.get("USE_CODE_INSIGHTS", "true").lower() == "true"
 
 
 class RuleBasedPlanner(BaseAgent):
-    """Code-based execution planner — replaces the LLM planner agent.
-
-    Calls generate_execution_plan() for the deterministic baseline plan, then
-    calls refine_plan() to add any agents explicitly mentioned in the user query.
-    No LLM call is made.
+    """Deterministic code-based execution planner (no LLM).
+    
+    This agent generates the execution plan for the analysis pipeline. It determines
+    which analysis agents to run based on:
+        1. Contract configuration (available metrics, hierarchies, PVM roles)
+        2. Available data periods (enables/disables seasonal, YoY, etc.)
+        3. User query keywords (focus directives, explicit agent mentions)
+    
+    Plan Generation Flow:
+        1. generate_execution_plan(): Creates baseline plan from contract metadata
+           - Always includes: StatisticalInsightsAgent, HierarchyVarianceAgent
+           - Conditionally adds based on contract:
+             * SeasonalDecompositionAgent (if 24+ periods)
+             * PVMDecompositionAgent (if PVM roles defined)
+             * MixShiftAnalysisAgent (if PVM roles + segment dimension)
+             * CrossMetricCorrelationAgent (if 2+ metrics)
+             * LaggedCorrelationAgent (if 2+ metrics + 12+ periods)
+        2. refine_plan(): Adds agents mentioned in user query/focus directives
+           - Keyword matching on agent names (e.g., "seasonal" → SeasonalDecompositionAgent)
+    
+    Session State Inputs:
+        user_query: User's request text (for keyword matching)
+        original_request: Fallback request text
+        analysis_focus: List of focus directives (e.g., ["recent_monthly_trends"])
+        custom_focus: Custom focus text (sanitized, max 500 chars)
+    
+    Session State Outputs:
+        execution_plan: {
+            selected_agents: [{name, reasoning}]
+            summary: Human-readable plan summary
+            context_summary: {contract, periods, metrics}
+        }
+    
+    Example:
+        >>> # After planner runs:
+        >>> plan = ctx.session.state["execution_plan"]
+        >>> print(plan["selected_agents"])
+        >>> # [
+        >>> #   {"name": "StatisticalInsightsAgent", "reasoning": "Core analysis"},
+        >>> #   {"name": "HierarchyVarianceAgent", "reasoning": "Multi-level drill-down"},
+        >>> #   {"name": "SeasonalDecompositionAgent", "reasoning": "24+ periods available"}
+        >>> # ]
+    
+    Note:
+        - This is a "rule-based planner" — no LLM calls
+        - USE_CODE_INSIGHTS env var controls whether to use this or LLM planner
+        - Plans are deterministic and reproducible
+        - Keyword matching is case-insensitive substring search
+        - Invalid agent names (not in AVAILABLE_AGENTS) are ignored
     """
 
     def __init__(self):
@@ -69,16 +119,11 @@ class RuleBasedPlanner(BaseAgent):
             or ctx.session.state.get("original_request")
             or ""
         )
-        analysis_focus = ctx.session.state.get("analysis_focus") or []
-        custom_focus = ctx.session.state.get("custom_focus") or ""
+        analysis_focus = get_focus_modes(ctx.session.state)
+        custom_focus = get_custom_focus(ctx.session.state)
 
-        focus_text = ""
-        if isinstance(analysis_focus, list) and analysis_focus:
-            focus_text += " " + " ".join(str(x) for x in analysis_focus if x)
-        if isinstance(custom_focus, str) and custom_focus.strip():
-            focus_text += " " + custom_focus.strip()
-
-        combined = (user_query or "") + focus_text
+        focus_blob = focus_search_text(ctx.session.state)
+        combined = " ".join(v for v in [user_query, focus_blob] if v).strip()
         if combined.strip():
             recommended = refine_plan(recommended, combined)
 
@@ -114,6 +159,34 @@ class RuleBasedPlanner(BaseAgent):
 
 
 # LLM fallback agent (used when USE_CODE_INSIGHTS=false)
+
+class FocusAwarePlannerAgent(BaseAgent):
+    """Wraps the LLM planner so focus directives reach the prompt context."""
+
+    def __init__(self, wrapped_agent: Agent):
+        super().__init__(name="planner_agent")
+        self._wrapped = wrapped_agent
+        self.output_key = getattr(wrapped_agent, "output_key", "execution_plan")
+        self.description = getattr(wrapped_agent, "description", "")
+        self._base_instruction = getattr(wrapped_agent, "instruction", PLANNER_INSTRUCTION)
+
+    def __getattr__(self, item):
+        if item in {"output_key", "description"}:
+            return getattr(self, item)
+        return getattr(self._wrapped, item)
+
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        instruction = augment_instruction(
+            self._base_instruction,
+            ctx.session.state,
+            suffix="Prioritize or de-prioritize agents accordingly.",
+        )
+        self._wrapped.instruction = instruction
+
+        async for event in self._wrapped.run_async(ctx):
+            yield event
+
+
 _llm_planner = Agent(
     model=get_agent_model("planner_agent"),
     name="planner_agent",
@@ -128,7 +201,7 @@ _llm_planner = Agent(
     ),
 )
 
-root_agent = RuleBasedPlanner() if USE_CODE_INSIGHTS else _llm_planner
+root_agent = RuleBasedPlanner() if USE_CODE_INSIGHTS else FocusAwarePlannerAgent(_llm_planner)
 
 print(
     f"[Planner] Using "

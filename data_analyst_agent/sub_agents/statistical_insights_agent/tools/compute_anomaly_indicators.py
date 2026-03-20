@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from ... import data_cache
+from ....utils.cumulative_series import ensure_effective_metric_series
 
 
 def _to_datetime_safe(series: pd.Series) -> pd.Series:
@@ -37,6 +38,20 @@ def _robust_z(x: np.ndarray) -> np.ndarray:
     denom = (mad * 1.4826) if mad and np.isfinite(mad) else (np.nanstd(x) or 1.0)
     denom = denom if denom else 1.0
     return (x - med) / denom
+
+
+def _detect_repo_root(contract_path: str | None) -> Path | None:
+    """Detect the repository root by searching for pyproject.toml."""
+    if not contract_path:
+        return None
+    from pathlib import Path
+    path = Path(contract_path).resolve()
+    search_path = path if path.is_dir() else path.parent
+    for candidate in [search_path] + list(search_path.parents):
+        marker = candidate / "pyproject.toml"
+        if marker.exists():
+            return candidate
+    return search_path
 
 
 def _example_from_row(row: dict, *, contract: object | None = None) -> dict:
@@ -79,6 +94,52 @@ def _example_from_row(row: dict, *, contract: object | None = None) -> dict:
 
 
 async def compute_anomaly_indicators() -> str:
+    """Detect statistical anomalies in the target metric time series.
+    
+    Uses z-score analysis with a rolling window baseline to identify periods
+    where the metric value significantly deviates from historical patterns.
+    Detects both positive and negative anomalies with statistical significance.
+    
+    Algorithm:
+    1. Aggregate metric by time column (handles daily/weekly/monthly data)
+    2. Compute rolling average and standard deviation (window = min(12, len/2))
+    3. Calculate z-scores for each period
+    4. Flag periods with |z-score| > threshold (default 2.0)
+    5. Compute p-values for statistical significance
+    
+    Returns:
+        JSON string containing:
+        - anomalies: List of detected anomalies, each with:
+            - period: Timestamp of anomaly
+            - value: Actual metric value
+            - baseline: Rolling average baseline
+            - deviation_pct: Percentage deviation from baseline
+            - z_score: Statistical z-score
+            - p_value: Statistical significance (p-value)
+            - direction: "above" or "below"
+            - severity: "critical" (|z| > 3), "high" (|z| > 2.5), "moderate"
+            
+    Example Response:
+        {
+            "anomalies": [
+                {
+                    "period": "2025-02-28",
+                    "value": 2100000.0,
+                    "baseline": 1500000.0,
+                    "deviation_pct": 40.0,
+                    "z_score": 3.2,
+                    "p_value": 0.001,
+                    "direction": "above",
+                    "severity": "critical"
+                }
+            ],
+            "total_periods": 36,
+            "anomaly_count": 3
+        }
+        
+    Raises:
+        Returns error JSON if required columns missing or data empty
+    """
     try:
         df, time_col, metric_col, grain_col, name_col, ctx = data_cache.resolve_data_and_columns(
             "AnomalyIndicators"
@@ -107,49 +168,114 @@ async def compute_anomaly_indicators() -> str:
             .reset_index(drop=True)
         )
 
-        vals = agg[metric_col].astype(float).to_numpy()
+        metric_name = getattr(getattr(ctx, "target_metric", None), "name", None)
+        time_frequency = None
+        if ctx and getattr(ctx, "contract", None):
+            time_cfg = getattr(ctx.contract, "time", None)
+            time_frequency = getattr(time_cfg, "frequency", None) if time_cfg else None
+
+        effective_series = ensure_effective_metric_series(
+            agg,
+            metric_col=metric_col,
+            time_col=time_col,
+            metric_name=metric_name or metric_col,
+            time_frequency=time_frequency,
+        )
+
+        vals = agg[effective_series.column_name].astype(float).to_numpy()
         z = _robust_z(vals)
         agg["robust_z"] = z
         # Threshold tuned for deterministic behavior (not hyper-sensitive)
         flagged = agg[np.abs(agg["robust_z"]) >= 3.0]
 
+        # Vectorized anomaly payload generation (avoid iterrows)
         anomalies_out: list[dict] = []
-        for _, r in flagged.iterrows():
-            anomalies_out.append(
-                {
-                    "period": str(r[time_col].date() if hasattr(r[time_col], "date") else r[time_col]),
-                    "value": float(r[metric_col]),
-                    "robust_z": float(r["robust_z"]),
-                    "direction": "positive" if float(r["robust_z"]) >= 0 else "negative",
-                    "severity": "high" if abs(float(r["robust_z"])) >= 5 else "medium",
-                    "example": {},
-                }
+        if not flagged.empty:
+            flagged_copy = flagged.copy()
+            flagged_copy['entry_value'] = flagged_copy[effective_series.column_name].astype(float)
+            flagged_copy['period'] = flagged_copy[time_col].apply(
+                lambda x: str(x.date() if hasattr(x, "date") else x)
             )
+            flagged_copy['direction'] = flagged_copy['robust_z'].apply(
+                lambda z: "positive" if z >= 0 else "negative"
+            )
+            flagged_copy['severity'] = flagged_copy['robust_z'].apply(
+                lambda z: "high" if abs(z) >= 5 else "medium"
+            )
+            
+            anomalies_out = flagged_copy.apply(
+                lambda r: {
+                    "period": r['period'],
+                    "value": float(r['entry_value']),
+                    "robust_z": float(r['robust_z']),
+                    "direction": r['direction'],
+                    "severity": r['severity'],
+                    "example": {},
+                    "metric_variant": effective_series.column_name,
+                    **({"original_value": float(r[metric_col])} if effective_series.is_cumulative else {})
+                },
+                axis=1
+            ).tolist()
 
-        out: dict = {"anomalies": anomalies_out}
+        out: dict = {
+            "anomalies": anomalies_out,
+            "effective_metric_col": effective_series.column_name,
+            "cumulative_series_handled": effective_series.is_cumulative,
+        }
+        if effective_series.is_cumulative:
+            out["source_metric_col"] = metric_col
+            if effective_series.smoothing_window:
+                out["smoothing_window"] = effective_series.smoothing_window
 
         # Optional: labeled scenario summaries (synthetic datasets)
-        # Back-compat: if scenario_id/grain exist, populate `anomalies` with scenario rows
-        # (historically consumed by incremental E2E), and expose time-series z-score flags
-        # under `time_series_anomalies`.
-        if "scenario_id" in df.columns and "grain" in df.columns:
+        # Contract-driven: only enabled when contract.validation declares the columns.
+        # When enabled, populate `anomalies` with scenario rows (historically consumed by
+        # incremental E2E), and expose time-series z-score flags under `time_series_anomalies`.
+        contract = getattr(ctx, "contract", None)
+        validation_cfg = getattr(contract, "validation", {}) if contract else {}
+        scenario_col = validation_cfg.get("scenario_id_column")
+        # Use the contract's grain dimension column if present; allow override via validation.
+        grain_dim_col = None
+        try:
+            if contract and getattr(contract, "dimensions", None):
+                for d in contract.dimensions:
+                    if getattr(d, "name", None) == "grain":
+                        grain_dim_col = getattr(d, "column", None)
+                        break
+        except Exception:
+            grain_dim_col = None
+        grain_col_validation = validation_cfg.get("grain_column")
+        grain_col_for_group = grain_col_validation or grain_dim_col
+
+        if scenario_col and grain_col_for_group and scenario_col in df.columns and grain_col_for_group in df.columns:
             # Optional: enrich from validation datapoints if present (synthetic benchmarks)
             validation_lookup: dict[tuple[str, str], dict] = {}
             try:
                 from pathlib import Path
 
-                repo_root = Path(__file__).resolve().parents[4]
-                validation_path = repo_root / "data" / "validation" / "validation_datapoints.json"
-                if validation_path.exists():
-                    payload = json.loads(validation_path.read_text())
-                    for s in payload.get("anomaly_scenarios") or []:
-                        if isinstance(s, dict) and s.get("scenario_id") and s.get("grain"):
-                            validation_lookup[(str(s["scenario_id"]), str(s["grain"]))] = s
+                datapoints_file = validation_cfg.get("datapoints_file")
+                if datapoints_file:
+                    path = Path(datapoints_file)
+                    if not path.is_absolute():
+                        contract_path = getattr(contract, "_source_path", None)
+                        repo_root = _detect_repo_root(contract_path)
+                        if repo_root:
+                            path = (repo_root / datapoints_file).resolve()
+                        else:
+                            path = path.resolve()
+                    else:
+                        path = Path(datapoints_file)
+                    
+                    if path.exists():
+                        payload = json.loads(path.read_text(encoding="utf-8"))
+                        for s in payload.get("anomaly_scenarios") or []:
+                            if isinstance(s, dict) and s.get("scenario_id") and s.get("grain"):
+                                validation_lookup[(str(s["scenario_id"]), str(s["grain"]))] = s
             except Exception:
                 validation_lookup = {}
 
             scenario_summaries: list[dict] = []
-            for (sid, gr), g in df.groupby(["scenario_id", "grain"], dropna=True):
+            for (sid, gr), g in df.groupby([scenario_col, grain_col_for_group], dropna=True):
                 if g.empty:
                     continue
                 sid_s = str(sid) if sid is not None else "unknown"

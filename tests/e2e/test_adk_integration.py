@@ -9,8 +9,16 @@ Per Ty's instruction: commit per class.
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _assert_no_deprecated_sync_warning(caplog: pytest.LogCaptureFixture):
+    caplog.clear()
+    yield
+    assert "Please migrate to the async method" not in caplog.text
 
 
 def _make_user_content(text: str):
@@ -110,7 +118,7 @@ class TestSessionStateFlow:
         from data_analyst_agent.core_agents.loaders import ContractLoader, DateInitializer
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -154,7 +162,7 @@ class TestDataFetchPipeline:
         from data_analyst_agent.agent import data_fetch_workflow
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -270,7 +278,7 @@ class TestAnalysisPipelineIntegration:
         from data_analyst_agent.agent import data_fetch_workflow, target_analysis_pipeline
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -346,9 +354,11 @@ class TestAnalysisPipelineIntegration:
 @pytest.mark.e2e
 class TestFullPipelineOrchestration:
     @pytest.mark.asyncio
-    async def test_root_agent_run_async_completes_with_report_and_alerts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_root_agent_run_async_completes_with_report_and_alerts(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.setenv("ACTIVE_DATASET", "trade_data")
         monkeypatch.setenv("DATA_ANALYST_TEST_MODE", "false")
+        run_dir = tmp_path / "outputs"
+        monkeypatch.setenv("DATA_ANALYST_OUTPUT_DIR", str(run_dir))
 
         _install_global_llm_stub(monkeypatch)
 
@@ -357,7 +367,7 @@ class TestFullPipelineOrchestration:
         from data_analyst_agent.agent import root_agent
 
         svc = InMemorySessionService()
-        session = svc.create_session_sync(
+        session = await svc.create_session(
             app_name="data-analyst-agent",
             user_id="test-user",
             state={
@@ -379,3 +389,22 @@ class TestFullPipelineOrchestration:
         # Ensure no error-shaped payloads
         bad_keys = [k for k, v in session.state.items() if isinstance(v, dict) and v.get("error")]
         assert not bad_keys, f"Found error payloads in keys: {bad_keys}"
+
+        stub_markers = (
+            "Stub Report",
+            "Stub action with specificity",
+            "Stub narrative (LLM disabled)",
+        )
+        for marker in stub_markers:
+            assert marker not in report, f"Stub marker '{marker}' leaked into session report_markdown"
+
+        assert run_dir.exists(), "DATA_ANALYST_OUTPUT_DIR was not created"
+        md_files = list(run_dir.rglob("*.md"))
+        assert md_files, "Expected markdown outputs in DATA_ANALYST_OUTPUT_DIR"
+        for md_file in md_files:
+            text = md_file.read_text(encoding="utf-8")
+            for marker in stub_markers:
+                assert marker not in text, f"Stub marker '{marker}' leaked into {md_file}"
+
+        brief_path = run_dir / "brief.md"
+        assert brief_path.exists(), "Executive brief markdown missing"
