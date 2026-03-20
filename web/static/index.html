@@ -353,13 +353,22 @@
             <span class="step-title">General Settings</span>
             <span class="step-toggle">▼</span>
           </div>
-          <div class="form-step-content" id="editor-general">
+          <div class="form-step-content collapsed" id="editor-general">
             <div class="form-grid">
               <div class="form-group"><label>Display Name</label><input type="text" id="ed-display-name"></div>
               <div class="form-group"><label>Description</label><input type="text" id="ed-description"></div>
-              <div class="form-group"><label>Variance % Threshold</label><input type="number" id="ed-variance-pct" step="0.1"></div>
-              <div class="form-group"><label>Max Drill Depth</label><input type="number" id="ed-max-depth" min="1" max="10"></div>
-              <div class="form-group"><label>Brief Drill Levels</label><input type="number" id="ed-brief-levels" min="0" max="5"></div>
+              <div class="form-group">
+                <label>Variance % Threshold <span class="tooltip-trigger" data-tooltip="Minimum % change to consider material. Variances below this are filtered out of insight cards.">ⓘ</span></label>
+                <input type="number" id="ed-variance-pct" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>Max Drill Depth <span class="tooltip-trigger" data-tooltip="How many hierarchy levels to drill into (Region → Terminal → Driver Manager = 3 levels).">ⓘ</span></label>
+                <input type="number" id="ed-max-depth" min="1" max="10">
+              </div>
+              <div class="form-group">
+                <label>Brief Drill Levels <span class="tooltip-trigger" data-tooltip="How many hierarchy levels get their own scoped executive brief (0 = network only, 2 = network + regions + terminals).">ⓘ</span></label>
+                <input type="number" id="ed-brief-levels" min="0" max="5">
+              </div>
               <div class="form-group"><label>Output Format</label>
                 <select id="ed-output-format"><option value="pdf">PDF</option><option value="md">Markdown</option><option value="both">Both</option></select>
               </div>
@@ -384,7 +393,7 @@
         <div class="form-step">
           <div class="form-step-header" onclick="toggleStep('editor-dimensions')">
             <span class="step-number">3</span>
-            <span class="step-title">Dimensions</span>
+            <span class="step-title">Dimensions <span class="tooltip-trigger" data-tooltip="Primary dimensions are used for drill-down hierarchies and filtering. Secondary dimensions are available for analysis but not default drill-down targets.">ⓘ</span></span>
             <span class="step-summary" id="editor-dimensions-summary"></span>
             <span class="step-toggle">▼</span>
           </div>
@@ -417,8 +426,8 @@
             <p style="color:#8b949e;font-size:0.85em;margin-bottom:1em">Save preferred settings that auto-populate when this dataset is selected</p>
             <div class="form-grid">
               <div class="form-group full">
-                <label>Default Metrics (comma-separated names)</label>
-                <input type="text" id="ed-default-metrics" placeholder="ttl_rev_amt, lh_rev_amt, dh_miles">
+                <label>Default Metrics</label>
+                <div class="checkbox-group" id="ed-default-metrics-checkboxes"></div>
               </div>
               <div class="form-group full">
                 <label>Default Analysis Focus</label>
@@ -462,8 +471,8 @@
         </div>
 
         <div class="actions" style="margin-top:1.5em">
-          <button class="btn btn-primary" onclick="saveContract()">Save Contract</button>
-          <button class="btn btn-secondary" onclick="saveDefaults()">Save Defaults</button>
+          <button class="btn btn-primary" onclick="saveAll()">Save All Changes</button>
+          <button class="btn btn-secondary" onclick="loadContractEditor()">Revert to Saved</button>
         </div>
       </div>
     </div>

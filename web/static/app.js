@@ -1003,20 +1003,31 @@ async function loadContractEditor() {
   document.getElementById('ed-brief-levels').value = (editorContract.reporting || {}).executive_brief_drill_levels || 0;
   document.getElementById('ed-output-format').value = (editorContract.reporting || {}).output_format || 'pdf';
 
-  // Metrics
+  // Metrics — grouped by category
   const ml = document.getElementById('ed-metrics-list');
   const metrics = editorContract.metrics || [];
   document.getElementById('editor-metrics-summary').textContent = `${metrics.length} metrics`;
-  ml.innerHTML = metrics.map((m, i) => `
-    <div class="detect-item">
-      <span class="item-name">${escapeHtml(m.display_name || m.name)}</span>
-      <span class="item-detail">${escapeHtml(m.brief_category || '')} | ${m.format || ''} | ${m.optimization || ''}</span>
-      <input type="text" value="${escapeHtml(m.brief_label || m.display_name || m.name)}" style="max-width:120px"
-        onchange="editorContract.metrics[${i}].brief_label=this.value">
-      <select style="max-width:130px" onchange="editorContract.metrics[${i}].brief_category=this.value">
-        ${['Revenue / yield','Network efficiency','Volume','Productivity','Capacity','Operations'].map(c =>
-          `<option ${m.brief_category===c?'selected':''}>${c}</option>`).join('')}
-      </select>
+  const metricsByCat = {};
+  metrics.forEach((m, i) => {
+    const cat = m.brief_category || 'Other';
+    if (!metricsByCat[cat]) metricsByCat[cat] = [];
+    metricsByCat[cat].push({ ...m, _idx: i });
+  });
+  ml.innerHTML = Object.entries(metricsByCat).map(([cat, items]) => `
+    <div style="margin-bottom:1em">
+      <div style="font-size:0.8em;color:#58a6ff;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5em;padding-bottom:0.3em;border-bottom:1px solid #21262d">${escapeHtml(cat)} (${items.length})</div>
+      ${items.map(m => `
+        <div class="detect-item">
+          <span class="item-name" style="min-width:160px">${escapeHtml(m.display_name || m.name)}</span>
+          <span class="item-type">${m.format || 'float'}</span>
+          <span class="item-type" style="background:${m.optimization==='minimize'?'#2d1016':'#0d2818'};color:${m.optimization==='minimize'?'#f85149':'#3fb950'}">${m.optimization || 'maximize'}</span>
+          <input type="text" value="${escapeHtml(m.brief_label || m.display_name || m.name)}" style="max-width:140px"
+            onchange="editorContract.metrics[${m._idx}].brief_label=this.value" title="Brief label">
+          <select style="max-width:140px" onchange="editorContract.metrics[${m._idx}].brief_category=this.value" title="Category">
+            ${['Revenue / yield','Network efficiency','Volume','Productivity','Capacity','Operations'].map(c =>
+              `<option ${m.brief_category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>`).join('')}
     </div>`).join('');
 
   // Dimensions
@@ -1025,13 +1036,13 @@ async function loadContractEditor() {
   document.getElementById('editor-dimensions-summary').textContent = `${dims.length} dimensions`;
   dl.innerHTML = dims.map((d, i) => `
     <div class="detect-item">
-      <span class="item-name">${escapeHtml(d.display_name || d.name)}</span>
-      <span class="item-detail">${d.column} | ${d.role || 'secondary'}</span>
-      <input type="text" value="${escapeHtml(d.display_name || d.name)}" style="max-width:150px"
-        onchange="editorContract.dimensions[${i}].display_name=this.value">
-      <select style="max-width:100px" onchange="editorContract.dimensions[${i}].role=this.value">
-        <option ${d.role==='primary'?'selected':''}>primary</option>
-        <option ${d.role==='secondary'?'selected':''}>secondary</option>
+      <span class="item-name" style="min-width:160px">${escapeHtml(d.display_name || d.name)}</span>
+      <span class="item-type">${d.role || 'secondary'}</span>
+      <input type="text" value="${escapeHtml(d.display_name || d.name)}" style="max-width:160px"
+        onchange="editorContract.dimensions[${i}].display_name=this.value" title="Display name">
+      <select style="max-width:110px" onchange="editorContract.dimensions[${i}].role=this.value" title="Role: Primary = used in drill-down, Secondary = available for filtering">
+        <option value="primary" ${d.role==='primary'?'selected':''}>Primary</option>
+        <option value="secondary" ${d.role==='secondary'?'selected':''}>Secondary</option>
       </select>
     </div>`).join('');
 
@@ -1039,17 +1050,35 @@ async function loadContractEditor() {
   const kl = document.getElementById('ed-kpis-list');
   const kpis = editorContract.derived_kpis || [];
   document.getElementById('editor-kpis-summary').textContent = `${kpis.length} KPIs`;
-  kl.innerHTML = kpis.map(k => `
-    <div class="detect-item">
-      <span class="item-name">${escapeHtml(k.display_name || k.name)}</span>
-      <span class="item-detail">${k.numerator} / ${k.denominator}${k.multiply ? ' x' + k.multiply : ''}</span>
+  // Resolve display names for KPI formulas
+  const metricNameMap = {};
+  (editorContract.metrics || []).forEach(m => { metricNameMap[m.name] = m.display_name || m.brief_label || m.name; });
+  kl.innerHTML = kpis.map(k => {
+    const numName = metricNameMap[k.numerator] || k.numerator;
+    const denName = metricNameMap[k.denominator] || k.denominator;
+    const formula = `${numName} / ${denName}${k.multiply ? ' × ' + k.multiply : ''}`;
+    return `<div class="detect-item">
+      <span class="item-name" style="min-width:140px">${escapeHtml(k.display_name || k.brief_label || k.name)}</span>
+      <span class="item-detail">${escapeHtml(formula)}</span>
       <span class="item-type">${k.format || 'float'}</span>
-    </div>`).join('') || '<p style="color:#8b949e;padding:0.5em">No derived KPIs defined</p>';
+      <span class="item-type" style="background:#1f2937;color:#8b949e">system-managed</span>
+    </div>`;
+  }).join('') || '<p style="color:#8b949e;padding:0.5em">No derived KPIs defined</p>';
 
   // Load defaults
   const dRes = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`);
   const defaults = dRes.ok ? await dRes.json() : {};
-  document.getElementById('ed-default-metrics').value = (defaults.metrics || []).join(', ');
+  const defaultMetrics = defaults.metrics || [];
+
+  // Render default metrics as checkboxes
+  const dmContainer = document.getElementById('ed-default-metrics-checkboxes');
+  if (dmContainer) {
+    dmContainer.innerHTML = (editorContract.metrics || []).map(m => {
+      const checked = defaultMetrics.includes(m.name) ? 'checked' : '';
+      return `<label><input type="checkbox" name="ed-default-metric" value="${m.name}" ${checked}> ${escapeHtml(m.display_name || m.name)}</label>`;
+    }).join('');
+  }
+
   document.getElementById('ed-default-period').value = defaults.period_type || '';
   document.getElementById('ed-default-brief').value = defaults.brief_style || 'ceo';
   document.querySelectorAll('#ed-default-focus input').forEach(cb => {
@@ -1072,14 +1101,14 @@ async function saveContract() {
   const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/contract`, {
     method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(editorContract)
   });
-  if (res.ok) alert('Contract saved!'); else alert('Failed to save contract');
+  return res.ok;
 }
 
 async function saveDefaults() {
   const id = document.getElementById('editor-dataset-select').value;
   if (!id) return;
   const defaults = {
-    metrics: document.getElementById('ed-default-metrics').value.split(',').map(s => s.trim()).filter(Boolean),
+    metrics: [...document.querySelectorAll('input[name="ed-default-metric"]:checked')].map(cb => cb.value),
     focus: [...document.querySelectorAll('#ed-default-focus input:checked')].map(cb => cb.value),
     period_type: document.getElementById('ed-default-period').value,
     brief_style: document.getElementById('ed-default-brief').value,
@@ -1087,7 +1116,16 @@ async function saveDefaults() {
   const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`, {
     method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(defaults)
   });
-  if (res.ok) alert('Defaults saved!'); else alert('Failed to save defaults');
+  return res.ok;
+}
+
+async function saveAll() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id) return;
+  const contractOk = await saveContract().then(() => true).catch(() => false);
+  const defaultsOk = await saveDefaults();
+  if (contractOk && defaultsOk) alert('All changes saved!');
+  else alert('Some changes may not have saved. Please check and try again.');
 }
 
 
