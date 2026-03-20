@@ -44,6 +44,10 @@ async function onDatasetChange() {
   currentContract = await res.json();
   const c = currentContract;
 
+  // Load saved defaults (from editor's "Analysis Defaults" section)
+  const dRes = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`);
+  const savedDefaults = dRes.ok ? await dRes.json() : {};
+
   // Description
   const descEl = document.getElementById('dataset-description');
   const infoEl = document.getElementById('dataset-info');
@@ -63,8 +67,10 @@ async function onDatasetChange() {
     if (!metricsByCategory[cat]) metricsByCategory[cat] = [];
     metricsByCategory[cat].push(m);
   });
-  // Default to top 8 metrics checked (not all)
-  const defaultMetrics = (c.metrics || []).slice(0, 8).map(m => m.name);
+  // Use saved defaults if available, otherwise fall back to top 8 metrics
+  const defaultMetrics = (savedDefaults.metrics && savedDefaults.metrics.length > 0)
+    ? savedDefaults.metrics
+    : (c.metrics || []).slice(0, 8).map(m => m.name);
   for (const [cat, metrics] of Object.entries(metricsByCategory)) {
     const catDiv = document.createElement('div');
     catDiv.className = 'metrics-group-category';
@@ -99,6 +105,17 @@ async function onDatasetChange() {
   // Frequency (optional element)
   const freqEl = document.getElementById('frequency');
   if (freqEl) freqEl.value = (c.time || {}).frequency || 'unknown';
+
+  // Apply saved defaults for period type, brief style, and focus
+  const periodEl = document.getElementById('period-type');
+  if (periodEl && savedDefaults.period_type) periodEl.value = savedDefaults.period_type;
+  const briefEl = document.getElementById('brief-style');
+  if (briefEl && savedDefaults.brief_style) briefEl.value = savedDefaults.brief_style;
+  if (savedDefaults.focus && savedDefaults.focus.length > 0) {
+    document.querySelectorAll('input[name="focus"]').forEach(cb => {
+      cb.checked = savedDefaults.focus.includes(cb.value);
+    });
+  }
 
   document.getElementById('run-btn').disabled = false;
   activeDimFilters = {};
