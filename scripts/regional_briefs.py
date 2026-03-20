@@ -372,19 +372,27 @@ def generate_brief(scope_name, scope_insights, scope_totals):
         f"THESIS: {curated.get('quality_assessment', 'mixed')} -- {curated.get('narrative_thesis', '')}\n\n"
         f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in scope_totals.items())
         + f"\n\nCURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
-        + "\n\nRULES:\n"
-        "- bottom_line: MUST include absolute revenue $ amount AND WoW % in the FIRST sentence.\n"
-        "  GOOD: 'Revenue fell to $2.0M (-6.9% WoW)'\n"
-        "  BAD: 'Revenue collapsed 6.9% this week'\n"
-        "- what_moved: Fragments not sentences. Use KPIs from TOTALS section ONLY\n"
-        "  If a KPI like LRPM appears in the TOTALS section, USE IT. If it does not appear, omit it entirely.\n"
-        "- trend_status: MUST include duration ('13 weeks', '3 straight weeks'). Never just 'is a persistent issue'\n"
-        "- where_it_came_from drag: Name the PERSON or TERMINAL causing the problem, never the scope itself\n"
-        "  BAD: 'Drag: Richmond Terminal — revenue -13.4%'\n"
-        "  GOOD: 'Drag: Driver Manager DYSKC — revenue -89.0%, worst performer at Richmond'\n"
-        "- why_it_matters: Do NOT reuse 'burning cash on empty miles' or 'double-hit'. Each scope needs a unique mechanism\n"
-        "- next_week_outlook: UNIQUE to this scope. Name the specific trigger and consequence\n"
-        "- leadership_focus: exactly 3 items. Name driver managers at terminal level\n"
+        + "\n\nRULES (RESPONSE REJECTED IF VIOLATED):\n"
+        "- bottom_line: First sentence MUST have absolute $ AND WoW %. Second sentence = the 'but' quality insight.\n"
+        "- what_moved: EXACTLY 4 items. Each MUST be a DIFFERENT category from this list:\n"
+        "  1. Revenue / yield (LRPM, LH revenue, total revenue)\n"
+        "  2. Network efficiency (deadhead costs, deadhead %)\n"
+        "  3. Volume (orders, order miles, revenue orders)\n"
+        "  4. Productivity or Capacity (loaded miles, truck count, miles/truck)\n"
+        "  NEVER use the same metric in two items. NEVER put revenue under 'Capacity'.\n"
+        "  Fragments only. No commentary — just value, change, context.\n"
+        "- trend_status: EXACTLY 3 items. Each MUST include duration ('for 13 weeks', '3 straight weeks', 'since December').\n"
+        "  13+ weeks = 'persistent issue'. 2-4 weeks = 'developing trend'. 1 week = 'one-week noise'. Use these EXACT classifications.\n"
+        "- where_it_came_from:\n"
+        "  positive: MUST be a metric that ACTUALLY IMPROVED (went up if maximize, down if minimize). If nothing improved, write 'None — all key metrics deteriorated'\n"
+        "  drag: Name the specific TERMINAL or DRIVER MANAGER, not the scope.\n"
+        "- why_it_matters: 1 sentence. Name the SPECIFIC mechanism for THIS scope. MUST be different from every other section.\n"
+        "  BANNED phrases: 'burning cash', 'margin erosion', 'double-hit', 'negative operating leverage', 'negative feedback loop', 'absorb empty miles'\n"
+        "  Each scope must identify its OWN unique earnings threat.\n"
+        "- next_week_outlook: 1-2 sentences. UNIQUE trigger + consequence for THIS scope only.\n"
+        "- leadership_focus: EXACTLY 3 items. DECISIONS not audits.\n"
+        "  BAD: 'Mandate an audit of lane profitability'\n"
+        "  GOOD: 'Pull WORRE off underperforming lanes immediately'\n"
     )
     r3 = client.models.generate_content(model=args.model, contents=s3_input,
         config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
@@ -629,6 +637,7 @@ for terminal, tdata in top_terminals:
         scope_prompt = prompt + (
             f"\n\nSCOPE: This brief covers {terminal} terminal ({rgn} region) ONLY.\n"
             f"Name specific driver managers in leadership actions.\n"
+            f"This terminal is part of the {rgn} region. Connect your narrative to the regional story.\n"
         )
 
         clean = [{k: v for k, v in e.items() if not k.startswith("_")} for e in terminal_insights]
@@ -654,16 +663,19 @@ for terminal, tdata in top_terminals:
             f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in terminal_totals.items())
             + f"\n\nDRIVER MANAGERS AT {terminal.upper()}:\n{dm_block}\n"
             + f"CURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
-            + "\n\nRULES:\n"
-            "- bottom_line: MUST start with this terminal's data from TOTALS. Do NOT use network totals.\n"
-            f"  If revenue is in TOTALS: 'Revenue fell to $X (-Y% WoW)'\n"
-            f"  If revenue is NOT in TOTALS: lead with the most significant metric available (orders, miles, etc.)\n"
-            f"  NEVER reference $25.9M — that is the network total, not this terminal.\n"
-            "- what_moved: Fragments. Use KPIs from TOTALS only. If LRPM not in TOTALS, omit it.\n"
-            "- trend_status: Include duration ('13 weeks', '3 straight weeks')\n"
-            "- where_it_came_from drag: Name the DRIVER MANAGER, not the terminal itself\n"
-            "- why_it_matters: Unique mechanism for this terminal\n"
-            "- leadership_focus: 3 items. Name driver managers.\n"
+            + "\n\nRULES (RESPONSE REJECTED IF VIOLATED):\n"
+            f"- bottom_line: First sentence MUST use this terminal's revenue from TOTALS (NOT $25.9M network total). Second sentence = quality insight.\n"
+            "- what_moved: EXACTLY 4 items, each a DIFFERENT category. Fragments only. Use TOTALS KPIs.\n"
+            "- trend_status: EXACTLY 3 items with duration ('for 13 weeks', '3 straight weeks').\n"
+            "  13+ weeks = persistent issue. 2-4 weeks = developing trend. 1 week = one-week noise.\n"
+            "- where_it_came_from:\n"
+            "  positive: Only if a metric ACTUALLY IMPROVED. If nothing improved, 'None — all key metrics deteriorated'\n"
+            "  drag: Name the DRIVER MANAGER causing the problem, not the terminal.\n"
+            "- why_it_matters: UNIQUE mechanism. BANNED: 'burning cash', 'margin erosion', 'double-hit', 'negative operating leverage', 'negative feedback loop', 'absorb empty miles'\n"
+            "- next_week_outlook: UNIQUE to this terminal. Specific trigger + consequence.\n"
+            "- leadership_focus: EXACTLY 3 items. DECISIONS not audits. Name driver managers.\n"
+            "  GOOD: 'Pull WORRE off underperforming lanes immediately'\n"
+            "  BAD: 'Mandate an audit of WORRE performance'\n"
         )
         r3 = client.models.generate_content(model=args.model, contents=s3_input,
             config=types.GenerateContentConfig(system_instruction=scope_prompt, response_modalities=["TEXT"],
