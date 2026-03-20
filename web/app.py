@@ -216,6 +216,171 @@ async def api_dimension_values(dataset_id: str, column: str):
         except Exception as e:
             raise HTTPException(500, f"Failed to read dimension values: {str(e)}")
 
+# ---- Contract Editor APIs ----
+
+@app.get("/api/datasets/{dataset_id:path}/contract/raw")
+async def api_get_contract_raw(dataset_id: str):
+    """Return raw contract YAML as text for editing."""
+    try:
+        contract = contract_loader.load_contract(dataset_id)
+        return contract
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.put("/api/datasets/{dataset_id:path}/contract")
+async def api_save_contract(dataset_id: str, req: Request):
+    """Save updated contract YAML."""
+    import re as _re
+    import yaml
+    from pathlib import Path as _Path
+
+    if ".." in dataset_id:
+        raise HTTPException(400, "Invalid dataset ID")
+
+    body = await req.json()
+    project_root = _Path(__file__).resolve().parent.parent
+    contract_path = project_root / "config" / "datasets" / dataset_id / "contract.yaml"
+
+    if not contract_path.parent.exists():
+        contract_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Backup existing
+    if contract_path.exists():
+        backup = contract_path.with_suffix(".yaml.bak")
+        import shutil
+        shutil.copy2(contract_path, backup)
+
+    with open(contract_path, "w", encoding="utf-8") as f:
+        yaml.dump(body, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    return {"status": "ok", "path": str(contract_path)}
+
+
+@app.get("/api/datasets/{dataset_id:path}/defaults")
+async def api_get_defaults(dataset_id: str):
+    """Get saved analysis defaults for a dataset."""
+    import yaml
+    from pathlib import Path as _Path
+    project_root = _Path(__file__).resolve().parent.parent
+    defaults_path = project_root / "config" / "datasets" / dataset_id / "defaults.yaml"
+    if defaults_path.exists():
+        with open(defaults_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+
+@app.put("/api/datasets/{dataset_id:path}/defaults")
+async def api_save_defaults(dataset_id: str, req: Request):
+    """Save analysis defaults for a dataset."""
+    import yaml
+    from pathlib import Path as _Path
+    body = await req.json()
+    project_root = _Path(__file__).resolve().parent.parent
+    defaults_path = project_root / "config" / "datasets" / dataset_id / "defaults.yaml"
+    defaults_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(defaults_path, "w", encoding="utf-8") as f:
+        yaml.dump(body, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    return {"status": "ok"}
+
+
+# ---- Data Profile API ----
+
+@app.get("/api/datasets/{dataset_id:path}/profile")
+async def api_data_profile(dataset_id: str, sample_size: int = 1000):
+    """Sample data from the source and return a statistical profile."""
+    try:
+        contract = contract_loader.load_contract(dataset_id)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+    data_source = contract.get("data_source", {})
+    source_type = data_source.get("type", "csv")
+    file_path = data_source.get("file", "")
+
+    from pathlib import Path as _Path
+    project_root = _Path(__file__).resolve().parent.parent
+
+    try:
+        import pandas as pd
+        df = None
+
+        if source_type == "tableau_hyper":
+            import yaml
+            loader_path = project_root / "config" / "datasets" / dataset_id / "loader.yaml"
+            if loader_path.exists():
+                loader_cfg = yaml.safe_load(loader_path.read_text())
+                hyper_cfg = loader_cfg.get("hyper", {})
+                tdsx_path = _Path(hyper_cfg.get("tdsx_path", ".")) / hyper_cfg.get("tdsx_file", "")
+                if not tdsx_path.exists():
+                    tdsx_path = project_root / hyper_cfg.get("tdsx_path", ".") / hyper_cfg.get("tdsx_file", "")
+            else:
+                tdsx_path = _Path(file_path) if _Path(file_path).is_absolute() else project_root / file_path
+
+            import zipfile, tempfile, os
+            from tableauhyperapi import HyperProcess, Telemetry, Connection
+            os.makedirs("/tmp/hyper_logs_tableau", exist_ok=True)
+
+            with zipfile.ZipFile(str(tdsx_path)) as z:
+                hyper_files = [f for f in z.namelist() if f.endswith(".hyper")]
+                tmp = tempfile.mkdtemp()
+                z.extract(hyper_files[0], tmp)
+                hyper_path = _Path(tmp) / hyper_files[0]
+
+            with HyperProcess(telemetry=Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU,
+                              parameters={"log_dir": "/tmp/hyper_logs_tableau"}) as proc:
+                with Connection(proc.endpoint, str(hyper_path)) as conn:
+                    result = conn.execute_list_query(
+                        f'SELECT * FROM "Extract"."Extract" LIMIT {sample_size}'
+                    )
+                    table_def = conn.catalog.get_table_definition(
+                        conn.catalog.get_table_names("Extract")[0]
+                    )
+                    columns = [str(c.name) for c in table_def.columns]
+                    df = pd.DataFrame(result, columns=columns)
+        else:
+            full_path = (project_root / file_path).resolve()
+            if full_path.exists():
+                df = pd.read_csv(str(full_path), nrows=sample_size)
+
+        if df is None or df.empty:
+            return {"error": "No data loaded"}
+
+        # Build profile
+        profile = {
+            "row_count": len(df),
+            "column_count": len(df.columns),
+            "columns": [],
+            "sample_rows": df.head(5).to_dict(orient="records"),
+        }
+
+        for col in df.columns:
+            col_info = {
+                "name": col,
+                "dtype": str(df[col].dtype),
+                "non_null": int(df[col].notna().sum()),
+                "null_pct": round(df[col].isna().mean() * 100, 1),
+                "unique": int(df[col].nunique()),
+            }
+            if pd.api.types.is_numeric_dtype(df[col]):
+                col_info["type"] = "numeric"
+                col_info["min"] = float(df[col].min()) if df[col].notna().any() else None
+                col_info["max"] = float(df[col].max()) if df[col].notna().any() else None
+                col_info["mean"] = round(float(df[col].mean()), 2) if df[col].notna().any() else None
+                col_info["std"] = round(float(df[col].std()), 2) if df[col].notna().any() else None
+            else:
+                col_info["type"] = "categorical"
+                top_values = df[col].value_counts().head(10).to_dict()
+                col_info["top_values"] = {str(k): int(v) for k, v in top_values.items()}
+
+            profile["columns"].append(col_info)
+
+        return profile
+
+    except Exception as e:
+        raise HTTPException(500, f"Profiling failed: {str(e)}")
+
+
 # ---- Run APIs ----
 
 class RunRequest(BaseModel):
@@ -232,6 +397,7 @@ class RunRequest(BaseModel):
     end_date: str = ""
     period_type: str = ""
     brief_style: str = "ceo"
+    dimension_filters: dict[str, list[str]] = {}  # filter on any dimension, not just hierarchy
 
 
 @app.post("/api/runs")

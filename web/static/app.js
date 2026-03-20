@@ -101,6 +101,9 @@ async function onDatasetChange() {
   if (freqEl) freqEl.value = (c.time || {}).frequency || 'unknown';
 
   document.getElementById('run-btn').disabled = false;
+  activeDimFilters = {};
+  if (typeof populateDimFilterSelect === 'function') populateDimFilterSelect();
+  if (typeof renderActiveDimFilters === 'function') renderActiveDimFilters();
   if (typeof updateStepSummaries === 'function') updateStepSummaries();
 }
 
@@ -140,6 +143,7 @@ async function submitRun() {
     end_date: document.getElementById('end-date').value,
     period_type: document.getElementById('period-type')?.value || '',
     brief_style: document.getElementById('brief-style')?.value || 'ceo',
+    dimension_filters: getDimensionFilters(),
   };
 
   try {
@@ -887,5 +891,274 @@ function getHierarchyFilters() {
 }
 
 
+// --- Dimension Filters (independent of hierarchy) ---
+let activeDimFilters = {};
+
+function populateDimFilterSelect() {
+  const sel = document.getElementById('dim-filter-select');
+  if (!sel || !currentContract) return;
+  const dims = currentContract.dimensions || [];
+  sel.innerHTML = '<option value="">+ Add dimension filter...</option>';
+  dims.forEach(d => {
+    if (!activeDimFilters[d.column]) {
+      sel.innerHTML += `<option value="${d.column}">${escapeHtml(d.display_name || d.name)}</option>`;
+    }
+  });
+}
+
+async function onDimFilterSelect() {
+  const sel = document.getElementById('dim-filter-select');
+  const col = sel.value;
+  if (!col) return;
+
+  const dim = (currentContract.dimensions || []).find(d => d.column === col);
+  const displayName = dim ? (dim.display_name || dim.name) : col;
+
+  // Fetch values
+  const datasetId = document.getElementById('dataset-select').value;
+  let values = [];
+  try {
+    const res = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/dimension-values/${encodeURIComponent(col)}`);
+    if (res.ok) {
+      const data = await res.json();
+      values = data.values || [];
+    }
+  } catch {}
+
+  activeDimFilters[col] = { displayName, values, selected: new Set(), typed: '' };
+  sel.value = '';
+  populateDimFilterSelect();
+  renderActiveDimFilters();
+}
+
+function renderActiveDimFilters() {
+  const container = document.getElementById('active-dim-filters');
+  if (!container) return;
+  container.innerHTML = Object.entries(activeDimFilters).map(([col, f]) => {
+    const selectedBadge = f.selected.size > 0 ? ` (${f.selected.size} selected)` : '';
+    const valueOptions = f.values.slice(0, 25).map(v => {
+      const checked = f.selected.has(v) ? 'checked' : '';
+      return `<label style="display:inline-flex;gap:0.3em;margin:0.2em 0.4em;font-size:0.85em"><input type="checkbox" ${checked} onchange="toggleDimFilter('${col}','${v.replace(/'/g,"\\'")}',this.checked)"> ${escapeHtml(v)}</label>`;
+    }).join('');
+    return `
+      <div class="info-card" style="margin-top:0.5em;padding:0.8em">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:0.9em">${escapeHtml(f.displayName)}${selectedBadge}</strong>
+          <button class="btn btn-sm btn-secondary" onclick="removeDimFilter('${col}')" style="padding:0.2em 0.5em;font-size:0.75em">Remove</button>
+        </div>
+        <div style="margin-top:0.5em">
+          <input type="text" placeholder="Type a value and press Enter..." style="font-size:0.85em;margin-bottom:0.3em"
+            onkeydown="if(event.key==='Enter'){addTypedDimFilter('${col}',this.value);this.value=''}">
+          <div style="max-height:120px;overflow-y:auto">${valueOptions || '<span style="color:#8b949e;font-size:0.85em">Type a value above</span>'}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleDimFilter(col, val, checked) {
+  if (checked) activeDimFilters[col].selected.add(val);
+  else activeDimFilters[col].selected.delete(val);
+  renderActiveDimFilters();
+}
+function removeDimFilter(col) {
+  delete activeDimFilters[col];
+  populateDimFilterSelect();
+  renderActiveDimFilters();
+}
+function addTypedDimFilter(col, val) {
+  val = val.trim();
+  if (!val || !activeDimFilters[col]) return;
+  if (!activeDimFilters[col].values.includes(val)) activeDimFilters[col].values.unshift(val);
+  activeDimFilters[col].selected.add(val);
+  renderActiveDimFilters();
+}
+
+function getDimensionFilters() {
+  const filters = {};
+  for (const [col, f] of Object.entries(activeDimFilters)) {
+    if (f.selected.size > 0) filters[col] = [...f.selected];
+  }
+  return filters;
+}
+
+
+// --- Contract Editor ---
+let editorContract = null;
+
+async function loadContractEditor() {
+  const sel = document.getElementById('editor-dataset-select');
+  const id = sel.value;
+  if (!id) { document.getElementById('editor-content').style.display = 'none'; return; }
+
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/contract`);
+  if (!res.ok) { alert('Failed to load contract'); return; }
+  editorContract = await res.json();
+  document.getElementById('editor-content').style.display = 'block';
+
+  // General
+  document.getElementById('ed-display-name').value = editorContract.display_name || '';
+  document.getElementById('ed-description').value = editorContract.description || '';
+  document.getElementById('ed-variance-pct').value = (editorContract.materiality || {}).variance_pct || 5;
+  document.getElementById('ed-max-depth').value = (editorContract.reporting || {}).max_drill_depth || 3;
+  document.getElementById('ed-brief-levels').value = (editorContract.reporting || {}).executive_brief_drill_levels || 0;
+  document.getElementById('ed-output-format').value = (editorContract.reporting || {}).output_format || 'pdf';
+
+  // Metrics
+  const ml = document.getElementById('ed-metrics-list');
+  const metrics = editorContract.metrics || [];
+  document.getElementById('editor-metrics-summary').textContent = `${metrics.length} metrics`;
+  ml.innerHTML = metrics.map((m, i) => `
+    <div class="detect-item">
+      <span class="item-name">${escapeHtml(m.display_name || m.name)}</span>
+      <span class="item-detail">${escapeHtml(m.brief_category || '')} | ${m.format || ''} | ${m.optimization || ''}</span>
+      <input type="text" value="${escapeHtml(m.brief_label || m.display_name || m.name)}" style="max-width:120px"
+        onchange="editorContract.metrics[${i}].brief_label=this.value">
+      <select style="max-width:130px" onchange="editorContract.metrics[${i}].brief_category=this.value">
+        ${['Revenue / yield','Network efficiency','Volume','Productivity','Capacity','Operations'].map(c =>
+          `<option ${m.brief_category===c?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>`).join('');
+
+  // Dimensions
+  const dl = document.getElementById('ed-dimensions-list');
+  const dims = editorContract.dimensions || [];
+  document.getElementById('editor-dimensions-summary').textContent = `${dims.length} dimensions`;
+  dl.innerHTML = dims.map((d, i) => `
+    <div class="detect-item">
+      <span class="item-name">${escapeHtml(d.display_name || d.name)}</span>
+      <span class="item-detail">${d.column} | ${d.role || 'secondary'}</span>
+      <input type="text" value="${escapeHtml(d.display_name || d.name)}" style="max-width:150px"
+        onchange="editorContract.dimensions[${i}].display_name=this.value">
+      <select style="max-width:100px" onchange="editorContract.dimensions[${i}].role=this.value">
+        <option ${d.role==='primary'?'selected':''}>primary</option>
+        <option ${d.role==='secondary'?'selected':''}>secondary</option>
+      </select>
+    </div>`).join('');
+
+  // Derived KPIs
+  const kl = document.getElementById('ed-kpis-list');
+  const kpis = editorContract.derived_kpis || [];
+  document.getElementById('editor-kpis-summary').textContent = `${kpis.length} KPIs`;
+  kl.innerHTML = kpis.map(k => `
+    <div class="detect-item">
+      <span class="item-name">${escapeHtml(k.display_name || k.name)}</span>
+      <span class="item-detail">${k.numerator} / ${k.denominator}${k.multiply ? ' x' + k.multiply : ''}</span>
+      <span class="item-type">${k.format || 'float'}</span>
+    </div>`).join('') || '<p style="color:#8b949e;padding:0.5em">No derived KPIs defined</p>';
+
+  // Load defaults
+  const dRes = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`);
+  const defaults = dRes.ok ? await dRes.json() : {};
+  document.getElementById('ed-default-metrics').value = (defaults.metrics || []).join(', ');
+  document.getElementById('ed-default-period').value = defaults.period_type || '';
+  document.getElementById('ed-default-brief').value = defaults.brief_style || 'ceo';
+  document.querySelectorAll('#ed-default-focus input').forEach(cb => {
+    cb.checked = (defaults.focus || []).includes(cb.value);
+  });
+}
+
+async function saveContract() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id || !editorContract) return;
+  editorContract.display_name = document.getElementById('ed-display-name').value;
+  editorContract.description = document.getElementById('ed-description').value;
+  if (!editorContract.materiality) editorContract.materiality = {};
+  editorContract.materiality.variance_pct = parseFloat(document.getElementById('ed-variance-pct').value) || 5;
+  if (!editorContract.reporting) editorContract.reporting = {};
+  editorContract.reporting.max_drill_depth = parseInt(document.getElementById('ed-max-depth').value) || 3;
+  editorContract.reporting.executive_brief_drill_levels = parseInt(document.getElementById('ed-brief-levels').value) || 0;
+  editorContract.reporting.output_format = document.getElementById('ed-output-format').value;
+
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/contract`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(editorContract)
+  });
+  if (res.ok) alert('Contract saved!'); else alert('Failed to save contract');
+}
+
+async function saveDefaults() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id) return;
+  const defaults = {
+    metrics: document.getElementById('ed-default-metrics').value.split(',').map(s => s.trim()).filter(Boolean),
+    focus: [...document.querySelectorAll('#ed-default-focus input:checked')].map(cb => cb.value),
+    period_type: document.getElementById('ed-default-period').value,
+    brief_style: document.getElementById('ed-default-brief').value,
+  };
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(defaults)
+  });
+  if (res.ok) alert('Defaults saved!'); else alert('Failed to save defaults');
+}
+
+
+// --- Data Profiling ---
+async function profileDataset() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id) return;
+  const btn = document.getElementById('profile-btn');
+  btn.disabled = true;
+  btn.textContent = 'Profiling...';
+  try {
+    const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/profile?sample_size=2000`);
+    if (!res.ok) throw new Error(await res.text());
+    const profile = await res.json();
+
+    document.getElementById('profile-results').style.display = 'block';
+    document.getElementById('editor-profile-summary').textContent = `${profile.row_count} rows, ${profile.column_count} columns`;
+
+    // Summary cards
+    const numericCols = profile.columns.filter(c => c.type === 'numeric').length;
+    const catCols = profile.columns.filter(c => c.type === 'categorical').length;
+    document.getElementById('profile-summary').innerHTML = `
+      <div class="info-card"><div class="label">Rows Sampled</div><div class="value">${profile.row_count.toLocaleString()}</div></div>
+      <div class="info-card"><div class="label">Columns</div><div class="value">${profile.column_count}</div></div>
+      <div class="info-card"><div class="label">Numeric</div><div class="value">${numericCols}</div></div>
+      <div class="info-card"><div class="label">Categorical</div><div class="value">${catCols}</div></div>
+    `;
+
+    // Column details
+    document.getElementById('profile-columns').innerHTML = profile.columns.map(c => {
+      let detail = `${c.non_null} non-null (${(100 - c.null_pct).toFixed(0)}%) | ${c.unique} unique`;
+      if (c.type === 'numeric') {
+        detail += ` | range: ${c.min?.toLocaleString()} - ${c.max?.toLocaleString()} | mean: ${c.mean?.toLocaleString()}`;
+      } else if (c.top_values) {
+        const top3 = Object.entries(c.top_values).slice(0, 3).map(([k, v]) => `${k} (${v})`).join(', ');
+        detail += ` | top: ${top3}`;
+      }
+      return `<div class="detect-item">
+        <span class="item-name">${escapeHtml(c.name)}</span>
+        <span class="item-type">${c.type}</span>
+        <span class="item-detail">${detail}</span>
+      </div>`;
+    }).join('');
+
+    // Sample rows table
+    if (profile.sample_rows?.length) {
+      const cols = Object.keys(profile.sample_rows[0]);
+      const thead = cols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+      const tbody = profile.sample_rows.map(row =>
+        '<tr>' + cols.map(c => `<td>${escapeHtml(String(row[c] ?? ''))}</td>`).join('') + '</tr>'
+      ).join('');
+      document.getElementById('profile-sample').innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+    }
+  } catch (e) {
+    alert('Profile failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sample & Profile Data';
+  }
+}
+
+
 // --- Init ---
 loadDatasets();
+
+// Also populate editor dataset dropdown
+fetch('/api/datasets').then(r => r.json()).then(datasets => {
+  const sel = document.getElementById('editor-dataset-select');
+  if (sel) {
+    datasets.forEach(d => {
+      sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.display_name || d.name)}</option>`;
+    });
+  }
+});

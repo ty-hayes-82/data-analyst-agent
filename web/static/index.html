@@ -20,6 +20,7 @@
         <button class="tab active" data-tab="new-analysis">Analyze Data</button>
         <button class="tab" data-tab="monitor">Monitor</button>
         <button class="tab" data-tab="history">Reports</button>
+        <button class="tab" data-tab="contract-editor">Settings</button>
         <button class="tab" data-tab="add-dataset">+ Add Dataset</button>
       </div>
     </div>
@@ -204,6 +205,19 @@
                 </div>
               </div>
             </div>
+            <div class="form-group full">
+              <label>Dimension Filters
+                <span class="tooltip-trigger" data-tooltip="Filter data on ANY dimension, even if it's not in the drill-down hierarchy. Select a dimension, then choose or type values.">ⓘ</span>
+              </label>
+              <div id="dimension-filter-editor">
+                <div class="dim-filter-row">
+                  <select id="dim-filter-select" onchange="onDimFilterSelect()">
+                    <option value="">+ Add dimension filter...</option>
+                  </select>
+                </div>
+                <div id="active-dim-filters"></div>
+              </div>
+            </div>
             <div class="form-group">
               <label for="start-date">Start Date</label>
               <input type="date" id="start-date">
@@ -313,6 +327,145 @@
       <h3>Available Downloads</h3>
       <ul class="file-list" id="results-files"></ul>
       <div id="result-content" class="result-content" style="display:none"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- CONTRACT EDITOR TAB                                             -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div id="contract-editor" class="section">
+      <div class="section-header">
+        <h2>Dataset Settings</h2>
+        <p class="section-subtitle">Edit contract configuration, metrics, dimensions, and analysis defaults</p>
+      </div>
+
+      <div class="form-group" style="margin-bottom:1.5em">
+        <label for="editor-dataset-select">Select Dataset to Edit</label>
+        <select id="editor-dataset-select" onchange="loadContractEditor()">
+          <option value="">-- Select a dataset --</option>
+        </select>
+      </div>
+
+      <div id="editor-content" style="display:none">
+        <!-- General Settings -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-general')">
+            <span class="step-number">1</span>
+            <span class="step-title">General Settings</span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content" id="editor-general">
+            <div class="form-grid">
+              <div class="form-group"><label>Display Name</label><input type="text" id="ed-display-name"></div>
+              <div class="form-group"><label>Description</label><input type="text" id="ed-description"></div>
+              <div class="form-group"><label>Variance % Threshold</label><input type="number" id="ed-variance-pct" step="0.1"></div>
+              <div class="form-group"><label>Max Drill Depth</label><input type="number" id="ed-max-depth" min="1" max="10"></div>
+              <div class="form-group"><label>Brief Drill Levels</label><input type="number" id="ed-brief-levels" min="0" max="5"></div>
+              <div class="form-group"><label>Output Format</label>
+                <select id="ed-output-format"><option value="pdf">PDF</option><option value="md">Markdown</option><option value="both">Both</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Editor -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-metrics')">
+            <span class="step-number">2</span>
+            <span class="step-title">Metrics</span>
+            <span class="step-summary" id="editor-metrics-summary"></span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content collapsed" id="editor-metrics">
+            <div id="ed-metrics-list"></div>
+          </div>
+        </div>
+
+        <!-- Dimensions Editor -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-dimensions')">
+            <span class="step-number">3</span>
+            <span class="step-title">Dimensions</span>
+            <span class="step-summary" id="editor-dimensions-summary"></span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content collapsed" id="editor-dimensions">
+            <div id="ed-dimensions-list"></div>
+          </div>
+        </div>
+
+        <!-- Derived KPIs Editor -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-kpis')">
+            <span class="step-number">4</span>
+            <span class="step-title">Derived KPIs</span>
+            <span class="step-summary" id="editor-kpis-summary"></span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content collapsed" id="editor-kpis">
+            <div id="ed-kpis-list"></div>
+          </div>
+        </div>
+
+        <!-- Analysis Defaults -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-defaults')">
+            <span class="step-number">5</span>
+            <span class="step-title">Analysis Defaults</span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content collapsed" id="editor-defaults">
+            <p style="color:#8b949e;font-size:0.85em;margin-bottom:1em">Save preferred settings that auto-populate when this dataset is selected</p>
+            <div class="form-grid">
+              <div class="form-group full">
+                <label>Default Metrics (comma-separated names)</label>
+                <input type="text" id="ed-default-metrics" placeholder="ttl_rev_amt, lh_rev_amt, dh_miles">
+              </div>
+              <div class="form-group full">
+                <label>Default Analysis Focus</label>
+                <div class="checkbox-group" id="ed-default-focus">
+                  <label><input type="checkbox" value="recent_weekly_trends"> Weekly Trends</label>
+                  <label><input type="checkbox" value="recent_monthly_trends"> Monthly Trends</label>
+                  <label><input type="checkbox" value="anomaly_detection"> Anomaly Detection</label>
+                  <label><input type="checkbox" value="yoy_comparison"> Year-over-Year</label>
+                  <label><input type="checkbox" value="forecasting"> Forecasting</label>
+                  <label><input type="checkbox" value="outlier_investigation"> Outlier Investigation</label>
+                </div>
+              </div>
+              <div class="form-group"><label>Default Period Type</label>
+                <select id="ed-default-period"><option value="">From Contract</option><option value="week_end">Weekly</option><option value="month_end">Monthly</option></select>
+              </div>
+              <div class="form-group"><label>Default Brief Style</label>
+                <select id="ed-default-brief"><option value="ceo">CEO Brief</option><option value="default">Standard</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Profile -->
+        <div class="form-step">
+          <div class="form-step-header" onclick="toggleStep('editor-profile')">
+            <span class="step-number">📊</span>
+            <span class="step-title">Data Profile</span>
+            <span class="step-summary" id="editor-profile-summary">Click to sample data</span>
+            <span class="step-toggle">▼</span>
+          </div>
+          <div class="form-step-content collapsed" id="editor-profile">
+            <button class="btn btn-primary btn-sm" onclick="profileDataset()" id="profile-btn">Sample & Profile Data</button>
+            <div id="profile-results" style="display:none;margin-top:1em">
+              <div class="info-grid" id="profile-summary"></div>
+              <h3>Column Details</h3>
+              <div id="profile-columns" class="detect-list"></div>
+              <h3>Sample Rows</h3>
+              <div id="profile-sample" style="overflow-x:auto;max-height:300px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top:1.5em">
+          <button class="btn btn-primary" onclick="saveContract()">Save Contract</button>
+          <button class="btn btn-secondary" onclick="saveDefaults()">Save Defaults</button>
+        </div>
+      </div>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════ -->

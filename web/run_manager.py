@@ -112,13 +112,16 @@ def start_run(params: dict[str, Any]) -> dict:
     env["DATA_ANALYST_OUTPUT_DIR"] = output_dir
     env["ACTIVE_DATASET"] = dataset_id.split("/")[-1] if "/" in dataset_id else dataset_id
 
-    # New parameters: period type and brief style
+    # New parameters: period type, brief style, dimension filters
     period_type = params.get("period_type", "")
     if period_type:
         env["DATA_ANALYST_PERIOD_TYPE"] = period_type
     brief_style = params.get("brief_style", "ceo")
     if brief_style:
         env["EXECUTIVE_BRIEF_STYLE"] = brief_style
+    dimension_filters = params.get("dimension_filters", {})
+    if dimension_filters:
+        env["DATA_ANALYST_DIMENSION_FILTERS"] = json.dumps(dimension_filters)
 
     # Build query with focus context
     metric_str = " and ".join(metrics) if metrics else "all metrics"
