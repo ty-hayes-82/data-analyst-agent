@@ -28,6 +28,9 @@ args = parser.parse_args()
 
 cache_dir = sorted((PROJECT / "outputs/tableau-ops_metrics_weekly/global/all").iterdir())[-1]
 
+# Auto-detect period and comparison from data
+_sample = next(iter({}), {})  # filled after loading
+
 # Load contract
 import yaml
 contract_path = PROJECT / "config" / "datasets" / "tableau" / "ops_metrics_weekly" / "contract.yaml"
@@ -373,7 +376,7 @@ def generate_brief(scope_name, scope_insights, scope_totals):
         f"TOTALS:\n" + "\n".join(f"  {k}: {v}" for k, v in scope_totals.items())
         + f"\n\nCURATED INSIGHTS:\n" + json.dumps(curated.get("selected_insights", []), indent=2)
         + "\n\nRULES (RESPONSE REJECTED IF VIOLATED):\n"
-        "- bottom_line: First sentence MUST have absolute $ AND WoW %. Second sentence = the 'but' quality insight.\n"
+"- bottom_line: First sentence MUST use absolute $ from TOTALS (not network total). If revenue is not in TOTALS for this scope, lead with the most significant available metric.\n"
         "- what_moved: EXACTLY 4 items. Each MUST be a DIFFERENT category from this list:\n"
         "  1. Revenue / yield (LRPM, LH revenue, total revenue)\n"
         "  2. Network efficiency (deadhead costs, deadhead %)\n"
@@ -387,7 +390,7 @@ def generate_brief(scope_name, scope_insights, scope_totals):
         "  positive: MUST be a metric that ACTUALLY IMPROVED (went up if maximize, down if minimize). If nothing improved, write 'None — all key metrics deteriorated'\n"
         "  drag: Name the specific TERMINAL or DRIVER MANAGER, not the scope.\n"
         "- why_it_matters: 1 sentence. Name the SPECIFIC mechanism for THIS scope. MUST be different from every other section.\n"
-        "  BANNED phrases: 'burning cash', 'margin erosion', 'double-hit', 'negative operating leverage', 'negative feedback loop', 'absorb empty miles'\n"
+        "  BANNED phrases: 'burning cash', 'margin erosion', 'double-hit', 'negative operating leverage', 'negative feedback loop', 'absorb empty miles', 'trading yield for volume'\n"
         "  Each scope must identify its OWN unique earnings threat.\n"
         "- next_week_outlook: 1-2 sentences. UNIQUE trigger + consequence for THIS scope only.\n"
         "- leadership_focus: EXACTLY 3 items. DECISIONS not audits.\n"
@@ -671,7 +674,7 @@ for terminal, tdata in top_terminals:
             "- where_it_came_from:\n"
             "  positive: Only if a metric ACTUALLY IMPROVED. If nothing improved, 'None — all key metrics deteriorated'\n"
             "  drag: Name the DRIVER MANAGER causing the problem, not the terminal.\n"
-            "- why_it_matters: UNIQUE mechanism. BANNED: 'burning cash', 'margin erosion', 'double-hit', 'negative operating leverage', 'negative feedback loop', 'absorb empty miles'\n"
+            "- why_it_matters: UNIQUE mechanism. BANNED: 'burning cash', 'margin erosion', 'double-hit', 'negative operating leverage', 'negative feedback loop', 'absorb empty miles', 'trading yield for volume'\n"
             "- next_week_outlook: UNIQUE to this terminal. Specific trigger + consequence.\n"
             "- leadership_focus: EXACTLY 3 items. DECISIONS not audits. Name driver managers.\n"
             "  GOOD: 'Pull WORRE off underperforming lanes immediately'\n"
@@ -689,7 +692,9 @@ for terminal, tdata in top_terminals:
 
 # ── Output combined document ────────────────────────────────────────
 total_time = time.time() - t_total
-header = f"# Weekly Performance Brief — Week Ending February 21, 2026\n\n*Generated in {total_time:.1f}s | {len(all_briefs)} sections | {args.model}*\n"
+_end_date = next(iter(all_metrics.values()), {}).get("timeframe", {}).get("end", "")
+_start_date = next(iter(all_metrics.values()), {}).get("timeframe", {}).get("start", "")
+header = f"# Performance Brief — {_start_date} to {_end_date}\n\n*Generated in {total_time:.1f}s | {len(all_briefs)} sections | {args.model}*\n"
 combined = header + "\n---\n".join(all_briefs)
 
 out_path = PROJECT / "benchmarks" / "regional_brief.md"
