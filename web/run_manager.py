@@ -16,10 +16,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 import sys as _sys
 import platform as _platform
 
+import sys as _sys
 if _platform.system() == "Windows":
-    PYTHON = str(PROJECT_ROOT / ".venv" / "Scripts" / "python.exe")
+    _venv_python = PROJECT_ROOT / ".venv" / "Scripts" / "python.exe"
 else:
-    PYTHON = str(PROJECT_ROOT / ".venv" / "bin" / "python")
+    _venv_python = PROJECT_ROOT / ".venv" / "bin" / "python"
+PYTHON = str(_venv_python) if _venv_python.exists() else _sys.executable
 
 
 def _load_runs() -> list[dict]:
