@@ -23,7 +23,7 @@ async function loadDatasets() {
   sel.innerHTML = '<option value="">-- Select a dataset --</option>';
   datasets.forEach(d => {
     const safeName = (d.display_name || d.name).replace(/"/g, '&quot;');
-    sel.innerHTML += `<option value="${d.id}" data-name="${safeName}">${escapeHtml(d.display_name || d.name)} (${escapeHtml(d.name)})</option>`;
+    sel.innerHTML += `<option value="${d.id}" data-name="${safeName}">${escapeHtml(d.display_name || d.name)}</option>`;
   });
   sel.addEventListener('change', onDatasetChange);
 }
@@ -54,12 +54,31 @@ async function onDatasetChange() {
     infoEl.style.display = 'none';
   }
 
-  // Metrics
+  // Metrics — grouped by brief_category, using display names
   const mg = document.getElementById('metrics-group');
   mg.innerHTML = '';
+  const metricsByCategory = {};
   (c.metrics || []).forEach(m => {
-    mg.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" checked> ${m.name}${m.description ? ' (' + m.description.slice(0, 50) + ')' : ''}</label>`;
+    const cat = m.brief_category || 'Other';
+    if (!metricsByCategory[cat]) metricsByCategory[cat] = [];
+    metricsByCategory[cat].push(m);
   });
+  // Default to top 8 metrics checked (not all)
+  const defaultMetrics = (c.metrics || []).slice(0, 8).map(m => m.name);
+  for (const [cat, metrics] of Object.entries(metricsByCategory)) {
+    const catDiv = document.createElement('div');
+    catDiv.className = 'metrics-group-category';
+    catDiv.innerHTML = `<div class="category-header">${cat}</div>`;
+    const checkboxDiv = document.createElement('div');
+    checkboxDiv.className = 'checkbox-group';
+    metrics.forEach(m => {
+      const displayName = m.display_name || m.brief_label || m.name;
+      const checked = defaultMetrics.includes(m.name) ? 'checked' : '';
+      checkboxDiv.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" ${checked}> ${displayName}</label>`;
+    });
+    catDiv.appendChild(checkboxDiv);
+    mg.appendChild(catDiv);
+  }
 
   // Hierarchies — editor with filtering
   renderHierarchyEditor(c);
@@ -77,16 +96,21 @@ async function onDatasetChange() {
   document.getElementById('max-depth').value = Math.min(maxDepth, 5);
   document.getElementById('max-depth').max = maxDepth;
 
-  // Frequency
-  document.getElementById('frequency').value = (c.time || {}).frequency || 'unknown';
+  // Frequency (optional element)
+  const freqEl = document.getElementById('frequency');
+  if (freqEl) freqEl.value = (c.time || {}).frequency || 'unknown';
 
   document.getElementById('run-btn').disabled = false;
+  if (typeof updateStepSummaries === 'function') updateStepSummaries();
 }
 
 // --- Run analysis ---
 document.getElementById('run-btn').addEventListener('click', submitRun);
 
 async function submitRun() {
+  // Validate form before submission
+  if (typeof validateForm === 'function' && !validateForm()) return;
+
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   const originalHTML = btn.innerHTML;
@@ -556,8 +580,9 @@ function renderHierarchyEditor(contract) {
 
   sel.innerHTML = '';
   (contract.hierarchies || []).forEach((h, i) => {
-    const levels = (h.children || []).join(' \u2192 ');
-    sel.innerHTML += `<option value="${h.name}" ${i === 0 ? 'selected' : ''}>${h.name} (${levels})</option>`;
+    const displayName = h.display_name || h.name;
+    const levelCount = (h.children || h.levels || []).length;
+    sel.innerHTML += `<option value="${h.name}" ${i === 0 ? 'selected' : ''}>${escapeHtml(displayName)} - ${levelCount} levels</option>`;
   });
 
   editBtn.style.display = contract.hierarchies?.length ? 'inline-block' : 'none';
