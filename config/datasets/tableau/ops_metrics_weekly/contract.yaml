@@ -216,23 +216,30 @@ derived_kpis:
     multiply: 100
     format: "percentage"
     description: "Deadhead miles as percentage of total traffic miles"
-  - name: "rev_per_truck_day"
-    display_name: "Rev/Truck/Day"
-    brief_label: "Rev/Truck/Day"
+  # NOTE: Rev/Truck/Day and Miles/Truck/Week removed — truck_count is all zeros in source data.
+  # Re-add these KPIs once truck_count is populated at the source.
+  # - name: "rev_per_truck_day"
+  #   numerator: "ttl_rev_amt", denominator: "truck_count", divide_by_days: 7
+  # - name: "miles_per_truck_week"
+  #   numerator: "ttl_trf_mi", denominator: "truck_count"
+
+  - name: "rev_per_order"
+    display_name: "Rev/Order"
+    brief_label: "Rev/Order"
     brief_category: "Productivity"
     numerator: "ttl_rev_amt"
-    denominator: "truck_count"
-    divide_by_days: 7
+    denominator: "ordr_cnt"
     format: "currency"
-    description: "Revenue per truck per day"
-  - name: "miles_per_truck_week"
-    display_name: "Miles/Truck/Week"
-    brief_label: "Miles/Truck/Wk"
-    brief_category: "Productivity"
-    numerator: "ttl_trf_mi"
-    denominator: "truck_count"
-    format: "float"
-    description: "Total traffic miles per truck per week"
+    description: "Revenue per order"
+  - name: "loaded_pct"
+    display_name: "Loaded %"
+    brief_label: "Loaded %"
+    brief_category: "Network efficiency"
+    numerator: "ld_trf_mi"
+    denominator: "ttl_trf_mi"
+    multiply: 100
+    format: "percentage"
+    description: "Loaded traffic miles as percentage of total traffic miles"
 
 dimensions:
   # Geographic Hierarchy
