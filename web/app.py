@@ -337,7 +337,11 @@ async def api_data_profile(dataset_id: str, sample_size: int = 1000):
                         conn.catalog.get_table_names("Extract")[0]
                     )
                     columns = [str(c.name) for c in table_def.columns]
-                    df = pd.DataFrame(result, columns=columns)
+                    # Convert Hyper native types (Date, Timestamp) to strings
+                    clean_rows = []
+                    for row in result:
+                        clean_rows.append([str(v) if v is not None and not isinstance(v, (int, float, str, bool)) else v for v in row])
+                    df = pd.DataFrame(clean_rows, columns=columns)
         else:
             full_path = (project_root / file_path).resolve()
             if full_path.exists():
@@ -351,7 +355,7 @@ async def api_data_profile(dataset_id: str, sample_size: int = 1000):
             "row_count": len(df),
             "column_count": len(df.columns),
             "columns": [],
-            "sample_rows": df.head(5).to_dict(orient="records"),
+            "sample_rows": df.head(5).astype(str).to_dict(orient="records"),
         }
 
         for col in df.columns:
@@ -364,10 +368,18 @@ async def api_data_profile(dataset_id: str, sample_size: int = 1000):
             }
             if pd.api.types.is_numeric_dtype(df[col]):
                 col_info["type"] = "numeric"
-                col_info["min"] = float(df[col].min()) if df[col].notna().any() else None
-                col_info["max"] = float(df[col].max()) if df[col].notna().any() else None
-                col_info["mean"] = round(float(df[col].mean()), 2) if df[col].notna().any() else None
-                col_info["std"] = round(float(df[col].std()), 2) if df[col].notna().any() else None
+                try:
+                    col_info["min"] = float(df[col].min()) if df[col].notna().any() else None
+                    col_info["max"] = float(df[col].max()) if df[col].notna().any() else None
+                    col_info["mean"] = round(float(df[col].mean()), 2) if df[col].notna().any() else None
+                    col_info["std"] = round(float(df[col].std()), 2) if df[col].notna().any() else None
+                    # Handle NaN/inf
+                    import math
+                    for k in ["min", "max", "mean", "std"]:
+                        if col_info[k] is not None and (math.isnan(col_info[k]) or math.isinf(col_info[k])):
+                            col_info[k] = None
+                except Exception:
+                    col_info["min"] = col_info["max"] = col_info["mean"] = col_info["std"] = None
             else:
                 col_info["type"] = "categorical"
                 top_values = df[col].value_counts().head(10).to_dict()
