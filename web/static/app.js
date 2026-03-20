@@ -114,6 +114,8 @@ async function submitRun() {
     max_drill_depth: parseInt(document.getElementById('max-depth').value) || 3,
     start_date: document.getElementById('start-date').value,
     end_date: document.getElementById('end-date').value,
+    period_type: document.getElementById('period-type')?.value || '',
+    brief_style: document.getElementById('brief-style')?.value || 'ceo',
   };
 
   try {

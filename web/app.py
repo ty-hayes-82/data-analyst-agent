@@ -178,6 +178,8 @@ class RunRequest(BaseModel):
     max_drill_depth: int = 3
     start_date: str = ""
     end_date: str = ""
+    period_type: str = ""
+    brief_style: str = "ceo"
 
 
 @app.post("/api/runs")

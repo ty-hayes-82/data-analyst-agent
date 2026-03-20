@@ -244,6 +244,28 @@
           <label>Data Granularity</label>
           <input type="text" id="frequency" disabled>
         </div>
+        <div class="form-group">
+          <label for="period-type">
+            Aggregation Period
+            <span class="tooltip-trigger" data-tooltip="Override how raw data is aggregated. Weekly = week-over-week analysis. Monthly = month-over-month analysis.">ⓘ</span>
+          </label>
+          <select id="period-type">
+            <option value="">Default (from contract)</option>
+            <option value="week_end">Weekly</option>
+            <option value="month_end">Monthly</option>
+            <option value="day">Daily</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="brief-style">
+            Brief Style
+            <span class="tooltip-trigger" data-tooltip="CEO style produces a concise, action-oriented brief. Standard produces a detailed analytical report.">ⓘ</span>
+          </label>
+          <select id="brief-style">
+            <option value="ceo">CEO Brief</option>
+            <option value="default">Standard Report</option>
+          </select>
+        </div>
       </div>
 
       <div class="actions">
