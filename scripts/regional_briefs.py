@@ -112,11 +112,15 @@ for kd in contract.get("derived_kpis", []):
     if nc and dc and dc > 0 and dp and dp > 0:
         cv = (nc / dc / dd) * mult
         pv = (np_ / dp / dd) * mult
+        chg_pct = (cv - pv) / abs(pv) * 100 if pv else 0
+        # Sanity check: skip clearly wrong KPIs (e.g., Deadhead > 50% means bad data)
+        if kd.get("format") == "percentage" and cv > 50:
+            continue
         derived_kpis[kd["name"]] = {
             "label": kd.get("brief_label", kd["name"]),
             "category": kd.get("brief_category", "Operations"),
             "current": cv, "prior": pv,
-            "change_pct": (cv - pv) / abs(pv) * 100 if pv else 0,
+            "change_pct": chg_pct,
             "format": kd.get("format", "float"),
         }
 
@@ -495,36 +499,91 @@ for terminal, tdata in top_terminals:
     print(f"\n{'='*60}\nGenerating: {terminal} ({rgn})\n{'='*60}")
     t0 = time.time()
 
-    # Filter insights for this terminal (L2 cards + any L3 driver managers)
+    # Filter insights: ONLY this terminal's data + cross-metric signals (no other terminals)
     terminal_insights = []
     for e in deduped:
         title = e.get("title", "")
-        # Include insights that mention this terminal or its parent region
-        if terminal in title or (rgn and rgn in e.get("_region", "")):
+        # Only include if this specific terminal is named, or it's a network cross-metric signal
+        if terminal in title:
             terminal_insights.append(e)
-    # Also include network-level cross-metric signals
-    terminal_insights += [e for e in deduped if e.get("_region") == "Network"]
+        elif e.get("_region") == "Network" and e.get("level") in ("cross", "derived_kpi"):
+            terminal_insights.append(e)
     terminal_insights = terminal_insights[:args.top]
 
-    # Build terminal totals
+    # Build terminal totals from L2 card data (terminal-specific, not network)
     terminal_totals = {}
     for metric_name, mdata in tdata["metrics"].items():
         pct = mdata.get("var_pct")
+        cur = mdata.get("current", 0)
         pct_str = f"{pct:+.1f}%" if pct is not None else ""
-        terminal_totals[label_for(metric_name)] = f"${mdata.get('current', 0):,.0f} ({pct_str} WoW)"
+        terminal_totals[label_for(metric_name)] = f"${cur:,.0f} ({pct_str} WoW)"
 
-    # Add L3 driver manager context for this terminal
+    # Compute terminal-specific derived KPIs
+    _term_cur = {mn: md.get("current", 0) for mn, md in tdata["metrics"].items()}
+    _term_pri = {mn: md.get("prior", 0) for mn, md in tdata["metrics"].items()}
+    for kd in contract.get("derived_kpis", []):
+        nc = _term_cur.get(kd.get("numerator", ""))
+        np_ = _term_pri.get(kd.get("numerator", ""))
+        dc = _term_cur.get(kd.get("denominator", ""))
+        dp = _term_pri.get(kd.get("denominator", ""))
+        mult = kd.get("multiply", 1)
+        dd = kd.get("divide_by_days", 1)
+        if nc and dc and dc > 0 and dp and dp > 0:
+            cv = (nc / dc / dd) * mult
+            pv = (np_ / dp / dd) * mult
+            chg = (cv - pv) / abs(pv) * 100 if pv else 0
+            fmt_val = f"${cv:.2f}" if kd.get("format") == "currency" else (f"{cv:.1f}%" if kd.get("format") == "percentage" else f"{cv:,.0f}")
+            terminal_totals[kd.get("brief_label", kd["name"])] = f"{fmt_val} ({chg:+.1f}% WoW)"
+
+    # Find L3 driver managers SPECIFIC TO THIS TERMINAL
+    # L3 cards are global — we need to re-query the raw data for this terminal's DMs
     dm_block = ""
-    for m, p in all_metrics.items():
-        l3 = p.get("hierarchical_analysis", {}).get("level_3", {}).get("insight_cards", [])
-        for card in l3[:3]:
-            ev = card.get("evidence", {})
-            dm = card.get("title", "").replace("Level 3 Variance Driver: ", "")
-            pct = ev.get("variance_pct")
-            if pct is not None:
-                dm_block += f"  Driver Manager {dm}: {label_for(m)} {pct:+.1f}% WoW\n"
-        if dm_block:
-            break
+    # Use the cached CSV to find driver managers at this terminal
+    dm_lines = []
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["ssh", "root@187.124.147.182",
+             f"docker exec swoop-agent python3 -c \""
+             f"import pandas as pd, glob; "
+             f"csvs=sorted(glob.glob('/tmp/data_analyst_cache_*/primary_data_csv_*.csv')); "
+             f"df=pd.read_csv(csvs[-1]) if csvs else None; "
+             f"df2=df[(df['gl_div_nm']=='{terminal}')&(df['ops_ln_of_bus_ref_nm']=='Line Haul')] if df is not None and 'drvr_mgr_cd' in df.columns else None; "
+             f"print('NONE') if df2 is None or df2.empty else None; "
+             f"periods=sorted(df2['cal_dt'].unique()) if df2 is not None and not df2.empty else []; "
+             f"cur=df2[df2['cal_dt']==periods[-1]].groupby('drvr_mgr_cd')['ttl_rev_amt'].sum() if len(periods)>=2 else None; "
+             f"pri=df2[df2['cal_dt']==periods[-2]].groupby('drvr_mgr_cd')['ttl_rev_amt'].sum() if len(periods)>=2 else None; "
+             f"import json; "
+             f"merged=pd.DataFrame({{'cur':cur,'pri':pri}}).fillna(0) if cur is not None else None; "
+             f"merged['var']=(merged['cur']-merged['pri']) if merged is not None else None; "
+             f"merged['pct']=(merged['var']/merged['pri'].replace(0,float('nan'))*100) if merged is not None else None; "
+             f"top3=merged.nsmallest(3,'var') if merged is not None else None; "
+             f"result=[{{'dm':idx,'var':float(r['var']),'pct':float(r['pct']) if pd.notna(r['pct']) else 0}} for idx,r in top3.iterrows()] if top3 is not None else []; "
+             f"print(json.dumps(result))\""],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.stdout.strip() and result.stdout.strip() != "NONE":
+            dm_data = json.loads(result.stdout.strip())
+            for dm in dm_data[:3]:
+                if dm.get("dm") and dm["dm"] != "nan":
+                    dm_lines.append(f"  Driver Manager {dm['dm']} at {terminal}: revenue {dm['pct']:+.1f}% WoW (${dm['var']:+,.0f})")
+    except Exception:
+        pass
+
+    # Fallback: use global L3 cards if SSH failed
+    if not dm_lines:
+        for m_name, p in all_metrics.items():
+            l3 = p.get("hierarchical_analysis", {}).get("level_3", {}).get("insight_cards", [])
+            for card in l3[:3]:
+                ev = card.get("evidence", {})
+                dm = card.get("title", "").replace("Level 3 Variance Driver: ", "")
+                pct = ev.get("variance_pct")
+                if pct is not None and dm:
+                    dm_lines.append(f"  Driver Manager {dm}: {label_for(m_name)} {pct:+.1f}% WoW")
+            if dm_lines:
+                break
+
+    dm_block = "\n".join(dm_lines) if dm_lines else "  No driver manager data available"
 
     if terminal_insights:
         # Generate with terminal scope
