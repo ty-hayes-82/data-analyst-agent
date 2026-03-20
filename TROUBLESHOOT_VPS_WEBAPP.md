@@ -115,8 +115,36 @@ curl http://187.124.147.182:8080/api/datasets
 ### Step 5: Fix dedup bug
 The `ops_metrics_weekly` Tableau dataset is hidden because `csv/ops_metrics_weekly_validation` has the same `name` field and gets listed first. Fix: rename the CSV validation dataset's `name` field to something distinct.
 
+## RESOLVED — 2026-03-20
+
+### Root Cause
+**None of the hypotheses above were correct.** The actual root cause was **stale nftables DNAT rules** left over from a previous Docker container configuration.
+
+Even though `swoop-agent` runs with `--network host`, Docker had leftover NAT rules in `ip nat PREROUTING` and `ip nat OUTPUT` that intercepted all traffic to port 8080 and DNAT'd it to `172.17.0.2:8080` (a non-existent bridge network container). This caused every connection to time out — the SYN packets were redirected to a dead IP.
+
+### Additional Finding
+Uvicorn itself also doesn't work in this container because PID 1 is `node server.mjs` (not a proper init process). Processes started via `docker exec -d` become zombies when the exec session ends. **Workaround:** A `ThreadingHTTPServer` wrapper with double-fork daemonization (`scripts/start_web.py`) serves the FastAPI app through Starlette's `TestClient`.
+
+### Fix Applied
+```bash
+# 1. Remove stale DNAT rules
+nft delete rule ip nat PREROUTING handle $(nft -a list chain ip nat PREROUTING | grep 'dport 8080' | grep -o 'handle [0-9]*' | awk '{print $2}')
+nft delete rule ip nat OUTPUT handle $(nft -a list chain ip nat OUTPUT | grep 'dport 8080' | grep -o 'handle [0-9]*' | awk '{print $2}')
+iptables -D FORWARD -p tcp -d 172.17.0.2 --dport 8080 -j ACCEPT
+
+# 2. Start web server via daemonizing wrapper
+docker exec swoop-agent python3 /data/data-analyst-agent/scripts/start_web.py
+```
+
+### Verified
+- `curl http://187.124.147.182:8080/health` → 200 OK
+- `curl http://187.124.147.182:8080/api/datasets` → 7 datasets listed
+- Web UI loads at `http://187.124.147.182:8080/`
+
 ## Pending After Web App Is Running
 1. Re-run weekly brief with corrected KPIs (Rev/Order, Loaded % replacing truck_count-based ones)
 2. Re-run monthly brief and validate
 3. Confirm new derived KPIs appear correctly in briefs
 4. Data quality: zero-value fields (truck_count, exprncd_drvr_cnt) need source-level fix
+5. Make nftables cleanup persist across Docker/host restarts
+6. Consider adding `--init` flag to Docker run command to fix zombie reaping
