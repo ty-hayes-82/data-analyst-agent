@@ -19,7 +19,9 @@ def render_ceo_brief_markdown(brief: dict[str, Any]) -> str:
     lines: list[str] = []
 
     week = brief.get("week_ending", "")
-    lines.append(f"# Weekly Performance Overview")
+    grain = brief.get("temporal_grain", "weekly")
+    grain_label = {"monthly": "Monthly", "weekly": "Weekly", "yearly": "Annual"}.get(grain, "Weekly")
+    lines.append(f"# {grain_label} Performance Overview")
     if week:
         lines.append(f"## Week Ending {week}")
     lines.append("")

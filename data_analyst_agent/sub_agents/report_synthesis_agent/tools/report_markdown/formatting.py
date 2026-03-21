@@ -53,7 +53,8 @@ def load_metric_units() -> Dict[str, Dict[str, str]]:
 
             with open(path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
-            _METRIC_UNITS_CACHE = data.get("metrics", {}) or {}
+            # Support both flat mapping (metric: unit) and nested (metrics: {metric: {unit: ...}})
+            _METRIC_UNITS_CACHE = data.get("metrics", None) or data or {}
         else:
             _METRIC_UNITS_CACHE = {}
         _METRIC_UNITS_DATASET = dataset_name

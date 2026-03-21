@@ -294,7 +294,18 @@ def format_hierarchy_insight_cards(
                 what_changed = f"Variance of {var_dollar:+,.2f} ({var_pct:+.1f}%)"
             else:
                 what_changed = f"Variance of {var_dollar:+,.2f}"
-            why_note = f"Aggregated {direction} impact at the {level_name} level."
+            # Build contextual "why" based on variance characteristics
+            share_pct = abs(current) / total_current * 100 if total_current else 0
+            if is_new:
+                why_note = f"New entity appeared this period with no prior baseline."
+            elif var_pct is not None and abs(var_pct) >= 50:
+                why_note = f"Severe {direction} swing ({var_pct:+.1f}%); {item} represents {share_pct:.1f}% of total."
+            elif cumulative_pct and cumulative_pct <= 60:
+                why_note = f"Top variance driver at {level_name} level, explaining {cumulative_pct:.0f}% of total variance."
+            elif share_chg and abs(share_chg * 100) >= 1.0:
+                why_note = f"Share shifted {share_chg*100:+.1f}pp ({share_pri:.1%} → {share_cur:.1%}); {direction} mix change."
+            else:
+                why_note = f"{direction.capitalize()} variance at {level_name} level; {item} is {share_pct:.1f}% of total."
         
         if pvm_row or mix_row:
             evidence["is_pvm"] = True

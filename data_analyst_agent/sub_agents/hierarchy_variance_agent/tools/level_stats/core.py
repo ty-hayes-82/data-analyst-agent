@@ -235,6 +235,17 @@ async def compute_level_statistics_impl(
         else float(merged["variance_dollar"].sum())
     )
 
+    # Data quality: flag uniform -100% or +100% variance (likely data issue, not operational)
+    dq_flags = []
+    if not merged.empty and merged["variance_pct"].notna().any():
+        pct_vals = merged["variance_pct"].dropna()
+        if len(pct_vals) > 1 and (pct_vals == -100.0).all():
+            dq_flags.append("ALL_ENTITIES_MINUS_100_PCT: All entities dropped to zero — likely data collection stoppage, not operational change.")
+        elif len(pct_vals) > 1 and (pct_vals == 100.0).all():
+            dq_flags.append("ALL_ENTITIES_PLUS_100_PCT: All entities appeared from zero — likely new data feed, not organic growth.")
+    if float(total_current) == 0.0 and float(total_prior) > 0:
+        dq_flags.append("CURRENT_PERIOD_ZERO: Current period total is zero — check if data was loaded for this period.")
+
     result = {
         "level": level,
         "level_name": level_name,
@@ -258,6 +269,7 @@ async def compute_level_statistics_impl(
         "items_analyzed": len(merged),
         "variance_explained_pct": round(variance_explained, 2),
         "is_last_level": is_last_level,
+        "data_quality_flags": dq_flags if dq_flags else None,
     }
 
     return json.dumps(result, indent=2)

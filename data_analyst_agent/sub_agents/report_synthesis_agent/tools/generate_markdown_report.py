@@ -252,12 +252,18 @@ def _variance_actions(final_cards: List[dict], metric_label: str, unit: str, per
         dimension = _dimension_label(card)
         reason = (card.get("why") or card.get("root_cause") or "").strip()
         reason_clause = f" Root cause: {reason}" if reason else ""
-        actions.append(
-            f"HierarchyVariance → {dimension}: compare last {period_label} vs prior {period_label} for {metric_label} ({change_clause}). "
-            f"Validate the driver in this slice and check DataFetcher inputs for {dimension} if the move looks implausible; "
-            f"escalate if |Δ%| ≥ 3pp or this remains a top-3 driver next {period_label}." 
-            f"{reason_clause}".strip()
-        )
+        # Differentiate action urgency by variance severity
+        abs_pct = abs(variance_pct) if variance_pct is not None else 0
+        if abs_pct >= 25:
+            urgency = f"URGENT: {dimension} {direction} of {change_clause} requires immediate root-cause investigation. "
+            follow_up = f"Convene cross-functional review within 48 hours; identify whether this is structural or transient."
+        elif abs_pct >= 10:
+            urgency = f"{dimension}: {direction} of {change_clause} warrants priority review. "
+            follow_up = f"Validate inputs for {dimension} and determine if trend is accelerating; escalate if it persists next {period_label}."
+        else:
+            urgency = f"{dimension}: {direction} of {change_clause}. "
+            follow_up = f"Monitor next {period_label}; escalate if |Δ%| ≥ 3pp or this remains a top-3 driver."
+        actions.append(f"{urgency}{follow_up}{reason_clause}".strip())
         if len(actions) >= 3:
             break
     return actions
@@ -274,7 +280,7 @@ def _anomaly_actions(stats_data: dict, metric_label: str, unit: str, period_labe
         item = anomaly.get("item") or anomaly.get("dimension") or anomaly.get("name")
         if not item:
             continue
-        period = anomaly.get("period") or anomaly.get("window") or period_label
+        period = _clean_period(anomaly.get("period") or anomaly.get("window")) or period_label
         value = _format_amount_short(_safe_float(anomaly.get("value") or anomaly.get("amount")), unit)
         z_score = _safe_float(anomaly.get("z_score") or anomaly.get("score"))
         z_clause = f" (z={z_score:.2f})" if z_score is not None else ""
@@ -463,8 +469,15 @@ def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> L
     return entries
 
 
+def _clean_period(period_str: str) -> str:
+    """Strip time component from period strings (e.g., '2026-02-28 00:00:00' -> '2026-02-28')."""
+    if not period_str:
+        return period_str
+    return str(period_str).split(" ")[0].split("T")[0]
+
+
 def _format_anomaly_line(entry: dict, unit: str) -> str:
-    period = entry.get("period") or "N/A"
+    period = _clean_period(entry.get("period")) or "N/A"
     entity = entry.get("entity") or "Metric"
     value_clause = _format_amount_short(entry.get("value"), unit)
     deviation_clause = f" Δ{entry['deviation_pct']:+.1f}%" if entry.get("deviation_pct") is not None else ""
@@ -480,7 +493,7 @@ def _format_anomaly_line(entry: dict, unit: str) -> str:
 def _derive_anomaly_actions(entries: List[dict], metric_label: str) -> List[str]:
     actions: List[str] = []
     for entry in entries[:3]:
-        period = entry.get("period") or "the latest period"
+        period = _clean_period(entry.get("period")) or "the latest period"
         entity = entry.get("entity") or "the target metric"
         z_clause = f" (z={entry['z']:.2f})" if entry.get("z") is not None else ""
         deviation_clause = f" with Δ{entry['deviation_pct']:+.1f}%" if entry.get("deviation_pct") is not None else ""
