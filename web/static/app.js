@@ -108,7 +108,7 @@ async function onDatasetChange() {
 
   // Apply saved defaults for period type, brief style, and focus
   const periodEl = document.getElementById('period-type');
-  if (periodEl && savedDefaults.period_type) periodEl.value = savedDefaults.period_type;
+  if (periodEl) periodEl.value = savedDefaults.period_type || 'week_end';
   const briefEl = document.getElementById('brief-style');
   if (briefEl && savedDefaults.brief_style) briefEl.value = savedDefaults.brief_style;
   if (savedDefaults.focus && savedDefaults.focus.length > 0) {

@@ -233,10 +233,10 @@
             <div class="form-group">
               <label for="period-type">Aggregation Period</label>
               <select id="period-type">
-                <option value="">Default (from contract)</option>
-                <option value="week_end">Weekly</option>
+                
+                <option value="week_end" selected>Weekly</option>
                 <option value="month_end">Monthly</option>
-                <option value="day">Daily</option>
+                
               </select>
             </div>
             <div class="form-group">
@@ -484,7 +484,7 @@
                 </div>
               </div>
               <div class="form-group"><label>Default Period Type</label>
-                <select id="ed-default-period"><option value="">From Contract</option><option value="week_end">Weekly</option><option value="month_end">Monthly</option></select>
+                <select id="ed-default-period"><option value="week_end" selected>Weekly</option><option value="month_end">Monthly</option></select>
               </div>
               <div class="form-group"><label>Default Brief Style</label>
                 <select id="ed-default-brief"><option value="ceo">CEO Brief</option><option value="default">Standard</option></select>
@@ -661,6 +661,8 @@
       const start = document.getElementById('start-date').value;
       const end = document.getElementById('end-date').value;
       if (start && end && start > end) errors.push('Start date must be before end date');
+      const periodType = document.getElementById('period-type').value;
+      if (!periodType || (periodType !== 'week_end' && periodType !== 'month_end')) errors.push('Please select Weekly or Monthly aggregation period');
 
       const errDiv = document.getElementById('validation-errors');
       if (errors.length > 0) {
@@ -704,7 +706,7 @@
       document.getElementById('start-date').value = '';
       document.getElementById('end-date').value = '';
       document.getElementById('max-depth').value = '3';
-      document.getElementById('period-type').selectedIndex = 0;
+      document.getElementById('period-type').value = 'week_end';
       document.getElementById('brief-style').selectedIndex = 0;
       document.querySelectorAll('input[name="focus"]').forEach(cb => cb.checked = cb.value.includes('trends'));
       document.getElementById('validation-errors').style.display = 'none';

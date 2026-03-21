@@ -98,9 +98,18 @@ def aggregate_temporal_data(
         print(f"[TemporalAggregation] WARNING: Time column '{time_column}' not found")
         return df
     
-    # Parse time column
+    # Parse time column — try exact format first, fall back to flexible parsing if too many NaT
     df = df.copy()
-    df[time_column] = pd.to_datetime(df[time_column], format=time_format, errors="coerce")
+    parsed = pd.to_datetime(df[time_column], format=time_format, errors="coerce")
+    nat_ratio = parsed.isna().mean()
+    if nat_ratio > 0.5:
+        # Format mismatch (e.g., data has no time component but format expects one)
+        parsed = pd.to_datetime(df[time_column], errors="coerce")
+        if parsed.isna().mean() < nat_ratio:
+            print(f"[TemporalAggregation] Format '{time_format}' produced {nat_ratio:.0%} NaT; using flexible parser instead")
+        else:
+            parsed = pd.to_datetime(df[time_column], format=time_format, errors="coerce")
+    df[time_column] = parsed
     
     # Determine current grain by checking date differences
     sorted_df = df.sort_values(time_column)
