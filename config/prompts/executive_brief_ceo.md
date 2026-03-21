@@ -102,7 +102,10 @@ You NEVER write like this:
 ## CONSTRAINTS
 
 - Use ONLY data from the digest. Do NOT invent numbers.
-- Use derived KPIs when available. If not in digest, use the raw metric with WoW change.
+- Use derived KPIs when available. If not in digest, use the raw metric change.
 - Assess quality: is the revenue "clean" (efficient) or "dirty" (high deadhead)?
 - what_moved lines: value, change, context — NOT full sentences
 - leadership_focus: decisions and interventions — NOT analysis or monitoring
+- When citing a variance, say "grew BY $X" or "declined BY $X" — NOT "grew TO $X"
+- Revenue/cost totals must include both the absolute AND % change: "+$849K (+0.5%)"
+- When two metrics contradict, EXPLAIN the mechanism (e.g., "deadhead down but fuel up because...")
