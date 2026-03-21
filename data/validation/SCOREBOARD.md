@@ -1,13 +1,13 @@
 # Iteration Scoreboard
 
-**Last updated:** 2026-03-12T20:56:42
+**Last updated:** 2026-03-13T05:13:51
 
 ## Current State
-- **Unit Tests:** 298 passed, 0 failed, 0 errors
+- **Unit Tests:** 291 passed, 0 failed, 0 errors
 - **E2E Trade Data:** 5 passed, 0 failed
-- **Codebase:** 202 files, 33,513 lines, **64 files >200L**
-- **Largest:** sub_agents/executive_brief_agent/agent.py (1497L)
-- **Commit:** `714cc4e docs: Add dev session log for 2026-03-12`
+- **Codebase:** 202 files, 33,712 lines, **64 files >200L**
+- **Largest:** sub_agents/executive_brief_agent/agent.py (1599L)
+- **Commit:** `baecb84 docs: dev iterate 001 session summary`
 
 ## Progress Over Time
 
@@ -180,9 +180,21 @@
 | 165 | 20:11 | `d008197` | 297 | 1 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 | 166 | 20:31 | `3792577` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 | 167 | 20:56 | `714cc4e` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 168 | 21:15 | `00cb048` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 169 | 21:43 | `953fe18` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 170 | 22:24 | `97dbe36` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 171 | 23:30 | `6b5e90a` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 172 | 00:51 | `ff6cf70` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 173 | 01:29 | `5061f7e` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 174 | 01:52 | `ed54880` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 175 | 02:15 | `acf7567` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 176 | 02:32 | `b5f3b5c` | 298 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 177 | 03:45 | `80e5de0` | 291 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 178 | 04:34 | `b4c4ebd` | 291 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
+| 179 | 05:13 | `baecb84` | 291 | 0 | 0 | 5/5 | 64 | sub_agents/executive_brie |
 
 ## Cumulative Improvement
-- Tests: 247 → **298** (+51)
+- Tests: 247 → **291** (+44)
 - Failures: 0 → **0**
 - Files >200L: 50 → **64** (+14)
-- Iterations: 167
+- Iterations: 179

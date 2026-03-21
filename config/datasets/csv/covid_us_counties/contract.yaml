@@ -1,13 +1,14 @@
 name: "COVID-19 US Counties"
 version: "1.0.0"
-display_name: "COVID-19 US Counties Dataset"
+display_name: "COVID-19 Cases and Deaths by US County"
 target_label: "Metric"
 description: >
-  COVID-19 cases and deaths data for US counties from the New York Times.
-  Contains cumulative case and death counts by county, state, and date.
+  Johns Hopkins COVID-19 daily time series data at county level for the United States.
+  Tracks cumulative cases and deaths across all US counties from January 2020 onwards.
+  Data includes geographic hierarchy (state -> county) with FIPS codes for unique identification.
 
 materiality:
-  variance_pct: 5.0
+  variance_pct: 10.0
   variance_absolute: 100
 
 presentation:
@@ -16,21 +17,21 @@ presentation:
 reporting:
   max_drill_depth: 3
   executive_brief_drill_levels: 2
-  max_scope_entities: 50
+  max_scope_entities: 20
   output_format: "pdf"
 
 data_source:
   type: "csv"
-  file: "data/public/us_counties_covid_sampled.csv"
+  file: "data/public/us_counties_covid.csv"
 
 time:
   column: "date"
   frequency: "daily"
   format: "%Y-%m-%d"
-  range_months: 24
+  range_months: 48
 
 grain:
-  columns: ["date", "county", "state"]
+  columns: ["date", "state", "county"]
 
 metrics:
   - name: "cases"
@@ -38,48 +39,51 @@ metrics:
     type: "additive"
     format: "integer"
     optimization: "minimize"
-    tags: ["health", "covid", "cases"]
-    description: "Cumulative COVID-19 cases"
+    tags: ["health", "epidemiology", "cumulative"]
+    description: "Cumulative confirmed COVID-19 cases"
   - name: "deaths"
     column: "deaths"
     type: "additive"
     format: "integer"
     optimization: "minimize"
-    tags: ["health", "covid", "deaths"]
+    tags: ["health", "epidemiology", "mortality", "cumulative"]
     description: "Cumulative COVID-19 deaths"
 
 dimensions:
+  - name: "date"
+    column: "date"
+    role: "time"
+    description: "Report date (daily grain)"
   - name: "county"
     column: "county"
-    role: "primary"
+    role: "secondary"
     description: "US county name"
   - name: "state"
     column: "state"
-    role: "secondary"
+    role: "primary"
     description: "US state name"
   - name: "fips"
     column: "fips"
     role: "secondary"
-    description: "Federal Information Processing Standard (FIPS) code"
-  - name: "date"
-    column: "date"
-    role: "time"
-    description: "Date of the data point"
+    description: "5-digit FIPS code (unique county identifier)"
 
 hierarchies:
   - name: "geographic"
-    description: "Geographic hierarchy: State -> County"
+    description: "Geographic drill-down: State -> County"
     children: ["state", "county"]
     level_names:
-      0: "Total"
+      0: "Total US"
       1: "State"
       2: "County"
 
 capabilities:
   - "daily COVID-19 trend analysis"
-  - "geographic drill-down from state to county"
-  - "case and death trend comparison"
-  - "cumulative case tracking"
+  - "geographic drill-down from state to county level"
+  - "multi-metric analysis (cases and deaths)"
+  - "cumulative vs daily change tracking"
+  - "state-level comparative analysis"
+  - "county-level outbreak detection"
+  - "mortality rate analysis"
 
 policies:
-  degradation_threshold: 0.10
+  degradation_threshold: 0.12

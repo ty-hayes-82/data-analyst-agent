@@ -51,12 +51,11 @@ def _max_cards_per_level() -> int:
 
 MAX_CARDS_PER_LEVEL = 15  # Legacy default; _max_cards_per_level() used at runtime
 MIN_DRILL_IMPACT_SCORE = 0.15  # top insight must beat this to justify drill-down
-MIN_VARIANCE_DOLLAR = 50_000.0
-HIGH_VARIANCE_DOLLAR = 200_000.0
-CRITICAL_VARIANCE_DOLLAR = 500_000.0
-MIN_VARIANCE_PCT = 5.0
-HIGH_VARIANCE_PCT = 10.0
-CRITICAL_VARIANCE_PCT = 20.0
+
+# Materiality is now relative (share of variance, % change magnitude)
+# not fixed dollar thresholds. These legacy values are only used as
+# fallbacks when contract materiality config is not available.
+_LEGACY_MIN_VARIANCE_PCT = 2.0  # lowered from 5.0 — relative scoring handles priority
 
 
 # ---------------------------------------------------------------------------
@@ -99,18 +98,25 @@ def _priority_from_score(score: float) -> str:
 
 
 def _is_material_variance(var_dollar: float, var_pct: float | None) -> bool:
+    """Check if a variance is material enough to include.
+
+    Uses relative % change — no fixed dollar thresholds.
+    A $5K variance is material if it's a 30% change for a driver manager.
+    """
     pct_val = abs(var_pct) if var_pct is not None else 0.0
-    return abs(var_dollar) >= MIN_VARIANCE_DOLLAR or pct_val >= MIN_VARIANCE_PCT
+    # Any % change above the minimum threshold is material
+    # regardless of absolute dollar amount
+    return pct_val >= _LEGACY_MIN_VARIANCE_PCT
 
 
 def _priority_from_variance(var_dollar: float, var_pct: float | None) -> str:
+    """Assign priority based on relative % change, not fixed dollar thresholds."""
     pct_val = abs(var_pct) if var_pct is not None else 0.0
-    abs_dollar = abs(var_dollar)
-    if pct_val >= CRITICAL_VARIANCE_PCT or abs_dollar >= CRITICAL_VARIANCE_DOLLAR:
+    if pct_val >= 20.0:
         return "critical"
-    if pct_val >= HIGH_VARIANCE_PCT or abs_dollar >= HIGH_VARIANCE_DOLLAR:
+    if pct_val >= 10.0:
         return "high"
-    if pct_val >= MIN_VARIANCE_PCT or abs_dollar >= MIN_VARIANCE_DOLLAR:
+    if pct_val >= 5.0:
         return "medium"
     return "low"
 
@@ -145,6 +151,39 @@ def format_hierarchy_insight_cards(
     total_variance = level_stats.get("total_variance_dollar", 0.0)
     is_last_level = level_stats.get("is_last_level", False)
     top_drivers = level_stats.get("top_drivers", [])
+    
+    # VALIDATION: Detect data structure mismatch
+    if top_drivers:
+        first_driver = top_drivers[0]
+        has_variance_fields = "variance_dollar" in first_driver and "variance_pct" in first_driver
+        has_statistical_fields = "slope_3mo" in first_driver or "avg" in first_driver
+        
+        if not has_variance_fields and has_statistical_fields:
+            # This is statistical summary data, not hierarchy level stats!
+            error_msg = (
+                f"Data structure mismatch at level {level}: "
+                f"format_hierarchy_insight_cards() expects hierarchy variance data "
+                f"(variance_dollar, variance_pct) but received statistical summary data "
+                f"(slope_3mo, avg). Use generate_statistical_insight_cards() instead."
+            )
+            print(f"\n[CardGen ERROR] {error_msg}", flush=True)
+            print(f"[CardGen ERROR] Received fields: {list(first_driver.keys())}", flush=True)
+            return {
+                "error": "DataStructureMismatch",
+                "message": error_msg,
+                "received_fields": list(first_driver.keys()),
+                "expected_fields": ["variance_dollar", "variance_pct", "current", "prior"],
+                "insight_cards": [],
+                "total_variance_dollar": 0.0,
+                "is_last_level": is_last_level,
+                "level": level,
+                "level_name": level_name,
+            }
+        
+        if not has_variance_fields:
+            # Missing variance fields but not statistical data - possible data quality issue
+            print(f"\n[CardGen WARNING] Level {level}: top_drivers missing variance fields", flush=True)
+            print(f"[CardGen WARNING] Available fields: {list(first_driver.keys())}", flush=True)
 
     # Compute total current for materiality weighting
     total_current = sum(abs(d.get("current", 0.0)) for d in top_drivers)
@@ -203,6 +242,7 @@ def format_hierarchy_insight_cards(
 
         if not _is_material_variance(var_dollar, var_pct):
             continue
+        item = str(driver.get("item", ""))
         item = str(driver.get("item", ""))
         current = driver.get("current", 0.0)
         prior = driver.get("prior", 0.0)
@@ -358,9 +398,35 @@ def should_continue_drilling(
       - At least one insight card with impact_score >= MIN_DRILL_IMPACT_SCORE
       - Not at last level or max depth
       - Not a duplicate level
+      - Level 0 always drills to Level 1 (Level 0 is aggregate baseline only)
+    
+    Test Mode:
+      - Set FORCE_DRILL_DOWN_DEPTH=N to force drilling to depth N regardless of impact
     """
     is_last_level = level_result.get("is_last_level", False)
     is_duplicate = level_result.get("is_duplicate", False)
+    
+    # Special case: Level 0 is always just an aggregate "Total" entity
+    # Always drill to Level 1 to find actual variance drivers
+    if current_level == 0 and not is_last_level and not is_duplicate:
+        return {
+            "action": "CONTINUE",
+            "reasoning": "Level 0 is aggregate baseline; drilling to Level 1 for variance drivers",
+            "material_variances": ["Analyzing first-level breakdown"],
+            "next_level": 1,
+        }
+    
+    # Test mode: force drill-down to specified depth
+    force_depth = os.environ.get("FORCE_DRILL_DOWN_DEPTH", "").strip()
+    if force_depth.isdigit():
+        force_depth_int = int(force_depth)
+        if current_level < force_depth_int and not is_last_level and not is_duplicate:
+            return {
+                "action": "CONTINUE",
+                "reasoning": f"[TEST MODE] Force drilling to depth {force_depth_int} (current: {current_level})",
+                "material_variances": ["[forced for testing]"],
+                "next_level": current_level + 1,
+            }
 
     if is_last_level:
         return {"action": "STOP", "reasoning": "Reached last level of the hierarchy.",
@@ -370,7 +436,7 @@ def should_continue_drilling(
         return {"action": "STOP", "reasoning": f"Level {current_level} is a duplicate.",
                 "material_variances": [], "next_level": None}
 
-    if current_level >= max_depth - 1:
+    if current_level >= max_depth:
         return {"action": "STOP", "reasoning": f"Reached max drill depth ({max_depth}).",
                 "material_variances": [], "next_level": None}
 

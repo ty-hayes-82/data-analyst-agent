@@ -26,14 +26,20 @@ class InitializeHierarchicalLoop(BaseAgent):
         max_depth = 5
         hierarchy_name = None
 
-        if analysis_ctx and analysis_ctx.contract:
-            if analysis_ctx.contract.hierarchies:
+        # Priority: analysis_ctx.max_drill_depth > hierarchy length > default (5)
+        if analysis_ctx:
+            # Use explicit max_drill_depth from AnalysisContext if available
+            if getattr(analysis_ctx, "max_drill_depth", None) is not None:
+                max_depth = analysis_ctx.max_drill_depth
+            
+            # Get hierarchy metadata
+            if analysis_ctx.contract and analysis_ctx.contract.hierarchies:
                 hierarchy = analysis_ctx.contract.hierarchies[0]
-                max_depth = len(hierarchy.children)
                 hierarchy_name = hierarchy.name
-
-            if getattr(analysis_ctx, "max_drill_depth", None):
-                max_depth = min(max_depth, analysis_ctx.max_drill_depth)
+                
+                # Only use hierarchy length as a cap if it's non-zero and no explicit max_drill_depth was set
+                if len(hierarchy.children) > 0 and getattr(analysis_ctx, "max_drill_depth", None) is None:
+                    max_depth = len(hierarchy.children)
 
         initial_state = {
             "current_level": start_level,

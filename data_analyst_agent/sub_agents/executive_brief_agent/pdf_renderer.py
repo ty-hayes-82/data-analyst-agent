@@ -91,7 +91,8 @@ def _parse_brief(md: str) -> dict:
     # Extract known sections
     _section_names = [
         "Key Findings",
-        "Recommended Actions",
+        "Forward Outlook",  # Current section name
+        "Recommended Actions",  # Legacy section name (for backward compatibility)
         "Executive Summary",
         "Scope Overview",
         "What's going well",

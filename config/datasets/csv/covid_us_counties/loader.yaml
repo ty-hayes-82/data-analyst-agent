@@ -1,5 +1,5 @@
 source:
-  file: "data/public/us_counties_covid_sampled.csv"
+  file: "data/public/us_counties_covid.csv"
   encoding: "utf-8"
   delimiter: ","
   format: "long"

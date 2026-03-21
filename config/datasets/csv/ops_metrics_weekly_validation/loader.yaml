@@ -1,0 +1,22 @@
+source:
+  file: "data/validation/ops_metrics_weekly_validation.csv"
+  encoding: "utf-8"
+  delimiter: ","
+  format: "long"  # Already in final wide format - don't melt
+
+sort_columns: ["cal_dt", "gl_rgn_nm", "gl_div_nm", "ops_ln_of_bus_nm"]
+
+# Keep all columns as-is (wide format with metric columns)
+output_columns:
+  - "cal_dt"
+  - "gl_rgn_nm"
+  - "gl_div_nm"
+  - "ops_ln_of_bus_nm"
+  - "ttl_rev_amt"
+  - "lh_rev_amt"
+  - "fuel_srchrg_rev_amt"
+  - "acsrl_rev_amt"
+  - "ordr_cnt"
+  - "ordr_miles"
+  - "truck_count"
+  - "dh_miles"

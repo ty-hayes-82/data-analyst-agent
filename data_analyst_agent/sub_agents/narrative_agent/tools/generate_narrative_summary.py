@@ -96,15 +96,39 @@ def _extract_dimension_aliases(contract_dict: Mapping | None) -> tuple[list[str]
     return ordered_aliases, priority
 
 
-def _generic_key_priority(key: str) -> tuple[int, str]:
+def _generic_key_priority(key: str, dimension_priority: dict[str, int] | None = None) -> tuple[int, str]:
+    """Assign priority to dimension keys for narrative display.
+    
+    Args:
+        key: Dimension key to prioritize
+        dimension_priority: Contract-derived priority map (from hierarchy order)
+        
+    Returns:
+        Tuple of (priority_rank, normalized_key) for sorting
+        
+    Priority order:
+        - If dimension_priority provided, use contract hierarchy order (0-based)
+        - Otherwise fall back to heuristic patterns:
+            0: Geographic (region, country, market, geo, state, province, city)
+            1: Categorical (segment, category, product, line, channel, type)
+            2: Identifier (code, id, key)
+            3: Label (name, label, description)
+            4: Other
+    """
     kl = key.lower()
-    if any(token in kl for token in ("region", "country", "market", "geo")):
+    
+    # Contract-driven priority takes precedence
+    if dimension_priority and kl in dimension_priority:
+        return (dimension_priority[kl], kl)
+    
+    # Fallback to heuristic patterns for datasets without explicit hierarchy
+    if any(token in kl for token in ("region", "country", "market", "geo", "state", "province", "city", "location")):
         return (0, kl)
-    if any(token in kl for token in ("segment", "category", "line", "channel")):
+    if any(token in kl for token in ("segment", "category", "product", "line", "channel", "type", "class")):
         return (1, kl)
-    if any(token in kl for token in ("code", "id")):
+    if any(token in kl for token in ("code", "id", "key")):
         return (2, kl)
-    if "name" in kl or "label" in kl:
+    if "name" in kl or "label" in kl or "description" in kl:
         return (3, kl)
     return (4, kl)
 
@@ -172,7 +196,7 @@ async def generate_narrative_summary(
                                 break
 
                     if not picked:
-                        ordered_generic = sorted(ex.keys(), key=lambda k: _generic_key_priority(str(k)))
+                        ordered_generic = sorted(ex.keys(), key=lambda k: _generic_key_priority(str(k), dimension_priority))
                         for key in ordered_generic:
                             value = ex.get(key)
                             if value not in (None, ""):

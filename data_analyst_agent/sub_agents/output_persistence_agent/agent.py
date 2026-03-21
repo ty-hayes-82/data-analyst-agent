@@ -381,7 +381,31 @@ class OutputPersistenceAgent(BaseAgent):
                     json.dump(data, f, indent=2)
                 print(f"[PERSIST] [OK] Successfully saved JSON analysis to {output_path.name}")
                 print(f"[PERSIST] File size: {output_path.stat().st_size} bytes")
-            
+
+                # --- Insight Cache: save per-stage caches for brief regeneration ---
+                try:
+                    run_dir_for_cache = os.getenv("DATA_ANALYST_OUTPUT_DIR")
+                    if run_dir_for_cache and analysis_target:
+                        from ...cache import InsightCache
+                        cache = InsightCache(run_dir_for_cache)
+                        metric_key = str(analysis_target).replace(" ", "_").lower()
+
+                        if statistical_summary:
+                            cache.save_stage("statistical_cards", metric_key, statistical_summary)
+                        if hierarchical_results:
+                            cache.save_stage("hierarchy_cards", metric_key, hierarchical_results)
+                        if narrative_data:
+                            cache.save_stage("narrative_cards", metric_key, narrative_data)
+                        if alert_data:
+                            cache.save_stage("alerts", metric_key, alert_data)
+                        synthesis_data = session_state.get("synthesis_result")
+                        if synthesis_data:
+                            cache.save_stage("synthesis", metric_key, {"result": synthesis_data} if isinstance(synthesis_data, str) else synthesis_data)
+
+                        print(f"[PERSIST] [OK] Saved insight cache stages for {metric_key}")
+                except Exception as cache_err:
+                    print(f"[PERSIST] WARNING: Failed to save insight cache: {cache_err}")
+
             else:
                 # Append GL drilldown to existing file
                 if not output_path.exists():

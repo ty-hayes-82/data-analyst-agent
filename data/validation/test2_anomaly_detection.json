@@ -1,0 +1,38 @@
+{
+  "header": {
+    "title": "2025-12-31 – Total Trade Value Surges Across Major US Regions",
+    "summary": "Total trade value increased by $97.2 million to reach $3.35 billion compared to the prior week. This 3.0% growth was driven by simultaneous statistical anomalies in both import and export flows, indicating a systemic shift in national trade activity."
+  },
+  "body": {
+    "sections": [
+      {
+        "title": "Executive Summary",
+        "content": "For the week ending 2025-12-31, total US trade value experienced a significant upward trajectory, growing 3.0% compared to the prior week. This expansion was fueled by synchronized volume increases across both imports and exports, with the West and South regions acting as the primary geographic catalysts. The uniform nature of this growth suggests a broader macroeconomic demand shift rather than isolated commodity disruptions.",
+        "insights": []
+      },
+      {
+        "title": "Key Findings",
+        "content": "Analysis of the $97.2 million weekly trade value increase reveals synchronized anomalies across major trade flows and key coastal states.",
+        "insights": [
+          {
+            "title": "Dual Flow Statistical Anomalies Detected",
+            "details": "Both trade flows triggered statistical anomalies compared to historical averages, with imports reaching $1.81 billion (z-score 2.05) and exports hitting $1.54 billion (z-score 2.06). This uniform growth across both directions indicates a systemic peak in trade activity rather than a localized disruption. The synchronized movement suggests robust underlying economic demand driving both inbound and outbound supply chains."
+          },
+          {
+            "title": "California Drives West Region Expansion",
+            "details": "The West region's trade value increased by $31.7 million (a 3.2% rise compared to the prior week) to reach $1.03 billion. California was the primary engine for this growth, contributing $18.8 million of the regional variance. Consequently, California maintained a dominant 30.8% share of the total national trade value, reinforcing its critical role in Pacific-facing supply chains."
+          },
+          {
+            "title": "Texas Accelerates South Region Growth",
+            "details": "Trade value in the South region grew by $28.4 million (up 3.3% compared to the prior week) to total $882.7 million. This expansion was heavily influenced by Texas, which saw a $16.9 million increase, outpacing the national average growth rate at 3.7%. Texas's performance solidified the South's position, capturing a 26.4% share of total US trade value for the period."
+          }
+        ]
+      },
+      {
+        "title": "Forward Outlook",
+        "content": "Based on the synchronized anomalies across both imports and exports, trade value is expected to remain elevated above the $3.3 billion threshold in the near term. Best case scenario: The current momentum stabilizes into a new seasonal baseline, pushing weekly trade values toward $3.4 billion if West Coast and Southern port throughput remains unconstrained. Worst case scenario: A rapid mean-reversion occurs, dropping total value back to the $3.25 billion pre-surge baseline if the current spike represents pulled-forward demand. Leading indicators to monitor include weekly port volume units and HS2 energy commodity flows, which typically signal shifts in regional trade velocity with a one-to-two week lead time.",
+        "insights": []
+      }
+    ]
+  }
+}

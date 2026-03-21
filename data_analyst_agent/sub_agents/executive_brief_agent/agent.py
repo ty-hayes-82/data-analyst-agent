@@ -385,21 +385,49 @@ EXECUTIVE_BRIEF_RESPONSE_SCHEMA = _build_brief_response_schema()
 NETWORK_SECTION_CONTRACT = [
     {"title": "Executive Summary", "mode": "content"},
     {"title": "Key Findings", "mode": "insights"},
-    {"title": "Recommended Actions", "mode": "insights_min_2"},
+    {"title": "Forward Outlook", "mode": "content"},
 ]
 
 SCOPED_SECTION_CONTRACT = [
     {"title": "Executive Summary", "mode": "content"},
     {"title": "Scope Overview", "mode": "content"},
     {"title": "Key Findings", "mode": "insights"},
-    {"title": "Recommended Actions", "mode": "insights_min_2"},
+    {"title": "Forward Outlook", "mode": "content"},
 ]
 
 TOP_INSIGHT_MIN_COUNT = 3
 
 
 def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]]) -> dict:
-    """Ensure the LLM JSON matches the required section titles/order."""
+    """Ensure the LLM JSON matches the required section titles/order.
+    
+    This function maps forbidden section titles to their correct equivalents,
+    then ensures all required sections are present in the correct order.
+    """
+    # Title mapping for common LLM mistakes — dynamic based on style
+    from .prompt import is_ceo_style as _is_ceo
+    if _is_ceo():
+        FORBIDDEN_TITLE_MAPPING = {
+            "Executive Summary": "What moved the business",
+            "Key Findings": "What moved the business",
+            "Forward Outlook": "Next-week outlook",
+            "Opening": "What moved the business",
+            "Recommended Actions": "Leadership focus",
+            "Actions": "Leadership focus",
+            "Next Steps": "Next-week outlook",
+        }
+    else:
+        FORBIDDEN_TITLE_MAPPING = {
+            "Opening": "Executive Summary",
+            "Top Operational Insights": "Key Findings",
+            "Network Snapshot": "Key Findings",
+            "Focus For Next Week": "Forward Outlook",
+            "Leadership Question": "Forward Outlook",
+            "Recommended Actions": "Forward Outlook",
+            "Actions": "Forward Outlook",
+            "Next Steps": "Forward Outlook",
+        }
+    
     header = brief.setdefault("header", {})
     header_title = str(header.get("title") or "").strip()
     header_summary = str(header.get("summary") or "").strip()
@@ -408,11 +436,45 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
 
     body = brief.setdefault("body", {})
     existing_sections = {}
-    for raw in body.get("sections", []) or []:
-        if isinstance(raw, dict):
-            title = str(raw.get("title") or "").strip()
-            if title:
-                existing_sections[title] = raw
+    
+    # First pass: map forbidden titles to correct ones, merging content when needed
+    raw_sections = body.get("sections", []) or []
+    for raw in raw_sections:
+        if not isinstance(raw, dict):
+            continue
+        title = str(raw.get("title") or "").strip()
+        if not title:
+            continue
+            
+        # Map forbidden title to correct one
+        correct_title = FORBIDDEN_TITLE_MAPPING.get(title, title)
+        
+        # If we already have this section (e.g., multiple sections mapped to Key Findings),
+        # merge the insights
+        if correct_title in existing_sections:
+            existing = existing_sections[correct_title]
+            new_insights = raw.get("insights", [])
+            if isinstance(new_insights, list):
+                existing_insights = existing.get("insights", [])
+                if not isinstance(existing_insights, list):
+                    existing_insights = []
+                existing_insights.extend(new_insights)
+                existing["insights"] = existing_insights
+            # Concatenate content
+            new_content = str(raw.get("content") or "").strip()
+            if new_content:
+                existing_content = str(existing.get("content") or "").strip()
+                if existing_content:
+                    existing["content"] = f"{existing_content} {new_content}"
+                else:
+                    existing["content"] = new_content
+        else:
+            # Create new section with correct title
+            existing_sections[correct_title] = {
+                "title": correct_title,
+                "content": raw.get("content", ""),
+                "insights": raw.get("insights", [])
+            }
 
     def _placeholder_insight(section_title: str, idx: int) -> dict[str, str]:
         suffix = f" {idx + 1}" if idx else ""
@@ -511,15 +573,44 @@ def _validate_structured_brief(
     has_critical_findings: bool = False,
     critical_metrics: list[str] | None = None,
     min_insight_values: int = 3,
+    is_scoped: bool = False,
 ) -> list[str]:
     """Return a list of validation errors for the structured brief payload.
     
     Args:
         min_insight_values: Minimum numeric values per Key Findings insight (default 3).
                            Use 2 for scoped briefs with less signal.
+        is_scoped: True for entity-scoped briefs (relaxed validation).
     """
 
+    # Forbidden titles that should have been mapped by _apply_section_contract
+    FORBIDDEN_TITLES = {
+        "Opening",
+        "Top Operational Insights", 
+        "Network Snapshot",
+        "Focus For Next Week",
+        "Leadership Question",
+        "Recommended Actions",
+        "Actions",
+        "Next Steps",
+    }
+
     errors: list[str] = []
+    
+    # Check for forbidden section titles FIRST (these should never appear after normalization)
+    body = brief.get("body") or {}
+    sections = body.get("sections") or []
+    if isinstance(sections, list):
+        for idx, section in enumerate(sections):
+            if not isinstance(section, dict):
+                continue
+            title = str(section.get("title") or "").strip()
+            if title in FORBIDDEN_TITLES:
+                errors.append(
+                    f"FORBIDDEN section title '{title}' at position {idx}. "
+                    "Use required titles: Executive Summary, Key Findings, Forward Outlook"
+                )
+    
     header = brief.get("header") or {}
     header_title = str(header.get("title") or "").strip()
     header_summary = str(header.get("summary") or "").strip()
@@ -528,12 +619,14 @@ def _validate_structured_brief(
     if not header_summary:
         errors.append("header.summary is empty")
     
-    # Validate header has minimum numeric values
+    # Validate header has minimum numeric values (skip for CEO style — bottom_line is the header)
+    from .prompt import is_ceo_style as _ceo_header_check
     header_value_count = _count_numeric_values(header_title + " " + header_summary)
-    if header_value_count < 2:
-        errors.append(
-            f"header contains only {header_value_count} numeric values (minimum: 2)"
-        )
+    if not _ceo_header_check():
+        if header_value_count < 2:
+            errors.append(
+                f"header contains only {header_value_count} numeric values (minimum: 2)"
+            )
     
     # Check for forbidden fallback when critical findings exist
     if has_critical_findings and critical_metrics:
@@ -595,13 +688,18 @@ def _validate_structured_brief(
         content = str(section.get("content") or "").strip()
         if not title:
             errors.append(f"body.sections[{idx}] missing title")
-        if not content:
+        # CEO insight sections may have empty content (insights carry the data)
+        from .prompt import is_ceo_style as _ceo_validate
+        _ceo_insight_titles = {"What moved the business", "Trend status", "Where it came from", "Leadership focus"}
+        if not content and not (_ceo_validate() and title in _ceo_insight_titles):
             errors.append(f"{title or f'section[{idx}]'} content empty")
         elif content == SECTION_FALLBACK_TEXT:
-            errors.append(
-                f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
-                "LLM did not populate this section"
-            )
+            # In CEO mode, content-only sections with fallback are errors; insight sections with fallback content are OK
+            if not (_ceo_validate() and title in _ceo_insight_titles):
+                errors.append(
+                    f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
+                    "LLM did not populate this section"
+                )
         
         # Count values in section content
         total_numeric_values += _count_numeric_values(content)
@@ -613,38 +711,55 @@ def _validate_structured_brief(
         if not isinstance(insights, list):
             errors.append(f"{title or f'section[{idx}]'} insights is not a list")
             continue
-        if title == "Key Findings":
-            if len(insights) < TOP_INSIGHT_MIN_COUNT:
-                errors.append("Key Findings must include at least three entries")
+
+        # Determine which sections require insight validation
+        from .prompt import is_ceo_style as _ceo_check
+        _ceo_active = _ceo_check()
+        # CEO content-only sections: Why it matters, Next-week outlook (no insights required)
+        _ceo_content_only = {"Why it matters", "Next-week outlook"}
+        # CEO insight sections requiring numeric validation
+        _ceo_insight_sections = {"What moved the business", "Where it came from"}
+
+        if title == "Key Findings" and not _ceo_active:
+            min_key_findings = 2 if is_scoped else TOP_INSIGHT_MIN_COUNT
+            if len(insights) < min_key_findings:
+                errors.append(f"Key Findings must include at least {min_key_findings} entries")
             if len(insights) > 5:
                 errors.append("Key Findings must not include more than five entries")
+
         for insight_idx, insight in enumerate(insights):
             if not isinstance(insight, dict):
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} is not an object")
                 continue
             details = str(insight.get("details") or "").strip()
             title_field = str(insight.get("title") or "").strip()
-            if title == "Key Findings" and not details:
+            if title == "Key Findings" and not _ceo_active and not details:
                 errors.append(f"Key Findings entry {insight_idx} missing details")
             elif details == SECTION_FALLBACK_TEXT:
-                errors.append(
-                    f"Key Findings entry {insight_idx} contains only placeholder fallback text - "
-                    "LLM did not populate this insight"
-                )
+                # Skip fallback check for CEO content-only sections
+                if not (_ceo_active and title in _ceo_content_only):
+                    errors.append(
+                        f"{title} entry {insight_idx} contains only placeholder fallback text - "
+                        "LLM did not populate this insight"
+                    )
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
-            
-            # Validate numeric values in Key Findings insights
-            if title == "Key Findings" and details:
+
+            # Validate numeric values in insight-heavy sections
+            needs_numeric = (title == "Key Findings" and not _ceo_active) or (_ceo_active and title in _ceo_insight_sections)
+            if needs_numeric and details:
                 insight_text = title_field + " " + details
                 insight_value_count = _count_numeric_values(insight_text)
                 total_numeric_values += insight_value_count
                 if insight_value_count < min_insight_values:
                     errors.append(
-                        f"Key Findings insight '{title_field or f'#{insight_idx + 1}'}' contains only "
+                        f"{title} insight '{title_field or f'#{insight_idx + 1}'}' contains only "
                         f"{insight_value_count} numeric values (minimum: {min_insight_values}). Include more specific amounts, "
                         "percentages, baselines, or statistical values."
                     )
+            elif details:
+                # Still count numeric values for total even in non-validated sections
+                total_numeric_values += _count_numeric_values(title_field + " " + details)
 
     if expected_titles and actual_titles != expected_titles:
         errors.append(
@@ -652,7 +767,8 @@ def _validate_structured_brief(
         )
     
     # Validate total numeric values across entire brief
-    MINIMUM_TOTAL_VALUES = 15
+    from .prompt import is_ceo_style as _ceo_total_check
+    MINIMUM_TOTAL_VALUES = 5 if _ceo_total_check() else (10 if is_scoped else 15)
     if total_numeric_values < MINIMUM_TOTAL_VALUES:
         errors.append(
             f"Brief contains only {total_numeric_values} total numeric values (minimum: {MINIMUM_TOTAL_VALUES}). "
@@ -711,16 +827,26 @@ async def _llm_generate_brief(
     critical_metrics: list[str] | None = None,
     max_attempts: int | None = None,
     min_insight_values: int = 3,
+    is_scoped: bool = False,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
 
     Args:
         max_attempts: Maximum retry attempts. If None, uses BRIEF_CONFIG.max_llm_retries().
         min_insight_values: Minimum numeric values per Key Findings insight (default 3 for network, 2 for scoped).
+        is_scoped: True for entity-scoped briefs (relaxed validation).
 
     Returns:
         Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
     """
+    # Fast-path for E2E tests: skip LLM call entirely if env var is set
+    if parse_bool_env(os.getenv("SKIP_EXECUTIVE_BRIEF_LLM")):
+        print("[BRIEF] SKIP_EXECUTIVE_BRIEF_LLM=true — using deterministic fallback (E2E test mode)")
+        recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
+        brief_json = build_structured_fallback_brief(digest, "E2E test mode: LLM skipped", recs, unit=unit)
+        brief_markdown = _build_structured_fallback_markdown(digest, recs, unit=unit)
+        return brief_json, brief_markdown, True
+    
     import asyncio
 
     config = types.GenerateContentConfig(
@@ -728,7 +854,7 @@ async def _llm_generate_brief(
         response_modalities=["TEXT"],
         response_mime_type="application/json",
         response_schema=EXECUTIVE_BRIEF_RESPONSE_SCHEMA,
-        temperature=0.05,
+        temperature=0.2,
         thinking_config=thinking_config,
     )
     loop = asyncio.get_running_loop()
@@ -776,34 +902,44 @@ async def _llm_generate_brief(
                 fallback_json, fallback_markdown = _structured_fallback(reason)
                 return fallback_json, fallback_markdown, True
             
-            # PRE-NORMALIZATION VALIDATION: Check if LLM returned the required section titles
-            if section_contract:
-                expected_titles = [spec["title"] for spec in section_contract]
-                actual_sections = brief_data.get("body", {}).get("sections", [])
-                actual_titles = [
-                    str(s.get("title", "")).strip() 
-                    for s in actual_sections 
-                    if isinstance(s, dict)
-                ]
-                
-                if actual_titles != expected_titles:
-                    error_msg = (
-                        f"LLM returned wrong section titles. "
-                        f"Expected: {', '.join(expected_titles)}. "
-                        f"Got: {', '.join(actual_titles or ['<empty>'])}"
-                    )
-                    print(f"[BRIEF] Attempt {attempt}/{max_attempts}: {error_msg}")
-                    if attempt < max_attempts:
-                        print(f"[BRIEF] Retrying with stronger section title enforcement...")
-                        await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
+            # Check for forbidden titles FIRST (before normalization auto-fixes them)
+            FORBIDDEN_TITLES = {
+                "Opening",
+                "Top Operational Insights",
+                "Network Snapshot",
+                "Focus For Next Week",
+                "Leadership Question",
+                "Recommended Actions",
+                "Actions",
+                "Next Steps",
+            }
+            body = brief_data.get("body") or {}
+            sections = body.get("sections") or []
+            forbidden_found: list[str] = []
+            if isinstance(sections, list):
+                for idx, section in enumerate(sections):
+                    if not isinstance(section, dict):
                         continue
-                    else:
-                        # After exhausting retries, RAISE to trigger fallback
-                        raise ValueError(
-                            f"LLM persistently returned wrong section titles after {max_attempts} attempts: "
-                            f"got {actual_titles}, expected {expected_titles}"
-                        )
+                    title = str(section.get("title") or "").strip()
+                    if title in FORBIDDEN_TITLES:
+                        forbidden_found.append(f"{title} (position {idx})")
             
+            if forbidden_found:
+                error_msg = (
+                    f"FORBIDDEN section titles detected: {', '.join(forbidden_found)}. "
+                    "Use required titles: Executive Summary, Key Findings, Forward Outlook."
+                )
+                print(f"[BRIEF] {error_msg}")
+                if attempt < max_attempts:
+                    print(f"[BRIEF] Retrying (attempt {attempt}/{max_attempts})...")
+                    await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
+                    continue
+                else:
+                    print(f"[BRIEF] Max retries exhausted. Falling back to structured digest.")
+                    fallback_json, fallback_markdown = _structured_fallback(error_msg)
+                    return fallback_json, fallback_markdown, True
+            
+            # Apply normalization AFTER validation to fix structure (add missing sections)
             if section_contract:
                 brief_data = _apply_section_contract(brief_data, section_contract)
             else:
@@ -815,7 +951,8 @@ async def _llm_generate_brief(
                 section_contract,
                 has_critical_findings=has_critical_findings,
                 critical_metrics=critical_metrics or [],
-                min_insight_values=min_insight_values
+                min_insight_values=min_insight_values,
+                is_scoped=is_scoped
             )
             if structural_errors:
                 # Check if errors include SECTION_FALLBACK_TEXT usage (indicates normalization failure)
@@ -928,6 +1065,22 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         digest = _apply_unit_to_text(digest, presentation_unit)
 
+        # --- Insight Cache: save digest for brief regeneration ---
+        try:
+            from ...cache import InsightCache
+            cache = InsightCache(str(outputs_dir))
+            cache.save_digest({
+                "digest": digest,
+                "metric_names": sorted(reports.keys()),
+                "json_data": json_data if json_data else {},
+                "analysis_period": analysis_period,
+                "period_end": period_end,
+                "presentation_unit": presentation_unit,
+            })
+            print(f"[BRIEF] Saved digest to insight cache (.cache/digest.json)")
+        except Exception as cache_err:
+            print(f"[BRIEF] WARNING: Failed to save digest cache: {cache_err}")
+
         drill_levels = 0
         max_scope_entities = 10
         min_scope_share_of_total = 0.0
@@ -1014,22 +1167,44 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         # Build mandatory section title enforcement (will be injected into system instruction)
-        expected_sections = [spec["title"] for spec in NETWORK_SECTION_CONTRACT]
-        section_title_enforcement = (
-            "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
-            "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
-            + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
-            + "\n\n"
-            "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
-            "   ❌ \"Opening\" → Use \"Executive Summary\" instead\n"
-            "   ❌ \"Top Operational Insights\" → Use \"Key Findings\" instead\n"
-            "   ❌ \"Network Snapshot\" → Merge into \"Key Findings\"\n"
-            "   ❌ \"Focus For Next Week\" → Merge into \"Recommended Actions\"\n"
-            "   ❌ \"Leadership Question\" → Merge into \"Recommended Actions\"\n"
-            "   ❌ Any other custom titles → FORBIDDEN\n\n"
-            "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
-            "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
-        )
+        from .prompt import is_ceo_style, CEO_SECTION_CONTRACT
+        active_section_contract = CEO_SECTION_CONTRACT if is_ceo_style() else NETWORK_SECTION_CONTRACT
+        expected_sections = [spec["title"] for spec in active_section_contract]
+        if is_ceo_style():
+            section_title_enforcement = (
+                "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
+                "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
+                + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+                + "\n\n"
+                "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
+                "   ❌ \"Executive Summary\" → FORBIDDEN in CEO style\n"
+                "   ❌ \"Key Findings\" → FORBIDDEN in CEO style\n"
+                "   ❌ \"Forward Outlook\" → FORBIDDEN in CEO style\n"
+                "   ❌ \"Recommended Actions\" → FORBIDDEN\n"
+                "   ❌ \"Opening\" → FORBIDDEN\n"
+                "   ❌ Any other custom titles → FORBIDDEN\n\n"
+                "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
+                "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
+            )
+        else:
+            section_title_enforcement = (
+                "\n\n⚠️⚠️⚠️ SECTION TITLE ENFORCEMENT (CRITICAL — RESPONSE WILL BE REJECTED IF VIOLATED) ⚠️⚠️⚠️\n\n"
+                "Your JSON body.sections array MUST contain EXACTLY these section titles in this EXACT order:\n\n"
+                + "\n".join(f"  {i+1}. \"{title}\"" for i, title in enumerate(expected_sections))
+                + "\n\n"
+                "❌ ABSOLUTELY FORBIDDEN SECTION TITLES (RESPONSE REJECTED IF USED):\n"
+                "   ❌ \"Opening\" → Use \"Executive Summary\" instead\n"
+                "   ❌ \"Top Operational Insights\" → Use \"Key Findings\" instead\n"
+                "   ❌ \"Network Snapshot\" → Merge into \"Key Findings\"\n"
+                "   ❌ \"Focus For Next Week\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ \"Leadership Question\" → Merge into \"Forward Outlook\"\n"
+                "   ❌ \"Recommended Actions\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ \"Actions\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ \"Next Steps\" → Use \"Forward Outlook\" instead\n"
+                "   ❌ Any other custom titles → FORBIDDEN\n\n"
+                "VALIDATION: Your response will be parsed and section titles checked BEFORE acceptance.\n"
+                "If titles don't match EXACTLY, your response will be REJECTED and you will retry.\n"
+            )
         
         instruction = _format_instruction(
             EXECUTIVE_BRIEF_INSTRUCTION,
@@ -1101,24 +1276,88 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             f"{', '.join(f'\"{t}\"' for t in expected_sections)}\n\n"
         )
         
-        user_message = (
-            f"{section_title_reminder}"  # FIRST — most visible position
-            f"{json_enforcement_block}"
-            f"{focus_preamble_text}"
-            f"{contract_summary_block}"
-            f"{contract_metadata_block}"
-            f"{contract_reference_block}"
-            f"{metric_coverage_block}"
-            f"{severity_enforcement_block}"
-            f"{monthly_enforcement_block}"
-            f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
-            f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
-            f"Use the above 'reference_period_end' when writing header.title.\n\n"
-            f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
-            f"{digest}\n\n"
-            f"{weather_block}"
-            "Generate the executive brief JSON as instructed. Your response must be ONLY the JSON object — no markdown fences, no preamble, no explanation."
+        # Build numeric value enforcement for network briefs
+        _insight_section_label = "What moved the business" if is_ceo_style() else "Key Findings"
+        network_numeric_enforcement = (
+            "⚠️ NUMERIC VALUE REQUIREMENT (MANDATORY — YOUR RESPONSE WILL BE REJECTED IF VIOLATED):\n"
+            f"Each {_insight_section_label} insight MUST contain AT LEAST 3 SPECIFIC NUMERIC VALUES.\n\n"
+            "✅ VALID numeric values (count toward requirement):\n"
+            "- Dollar amounts: \"$420K\", \"$1.5M\", \"+$316,042\"\n"
+            "- Percentages: \"22%\", \"+3.2%\", \"-15.7%\"\n"
+            "- Units with scale: \"503K units\", \"1.8M\"\n"
+            "- Baseline comparisons: \"vs $2.1M prior week\", \"compared to 195K average\"\n"
+            "- Statistical measures: \"z-score 2.06\", \"p-value 0.003\", \"r=0.99\"\n"
+            "- Entity breakdowns: \"West: $1.8M, South: $1.2M, Midwest: $800K\"\n\n"
+            "❌ INVALID (do NOT count):\n"
+            "- Vague references: \"significant increase\", \"multiple regions\"\n"
+            "- Generic counts: \"3 states\", \"several ports\"\n"
+            "- Ordinal only: \"top driver\", \"primary segment\"\n\n"
+            "VALIDATION: Your response will be parsed and each Key Findings insight will be checked for ≥3 numeric values.\n"
+            "If ANY insight has <3 numeric values → AUTOMATIC RETRY (max 3 attempts).\n"
+            "After 3 failed attempts → your response is DISCARDED.\n\n"
+            "EXAMPLE VALID INSIGHT:\n"
+            "\"details\": \"Trade value increased $97.22M (+3.0%) compared to the prior week, reaching $3.35B. "
+            "The West region contributed $31.66M (32.6% of network variance), while the South added $28.40M (+3.3% WoW).\"\n"
+            "→ Contains 7 numeric values: $97.22M, +3.0%, prior week baseline, $3.35B, $31.66M, 32.6%, $28.40M ✅\n\n"
         )
+        
+        if is_ceo_style():
+            # CEO style: lean user message with clear context
+            comparison_basis = brief_temporal_context.get("default_comparison_basis", "WoW")
+
+            # Enrich digest with Level 2 (terminal/division) drivers from JSON data
+            terminal_block = ""
+            if json_data:
+                terminal_lines = []
+                for metric_key, payload in json_data.items():
+                    h = payload.get("hierarchical_analysis", {})
+                    l2 = h.get("level_2", {})
+                    cards = l2.get("insight_cards", [])
+                    if cards:
+                        items = []
+                        for c in cards[:3]:
+                            title = c.get("title", "")
+                            ev = c.get("evidence", {})
+                            name = title.replace("Level 2 Variance Driver: ", "")
+                            pct = ev.get("variance_pct")
+                            dollar = ev.get("variance_dollar", 0)
+                            pct_str = f"{pct:+.1f}%" if pct is not None else ""
+                            items.append(f"{name} ({pct_str}, ${abs(dollar):,.0f})")
+                        terminal_lines.append(f"  {metric_key}: {', '.join(items)}")
+                if terminal_lines:
+                    terminal_block = "TERMINAL/DIVISION DRIVERS (Level 2):\n" + "\n".join(terminal_lines) + "\n\n"
+
+            user_message = (
+                f"COMPARISON BASIS: All variances are {comparison_basis} (week-over-week vs prior week).\n"
+                f"Say 'WoW' or 'vs prior week' — NOT 'vs plan'.\n"
+                f"Week ending: {period_end}\n"
+                f"Metrics: {', '.join(sorted(reports.keys()))}\n\n"
+                f"{terminal_block}"
+                f"{contract_summary_block}"
+                f"{digest}\n\n"
+                f"{weather_block}"
+                "Generate the CEO brief JSON."
+            )
+        else:
+            user_message = (
+                f"{section_title_reminder}"  # FIRST — most visible position
+                f"{network_numeric_enforcement}"  # SECOND — critical for validation
+                f"{json_enforcement_block}"
+                f"{focus_preamble_text}"
+                f"{contract_summary_block}"
+                f"{contract_metadata_block}"
+                f"{contract_reference_block}"
+                f"{metric_coverage_block}"
+                f"{severity_enforcement_block}"
+                f"{monthly_enforcement_block}"
+                f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
+                f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
+                f"Use the above 'reference_period_end' when writing header.title.\n\n"
+                f"Here are the individual metric analysis summaries for {analysis_period}.\n\n"
+                f"{digest}\n\n"
+                f"{weather_block}"
+                "Generate the executive brief JSON as instructed. Your response must be ONLY the JSON object — no markdown fences, no preamble, no explanation."
+            )
 
         metric_names = sorted(reports.keys())
         model_name = get_agent_model("executive_brief_agent")
@@ -1138,18 +1377,41 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
 
+        # Pre-check: if all metric reports are error-state or empty, skip LLM call
+        _empty_reports = sum(1 for v in reports.values() if "No insights" in v or "Error" in v or len(v.strip()) < 100)
+        if _empty_reports == len(reports):
+            print("[BRIEF] All metric reports are empty or error-state. Skipping LLM call.")
+            _fallback_md = (
+                f"# Analysis Summary — {analysis_period}\n\n"
+                "Analysis could not generate insights for this period. "
+                "This is typically caused by:\n"
+                "- Date parsing issues in the source data\n"
+                "- Insufficient data coverage for the selected time range\n"
+                "- All metrics falling below materiality thresholds\n\n"
+                "**Recommended action:** Verify data freshness and date column format, "
+                "then re-run with a broader date range."
+            )
+            brief_path = outputs_dir / ("brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md")
+            brief_path.write_text(_fallback_md, encoding="utf-8")
+            print(f"[BRIEF] Saved error brief to {brief_path.name}")
+            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            return
+
         try:
+            # CEO style uses terse fragments — relax numeric validation
+            _ceo_min_values = 1 if is_ceo_style() else 3
             brief_json, brief_md, used_fallback = await _llm_generate_brief(
                 model_name=model_name,
                 instruction=instruction,
                 user_message=user_message,
                 thinking_config=thinking_config,
                 digest=digest,
-                section_contract=NETWORK_SECTION_CONTRACT,
+                section_contract=active_section_contract,
                 reports=reports,
                 unit=presentation_unit,
                 has_critical_findings=has_critical,
                 critical_metrics=critical_metrics,
+                min_insight_values=_ceo_min_values,
             )
 
             if used_fallback:
@@ -1203,6 +1465,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             critical_metrics=[],
                             max_attempts=BRIEF_CONFIG.max_scoped_retries(),
                             min_insight_values=2,  # Scoped briefs have less signal, require only 2 values
+                            is_scoped=True,  # Relaxed validation for entity-scoped briefs
                         )
                         if scoped_fallback:
                             print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
@@ -1314,8 +1577,11 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             "- \"Opening\" (use \"Executive Summary\" instead)\n"
                             "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
                             "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
-                            "- \"Focus For Next Week\" (merge into \"Recommended Actions\")\n"
-                            "- \"Leadership Question\" (merge into \"Recommended Actions\")\n"
+                            "- \"Focus For Next Week\" (use \"Forward Outlook\" instead)\n"
+                            "- \"Leadership Question\" (merge into \"Forward Outlook\")\n"
+                            "- \"Recommended Actions\" (use \"Forward Outlook\" instead)\n"
+                            "- \"Actions\" (use \"Forward Outlook\" instead)\n"
+                            "- \"Next Steps\" (use \"Forward Outlook\" instead)\n"
                             "- Any other custom titles not listed above\n\n"
                             "VALIDATION PROCESS:\n"
                             "1. Parse your JSON response\n"
@@ -1352,8 +1618,32 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             f"{', '.join(f'\"{t}\"' for t in scoped_expected_sections)}\n\n"
                         )
                         
+                        # Build numeric value enforcement for scoped briefs
+                        scoped_numeric_enforcement = (
+                            "⚠️ NUMERIC VALUE REQUIREMENT (MANDATORY — YOUR RESPONSE WILL BE REJECTED IF VIOLATED):\n"
+                            "Each Key Findings insight MUST contain AT LEAST 2 SPECIFIC NUMERIC VALUES.\n\n"
+                            "✅ VALID numeric values (count toward requirement):\n"
+                            "- Dollar amounts: \"$420K\", \"$1.5M\", \"+$316,042\"\n"
+                            "- Percentages: \"22%\", \"+3.2%\", \"-15.7%\"\n"
+                            "- Units with scale: \"503K units\", \"1.8M\"\n"
+                            "- Baseline comparisons: \"vs $2.1M prior week\", \"compared to 195K average\"\n"
+                            "- Statistical measures: \"z-score 2.06\", \"p-value 0.003\", \"r=0.99\"\n\n"
+                            "❌ INVALID (do NOT count):\n"
+                            "- Vague references: \"significant increase\", \"multiple regions\"\n"
+                            "- Generic counts: \"3 states\", \"several ports\"\n"
+                            "- Ordinal only: \"top driver\", \"primary segment\"\n\n"
+                            "VALIDATION: Your response will be parsed and each Key Findings insight will be checked for ≥2 numeric values.\n"
+                            "If ANY insight has <2 numeric values → AUTOMATIC RETRY (max 2 attempts).\n"
+                            "After 2 failed attempts → your response is DISCARDED.\n\n"
+                            "EXAMPLE VALID INSIGHT:\n"
+                            "\"details\": \"Trade value in {entity} increased $420K (+3.2%) compared to the prior week, reaching $1.8M. "
+                            "This growth represents 22% of the total network variance and was driven primarily by CA ports (+$316K).\"\n"
+                            "→ Contains 6 numeric values: $420K, +3.2%, prior week baseline, $1.8M, 22%, +$316K ✅\n\n"
+                        )
+                        
                         scoped_user_message = (
                             f"{scoped_section_reminder}"  # FIRST — most visible
+                            f"{scoped_numeric_enforcement}"  # SECOND — critical for validation
                             f"{scoped_json_enforcement}"
                             f"{focus_preamble_text}"
                             f"{contract_summary_block}"

@@ -24,6 +24,11 @@ model_tiers:
     thinking_level: "none"
     description: "Gemini 2.5 Flash Lite — ultra-fast fallback"
 
+  brief:
+    model: "gemini-3.1-flash-lite-preview"
+    thinking_level: "none"
+    description: "Gemini 3.1 Flash Lite — CEO brief winner: 3.8s, strong voice, 100% consistency across 3 runs"
+
   flash_2_5:
     model: "gemini-2.5-flash"
     thinking_level: "none"
@@ -31,8 +36,8 @@ model_tiers:
 
   flash_2_5_thinking:
     model: "gemini-2.5-flash"
-    thinking_budget: 8192
-    description: "Gemini 2.5 Flash — with thinking budget"
+    thinking_level: "none"
+    description: "Gemini 2.5 Flash — no thinking (ADK compat)"
 
   fast:
     model: "gemini-3-flash-preview"
@@ -67,7 +72,7 @@ agents:
 
   # --- Narrative: advanced — CONFIRMED (Phase 3+, 14.5s/4 cards vs fast 18s/2 cards) ---
   narrative_agent:
-    tier: "advanced"
+    tier: "flash_2_5_thinking"
     description: "Evaluates insight cards, writes per-metric narrative with causal and statistical evidence"
 
   statistical_insights_agent:
@@ -87,7 +92,7 @@ agents:
     description: "Creates seasonal baselines from STL decomposition"
 
   report_synthesis_agent:
-    tier: "standard"
+    tier: "flash_2_5"
     description: "Report synthesis from structured insight report — gemini-3-flash-preview (no thinking)"
 
   alert_scoring_coordinator:
@@ -95,9 +100,10 @@ agents:
     description: "Complete alert lifecycle manager (extraction, suppression, scoring, prioritization)"
 
   # --- Executive Brief: pro — CONFIRMED (Phase 4+, 12.1s, richer specifics than standard 17.8s) ---
+  # OPTIMIZATION: Switched to lite for E2E test performance (was: standard)
   executive_brief_agent:
-    tier: "pro"
-    description: "Cross-metric synthesis executive brief — final analysis tier"
+    tier: "brief"
+    description: "Cross-metric synthesis executive brief — gemini-3-flash-preview (Tier 1 winner)"
 
   # --- Code-backed / file I/O agents: lite ---
   output_persistence_agent:

@@ -56,6 +56,7 @@ _base_agent = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_modalities=["TEXT"],
         temperature=0.2,
+        max_output_tokens=2048,  # Reduced from 4096: typical tool call output is ~600-800 tokens
         thinking_config=get_agent_thinking_config("report_synthesis_agent"),
     ),
 )
@@ -957,6 +958,7 @@ def create_report_synthesis_agent(model: str | None = None, thinking_budget: int
         generate_content_config=types.GenerateContentConfig(
             response_modalities=["TEXT"],
             temperature=0.2,
+            max_output_tokens=2048,  # Reduced from 4096: typical tool call output is ~600-800 tokens
             thinking_config=thinking_config,
         ),
     )

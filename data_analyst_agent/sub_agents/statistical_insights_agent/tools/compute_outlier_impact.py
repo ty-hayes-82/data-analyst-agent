@@ -129,12 +129,15 @@ async def compute_outlier_impact(
                         denominator_df = load_validation_data(metric_filter=[denominator_metric_name], exclude_partial_week=_exclude_partial)
                         if not denominator_df.empty:
                             denominator_df["value"] = pd.to_numeric(denominator_df["value"], errors="coerce").fillna(0)
-                            # Use contract-defined time column or fallback to "period"
-                            contract_time_col = (ctx.contract.time.column if ctx.contract.time else None) or "period"
-                            time_col_to_use = time_col if time_col in denominator_df.columns else (contract_time_col if contract_time_col in denominator_df.columns else "period")
+                            # Use contract-defined time column
+                            contract_time_col = ctx.contract.time.column if ctx.contract.time else None
+                            if not contract_time_col or contract_time_col not in denominator_df.columns:
+                                raise ValueError(f"Outlier impact: time column '{contract_time_col or time_col}' not found in denominator data (available: {list(denominator_df.columns)})")
+                            if grain_col not in denominator_df.columns:
+                                raise ValueError(f"Outlier impact: grain column '{grain_col}' not found in denominator data (available: {list(denominator_df.columns)})")
                             denominator_pivot = denominator_df.pivot_table(
-                                index=grain_col if grain_col in denominator_df.columns else "terminal",
-                                columns=time_col_to_use,
+                                index=grain_col,
+                                columns=contract_time_col,
                                 values="value",
                                 aggfunc="sum",
                                 fill_value=0

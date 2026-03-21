@@ -1,23 +1,23 @@
 name: "Global Temperature"
 version: "1.0.0"
-display_name: "Global Temperature Anomalies (Monthly)"
+display_name: "Global Land and Ocean Temperature Anomalies"
 target_label: "Metric"
 description: >
-  Monthly global surface temperature anomalies from 1850-2024.
-  Combines data from GCAG (Global Component of Climate at a Glance) and GISTEMP (NASA).
-  Temperature anomalies are relative to a baseline period average.
+  Monthly global temperature anomalies from 1850 to present, sourced from NOAA's
+  Global Climate at a Glance (GCAG) and GISTEMP datasets. Temperature anomalies
+  represent deviations from the 20th century average baseline in degrees Celsius.
 
 materiality:
-  variance_pct: 10.0
-  variance_absolute: 0.2
+  variance_pct: 5.0
+  variance_absolute: 0.1
 
 presentation:
-  unit: "degrees_celsius"
+  unit: "°C"
 
 reporting:
   max_drill_depth: 2
-  executive_brief_drill_levels: 1
-  max_scope_entities: 10
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
   output_format: "pdf"
 
 data_source:
@@ -28,7 +28,7 @@ time:
   column: "Year"
   frequency: "monthly"
   format: "%Y-%m"
-  range_months: 2088
+  range_months: 2124
 
 grain:
   columns: ["Year", "Source"]
@@ -36,36 +36,31 @@ grain:
 metrics:
   - name: "temperature_anomaly"
     column: "Mean"
-    type: "non_additive"
+    type: "ratio"
     format: "float"
     optimization: "minimize"
     tags: ["climate", "temperature", "anomaly"]
-    description: "Global temperature anomaly in degrees Celsius relative to baseline"
+    description: "Global temperature anomaly (deviation from 20th century average)"
 
 dimensions:
+  - name: "year"
+    column: "Year"
+    role: "time"
+    description: "Month in YYYY-MM format"
   - name: "temperature_source"
     column: "Source"
     role: "primary"
-    description: "Data source: GCAG or GISTEMP"
-  - name: "year_month"
-    column: "Year"
-    role: "time"
-    description: "Year and month in YYYY-MM format"
+    description: "Data source (gcag=NOAA Global Climate at a Glance, gistemp=NASA GISS)"
 
-hierarchies:
-  - name: "data_source"
-    description: "Temperature data by source"
-    children: ["temperature_source"]
-    level_names:
-      0: "Total"
-      1: "Source"
+hierarchies: []
 
 capabilities:
-  - "long-term temperature trend analysis (1850-2024)"
+  - "long-term climate trend analysis (1850-present)"
   - "monthly temperature anomaly tracking"
-  - "climate change pattern detection"
-  - "cross-source comparison (GCAG vs GISTEMP)"
-  - "seasonal temperature variation analysis"
+  - "multi-source comparative analysis"
+  - "seasonal pattern detection"
+  - "climate change acceleration analysis"
+  - "decade-over-decade warming trends"
 
 policies:
-  degradation_threshold: 0.20
+  degradation_threshold: 0.12

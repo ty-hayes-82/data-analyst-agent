@@ -1,3 +1,5 @@
+# Metric Units Configuration for Global Temperature Dataset
+# Maps each metric to its appropriate unit for display and interpretation
+
 metrics:
-  temperature_anomaly:
-    unit: "degrees Celsius"
+  temperature_anomaly: "°C"

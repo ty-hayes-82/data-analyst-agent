@@ -6,7 +6,7 @@ import asyncio
 import sys
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -155,20 +155,253 @@ async def api_dimension_values(dataset_id: str, column: str):
 
     from pathlib import Path as _Path
     project_root = _Path(__file__).resolve().parent.parent
-    full_path = (project_root / file_path).resolve()
-    if not full_path.exists():
-        raise HTTPException(404, "Data file not found")
+
+    source_type = data_source.get("type", "csv")
+
+    if source_type == "tableau_hyper":
+        # Read from Tableau Hyper file
+        try:
+            import yaml
+            loader_path = project_root / "config" / "datasets" / dataset_id / "loader.yaml"
+            if loader_path.exists():
+                loader_cfg = yaml.safe_load(loader_path.read_text())
+                hyper_cfg = loader_cfg.get("hyper", {})
+                tdsx_path = _Path(hyper_cfg.get("tdsx_path", ".")) / hyper_cfg.get("tdsx_file", "")
+                if not tdsx_path.exists():
+                    tdsx_path = project_root / hyper_cfg.get("tdsx_path", ".") / hyper_cfg.get("tdsx_file", "")
+            else:
+                tdsx_path = _Path(file_path)
+                if not tdsx_path.is_absolute():
+                    tdsx_path = project_root / file_path
+
+            if not tdsx_path.exists():
+                raise HTTPException(404, f"TDSX file not found: {tdsx_path}")
+
+            import zipfile, tempfile
+            from tableauhyperapi import HyperProcess, Telemetry, Connection, TableName
+
+            with zipfile.ZipFile(str(tdsx_path)) as z:
+                hyper_files = [f for f in z.namelist() if f.endswith(".hyper")]
+                if not hyper_files:
+                    raise HTTPException(500, "No .hyper file found in TDSX")
+                tmp = tempfile.mkdtemp()
+                z.extract(hyper_files[0], tmp)
+                hyper_path = _Path(tmp) / hyper_files[0]
+
+            import os
+            os.makedirs("/tmp/hyper_logs_tableau", exist_ok=True)
+            with HyperProcess(telemetry=Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU,
+                              parameters={"log_dir": "/tmp/hyper_logs_tableau"}) as proc:
+                with Connection(proc.endpoint, str(hyper_path)) as conn:
+                    safe_col = column.replace('"', '""')
+                    result = conn.execute_list_query(
+                        f'SELECT DISTINCT "{safe_col}" FROM "Extract"."Extract" '
+                        f'WHERE "{safe_col}" IS NOT NULL '
+                        f'ORDER BY "{safe_col}" LIMIT 500'
+                    )
+                    values = [str(row[0]) for row in result if row[0] is not None]
+
+            return {"column": column, "values": values, "total": len(values), "truncated": len(values) >= 500}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(500, f"Failed to read Hyper dimension values: {str(e)}")
+    else:
+        # CSV path
+        full_path = (project_root / file_path).resolve()
+        if not full_path.exists():
+            raise HTTPException(404, "Data file not found")
+        try:
+            import pandas as pd
+            df = pd.read_csv(str(full_path), usecols=[column], dtype=str)
+            values = sorted(df[column].dropna().unique().tolist())
+            truncated = len(values) > 500
+            if truncated:
+                values = values[:500]
+            return {"column": column, "values": values, "total": len(values), "truncated": truncated}
+        except Exception as e:
+            raise HTTPException(500, f"Failed to read dimension values: {str(e)}")
+
+# ---- Contract Editor APIs ----
+
+@app.get("/api/datasets/{dataset_id:path}/contract/raw")
+async def api_get_contract_raw(dataset_id: str):
+    """Return raw contract YAML as text for editing."""
+    try:
+        contract = contract_loader.load_contract(dataset_id)
+        return contract
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+
+@app.put("/api/datasets/{dataset_id:path}/contract")
+async def api_save_contract(dataset_id: str, req: Request):
+    """Save updated contract YAML."""
+    import re as _re
+    import yaml
+    from pathlib import Path as _Path
+
+    if ".." in dataset_id:
+        raise HTTPException(400, "Invalid dataset ID")
+
+    body = await req.json()
+    project_root = _Path(__file__).resolve().parent.parent
+    contract_path = project_root / "config" / "datasets" / dataset_id / "contract.yaml"
+
+    if not contract_path.parent.exists():
+        contract_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Backup existing
+    if contract_path.exists():
+        backup = contract_path.with_suffix(".yaml.bak")
+        import shutil
+        shutil.copy2(contract_path, backup)
+
+    with open(contract_path, "w", encoding="utf-8") as f:
+        yaml.dump(body, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    return {"status": "ok", "path": str(contract_path)}
+
+
+@app.get("/api/datasets/{dataset_id:path}/defaults")
+async def api_get_defaults(dataset_id: str):
+    """Get saved analysis defaults for a dataset."""
+    import yaml
+    from pathlib import Path as _Path
+    project_root = _Path(__file__).resolve().parent.parent
+    defaults_path = project_root / "config" / "datasets" / dataset_id / "defaults.yaml"
+    if defaults_path.exists():
+        with open(defaults_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+
+@app.put("/api/datasets/{dataset_id:path}/defaults")
+async def api_save_defaults(dataset_id: str, req: Request):
+    """Save analysis defaults for a dataset."""
+    import yaml
+    from pathlib import Path as _Path
+    body = await req.json()
+    project_root = _Path(__file__).resolve().parent.parent
+    defaults_path = project_root / "config" / "datasets" / dataset_id / "defaults.yaml"
+    defaults_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(defaults_path, "w", encoding="utf-8") as f:
+        yaml.dump(body, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    return {"status": "ok"}
+
+
+# ---- Data Profile API ----
+
+@app.get("/api/datasets/{dataset_id:path}/profile")
+async def api_data_profile(dataset_id: str, sample_size: int = 1000):
+    """Sample data from the source and return a statistical profile."""
+    try:
+        contract = contract_loader.load_contract(dataset_id)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+
+    data_source = contract.get("data_source", {})
+    source_type = data_source.get("type", "csv")
+    file_path = data_source.get("file", "")
+
+    from pathlib import Path as _Path
+    project_root = _Path(__file__).resolve().parent.parent
 
     try:
         import pandas as pd
-        df = pd.read_csv(str(full_path), usecols=[column], dtype=str)
-        values = sorted(df[column].dropna().unique().tolist())
-        truncated = len(values) > 500
-        if truncated:
-            values = values[:500]
-        return {"column": column, "values": values, "total": len(values), "truncated": truncated}
+        df = None
+
+        if source_type == "tableau_hyper":
+            import yaml
+            loader_path = project_root / "config" / "datasets" / dataset_id / "loader.yaml"
+            if loader_path.exists():
+                loader_cfg = yaml.safe_load(loader_path.read_text())
+                hyper_cfg = loader_cfg.get("hyper", {})
+                tdsx_path = _Path(hyper_cfg.get("tdsx_path", ".")) / hyper_cfg.get("tdsx_file", "")
+                if not tdsx_path.exists():
+                    tdsx_path = project_root / hyper_cfg.get("tdsx_path", ".") / hyper_cfg.get("tdsx_file", "")
+            else:
+                tdsx_path = _Path(file_path) if _Path(file_path).is_absolute() else project_root / file_path
+
+            import zipfile, tempfile, os
+            from tableauhyperapi import HyperProcess, Telemetry, Connection
+            os.makedirs("/tmp/hyper_logs_tableau", exist_ok=True)
+
+            with zipfile.ZipFile(str(tdsx_path)) as z:
+                hyper_files = [f for f in z.namelist() if f.endswith(".hyper")]
+                tmp = tempfile.mkdtemp()
+                z.extract(hyper_files[0], tmp)
+                hyper_path = _Path(tmp) / hyper_files[0]
+
+            with HyperProcess(telemetry=Telemetry.DO_NOT_SEND_USAGE_DATA_TO_TABLEAU,
+                              parameters={"log_dir": "/tmp/hyper_logs_tableau"}) as proc:
+                with Connection(proc.endpoint, str(hyper_path)) as conn:
+                    result = conn.execute_list_query(
+                        f'SELECT * FROM "Extract"."Extract" LIMIT {sample_size}'
+                    )
+                    table_def = conn.catalog.get_table_definition(
+                        conn.catalog.get_table_names("Extract")[0]
+                    )
+                    columns = [str(c.name) for c in table_def.columns]
+                    # Convert Hyper native types (Date, Timestamp) to strings
+                    clean_rows = []
+                    for row in result:
+                        clean_rows.append([str(v) if v is not None and not isinstance(v, (int, float, str, bool)) else v for v in row])
+                    df = pd.DataFrame(clean_rows, columns=columns)
+        else:
+            full_path = (project_root / file_path).resolve()
+            if full_path.exists():
+                df = pd.read_csv(str(full_path), nrows=sample_size)
+
+        if df is None or df.empty:
+            return {"error": "No data loaded"}
+
+        import math
+
+        def _safe_float(v):
+            """Convert to JSON-safe float (None for NaN/inf)."""
+            if v is None: return None
+            try:
+                f = float(v)
+                if math.isnan(f) or math.isinf(f): return None
+                return f
+            except (ValueError, TypeError):
+                return None
+
+        # Build profile
+        profile = {
+            "row_count": len(df),
+            "column_count": len(df.columns),
+            "columns": [],
+            "sample_rows": df.head(5).fillna("").astype(str).to_dict(orient="records"),
+        }
+
+        for col in df.columns:
+            col_info = {
+                "name": col,
+                "dtype": str(df[col].dtype),
+                "non_null": int(df[col].notna().sum()),
+                "null_pct": _safe_float(round(df[col].isna().mean() * 100, 1)) or 0,
+                "unique": int(df[col].nunique()),
+            }
+            if pd.api.types.is_numeric_dtype(df[col]):
+                col_info["type"] = "numeric"
+                col_info["min"] = _safe_float(df[col].min()) if df[col].notna().any() else None
+                col_info["max"] = _safe_float(df[col].max()) if df[col].notna().any() else None
+                col_info["mean"] = _safe_float(round(df[col].mean(), 2)) if df[col].notna().any() else None
+                col_info["std"] = _safe_float(round(df[col].std(), 2)) if df[col].notna().any() else None
+            else:
+                col_info["type"] = "categorical"
+                top_values = df[col].value_counts().head(10).to_dict()
+                col_info["top_values"] = {str(k): int(v) for k, v in top_values.items()}
+
+            profile["columns"].append(col_info)
+
+        return profile
+
     except Exception as e:
-        raise HTTPException(500, f"Failed to read dimension values: {str(e)}")
+        raise HTTPException(500, f"Profiling failed: {str(e)}")
+
 
 # ---- Run APIs ----
 
@@ -184,6 +417,9 @@ class RunRequest(BaseModel):
     max_drill_depth: int = 3
     start_date: str = ""
     end_date: str = ""
+    period_type: str = ""
+    brief_style: str = "ceo"
+    dimension_filters: dict[str, list[str]] = {}  # filter on any dimension, not just hierarchy
 
 
 @app.post("/api/runs")

@@ -23,7 +23,7 @@ async function loadDatasets() {
   sel.innerHTML = '<option value="">-- Select a dataset --</option>';
   datasets.forEach(d => {
     const safeName = (d.display_name || d.name).replace(/"/g, '&quot;');
-    sel.innerHTML += `<option value="${d.id}" data-name="${safeName}">${escapeHtml(d.display_name || d.name)} (${escapeHtml(d.name)})</option>`;
+    sel.innerHTML += `<option value="${d.id}" data-name="${safeName}">${escapeHtml(d.display_name || d.name)}</option>`;
   });
   sel.addEventListener('change', onDatasetChange);
 }
@@ -44,6 +44,10 @@ async function onDatasetChange() {
   currentContract = await res.json();
   const c = currentContract;
 
+  // Load saved defaults (from editor's "Analysis Defaults" section)
+  const dRes = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`);
+  const savedDefaults = dRes.ok ? await dRes.json() : {};
+
   // Description
   const descEl = document.getElementById('dataset-description');
   const infoEl = document.getElementById('dataset-info');
@@ -54,16 +58,32 @@ async function onDatasetChange() {
     infoEl.style.display = 'none';
   }
 
-  // Metrics
+  // Metrics — grouped by brief_category, using display names
   const mg = document.getElementById('metrics-group');
-  const metricsActions = document.getElementById('metrics-actions');
   mg.innerHTML = '';
-  const metricsList = c.metrics || [];
-  metricsList.forEach(m => {
-    mg.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" checked> ${m.name}${m.description ? ' (' + m.description.slice(0, 50) + ')' : ''}</label>`;
+  const metricsByCategory = {};
+  (c.metrics || []).forEach(m => {
+    const cat = m.brief_category || 'Other';
+    if (!metricsByCategory[cat]) metricsByCategory[cat] = [];
+    metricsByCategory[cat].push(m);
   });
-  if (metricsActions) {
-    metricsActions.style.display = metricsList.length > 0 ? 'inline' : 'none';
+  // Use saved defaults if available, otherwise fall back to top 8 metrics
+  const defaultMetrics = (savedDefaults.metrics && savedDefaults.metrics.length > 0)
+    ? savedDefaults.metrics
+    : (c.metrics || []).slice(0, 8).map(m => m.name);
+  for (const [cat, metrics] of Object.entries(metricsByCategory)) {
+    const catDiv = document.createElement('div');
+    catDiv.className = 'metrics-group-category';
+    catDiv.innerHTML = `<div class="category-header">${cat}</div>`;
+    const checkboxDiv = document.createElement('div');
+    checkboxDiv.className = 'checkbox-group';
+    metrics.forEach(m => {
+      const displayName = m.display_name || m.brief_label || m.name;
+      const checked = defaultMetrics.includes(m.name) ? 'checked' : '';
+      checkboxDiv.innerHTML += `<label><input type="checkbox" name="metric" value="${m.name}" ${checked}> ${displayName}</label>`;
+    });
+    catDiv.appendChild(checkboxDiv);
+    mg.appendChild(catDiv);
   }
 
   // Hierarchies — editor with filtering
@@ -82,16 +102,35 @@ async function onDatasetChange() {
   document.getElementById('max-depth').value = Math.min(maxDepth, 5);
   document.getElementById('max-depth').max = maxDepth;
 
-  // Frequency
-  document.getElementById('frequency').value = (c.time || {}).frequency || 'unknown';
+  // Frequency (optional element)
+  const freqEl = document.getElementById('frequency');
+  if (freqEl) freqEl.value = (c.time || {}).frequency || 'unknown';
+
+  // Apply saved defaults for period type, brief style, and focus
+  const periodEl = document.getElementById('period-type');
+  if (periodEl) periodEl.value = savedDefaults.period_type || 'week_end';
+  const briefEl = document.getElementById('brief-style');
+  if (briefEl && savedDefaults.brief_style) briefEl.value = savedDefaults.brief_style;
+  if (savedDefaults.focus && savedDefaults.focus.length > 0) {
+    document.querySelectorAll('input[name="focus"]').forEach(cb => {
+      cb.checked = savedDefaults.focus.includes(cb.value);
+    });
+  }
 
   document.getElementById('run-btn').disabled = false;
+  activeDimFilters = {};
+  if (typeof populateDimFilterSelect === 'function') populateDimFilterSelect();
+  if (typeof renderActiveDimFilters === 'function') renderActiveDimFilters();
+  if (typeof updateStepSummaries === 'function') updateStepSummaries();
 }
 
 // --- Run analysis ---
 document.getElementById('run-btn').addEventListener('click', submitRun);
 
 async function submitRun() {
+  // Validate form before submission
+  if (typeof validateForm === 'function' && !validateForm()) return;
+
   const btn = document.getElementById('run-btn');
   btn.disabled = true;
   const originalHTML = btn.innerHTML;
@@ -119,6 +158,9 @@ async function submitRun() {
     max_drill_depth: parseInt(document.getElementById('max-depth').value) || 3,
     start_date: document.getElementById('start-date').value,
     end_date: document.getElementById('end-date').value,
+    period_type: document.getElementById('period-type')?.value || '',
+    brief_style: document.getElementById('brief-style')?.value || 'ceo',
+    dimension_filters: getDimensionFilters(),
   };
 
   try {
@@ -331,14 +373,6 @@ async function viewFile(runId, filename) {
 // --- Helpers ---
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function selectAllMetrics() {
-  document.querySelectorAll('input[name="metric"]').forEach(cb => { cb.checked = true; });
-}
-
-function deselectAllMetrics() {
-  document.querySelectorAll('input[name="metric"]').forEach(cb => { cb.checked = false; });
 }
 
 
@@ -567,8 +601,9 @@ function renderHierarchyEditor(contract) {
 
   sel.innerHTML = '';
   (contract.hierarchies || []).forEach((h, i) => {
-    const levels = (h.children || []).join(' \u2192 ');
-    sel.innerHTML += `<option value="${h.name}" ${i === 0 ? 'selected' : ''}>${h.name} (${levels})</option>`;
+    const displayName = h.display_name || h.name;
+    const levelCount = (h.children || h.levels || []).length;
+    sel.innerHTML += `<option value="${h.name}" ${i === 0 ? 'selected' : ''}>${escapeHtml(displayName)} - ${levelCount} levels</option>`;
   });
 
   editBtn.style.display = contract.hierarchies?.length ? 'inline-block' : 'none';
@@ -595,11 +630,12 @@ function renderHierarchyEditor(contract) {
 
 function setHierarchyLevels(hierarchy, contract) {
   const dims = contract.dimensions || [];
-  currentHierarchyLevels = (hierarchy.children || []).map(childName => {
+  currentHierarchyLevels = (hierarchy.children || hierarchy.levels || []).map(childName => {
     const dim = dims.find(d => d.name === childName || d.column === childName);
     return {
-      name: dim ? dim.name : childName,
+      name: dim ? (dim.display_name || dim.name) : childName,
       column: dim ? dim.column : childName,
+      displayName: dim ? (dim.display_name || dim.name) : childName,
       description: dim ? dim.description : ''
     };
   });
@@ -624,8 +660,7 @@ function renderHierarchyLevelsList(contract) {
          ondragstart="onLevelDragStart(event)" ondragover="onLevelDragOver(event)"
          ondrop="onLevelDrop(event)" ondragend="onLevelDragEnd(event)">
       <span class="level-number">${i + 1}</span>
-      <span class="level-name">${escapeHtml(level.name)}</span>
-      <span class="level-col">${escapeHtml(level.column)}</span>
+      <span class="level-name">${escapeHtml(level.displayName || level.name)}</span>
       <button class="btn-remove" onclick="removeHierarchyLevel(${i})" title="Remove level">&times;</button>
     </div>
   `).join('');
@@ -637,7 +672,7 @@ function renderHierarchyLevelsList(contract) {
   if (allDims.length) {
     availDiv.style.display = 'block';
     availList.innerHTML = allDims.map(d =>
-      `<span class="dim-chip" onclick="addDimensionToHierarchy('${d.name}', '${d.column}', '${(d.description || '').replace(/'/g, "\\'")}')" title="${escapeHtml(d.description || '')}">${escapeHtml(d.name)}</span>`
+      `<span class="dim-chip" onclick="addDimensionToHierarchy('${d.name}', '${d.column}', '${(d.description || '').replace(/'/g, "\\'")}')" title="${escapeHtml(d.description || '')}">${escapeHtml(d.display_name || d.name)}</span>`
     ).join('');
   } else {
     availDiv.style.display = 'none';
@@ -659,6 +694,22 @@ function removeHierarchyLevel(index) {
 
 function addHierarchyLevel() {
   document.getElementById('available-dimensions').style.display = 'block';
+}
+
+function addCustomFilterValue(index, column) {
+  const searchInput = document.querySelector(`#filter-level-${index} .filter-search`);
+  const value = searchInput?.value?.trim();
+  if (!value) return;
+  if (!hierarchyFilterCache[column]) {
+    hierarchyFilterCache[column] = { values: [], selected: new Set(), truncated: false };
+  }
+  if (!hierarchyFilterCache[column].values.includes(value)) {
+    hierarchyFilterCache[column].values.unshift(value);
+  }
+  hierarchyFilterCache[column].selected.add(value);
+  searchInput.value = '';
+  renderFilterValues(index, column);
+  renderFilterCount(index, column);
 }
 
 let dragIndex = null;
@@ -700,18 +751,19 @@ async function renderHierarchyFilters() {
     return `
       <div class="hierarchy-filter-level" id="filter-level-${i}">
         <div class="filter-header" onclick="toggleFilterLevel(${i}, '${level.column}')">
-          <span class="filter-title">${escapeHtml(level.name)}${badge}</span>
+          <span class="filter-title">${escapeHtml(level.displayName || level.name)}${badge}</span>
           <span>
             <span class="filter-count">${totalCount} values</span>
             <span class="filter-toggle">&#9660;</span>
           </span>
         </div>
         <div class="filter-body" id="filter-body-${i}">
-          <input type="text" class="filter-search" placeholder="Search values..." oninput="filterSearchValues(${i}, '${level.column}', this.value)">
+          <input type="text" class="filter-search" placeholder="Search or type a value..." oninput="filterSearchValues(${i}, '${level.column}', this.value)">
           <div class="filter-values" id="filter-values-${i}">Loading...</div>
           <div class="filter-actions">
             <button onclick="selectAllFilter(${i}, '${level.column}')">Select All</button>
             <button onclick="deselectAllFilter(${i}, '${level.column}')">Deselect All</button>
+            <button onclick="addCustomFilterValue(${i}, '${level.column}')">+ Add Typed Value</button>
           </div>
         </div>
       </div>
@@ -856,5 +908,418 @@ function getHierarchyFilters() {
 }
 
 
+// --- Dimension Filters (independent of hierarchy) ---
+let activeDimFilters = {};
+
+function populateDimFilterSelect() {
+  const sel = document.getElementById('dim-filter-select');
+  if (!sel || !currentContract) return;
+  const dims = currentContract.dimensions || [];
+  sel.innerHTML = '<option value="">+ Add dimension filter...</option>';
+  dims.forEach(d => {
+    if (!activeDimFilters[d.column]) {
+      sel.innerHTML += `<option value="${d.column}">${escapeHtml(d.display_name || d.name)}</option>`;
+    }
+  });
+}
+
+async function onDimFilterSelect() {
+  const sel = document.getElementById('dim-filter-select');
+  const col = sel.value;
+  if (!col) return;
+
+  const dim = (currentContract.dimensions || []).find(d => d.column === col);
+  const displayName = dim ? (dim.display_name || dim.name) : col;
+
+  // Fetch values
+  const datasetId = document.getElementById('dataset-select').value;
+  let values = [];
+  try {
+    const res = await fetch(`/api/datasets/${encodeURIComponent(datasetId)}/dimension-values/${encodeURIComponent(col)}`);
+    if (res.ok) {
+      const data = await res.json();
+      values = data.values || [];
+    }
+  } catch {}
+
+  activeDimFilters[col] = { displayName, values, selected: new Set(), typed: '' };
+  sel.value = '';
+  populateDimFilterSelect();
+  renderActiveDimFilters();
+}
+
+function renderActiveDimFilters() {
+  const container = document.getElementById('active-dim-filters');
+  if (!container) return;
+  container.innerHTML = Object.entries(activeDimFilters).map(([col, f]) => {
+    const selectedBadge = f.selected.size > 0 ? ` (${f.selected.size} selected)` : '';
+    const valueOptions = f.values.slice(0, 25).map(v => {
+      const checked = f.selected.has(v) ? 'checked' : '';
+      return `<label style="display:inline-flex;gap:0.3em;margin:0.2em 0.4em;font-size:0.85em"><input type="checkbox" ${checked} onchange="toggleDimFilter('${col}','${v.replace(/'/g,"\\'")}',this.checked)"> ${escapeHtml(v)}</label>`;
+    }).join('');
+    return `
+      <div class="info-card" style="margin-top:0.5em;padding:0.8em">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong style="font-size:0.9em">${escapeHtml(f.displayName)}${selectedBadge}</strong>
+          <button class="btn btn-sm btn-secondary" onclick="removeDimFilter('${col}')" style="padding:0.2em 0.5em;font-size:0.75em">Remove</button>
+        </div>
+        <div style="margin-top:0.5em">
+          <input type="text" placeholder="Type a value and press Enter..." style="font-size:0.85em;margin-bottom:0.3em"
+            onkeydown="if(event.key==='Enter'){addTypedDimFilter('${col}',this.value);this.value=''}">
+          <div style="max-height:120px;overflow-y:auto">${valueOptions || '<span style="color:#8b949e;font-size:0.85em">Type a value above</span>'}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleDimFilter(col, val, checked) {
+  if (checked) activeDimFilters[col].selected.add(val);
+  else activeDimFilters[col].selected.delete(val);
+  renderActiveDimFilters();
+}
+function removeDimFilter(col) {
+  delete activeDimFilters[col];
+  populateDimFilterSelect();
+  renderActiveDimFilters();
+}
+function addTypedDimFilter(col, val) {
+  val = val.trim();
+  if (!val || !activeDimFilters[col]) return;
+  if (!activeDimFilters[col].values.includes(val)) activeDimFilters[col].values.unshift(val);
+  activeDimFilters[col].selected.add(val);
+  renderActiveDimFilters();
+}
+
+function getDimensionFilters() {
+  const filters = {};
+  for (const [col, f] of Object.entries(activeDimFilters)) {
+    if (f.selected.size > 0) filters[col] = [...f.selected];
+  }
+  return filters;
+}
+
+
+// --- Contract Editor ---
+let editorContract = null;
+
+async function loadContractEditor() {
+  const sel = document.getElementById('editor-dataset-select');
+  const id = sel.value;
+  if (!id) { document.getElementById('editor-content').style.display = 'none'; return; }
+
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/contract`);
+  if (!res.ok) { alert('Failed to load contract'); return; }
+  editorContract = await res.json();
+  document.getElementById('editor-content').style.display = 'block';
+  document.getElementById('editor-nav').style.display = 'flex';
+  editorDirty = false;
+  const ind = document.getElementById('editor-dirty-indicator');
+  if (ind) ind.style.display = 'none';
+  const status = document.getElementById('editor-save-status');
+  if (status) status.textContent = '';
+
+  // Refresh section
+  const ds = editorContract.data_source || {};
+  const srcType = document.getElementById('ed-source-type');
+  if (srcType) srcType.value = ds.type || 'unknown';
+  const srcFile = document.getElementById('ed-source-file');
+  if (srcFile) srcFile.value = ds.file || 'Not configured';
+
+  // General
+  document.getElementById('ed-display-name').value = editorContract.display_name || '';
+  document.getElementById('ed-description').value = editorContract.description || '';
+  document.getElementById('ed-variance-pct').value = (editorContract.materiality || {}).variance_pct || 5;
+  document.getElementById('ed-max-depth').value = (editorContract.reporting || {}).max_drill_depth || 3;
+  document.getElementById('ed-brief-levels').value = (editorContract.reporting || {}).executive_brief_drill_levels || 0;
+  document.getElementById('ed-output-format').value = (editorContract.reporting || {}).output_format || 'pdf';
+
+  // Metrics — grouped by category
+  const ml = document.getElementById('ed-metrics-list');
+  const metrics = editorContract.metrics || [];
+  document.getElementById('editor-metrics-summary').textContent = `${metrics.length} metrics`;
+  const metricsByCat = {};
+  metrics.forEach((m, i) => {
+    const cat = m.brief_category || 'Other';
+    if (!metricsByCat[cat]) metricsByCat[cat] = [];
+    metricsByCat[cat].push({ ...m, _idx: i });
+  });
+  // Populate category filter
+  const catFilterSel = document.getElementById('ed-metrics-cat-filter');
+  if (catFilterSel) {
+    catFilterSel.innerHTML = '<option value="">All Categories</option>' +
+      Object.keys(metricsByCat).map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
+  ml.innerHTML = Object.entries(metricsByCat).map(([cat, items]) => `
+    <div style="margin-bottom:1em" data-category="${escapeHtml(cat)}">
+      <div style="font-size:0.8em;color:#58a6ff;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5em;padding-bottom:0.3em;border-bottom:1px solid #21262d">${escapeHtml(cat)} (${items.length})</div>
+      ${items.map(m => `
+        <div class="detect-item">
+          <span class="item-name" style="min-width:160px">${escapeHtml(m.display_name || m.name)}</span>
+          <span class="item-type">${m.format || 'float'}</span>
+          <span class="item-type" style="background:${m.optimization==='minimize'?'#2d1016':'#0d2818'};color:${m.optimization==='minimize'?'#f85149':'#3fb950'}">${m.optimization || 'maximize'}</span>
+          <input type="text" value="${escapeHtml(m.brief_label || m.display_name || m.name)}" style="max-width:140px"
+            onchange="editorContract.metrics[${m._idx}].brief_label=this.value" title="Brief label">
+          <select style="max-width:140px" onchange="editorContract.metrics[${m._idx}].brief_category=this.value" title="Category">
+            ${['Revenue / yield','Network efficiency','Volume','Productivity','Capacity','Operations'].map(c =>
+              `<option ${m.brief_category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+    </div>`).join('');
+
+  // Dimensions
+  const dl = document.getElementById('ed-dimensions-list');
+  const dims = editorContract.dimensions || [];
+  document.getElementById('editor-dimensions-summary').textContent = `${dims.length} dimensions`;
+  dl.innerHTML = dims.map((d, i) => `
+    <div class="detect-item">
+      <span class="item-name" style="min-width:160px">${escapeHtml(d.display_name || d.name)}</span>
+      <span class="item-type">${d.role || 'secondary'}</span>
+      <input type="text" value="${escapeHtml(d.display_name || d.name)}" style="max-width:160px"
+        onchange="editorContract.dimensions[${i}].display_name=this.value" title="Display name">
+      <select style="max-width:110px" onchange="editorContract.dimensions[${i}].role=this.value" title="Role: Primary = used in drill-down, Secondary = available for filtering">
+        <option value="primary" ${d.role==='primary'?'selected':''}>Primary</option>
+        <option value="secondary" ${d.role==='secondary'?'selected':''}>Secondary</option>
+      </select>
+    </div>`).join('');
+
+  // Derived KPIs
+  const kl = document.getElementById('ed-kpis-list');
+  const kpis = editorContract.derived_kpis || [];
+  document.getElementById('editor-kpis-summary').textContent = `${kpis.length} KPIs`;
+  // Resolve display names for KPI formulas
+  const metricNameMap = {};
+  (editorContract.metrics || []).forEach(m => { metricNameMap[m.name] = m.display_name || m.brief_label || m.name; });
+  kl.innerHTML = kpis.map(k => {
+    const numName = metricNameMap[k.numerator] || k.numerator;
+    const denName = metricNameMap[k.denominator] || k.denominator;
+    const formula = `${numName} / ${denName}${k.multiply ? ' × ' + k.multiply : ''}`;
+    return `<div class="detect-item">
+      <span class="item-name" style="min-width:140px">${escapeHtml(k.display_name || k.brief_label || k.name)}</span>
+      <span class="item-detail">${escapeHtml(formula)}</span>
+      <span class="item-type">${k.format || 'float'}</span>
+      <span class="item-type" style="background:#1f2937;color:#8b949e">system-managed</span>
+    </div>`;
+  }).join('') || '<p style="color:#8b949e;padding:0.5em">No derived KPIs defined</p>';
+
+  // Load defaults
+  const dRes = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`);
+  const defaults = dRes.ok ? await dRes.json() : {};
+  const defaultMetrics = defaults.metrics || [];
+
+  // Render default metrics as checkboxes
+  const dmContainer = document.getElementById('ed-default-metrics-checkboxes');
+  if (dmContainer) {
+    dmContainer.innerHTML = (editorContract.metrics || []).map(m => {
+      const checked = defaultMetrics.includes(m.name) ? 'checked' : '';
+      return `<label><input type="checkbox" name="ed-default-metric" value="${m.name}" ${checked}> ${escapeHtml(m.display_name || m.name)}</label>`;
+    }).join('');
+  }
+
+  document.getElementById('ed-default-period').value = defaults.period_type || '';
+  document.getElementById('ed-default-brief').value = defaults.brief_style || 'ceo';
+  document.querySelectorAll('#ed-default-focus input').forEach(cb => {
+    cb.checked = (defaults.focus || []).includes(cb.value);
+  });
+}
+
+async function saveContract() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id || !editorContract) return;
+  editorContract.display_name = document.getElementById('ed-display-name').value;
+  editorContract.description = document.getElementById('ed-description').value;
+  if (!editorContract.materiality) editorContract.materiality = {};
+  editorContract.materiality.variance_pct = parseFloat(document.getElementById('ed-variance-pct').value) || 5;
+  if (!editorContract.reporting) editorContract.reporting = {};
+  editorContract.reporting.max_drill_depth = parseInt(document.getElementById('ed-max-depth').value) || 3;
+  editorContract.reporting.executive_brief_drill_levels = parseInt(document.getElementById('ed-brief-levels').value) || 0;
+  editorContract.reporting.output_format = document.getElementById('ed-output-format').value;
+
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/contract`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(editorContract)
+  });
+  return res.ok;
+}
+
+async function saveDefaults() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id) return;
+  const defaults = {
+    metrics: [...document.querySelectorAll('input[name="ed-default-metric"]:checked')].map(cb => cb.value),
+    focus: [...document.querySelectorAll('#ed-default-focus input:checked')].map(cb => cb.value),
+    period_type: document.getElementById('ed-default-period').value,
+    brief_style: document.getElementById('ed-default-brief').value,
+  };
+  const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/defaults`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(defaults)
+  });
+  return res.ok;
+}
+
+async function saveAll() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id) return;
+  const contractOk = await saveContract();
+  const defaultsOk = await saveDefaults();
+  if (contractOk && defaultsOk) {
+    editorDirty = false;
+    const ind = document.getElementById('editor-dirty-indicator');
+    if (ind) ind.style.display = 'none';
+    const status = document.getElementById('editor-save-status');
+    if (status) status.textContent = 'All changes saved';
+    setTimeout(() => { if (status) status.textContent = ''; }, 3000);
+  } else {
+    alert('Some changes may not have saved. Please check and try again.');
+  }
+}
+
+
+// --- Editor Navigation & Dirty State ---
+function scrollToEditorSection(sectionId) {
+  const el = document.getElementById(sectionId);
+  if (el) {
+    if (el.classList.contains('collapsed')) el.classList.remove('collapsed');
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+let editorDirty = false;
+function markDirty() {
+  editorDirty = true;
+  const ind = document.getElementById('editor-dirty-indicator');
+  if (ind) ind.style.display = 'inline-flex';
+  const status = document.getElementById('editor-save-status');
+  if (status) status.textContent = 'Unsaved changes';
+}
+
+// Track changes on editor inputs
+document.addEventListener('change', (e) => {
+  if (e.target.closest('#editor-content')) markDirty();
+});
+document.addEventListener('input', (e) => {
+  if (e.target.closest('#editor-content') && e.target.tagName !== 'SELECT') markDirty();
+});
+
+
+// --- Metrics Search/Filter ---
+function filterEditorMetrics(searchTerm) {
+  const catFilter = document.getElementById('ed-metrics-cat-filter')?.value || '';
+  const items = document.querySelectorAll('#ed-metrics-list .detect-item');
+  const lower = (searchTerm || '').toLowerCase();
+  items.forEach(item => {
+    const name = item.querySelector('.item-name')?.textContent?.toLowerCase() || '';
+    const cat = item.closest('[data-category]')?.dataset?.category || '';
+    const matchSearch = !lower || name.includes(lower);
+    const matchCat = !catFilter || cat === catFilter;
+    item.style.display = (matchSearch && matchCat) ? '' : 'none';
+  });
+}
+
+
+// --- Custom KPI Editor ---
+function addCustomKPI() {
+  const form = document.getElementById('ed-kpi-add-form');
+  form.style.display = 'block';
+  // Populate metric selects
+  const metrics = editorContract?.metrics || [];
+  ['kpi-new-num', 'kpi-new-den'].forEach(selId => {
+    const sel = document.getElementById(selId);
+    sel.innerHTML = '<option value="">Select metric...</option>' +
+      metrics.map(m => `<option value="${m.name}">${escapeHtml(m.display_name || m.name)}</option>`).join('');
+  });
+}
+
+function confirmAddKPI() {
+  const name = document.getElementById('kpi-new-name').value.trim();
+  const displayName = document.getElementById('kpi-new-display').value.trim();
+  const num = document.getElementById('kpi-new-num').value;
+  const den = document.getElementById('kpi-new-den').value;
+  const mult = parseInt(document.getElementById('kpi-new-mult').value) || 1;
+  const fmt = document.getElementById('kpi-new-format').value;
+
+  if (!name || !num || !den) { alert('Please fill in name, numerator, and denominator'); return; }
+
+  if (!editorContract.derived_kpis) editorContract.derived_kpis = [];
+  editorContract.derived_kpis.push({
+    name, display_name: displayName || name, brief_label: displayName || name,
+    brief_category: 'Operations', numerator: num, denominator: den,
+    multiply: mult, format: fmt, description: `${displayName || name} (user-defined)`
+  });
+
+  document.getElementById('ed-kpi-add-form').style.display = 'none';
+  markDirty();
+  loadContractEditor(); // refresh
+}
+
+
+// --- Data Profiling ---
+async function profileDataset() {
+  const id = document.getElementById('editor-dataset-select').value;
+  if (!id) return;
+  const btn = document.getElementById('profile-btn');
+  btn.disabled = true;
+  btn.textContent = 'Profiling...';
+  try {
+    const res = await fetch(`/api/datasets/${encodeURIComponent(id)}/profile?sample_size=2000`);
+    if (!res.ok) throw new Error(await res.text());
+    const profile = await res.json();
+
+    document.getElementById('profile-results').style.display = 'block';
+    document.getElementById('editor-profile-summary').textContent = `${profile.row_count} rows, ${profile.column_count} columns`;
+
+    // Summary cards
+    const numericCols = profile.columns.filter(c => c.type === 'numeric').length;
+    const catCols = profile.columns.filter(c => c.type === 'categorical').length;
+    document.getElementById('profile-summary').innerHTML = `
+      <div class="info-card"><div class="label">Rows Sampled</div><div class="value">${profile.row_count.toLocaleString()}</div></div>
+      <div class="info-card"><div class="label">Columns</div><div class="value">${profile.column_count}</div></div>
+      <div class="info-card"><div class="label">Numeric</div><div class="value">${numericCols}</div></div>
+      <div class="info-card"><div class="label">Categorical</div><div class="value">${catCols}</div></div>
+    `;
+
+    // Column details
+    document.getElementById('profile-columns').innerHTML = profile.columns.map(c => {
+      let detail = `${c.non_null} non-null (${(100 - c.null_pct).toFixed(0)}%) | ${c.unique} unique`;
+      if (c.type === 'numeric') {
+        detail += ` | range: ${c.min?.toLocaleString()} - ${c.max?.toLocaleString()} | mean: ${c.mean?.toLocaleString()}`;
+      } else if (c.top_values) {
+        const top3 = Object.entries(c.top_values).slice(0, 3).map(([k, v]) => `${k} (${v})`).join(', ');
+        detail += ` | top: ${top3}`;
+      }
+      return `<div class="detect-item">
+        <span class="item-name">${escapeHtml(c.name)}</span>
+        <span class="item-type">${c.type}</span>
+        <span class="item-detail">${detail}</span>
+      </div>`;
+    }).join('');
+
+    // Sample rows table
+    if (profile.sample_rows?.length) {
+      const cols = Object.keys(profile.sample_rows[0]);
+      const thead = cols.map(c => `<th>${escapeHtml(c)}</th>`).join('');
+      const tbody = profile.sample_rows.map(row =>
+        '<tr>' + cols.map(c => `<td>${escapeHtml(String(row[c] ?? ''))}</td>`).join('') + '</tr>'
+      ).join('');
+      document.getElementById('profile-sample').innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+    }
+  } catch (e) {
+    alert('Profile failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sample & Profile Data';
+  }
+}
+
+
 // --- Init ---
 loadDatasets();
+
+// Also populate editor dataset dropdown
+fetch('/api/datasets').then(r => r.json()).then(datasets => {
+  const sel = document.getElementById('editor-dataset-select');
+  if (sel) {
+    datasets.forEach(d => {
+      sel.innerHTML += `<option value="${d.id}">${escapeHtml(d.display_name || d.name)}</option>`;
+    });
+  }
+});

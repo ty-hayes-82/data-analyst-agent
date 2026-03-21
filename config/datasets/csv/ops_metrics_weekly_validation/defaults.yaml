@@ -1,0 +1,11 @@
+metrics:
+- ttl_rev_amt
+- rev_ordr_cnt
+- dh_miles
+- truck_count
+focus:
+- recent_monthly_trends
+- anomaly_detection
+- outlier_investigation
+period_type: ''
+brief_style: ceo

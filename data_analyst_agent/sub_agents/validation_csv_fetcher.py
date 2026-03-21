@@ -152,7 +152,8 @@ class ValidationCSVFetcher(BaseAgent):
 
         time_cfg = getattr(contract, "time", None)
         time_column = getattr(time_cfg, "column", None) if time_cfg else None
-        time_column = time_column or "week_ending"
+        if not time_column:
+            raise ValueError("ValidationCSVFetcher: contract.time.column is required but not configured")
         period_label = _friendly_label(
             getattr(time_cfg, "display_name", None)
             or getattr(time_cfg, "label", None)
@@ -196,7 +197,7 @@ class ValidationCSVFetcher(BaseAgent):
         print(f"{'='*80}\n")
 
         # ------------------------------------------------------------------
-        # 5. Load data
+        # 5. Load data (contract-driven)
         # ------------------------------------------------------------------
         start_time = time.perf_counter()
         print(f"[TIMER] >>> ValidationCSVFetcher: Loading data for metric='{metric_label}'...")
@@ -205,11 +206,18 @@ class ValidationCSVFetcher(BaseAgent):
                 metric_filter=metric_filter,
                 dimension_filters=dimension_filters,
                 exclude_partial_week=exclude_partial,
+                contract=contract,
             )
             
             # --- NEW: Apply Date Range Filters from Session State ---
-            start_date = ctx.session.state.get("primary_query_start_date")
-            end_date = ctx.session.state.get("primary_query_end_date")
+            # VALIDATION CSV MODE: Use full dataset range, not dynamic "now" based filtering
+            # The calculate_date_ranges() function uses datetime.now() which breaks validation
+            # datasets that contain historical data (e.g., 2024 data analyzed in 2026).
+            # For validation datasets, we want to analyze the ENTIRE dataset, not just
+            # the last X days from "now".
+            print(f"[ValidationCSVFetcher] Using full dataset date range (no filtering)")
+            start_date = None  # Skip date filtering for validation datasets
+            end_date = None
             
             if not df.empty and (start_date or end_date):
                 if time_column not in df.columns:

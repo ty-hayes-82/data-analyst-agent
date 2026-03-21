@@ -168,12 +168,44 @@ def _aggregate_wide_dataframe(
     nd_df[time_col] = nd_df[time_col].astype(str)
 
     numeric_cols = [ratio_config.get("numerator_metric"), ratio_config.get("denominator_metric")]
+    
+    # =====================================================================
+    # HARDCODED TRADE-SPECIFIC LOGIC — NEEDS CONTRACT-DRIVEN REPLACEMENT
+    # =====================================================================
+    # Current: Hardcoded auxiliary columns for trade datasets with vehicle-based denominators
+    # 
+    # CONTRACT-DRIVEN REPLACEMENT PLAN:
+    # 1. Add to ratio config schema (contract.yaml metrics section):
+    #    auxiliary_columns: ["truck_count", "days_in_period"]
+    #    denominator_aggregation_strategy: "network_level_resource" | "sum"
+    # 
+    # 2. Replace this loop with:
+    #    auxiliary_cols = ratio_config.get("auxiliary_columns", [])
+    #    for col in auxiliary_cols:
+    #        if col in nd_df.columns:
+    #            numeric_cols.append(col)
+    # =====================================================================
     for extra_col in ["truck_count", "days_in_period"]:
         if extra_col in nd_df.columns:
             numeric_cols.append(extra_col)
     for col in sorted(set(filter(None, numeric_cols))):
         nd_df[col] = pd.to_numeric(nd_df[col], errors="coerce").fillna(0)
 
+    # =====================================================================
+    # HARDCODED TRADE-SPECIFIC LOGIC — NEEDS CONTRACT-DRIVEN REPLACEMENT
+    # =====================================================================
+    # Current: Hardcoded check for "Truck Count" denominator metric name
+    # 
+    # Problem: Prevents ratio metrics from working with other datasets that have
+    # network-level resource denominators (e.g., "Server Count", "Agent Count")
+    # 
+    # CONTRACT-DRIVEN REPLACEMENT PLAN:
+    # Replace this boolean with:
+    #    use_network_level_aggregation = (
+    #        ratio_config.get("denominator_aggregation_strategy") == "network_level_resource"
+    #    )
+    # Then check auxiliary_columns from config instead of hardcoded column names.
+    # =====================================================================
     use_network_truck_denominator = (
         ratio_config.get("denominator_metric") == "Truck Count"
         and "truck_count" in nd_df.columns
@@ -182,14 +214,16 @@ def _aggregate_wide_dataframe(
 
     def _effective_denom_by_group(sub_df, group_key):
         if use_network_truck_denominator:
-            if "terminal" in sub_df.columns:
-                if group_key == "terminal":
+            # Use contract-provided grain_col instead of hardcoded "terminal"
+            # This allows the logic to work for any dataset with network-level resource denominators
+            if grain_col in sub_df.columns:
+                if group_key == grain_col:
                     dedup = sub_df.groupby([group_key], dropna=False).agg(
                         truck_total=("truck_count", "max"),
                         days_max=("days_in_period", "max"),
                     ).reset_index()
                 else:
-                    dedup = sub_df.groupby([group_key, "terminal"], dropna=False).agg(
+                    dedup = sub_df.groupby([group_key, grain_col], dropna=False).agg(
                         truck_total=("truck_count", "max"),
                         days_max=("days_in_period", "max"),
                     ).reset_index()
@@ -203,8 +237,9 @@ def _aggregate_wide_dataframe(
 
     def _effective_denom_total(sub_df):
         if use_network_truck_denominator:
-            if "terminal" in sub_df.columns:
-                dedup = sub_df.groupby("terminal", dropna=False).agg(
+            # Use contract-provided grain_col instead of hardcoded "terminal"
+            if grain_col in sub_df.columns:
+                dedup = sub_df.groupby(grain_col, dropna=False).agg(
                     truck_total=("truck_count", "max"),
                     days_max=("days_in_period", "max"),
                 )
@@ -273,8 +308,9 @@ def _aggregate_from_validation_data(
     if nd_df.empty or "metric" not in nd_df.columns or "value" not in nd_df.columns:
         return None
 
-    tcol = time_col if time_col in nd_df.columns else "week_ending"
-    gcol = grain_col if grain_col in nd_df.columns else "terminal"
+    # Use contract-provided time_col and grain_col; no hardcoded fallbacks to dataset-specific columns
+    tcol = time_col if time_col in nd_df.columns else time_col
+    gcol = grain_col if grain_col in nd_df.columns else grain_col
     nd_df[tcol] = nd_df[tcol].astype(str)
     nd_df["value"] = pd.to_numeric(nd_df["value"], errors="coerce").fillna(0)
 
@@ -349,8 +385,8 @@ def _apply_share_materiality(
         return nd_df
 
     m_col = level_col if level_col != "_total_agg" else grain_col
-    if use_network_truck_denominator and "terminal" in nd_df.columns:
-        _grain_terminal = nd_df.groupby([time_col, m_col, "terminal"], dropna=False).agg(
+    if use_network_truck_denominator and grain_col in nd_df.columns:
+        _grain_terminal = nd_df.groupby([time_col, m_col, grain_col], dropna=False).agg(
             truck_total=("truck_count", "max"),
             days_max=("days_in_period", "max"),
         ).reset_index()

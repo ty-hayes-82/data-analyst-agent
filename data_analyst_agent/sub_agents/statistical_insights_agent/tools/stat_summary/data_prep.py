@@ -143,10 +143,14 @@ def _apply_materiality_filter(df, pivot, ctx, metric_name, grain_col, time_col):
         denom_df = load_validation_data(metric_filter=[denom_metric], exclude_partial_week=_exclude_partial)
         if denom_df.empty:
             return
-        _gcol = grain_col if grain_col in denom_df.columns else "terminal"
-        # Use contract-defined time column or fallback to "period"
-        contract_time_col = (ctx.contract.time.column if ctx.contract.time else None) or "period"
-        _tcol = time_col if time_col in denom_df.columns else (contract_time_col if contract_time_col in denom_df.columns else "period")
+        if grain_col not in denom_df.columns:
+            raise ValueError(f"Materiality filter: grain column '{grain_col}' not found in denominator data (available: {list(denom_df.columns)})")
+        _gcol = grain_col
+        # Use contract-defined time column
+        contract_time_col = ctx.contract.time.column if ctx.contract.time else None
+        if not contract_time_col or contract_time_col not in denom_df.columns:
+            raise ValueError(f"Materiality filter: time column '{contract_time_col or time_col}' not found in denominator data (available: {list(denom_df.columns)})")
+        _tcol = contract_time_col
         denom_df["value"] = pd.to_numeric(denom_df["value"], errors="coerce").fillna(0)
         net_denom = denom_df.groupby(_tcol)["value"].sum()
         grain_vals = set(df[_gcol].astype(str).unique())

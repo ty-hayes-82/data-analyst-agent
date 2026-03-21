@@ -185,8 +185,16 @@ async def compute_anomaly_indicators() -> str:
         vals = agg[effective_series.column_name].astype(float).to_numpy()
         z = _robust_z(vals)
         agg["robust_z"] = z
-        # Threshold tuned for deterministic behavior (not hyper-sensitive)
-        flagged = agg[np.abs(agg["robust_z"]) >= 3.0]
+        
+        # Focus-aware threshold adjustment
+        from ....utils.focus_directives import get_focus_modes
+        focus_modes = get_focus_modes(ctx.session.state if ctx and hasattr(ctx, 'session') else None)
+        threshold = 3.0  # default
+        if "anomaly_detection" in focus_modes:
+            threshold = 2.0  # more aggressive anomaly detection
+            print(f"[AnomalyIndicators] Focus mode 'anomaly_detection' active: lowering threshold to {threshold}")
+        
+        flagged = agg[np.abs(agg["robust_z"]) >= threshold]
 
         # Vectorized anomaly payload generation (avoid iterrows)
         anomalies_out: list[dict] = []

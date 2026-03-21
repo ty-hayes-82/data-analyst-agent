@@ -1,15 +1,13 @@
+# Metric Units Configuration for OWID CO2 Emissions Dataset
+# Maps each metric to its appropriate unit for display and interpretation
+
 metrics:
-  co2:
-    unit: "MtCO2"
-  coal_co2:
-    unit: "MtCO2"
-  gas_co2:
-    unit: "MtCO2"
-  oil_co2:
-    unit: "MtCO2"
-  co2_per_capita:
-    unit: "tonnes per capita"
-  population:
-    unit: "people"
-  gdp:
-    unit: "USD"
+  co2: "MtCO2"
+  coal_co2: "MtCO2"
+  gas_co2: "MtCO2"
+  oil_co2: "MtCO2"
+  cement_co2: "MtCO2"
+  flaring_co2: "MtCO2"
+  co2_per_capita: "tonnes CO2/person"
+  population: "people"
+  gdp: "USD"

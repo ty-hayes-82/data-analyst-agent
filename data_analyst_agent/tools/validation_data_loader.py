@@ -23,6 +23,37 @@ This loader melts it into a long-format DataFrame compatible with the
 validation_ops DatasetContract:
   - One row per (region, terminal, metric, week_ending) observation
   - Mixed value formats cleaned to numeric float
+
+⚠️  DATASET-SPECIFIC LIMITATION (trade_data validation format)
+================================================================================
+This loader contains HARDCODED column mappings specific to the trade_data
+validation CSV format:
+  - Line 144-148: Column rename map ("Region" → "region", "Terminal" → "terminal")
+  - Line 155: Sort order ["region", "terminal", "metric", "week_ending"]
+  - Line 199: Summary iteration over ("region", "terminal", "metric", "week_ending")
+
+This prevents reuse with datasets that have different validation CSV structures.
+
+TODO for multi-dataset validation support:
+1. Add validation_loader config to contract.yaml:
+   validation:
+     loader:
+       format: "wide_to_long"
+       id_columns: ["Region", "Terminal", "Metric"]
+       column_mapping:
+         Region: region
+         Terminal: terminal
+         Metric: metric
+       time_column: "week_ending"
+       sort_columns: ["region", "terminal", "metric", "week_ending"]
+
+2. Read config in this loader and use for dynamic column handling
+
+3. For datasets without validation CSVs, return empty DataFrame with
+   contract-driven columns instead of hardcoded schema
+
+See: Code Review 2026-03-13, Critical Issue #3
+================================================================================
 """
 
 import os
@@ -59,18 +90,19 @@ def load_validation_data(
     metric_filter: Optional[Union[str, List[str]]] = None,
     dimension_filters: Optional[Dict[str, Any]] = None,
     exclude_partial_week: bool = False,
+    contract: Optional[Any] = None,
 ) -> pd.DataFrame:
-    """Read and transform validation_data.csv from wide to long format.
+    """Read and transform validation data CSV (contract-driven).
 
     Args:
-        csv_path: Absolute or relative path to the TSV file.  If None, the
-                  function resolves the path relative to the project root
-                  (pl_analyst/data/validation_data.csv).
+        csv_path: Absolute or relative path to the CSV file. If None and contract
+                  is provided, uses contract.data_source.file. If both None,
+                  falls back to legacy path resolution.
         region_filter: If provided, keep only rows where region matches this
                        value (case-insensitive exact match).
         terminal_filter: If provided, keep only rows where terminal matches
                          this value (case-insensitive exact match).
-        metric_filter: Flexible filter on the Metric column.  Accepts:
+        metric_filter: Flexible filter on the Metric column. Accepts:
                        - A single metric name string: case-insensitive substring
                          match (e.g. "Miles" matches "Total Miles", "Loaded Miles").
                        - A list of metric name strings: case-insensitive exact
@@ -78,28 +110,36 @@ def load_validation_data(
                          ["Truck Count", "Total Miles"]).
                        - A comma-separated string: split on commas, then treated
                          as a list for exact matching (e.g. "Truck Count,Total Miles").
-                       Pass None (default) to load all 56 metrics.
+                       Pass None (default) to load all metrics.
         dimension_filters: Optional mapping of column -> value(s). Values may be
                            scalars or iterables and are matched case-insensitively.
                            Entries here take precedence over region/terminal args.
         exclude_partial_week: If True, drop the final (partial) week column
                               before melting so it never appears in the output.
+        contract: Optional DatasetContract instance. If provided, uses
+                  contract.data_source.file for the file path and
+                  contract.time.column for the time column name.
 
     Returns:
-        Long-format DataFrame with columns:
-            region (str), terminal (str), metric (str),
-            week_ending (str, YYYY-MM-DD), value (float)
+        Long-format DataFrame with columns specified by contract, or
+        legacy columns (region, terminal, metric, week_ending, value).
 
     Raises:
         FileNotFoundError: If the CSV file cannot be found at the resolved path.
-        ValueError: If the file has no date columns after removing id columns.
+        ValueError: If the file has no date columns after removing id columns (wide format).
     """
+    # Resolve file path: contract > csv_path > legacy fallback
+    if contract and not csv_path:
+        data_source = getattr(contract, 'data_source', None)
+        if data_source:
+            csv_path = getattr(data_source, 'file', None)
+    
     try:
         abs_path = _resolve_path(csv_path)
     except FileNotFoundError:
-        # In CI/dev environments the raw validation TSV may be absent.
+        # In CI/dev environments the raw validation CSV may be absent.
         # Return an empty frame so downstream tests can skip gracefully.
-        return pd.DataFrame(columns=["region", "terminal", "metric", "week_ending", "value"])
+        return pd.DataFrame()
 
     # --- CACHE: Try to return full long-format DF from memory ---
     if (_cache['full_df'] is not None and 
@@ -107,52 +147,97 @@ def load_validation_data(
         _cache['exclude_partial'] == exclude_partial_week):
         full_df = _cache['full_df']
     else:
-        # Load and transform the full wide-format file
-        df_wide = pd.read_csv(abs_path, sep="\t", dtype=str, encoding="utf-16")
+        # Auto-detect CSV format (UTF-8 comma-separated vs UTF-16 tab-separated)
+        try:
+            # Try standard CSV format first (UTF-8 comma-separated)
+            df_wide = pd.read_csv(abs_path, sep=",", dtype=str, encoding="utf-8")
+            print(f"[validation_data_loader] Loaded CSV with UTF-8 comma-separated format")
+        except (UnicodeDecodeError, pd.errors.ParserError):
+            # Fallback to legacy format (UTF-16 tab-separated)
+            try:
+                df_wide = pd.read_csv(abs_path, sep="\t", dtype=str, encoding="utf-16")
+                print(f"[validation_data_loader] Loaded CSV with UTF-16 tab-separated format (legacy)")
+            except Exception as e:
+                raise ValueError(f"[validation_data_loader] Failed to load CSV from {abs_path}: {e}")
 
-        date_cols = [c for c in df_wide.columns if c not in _ID_COLS]
-        if not date_cols:
-            raise ValueError(
-                f"[validation_data_loader] No date columns found in {abs_path}. "
-                f"Expected columns other than {_ID_COLS}."
+        # Detect format: wide (columns are dates) vs long (already melted)
+        # Get time column from contract if available
+        time_col = None
+        if contract:
+            time_cfg = getattr(contract, 'time', None)
+            if time_cfg:
+                time_col = getattr(time_cfg, 'column', None)
+        
+        # Check if this is long-format (already has time column)
+        if time_col and time_col in df_wide.columns:
+            # Long format: already melted, just use it
+            full_df = df_wide.copy()
+            print(f"[validation_data_loader] Detected long-format CSV (time column: {time_col})")
+            
+            # Pre-flight validation logging
+            print(f"[validation_data_loader] Loaded {len(full_df)} rows, {len(full_df.columns)} columns")
+            print(f"[validation_data_loader] Date range: {full_df[time_col].min()} to {full_df[time_col].max()}")
+            print(f"[validation_data_loader] First 5 rows:\n{full_df.head()}")
+        else:
+            # Wide format: needs melting (legacy trade_data format)
+            date_cols = [c for c in df_wide.columns if c not in _ID_COLS]
+            if not date_cols:
+                raise ValueError(
+                    f"[validation_data_loader] No date columns found in {abs_path}. "
+                    f"Expected columns other than {_ID_COLS}."
+                )
+
+            if exclude_partial_week and _KNOWN_PARTIAL_WEEK in date_cols:
+                date_cols.remove(_KNOWN_PARTIAL_WEEK)
+                df_wide = df_wide[_ID_COLS + date_cols]
+
+            # Melt the ENTIRE file once to long format
+            full_df = df_wide.melt(
+                id_vars=_ID_COLS,
+                value_vars=date_cols,
+                var_name="week_ending_raw",
+                value_name="raw_value",
             )
 
-        if exclude_partial_week and _KNOWN_PARTIAL_WEEK in date_cols:
-            date_cols.remove(_KNOWN_PARTIAL_WEEK)
-            df_wide = df_wide[_ID_COLS + date_cols]
+            # Clean mixed value formats
+            full_df["value"] = _clean_values(full_df["raw_value"])
 
-        # Melt the ENTIRE file once to long format
-        full_df = df_wide.melt(
-            id_vars=_ID_COLS,
-            value_vars=date_cols,
-            var_name="week_ending_raw",
-            value_name="raw_value",
-        )
+            # Parse and reformat dates
+            full_df["week_ending"] = (
+                pd.to_datetime(full_df["week_ending_raw"], format="%m/%d/%Y", errors="coerce")
+                .dt.strftime("%Y-%m-%d")
+            )
 
-        # Clean mixed value formats
-        full_df["value"] = _clean_values(full_df["raw_value"])
+            # Lowercase / normalise column names
+            full_df = full_df.rename(columns={
+                "Region": "region",
+                "Terminal": "terminal",
+                "Metric": "metric",
+            })
 
-        # Parse and reformat dates
-        full_df["week_ending"] = (
-            pd.to_datetime(full_df["week_ending_raw"], format="%m/%d/%Y", errors="coerce")
-            .dt.strftime("%Y-%m-%d")
-        )
+            # Drop helper columns and rows where date parsing failed
+            full_df = full_df.drop(columns=["week_ending_raw", "raw_value"])
+            full_df = full_df.dropna(subset=["week_ending"])
+            
+            print(f"[validation_data_loader] Transformed wide-format to long-format (legacy)")
+            print(f"[validation_data_loader] Loaded {len(full_df)} rows, {len(full_df.columns)} columns")
+            if "week_ending" in full_df.columns:
+                print(f"[validation_data_loader] Date range: {full_df['week_ending'].min()} to {full_df['week_ending'].max()}")
+            print(f"[validation_data_loader] First 5 rows:\n{full_df.head()}")
 
-        # Lowercase / normalise column names
-        full_df = full_df.rename(columns={
-            "Region": "region",
-            "Terminal": "terminal",
-            "Metric": "metric",
-        })
-
-        # Drop helper columns and rows where date parsing failed
-        full_df = full_df.drop(columns=["week_ending_raw", "raw_value"])
-        full_df = full_df.dropna(subset=["week_ending"])
-
-        # Sort for reproducible output
-        full_df = full_df.sort_values(
-            ["region", "terminal", "metric", "week_ending"]
-        ).reset_index(drop=True)
+        # Sort for reproducible output (contract-driven columns)
+        if contract:
+            # Use contract-specified columns for sorting
+            time_col = contract.time.column if contract.time else "cal_dt"
+            # Get first 2-3 dimension columns for sorting (typically region, division, LOB)
+            dim_cols = [d.column for d in contract.dimensions[:3] if d.column and d.column in full_df.columns]
+            sort_cols = [col for col in dim_cols + [time_col] if col in full_df.columns]
+        else:
+            # Legacy fallback for old validation_ops format
+            sort_cols = [col for col in ["region", "terminal", "metric", "week_ending"] if col in full_df.columns]
+        
+        if sort_cols:
+            full_df = full_df.sort_values(sort_cols).reset_index(drop=True)
 
         # Cache it!
         _cache['full_df'] = full_df
