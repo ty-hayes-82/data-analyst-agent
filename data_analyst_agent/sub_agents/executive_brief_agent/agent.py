@@ -1074,21 +1074,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 if not payload:
                     continue
                 h = payload.get("hierarchical_analysis") or {}
-                # Try Level 0 totals first, then sum Level 1 entity values
+                # Try Level 0 totals first (current_total/prior_total from level_stats)
                 l0 = h.get("level_0") or {}
-                curr = l0.get("total_current")
-                pri = l0.get("total_prior")
+                curr = l0.get("current_total") or l0.get("total_current")
+                pri = l0.get("prior_total") or l0.get("total_prior")
+                # Fallback to Level 1 if Level 0 lacks totals
                 if curr is None or pri is None:
-                    # Sum current/prior from Level 1 insight cards
                     l1 = h.get("level_1") or {}
-                    cards = l1.get("insight_cards") or []
-                    if cards:
-                        curr_sum = sum(float((c.get("evidence") or {}).get("current", 0)) for c in cards)
-                        pri_sum = sum(float((c.get("evidence") or {}).get("prior", 0)) for c in cards)
-                        if curr_sum > 0:
-                            curr = curr_sum
-                        if pri_sum > 0:
-                            pri = pri_sum
+                    curr2 = l1.get("current_total") or l1.get("total_current")
+                    pri2 = l1.get("prior_total") or l1.get("total_prior")
+                    if curr2 is not None:
+                        curr = curr2
+                    if pri2 is not None:
+                        pri = pri2
                 if curr is not None:
                     current_totals[metric_key] = float(curr)
                 if pri is not None:
