@@ -184,8 +184,15 @@ def format_kpi_for_brief(kpi: dict[str, Any]) -> str:
 
 
 def format_kpis_block(kpis: list[dict[str, Any]]) -> str:
-    """Format all KPIs as a text block for the brief prompt."""
+    """Format all KPIs as a text block for the brief prompt.
+
+    Filters out KPIs with zero/null values or Idle % when 0.0% (no data).
+    """
     lines = []
     for kpi in kpis:
+        val = kpi.get("value")
+        # Skip KPIs with zero or null values (likely missing data)
+        if val is None or (val == 0.0 and kpi.get("format") == "percentage"):
+            continue
         lines.append(f"- {format_kpi_for_brief(kpi)}")
     return "\n".join(lines)
