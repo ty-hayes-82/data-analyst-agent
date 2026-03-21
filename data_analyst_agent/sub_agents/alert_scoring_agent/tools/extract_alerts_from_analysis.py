@@ -449,8 +449,8 @@ async def extract_alerts_from_analysis(
             fallback = Path("outputs") / f"user_{os.getenv('USER', 'node')}" / "alerts"
             fallback.mkdir(parents=True, exist_ok=True)
             output_dir = fallback
-        # Sanitize target for filename
-        safe_target = str(target_display).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
+        # Sanitize target for filename — use raw metric name, not label-prefixed display name
+        safe_target = str(target_name or target_display).replace("/", "-").replace("\\", "-").replace(":", "-").replace(" ", "_")
         payload_file = output_dir / f"alerts_payload_{safe_target}.json"
         
         print(f"[extract_alerts_from_analysis] Attempting to save alert payload to: {payload_file}", flush=True)

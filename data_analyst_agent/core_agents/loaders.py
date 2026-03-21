@@ -487,7 +487,10 @@ class AnalysisContextInitializer(BaseAgent):
         print(f"[AnalysisContextInitializer] Created context for {len(df)} rows. Target: {target_metric.name}")
 
         period_end_value = final_period_end or ctx.session.state.get("primary_query_end_date")
-        frequency_for_period = ctx.session.state.get("time_frequency") or raw_time_frequency
+        # Prefer temporal_grain (which respects DATA_ANALYST_PERIOD_TYPE override) over raw contract frequency
+        period_type_override = os.environ.get("DATA_ANALYST_PERIOD_TYPE", "").strip().lower()
+        _period_type_to_grain = {"month_end": "monthly", "week_end": "weekly", "day": "daily"}
+        frequency_for_period = _period_type_to_grain.get(period_type_override) or temporal_grain or ctx.session.state.get("time_frequency") or raw_time_frequency
         if period_end_value:
             analysis_period = describe_analysis_period(
                 period_end_value,

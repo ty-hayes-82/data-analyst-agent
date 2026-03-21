@@ -1310,8 +1310,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             if json_data:
                 terminal_lines = []
                 for metric_key, payload in json_data.items():
-                    h = payload.get("hierarchical_analysis", {})
-                    l2 = h.get("level_2", {})
+                    if not payload:
+                        continue
+                    h = payload.get("hierarchical_analysis") or {}
+                    l2 = h.get("level_2") or {}
                     cards = l2.get("insight_cards", [])
                     if cards:
                         items = []
