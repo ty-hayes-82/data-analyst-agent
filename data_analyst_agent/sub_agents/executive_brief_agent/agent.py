@@ -1218,7 +1218,12 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         # Determine temporal grain early (needed for section titles and comparison basis)
+        # Priority: period_type env var > session state temporal_grain > fallback
         temporal_grain = ctx.session.state.get("temporal_grain", "unknown")
+        _period_type_env = os.environ.get("DATA_ANALYST_PERIOD_TYPE", "").strip().lower()
+        _period_type_grain = {"month_end": "monthly", "week_end": "weekly", "day": "daily"}.get(_period_type_env)
+        if _period_type_grain and normalize_temporal_grain(temporal_grain) in ("daily", "unknown"):
+            temporal_grain = _period_type_grain
         canonical_grain = normalize_temporal_grain(temporal_grain)
 
         # Build mandatory section title enforcement (will be injected into system instruction)
@@ -1480,9 +1485,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             if used_fallback:
                 print("[BRIEF] WARNING: Structured fallback output detected for network brief.")
 
-            # Post-process: fix title temporal grain if LLM used wrong one
+            # Post-process: fix temporal grain in title and section headings
             _grain_to_label = {"monthly": "Monthly", "weekly": "Weekly", "yearly": "Annual", "daily": "Daily"}
             _correct_label = _grain_to_label.get(canonical_grain, "")
+            _correct_period = {"monthly": "month", "weekly": "week", "yearly": "quarter", "daily": "day"}.get(canonical_grain, "period")
             if _correct_label and brief_md:
                 _wrong_labels = [v for k, v in _grain_to_label.items() if k != canonical_grain]
                 for _wl in _wrong_labels:
@@ -1491,6 +1497,13 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         brief_md = brief_md.replace(f"# {_wl}", f"# {_correct_label}", 1)
                         print(f"[BRIEF] Post-fixed title: replaced '{_wl}' with '{_correct_label}'")
                         break
+                # Fix outlook section title (e.g., "Next-day outlook" → "Next-month outlook")
+                _wrong_periods = {"day", "week", "month", "quarter"} - {_correct_period}
+                for _wp in _wrong_periods:
+                    _wrong_heading = f"## Next-{_wp} outlook"
+                    if _wrong_heading in brief_md:
+                        brief_md = brief_md.replace(_wrong_heading, f"## Next-{_correct_period} outlook")
+                        print(f"[BRIEF] Post-fixed outlook: 'Next-{_wp}' → 'Next-{_correct_period}'")
 
             brief_filename = "brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md"
             brief_path = outputs_dir / brief_filename
