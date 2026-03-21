@@ -1218,7 +1218,12 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         # Determine temporal grain early (needed for section titles and comparison basis)
+        # Priority: period_type env var > session state temporal_grain > fallback
         temporal_grain = ctx.session.state.get("temporal_grain", "unknown")
+        _period_type_env = os.environ.get("DATA_ANALYST_PERIOD_TYPE", "").strip().lower()
+        _period_type_grain = {"month_end": "monthly", "week_end": "weekly", "day": "daily"}.get(_period_type_env)
+        if _period_type_grain and normalize_temporal_grain(temporal_grain) in ("daily", "unknown"):
+            temporal_grain = _period_type_grain
         canonical_grain = normalize_temporal_grain(temporal_grain)
 
         # Build mandatory section title enforcement (will be injected into system instruction)
