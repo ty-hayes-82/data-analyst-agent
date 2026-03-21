@@ -121,9 +121,9 @@ def compute_derived_kpis(
         fmt="percentage", unit="%", optimization="minimize",
     )
 
-    # Orders Per Truck
+    # Orders Per Truck-Day (ordr_cnt and truck_count are both period totals)
     _add_kpi(
-        "orders_per_truck", "Orders/Truck",
+        "orders_per_truck_day", "Orders/Truck-Day",
         _safe_div("ordr_cnt", "truck_count", current_period),
         _safe_div("ordr_cnt", "truck_count", prior_period),
         fmt="number",
