@@ -78,12 +78,23 @@ def is_ceo_style() -> bool:
     return os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower() == "ceo"
 
 
-CEO_SECTION_CONTRACT = [
-    {"title": "What moved the business", "mode": "insights"},
-    {"title": "Trend status", "mode": "insights"},
-    {"title": "Where it came from", "mode": "insights"},
-    {"title": "Why it matters", "mode": "content"},
-    {"title": "Next-week outlook", "mode": "content"},
-    {"title": "Leadership focus", "mode": "insights"},
-]
+def get_ceo_section_contract(temporal_grain: str = "weekly") -> list:
+    """Return CEO section contract with grain-appropriate outlook title."""
+    grain = (temporal_grain or "weekly").lower()
+    outlook_title = {
+        "monthly": "Next-month outlook",
+        "yearly": "Next-quarter outlook",
+        "daily": "Next-day outlook",
+    }.get(grain, "Next-week outlook")
+    return [
+        {"title": "What moved the business", "mode": "insights"},
+        {"title": "Trend status", "mode": "insights"},
+        {"title": "Where it came from", "mode": "insights"},
+        {"title": "Why it matters", "mode": "content"},
+        {"title": outlook_title, "mode": "content"},
+        {"title": "Leadership focus", "mode": "insights"},
+    ]
+
+# Default for backward compatibility
+CEO_SECTION_CONTRACT = get_ceo_section_contract("weekly")
 
