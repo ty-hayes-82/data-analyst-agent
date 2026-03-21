@@ -1219,6 +1219,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 f"- {', '.join(metric_names)}\n\n"
             )
 
+        # Determine temporal grain early (needed for section titles and comparison basis)
+        temporal_grain = ctx.session.state.get("temporal_grain", "unknown")
+        canonical_grain = normalize_temporal_grain(temporal_grain)
+
         # Build mandatory section title enforcement (will be injected into system instruction)
         from .prompt import is_ceo_style, get_ceo_section_contract
         active_section_contract = get_ceo_section_contract(canonical_grain) if is_ceo_style() else NETWORK_SECTION_CONTRACT
@@ -1272,8 +1276,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         instruction = augment_instruction(instruction, ctx.session.state)
         weather_block = _build_weather_context_block(ctx.session.state.get("weather_context"))
 
-        temporal_grain = ctx.session.state.get("temporal_grain", "unknown")
-        canonical_grain = normalize_temporal_grain(temporal_grain)
         period_unit = temporal_grain_to_period_unit(canonical_grain)
         brief_temporal_context = {
             "reference_period_end": period_end,
