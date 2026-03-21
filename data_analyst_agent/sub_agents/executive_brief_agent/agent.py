@@ -1463,6 +1463,18 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             if used_fallback:
                 print("[BRIEF] WARNING: Structured fallback output detected for network brief.")
 
+            # Post-process: fix title temporal grain if LLM used wrong one
+            _grain_to_label = {"monthly": "Monthly", "weekly": "Weekly", "yearly": "Annual", "daily": "Daily"}
+            _correct_label = _grain_to_label.get(canonical_grain, "")
+            if _correct_label and brief_md:
+                _wrong_labels = [v for k, v in _grain_to_label.items() if k != canonical_grain]
+                for _wl in _wrong_labels:
+                    if f"# CEO {_wl}" in brief_md or f"# {_wl}" in brief_md:
+                        brief_md = brief_md.replace(f"CEO {_wl}", f"CEO {_correct_label}", 1)
+                        brief_md = brief_md.replace(f"# {_wl}", f"# {_correct_label}", 1)
+                        print(f"[BRIEF] Post-fixed title: replaced '{_wl}' with '{_correct_label}'")
+                        break
+
             brief_filename = "brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md"
             brief_path = outputs_dir / brief_filename
             brief_path.write_text(brief_md, encoding="utf-8")

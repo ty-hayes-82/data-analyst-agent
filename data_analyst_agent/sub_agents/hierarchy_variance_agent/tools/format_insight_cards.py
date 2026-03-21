@@ -375,7 +375,12 @@ def format_hierarchy_insight_cards(
         "level": level,
         "level_name": level_name,
         "total_candidates": len(cards),
+        "current_total": level_stats.get("current_total"),
+        "prior_total": level_stats.get("prior_total"),
     }
+    dq_flags = level_stats.get("data_quality_flags")
+    if dq_flags:
+        result["data_quality_flags"] = dq_flags
 
     if isinstance(level_stats, dict):
         if level_stats.get("is_duplicate"):
