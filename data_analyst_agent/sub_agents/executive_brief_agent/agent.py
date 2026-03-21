@@ -1095,7 +1095,21 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     prior_totals[metric_key] = float(pri)
             if current_totals:
                 grain = ctx.session.state.get("temporal_grain", "monthly")
-                days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
+                # Compute actual days from period end date for accurate per-day KPIs
+                try:
+                    from datetime import datetime as _dt
+                    _pe = _dt.strptime(str(period_end).split(" ")[0], "%Y-%m-%d")
+                    if grain == "monthly":
+                        import calendar
+                        days = calendar.monthrange(_pe.year, _pe.month)[1]
+                    elif grain == "weekly":
+                        days = 7
+                    elif grain == "yearly":
+                        days = 366 if calendar.isleap(_pe.year) else 365
+                    else:
+                        days = 30
+                except Exception:
+                    days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
                 kpis = compute_derived_kpis(current_totals, prior_totals, days_in_period=days)
                 if kpis:
                     kpi_block = format_kpis_block(kpis)
@@ -1206,8 +1220,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         # Build mandatory section title enforcement (will be injected into system instruction)
-        from .prompt import is_ceo_style, CEO_SECTION_CONTRACT
-        active_section_contract = CEO_SECTION_CONTRACT if is_ceo_style() else NETWORK_SECTION_CONTRACT
+        from .prompt import is_ceo_style, get_ceo_section_contract
+        active_section_contract = get_ceo_section_contract(canonical_grain) if is_ceo_style() else NETWORK_SECTION_CONTRACT
         expected_sections = [spec["title"] for spec in active_section_contract]
         if is_ceo_style():
             section_title_enforcement = (
@@ -1368,10 +1382,13 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 if terminal_lines:
                     terminal_block = "TERMINAL/DIVISION DRIVERS (Level 2):\n" + "\n".join(terminal_lines) + "\n\n"
 
+            _grain_short = {"monthly": "MoM", "weekly": "WoW", "yearly": "YoY"}.get(canonical_grain, "PoP")
+            _grain_long = {"monthly": "month-over-month vs prior month", "weekly": "week-over-week vs prior week", "yearly": "year-over-year vs prior year"}.get(canonical_grain, "period-over-period")
+            _period_word = {"monthly": "Month", "weekly": "Week", "yearly": "Year"}.get(canonical_grain, "Period")
             user_message = (
-                f"COMPARISON BASIS: All variances are {comparison_basis} (week-over-week vs prior week).\n"
-                f"Say 'WoW' or 'vs prior week' — NOT 'vs plan'.\n"
-                f"Week ending: {period_end}\n"
+                f"COMPARISON BASIS: All variances are {comparison_basis} ({_grain_long}).\n"
+                f"Say '{_grain_short}' or 'vs prior {_period_word.lower()}' — NOT 'vs plan' or 'WoW' if this is monthly.\n"
+                f"{_period_word} ending: {period_end}\n"
                 f"Metrics: {', '.join(sorted(reports.keys()))}\n\n"
                 f"{terminal_block}"
                 f"{contract_summary_block}"
