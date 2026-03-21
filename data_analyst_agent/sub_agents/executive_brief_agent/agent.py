@@ -1065,7 +1065,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         digest = _apply_unit_to_text(digest, presentation_unit)
 
-        # --- Derived KPIs: compute from Level 0 totals and append to digest ---
+        # --- Derived KPIs: compute from hierarchy totals and append to digest ---
         try:
             from .kpi_calculator import compute_derived_kpis, format_kpis_block
             current_totals: dict[str, float] = {}
@@ -1074,15 +1074,26 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 if not payload:
                     continue
                 h = payload.get("hierarchical_analysis") or {}
+                # Try Level 0 totals first, then sum Level 1 entity values
                 l0 = h.get("level_0") or {}
                 curr = l0.get("total_current")
                 pri = l0.get("total_prior")
+                if curr is None or pri is None:
+                    # Sum current/prior from Level 1 insight cards
+                    l1 = h.get("level_1") or {}
+                    cards = l1.get("insight_cards") or []
+                    if cards:
+                        curr_sum = sum(float((c.get("evidence") or {}).get("current", 0)) for c in cards)
+                        pri_sum = sum(float((c.get("evidence") or {}).get("prior", 0)) for c in cards)
+                        if curr_sum > 0:
+                            curr = curr_sum
+                        if pri_sum > 0:
+                            pri = pri_sum
                 if curr is not None:
                     current_totals[metric_key] = float(curr)
                 if pri is not None:
                     prior_totals[metric_key] = float(pri)
             if current_totals:
-                # Determine days in period from temporal grain
                 grain = ctx.session.state.get("temporal_grain", "monthly")
                 days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
                 kpis = compute_derived_kpis(current_totals, prior_totals, days_in_period=days)
