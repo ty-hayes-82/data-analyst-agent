@@ -74,8 +74,10 @@ def compute_derived_kpis(
     )
 
     # Revenue Per Truck Per Day
-    truck_days_curr = (current_period.get("truck_count", 0) or 0) * days_in_period
-    truck_days_prior = (prior_period.get("truck_count", 0) or 0) * days_in_period
+    # truck_count from data is a period total (sum of daily counts), so it already
+    # represents truck-days. Divide revenue by it directly for rev/truck/day.
+    truck_days_curr = current_period.get("truck_count", 0) or 0
+    truck_days_prior = prior_period.get("truck_count", 0) or 0
     _add_kpi(
         "rev_per_truck_day", "Rev/Truck/Day",
         current_period.get("ttl_rev_amt", 0) / truck_days_curr if truck_days_curr else None,
@@ -84,13 +86,14 @@ def compute_derived_kpis(
     )
 
     # Miles Per Truck Per Week
-    trucks_curr = current_period.get("truck_count", 0) or 0
-    trucks_prior = prior_period.get("truck_count", 0) or 0
+    # truck_count is period-total truck-days; average fleet = truck_count / days_in_period
+    avg_fleet_curr = (current_period.get("truck_count", 0) or 0) / days_in_period if days_in_period else 0
+    avg_fleet_prior = (prior_period.get("truck_count", 0) or 0) / days_in_period if days_in_period else 0
     weeks = max(days_in_period / 7, 1)
     _add_kpi(
         "miles_per_truck_week", "Miles/Truck/Week",
-        current_period.get("ttl_trf_mi", 0) / (trucks_curr * weeks) if trucks_curr else None,
-        prior_period.get("ttl_trf_mi", 0) / (trucks_prior * weeks) if trucks_prior else None,
+        current_period.get("ttl_trf_mi", 0) / avg_fleet_curr / weeks if avg_fleet_curr else None,
+        prior_period.get("ttl_trf_mi", 0) / avg_fleet_prior / weeks if avg_fleet_prior else None,
         fmt="number",
     )
 
@@ -165,6 +168,9 @@ def format_kpi_for_brief(kpi: dict[str, Any]) -> str:
         val_str = f"${val:,.2f}"
     elif kpi["format"] == "percentage":
         val_str = f"{val:.1f}%"
+    elif val < 100:
+        # Small values (ratios, efficiency) get 1 decimal
+        val_str = f"{val:,.1f}"
     else:
         val_str = f"{val:,.0f}"
 

@@ -479,8 +479,15 @@ def _clean_period(period_str: str) -> str:
 def _format_anomaly_line(entry: dict, unit: str) -> str:
     period = _clean_period(entry.get("period")) or "N/A"
     entity = entry.get("entity") or "Metric"
-    value_clause = _format_amount_short(entry.get("value"), unit)
-    deviation_clause = f" Δ{entry['deviation_pct']:+.1f}%" if entry.get("deviation_pct") is not None else ""
+    # Prefer deviation % over raw observed value (raw value looks like a change with +/- prefix)
+    raw_value = entry.get("value")
+    deviation_pct = entry.get("deviation_pct")
+    if deviation_pct is not None:
+        value_clause = f"Δ{deviation_pct:+.1f}%"
+        deviation_clause = ""
+    else:
+        value_clause = _format_amount_short(raw_value, unit) if raw_value is not None else ""
+        deviation_clause = ""
     z_clause = f" z={entry['z']:.2f}" if entry.get("z") is not None else ""
     p_clause = f" p={entry['p']:.3f}" if entry.get("p") is not None else ""
     description = f" — {entry['description']}" if entry.get("description") else ""
