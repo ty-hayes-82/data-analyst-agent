@@ -30,7 +30,14 @@ def determine_period_context(
         else 0
     )
     effective_current, lag_window = resolve_effective_latest_period(periods, lag)
-    current_period = effective_current if analysis_period == "latest" else analysis_period
+    if analysis_period == "latest":
+        current_period = effective_current
+    else:
+        # Normalize: strip time component and try to match data periods
+        clean = str(analysis_period).split(" ")[0].split("T")[0]
+        # Find matching period in data (prefix match handles format differences)
+        matched = next((p for p in periods if str(p).startswith(clean)), None)
+        current_period = matched if matched is not None else clean
     return current_period, effective_current, lag_window, lag, periods
 
 
