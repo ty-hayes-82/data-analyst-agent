@@ -48,25 +48,34 @@ def _calculate_impact_score(variance_amount: float, variance_pct: float,
 
 
 def _calculate_confidence_score(signals: dict[str, bool]) -> float:
-    """Calculate confidence score based on ensemble of detection signals."""
-    # Count how many detection methods flagged this
-    total_signals = len(signals)
-    if total_signals == 0:
+    """Calculate confidence score based on ensemble of detection signals.
+
+    Uses a tiered approach: any single signal provides a baseline confidence,
+    and additional signals boost it. This avoids penalizing alerts that trigger
+    only one detector (e.g., MAD outlier) when other detectors are N/A.
+    """
+    if not signals:
         return 0.0
-    
+
     flagged_signals = sum(1 for v in signals.values() if v)
-    
-    # Confidence is proportion of methods that flagged
-    return flagged_signals / total_signals
+
+    if flagged_signals == 0:
+        return 0.0
+
+    # 1 signal = 0.5 confidence, each additional adds 0.15 (caps at 1.0)
+    return min(0.5 + (flagged_signals - 1) * 0.15, 1.0)
 
 
 def _calculate_persistence_score(months_flagged: int, lookback_months: int = 3) -> float:
-    """Calculate persistence score based on how many recent months were flagged."""
-    if lookback_months == 0:
+    """Calculate persistence score based on how many recent months were flagged.
+
+    1 month flagged = 0.5 (first occurrence still important),
+    2 months = 0.75, 3 months = 1.0.
+    """
+    if lookback_months == 0 or months_flagged == 0:
         return 0.0
-    
-    persistence = months_flagged / lookback_months
-    return min(persistence, 1.0)
+
+    return min(0.5 + (months_flagged - 1) * 0.25, 1.0)
 
 
 async def score_alerts(data: str) -> str:
@@ -134,8 +143,8 @@ async def score_alerts(data: str) -> str:
             confidence = _calculate_confidence_score(signals)
             persistence = _calculate_persistence_score(months_flagged, lookback_months=3)
             
-            # Overall score (multiplicative)
-            score = impact * confidence * persistence
+            # Overall score: impact-weighted additive (impact dominates, confidence/persistence boost)
+            score = impact * 0.6 + confidence * 0.25 + persistence * 0.15
             
             # Priority classification
             if score >= 0.6:

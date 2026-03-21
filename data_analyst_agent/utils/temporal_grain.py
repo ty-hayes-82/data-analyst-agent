@@ -203,6 +203,9 @@ def describe_analysis_period(
     if not period_end:
         return "the most recent period"
 
+    # Strip time component (e.g., "2026-02-28 00:00:00" -> "2026-02-28")
+    period_str = str(period_end).split(" ")[0] if " " in str(period_end) else str(period_end)
+
     preferred = normalize_temporal_grain(frequency or temporal_grain)
     template = _PERIOD_PHRASE_TEMPLATE.get(preferred, "the period ending {period_end}")
-    return template.format(period_end=period_end)
+    return template.format(period_end=period_str)

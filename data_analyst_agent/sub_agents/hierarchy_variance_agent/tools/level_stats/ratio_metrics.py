@@ -96,11 +96,15 @@ def _fetch_ratio_config(ctx: Any, metric_name: str):
 
 
 def _default_agg(df, level_col, metric_col, period_str, time_col, value_label):
-    subset = df[df[time_col] == period_str].copy()
+    # Normalize period comparison: strip time components from both sides
+    clean_period = str(period_str).split(" ")[0].split("T")[0]
+    subset = df[df[time_col].astype(str).str[:10] == clean_period].copy()
     if subset.empty:
         return pd.DataFrame({"item": [], value_label: []})
+    # Fill null dimension values to avoid dropping rows during groupby
+    subset[level_col] = subset[level_col].fillna("(Unassigned)")
     return (
-        subset.groupby(level_col)[metric_col]
+        subset.groupby(level_col, dropna=False)[metric_col]
         .sum()
         .reset_index()
         .rename(columns={level_col: "item", metric_col: value_label})
