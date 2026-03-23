@@ -123,3 +123,5 @@ outputs/
 # Python bytecode
 __pycache__/
 *.pyc
+*.tds
+*.hyper
