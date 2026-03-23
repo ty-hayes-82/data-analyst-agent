@@ -104,3 +104,22 @@ web/runs.json
 # Large data files
 data/tableau/*.csv
 *.tdsx
+
+# Temp extraction artifacts
+temp_extracted/
+
+# Benchmark results (local only)
+benchmarks/
+
+# Backup files
+*.bak
+
+# Upload artifacts
+data/uploads/
+
+# Runtime outputs
+outputs/
+
+# Python bytecode
+__pycache__/
+*.pyc
