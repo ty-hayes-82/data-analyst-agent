@@ -3,8 +3,8 @@ source:
   format: long
 
 hyper:
-  tdsx_file: "Ops Metrics DS.tdsx"
-  tdsx_path: "/data/data-analyst-agent"
+  tdsx_file: "Ops Metrics Weekly Scorecard.tdsx"
+  tdsx_path: "data/tableau"
   default_table: "Extract.Extract"
   extract_dir: "temp_extracted/ops_metrics_weekly"
 
@@ -34,7 +34,6 @@ aggregation:
     - "fuel_srchrg_rev_amt"
     - "acsrl_rev_amt"
     - "ordr_cnt"
-    - "rev_ordr_cnt"
     - "ordr_miles"
     - "ttl_trf_mi"
     - "ld_trf_mi"
@@ -43,7 +42,7 @@ aggregation:
     - "exprncd_drvr_cnt"
     - "ttl_fuel_qty"
     - "idle_fuel_qty"
-    - "ttl_engn_tm"
+    - "drvr_engn_tm"
     - "idle_engn_tm"
 
 date_parsing:
@@ -66,7 +65,6 @@ output_columns:
   - "fuel_srchrg_rev_amt"
   - "acsrl_rev_amt"
   - "ordr_cnt"
-  - "rev_ordr_cnt"
   - "ordr_miles"
   - "ttl_trf_mi"
   - "ld_trf_mi"
@@ -75,5 +73,5 @@ output_columns:
   - "exprncd_drvr_cnt"
   - "ttl_fuel_qty"
   - "idle_fuel_qty"
-  - "ttl_engn_tm"
+  - "drvr_engn_tm"
   - "idle_engn_tm"

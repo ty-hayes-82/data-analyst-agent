@@ -65,8 +65,8 @@ temp_extracted/
 # Tableau packaged data sources (large binaries, stored locally only)
 # Now stored within config/datasets/ folder
 *.tdsx
-!data/tableau/Bookshop.tdsx
-!data/tableau/Ops Metrics DS.tdsx
+*.tds
+*.hyper
 
 # Legacy data folders (no longer used for datasets)
 # data/tableau/

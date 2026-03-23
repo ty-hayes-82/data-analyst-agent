@@ -176,3 +176,51 @@ class TestOpsMetricsTDSX:
         df = ops_mgr.execute_query(sql)
         for dim in ["gl_rgn_nm", "gl_div_nm", "ops_ln_of_bus_nm"]:
             assert dim in df.columns, f"Missing dimension: {dim}"
+
+    def test_sql_aggregation_pushdown(self, ops_config):
+        """Verify that the generated SQL contains GROUP BY and SUM expressions."""
+        builder = HyperQueryBuilder(ops_config)
+        sql = builder.build_query(date_start="2025-01-01", date_end="2025-01-07")
+        sql_upper = sql.upper()
+        
+        # Verify push-down aggregation markers
+        assert "GROUP BY" in sql_upper
+        assert "SUM(" in sql_upper
+        assert "SELECT" in sql_upper
+        # Ensure it's not a simple SELECT *
+        assert "SELECT *" not in sql_upper
+
+    @pytest.mark.slow
+    @pytest.mark.ops_metrics
+    def test_aggregation_cardinality_is_bounded(self, ops_config, ops_mgr):
+        """Verify that aggregated row count is bounded for a given date range."""
+        builder = HyperQueryBuilder(ops_config)
+        # Pull 3 months of data
+        sql = builder.build_query(date_start="2025-01-01", date_end="2025-03-31")
+        df = ops_mgr.execute_query(sql)
+        
+        # 3 months of data at week/dimension grain should be far less than 500k rows
+        # (even with a very fine dimension grain)
+        assert len(df) < 500000
+        print(f"[TEST] Aggregated rows for 3 months: {len(df):,}")
+
+    @pytest.mark.slow
+    @pytest.mark.ops_metrics
+    def test_raw_vs_aggregated_count_comparison(self, ops_config, ops_mgr):
+        """Compare raw row count vs aggregated row count to prove efficiency."""
+        # Get raw count for a small slice
+        month_start, month_end = "2025-01-01", "2025-01-31"
+        
+        builder = HyperQueryBuilder(ops_config)
+        table = builder._quote_table(ops_config.hyper.default_table)
+        raw_count_sql = f"SELECT COUNT(*) FROM {table} WHERE \"cal_dt\" >= '{month_start}' AND \"cal_dt\" <= '{month_end}'"
+        df_raw = ops_mgr.execute_query(raw_count_sql)
+        raw_count = int(df_raw.iloc[0, 0])
+        
+        sql_agg = builder.build_query(date_start=month_start, date_end=month_end)
+        df_agg = ops_mgr.execute_query(sql_agg)
+        agg_count = len(df_agg)
+        
+        print(f"[TEST] Raw rows: {raw_count:,} | Aggregated rows: {agg_count:,}")
+        assert agg_count < raw_count
+        assert agg_count > 0

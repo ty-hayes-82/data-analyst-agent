@@ -166,10 +166,29 @@ class TableauHyperFetcher(BaseAgent):
             )
             return
         elapsed = time.perf_counter() - start_time
-        print(f"[TIMER] <<< TableauHyperFetcher: {len(df):,} rows in {elapsed:.2f}s")
+        n_rows = len(df)
+        print(f"[TIMER] <<< TableauHyperFetcher: {n_rows:,} rows in {elapsed:.2f}s")
 
         # ------------------------------------------------------------------ #
-        # Step 5 — Post-process: column renaming, date filtering, formatting #
+        # Step 5 — Hard Row Limit Guard (Spec 042)                           #
+        # ------------------------------------------------------------------ #
+        max_rows = int(os.environ.get("DATA_ANALYST_MAX_ROWS", "250000"))
+        if n_rows > max_rows:
+            error_msg = (
+                f"!!! HARD LIMIT EXCEEDED: Query returned {n_rows:,} rows, "
+                f"which exceeds the safety threshold of {max_rows:,} rows.\n\n"
+                "Possible causes:\n"
+                "1. Missing or misconfigured 'aggregation' section in loader.yaml.\n"
+                "2. Analysis date range is too broad for the selected grain.\n"
+                "3. Missing dimension filters for a high-cardinality dataset.\n\n"
+                "The analysis has been aborted to prevent memory saturation."
+            )
+            print(f"[TableauHyperFetcher] {error_msg}")
+            yield self._error_event(ctx, error_msg)
+            return
+
+        # ------------------------------------------------------------------ #
+        # Step 6 — Post-process: column renaming, date filtering, formatting #
         # ------------------------------------------------------------------ #
         df = self._apply_column_mapping(df, loader_config)
 
@@ -374,7 +393,7 @@ class TableauHyperFetcher(BaseAgent):
             invocation_id=ctx.invocation_id,
             author="tableau_hyper_fetcher",
             content=Content(role="model", parts=[Part(text=message)]),
-            actions=EventActions(state_delta={"primary_data_csv": "", "validated_pl_data_csv": ""}),
+            actions=EventActions(state_delta={"status": "failed", "error": message, "primary_data_csv": "", "validated_pl_data_csv": ""}),
         )
 
 

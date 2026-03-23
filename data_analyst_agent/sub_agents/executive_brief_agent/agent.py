@@ -1329,9 +1329,11 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         # Build explicit section title reminder for user message (reinforces system instruction)
+        # (Join outside f-string: nested f-strings with escaped quotes break f-string expr rules.)
+        _quoted_sections = ", ".join(f'"{t}"' for t in expected_sections)
         section_title_reminder = (
             f"⚠️ REQUIRED SECTION TITLES (in this exact order):\n"
-            f"{', '.join(f'\"{t}\"' for t in expected_sections)}\n\n"
+            f"{_quoted_sections}\n\n"
         )
         
         # Build numeric value enforcement for network briefs

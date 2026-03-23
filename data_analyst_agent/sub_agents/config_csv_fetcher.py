@@ -98,7 +98,23 @@ class ConfigCSVFetcher(BaseAgent):
                 exclude_partial_week=exclude_partial,
             )
             duration = time.perf_counter() - start_time
-            print(f"[TIMER] <<< ConfigCSVFetcher: Loaded {len(df)} rows in {duration:.2f}s")
+            n_rows = len(df)
+            print(f"[TIMER] <<< ConfigCSVFetcher: Loaded {n_rows:,} rows in {duration:.2f}s")
+
+            # --- Hard Row Limit Guard (Spec 042) ---
+            max_rows = int(os.environ.get("DATA_ANALYST_MAX_ROWS", "250000"))
+            if n_rows > max_rows:
+                error_msg = (
+                    f"!!! HARD LIMIT EXCEEDED: CSV returned {n_rows:,} rows, "
+                    f"which exceeds the safety threshold of {max_rows:,} rows.\n\n"
+                    "Possible causes:\n"
+                    "1. Missing dimension filters for a large dataset.\n"
+                    "2. Analysis date range is too broad.\n\n"
+                    "The analysis has been aborted to prevent memory saturation."
+                )
+                print(f"[ConfigCSVFetcher] {error_msg}")
+                yield self._error_event(ctx, error_msg)
+                return
 
             # --- Pre-flight validation logging ---
             if not df.empty:
@@ -147,4 +163,14 @@ class ConfigCSVFetcher(BaseAgent):
             invocation_id=ctx.invocation_id,
             author=self.name,
             content=Content(role="model", parts=[Part(text=message)]),
+        )
+
+    @staticmethod
+    def _error_event(ctx: InvocationContext, message: str) -> Event:
+        """Helper to build an error event."""
+        return Event(
+            invocation_id=ctx.invocation_id,
+            author="ConfigCSVFetcher",
+            content=Content(role="model", parts=[Part(text=message)]),
+            actions=EventActions(state_delta={"status": "failed", "error": message}),
         )

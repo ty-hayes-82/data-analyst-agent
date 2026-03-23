@@ -236,7 +236,23 @@ class ValidationCSVFetcher(BaseAgent):
                     )
 
             duration = time.perf_counter() - start_time
-            print(f"[TIMER] <<< ValidationCSVFetcher: Loaded {len(df)} rows in {duration:.2f}s")
+            n_rows = len(df)
+            print(f"[TIMER] <<< ValidationCSVFetcher: Loaded {n_rows:,} rows in {duration:.2f}s")
+
+            # --- Hard Row Limit Guard (Spec 042) ---
+            max_rows = int(os.environ.get("DATA_ANALYST_MAX_ROWS", "250000"))
+            if n_rows > max_rows:
+                error_msg = (
+                    f"!!! HARD LIMIT EXCEEDED: Validation CSV returned {n_rows:,} rows, "
+                    f"which exceeds the safety threshold of {max_rows:,} rows.\n\n"
+                    "Possible causes:\n"
+                    "1. Missing dimension filters for a large validation dataset.\n"
+                    "2. Validation dataset is incorrectly scoped.\n\n"
+                    "The analysis has been aborted to prevent memory saturation."
+                )
+                print(f"[ValidationCSVFetcher] {error_msg}")
+                yield self._error_event(ctx, error_msg)
+                return
         except Exception as exc:
             error_msg = f"[ValidationCSVFetcher] ERROR: {exc}"
             print(error_msg)
@@ -314,4 +330,14 @@ class ValidationCSVFetcher(BaseAgent):
             author=self.name,
             content=Content(role="model", parts=[Part(text=message)]),
             actions=EventActions(state_delta=state_delta),
+        )
+
+    @staticmethod
+    def _error_event(ctx: InvocationContext, message: str) -> Event:
+        """Helper to build an error event."""
+        return Event(
+            invocation_id=ctx.invocation_id,
+            author="ValidationCSVFetcher",
+            content=Content(role="model", parts=[Part(text=message)]),
+            actions=EventActions(state_delta={"status": "failed", "error": message}),
         )

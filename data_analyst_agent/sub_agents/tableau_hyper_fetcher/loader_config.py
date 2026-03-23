@@ -17,7 +17,7 @@ Example loader.yaml:
       format: long
 
     hyper:
-      tdsx_file: "Ops Metrics DS.tdsx"
+      tdsx_file: "Ops Metrics Weekly Scorecard.tdsx"
       tdsx_path: "data/tableau"
       default_table: "Extract.Extract"
       extract_dir: "temp_extracted/ops_metrics"

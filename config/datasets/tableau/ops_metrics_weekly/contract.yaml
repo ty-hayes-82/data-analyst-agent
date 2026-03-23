@@ -76,15 +76,6 @@ metrics:
   format: float
   optimization: maximize
   description: Total number of orders
-- name: rev_ordr_cnt
-  column: rev_ordr_cnt
-  display_name: Revenue Order Count
-  brief_category: Volume
-  brief_label: Revenue Orders
-  type: additive
-  format: float
-  optimization: maximize
-  description: Number of revenue-generating orders
 - name: ordr_miles
   column: ordr_miles
   display_name: Order Miles
@@ -158,7 +149,7 @@ metrics:
   optimization: minimize
   description: Fuel quantity used while idling
 - name: ttl_engn_tm
-  column: ttl_engn_tm
+  column: drvr_engn_tm
   display_name: Total Engine Time
   brief_category: Capacity
   brief_label: Engine Hours

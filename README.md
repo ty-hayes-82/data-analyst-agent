@@ -423,6 +423,7 @@ Each run generates a unique directory under `outputs/` containing:
 data-analyst-agent/
 ├── config/datasets/csv/       # Dataset contracts and loaders
 ├── data/public/               # Public CSV datasets (included)
+├── data/tableau/              # Tableau packaged sources (.tdsx) for Hyper-backed datasets
 ├── data/synthetic/            # Generated test data with ground truth
 ├── data_analyst_agent/        # Core pipeline
 │   ├── agent.py               # Root pipeline orchestrator

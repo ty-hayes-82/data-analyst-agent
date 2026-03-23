@@ -36,7 +36,7 @@ Used for flat-file data sources.
 
 Used for datasets sourced from Tableau Packaged Data Sources (`.tdsx`) or Hyper extracts.
 
-*   **`<Dataset Name>.tdsx`**: The Tableau data source file containing the Hyper extract.
+*   **`.tdsx` files**: Store packaged sources under `data/tableau/` (see each dataset's `loader.yaml` `hyper.tdsx_path` / `hyper.tdsx_file`), not next to `contract.yaml`.
 *   **`loader.yaml`**: Includes Tableau-specific settings like `tdsx_file`, `default_table`, and `aggregation` rules (since Hyper files are often at a much finer grain than required for analysis).
 *   **`ratios.yaml`** or **`ratio_metrics.yaml`** (Optional): Definitions for ratios calculated post-aggregation.
 *   **`derived_metrics.yaml`** (Optional): Definitions for metrics computed via SQL expressions during the Hyper fetch process.
@@ -51,9 +51,11 @@ config/datasets/
 │       ├── loader.yaml
 │       └── toll_data.csv
 └── tableau/
-    └── ops_metrics/
+    └── ops_metrics_weekly/
         ├── contract.yaml
         ├── loader.yaml
-        ├── Ops Metrics DS.tdsx
         └── ratio_metrics.yaml
+
+data/tableau/
+└── Ops Metrics Weekly Scorecard.tdsx   # referenced by loader hyper.tdsx_*
 ```
