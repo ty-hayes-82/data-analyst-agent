@@ -103,3 +103,4 @@ data/public/global_temp_monthly.csv
 web/runs.json
 # Large data files
 data/tableau/*.csv
+*.tdsx
