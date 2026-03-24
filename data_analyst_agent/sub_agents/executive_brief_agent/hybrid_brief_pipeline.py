@@ -23,7 +23,9 @@ from data_analyst_agent.brief_utils import (
     pass2_brief,
 )
 from google import genai
+from google.genai import types
 
+from config.model_loader import get_agent_model
 from .brief_format import render_flat_ceo_brief_markdown
 from .prompt import get_ceo_section_contract
 
@@ -143,6 +145,8 @@ def run_hybrid_ceo_brief_sync(
     else:
         pool = signals[:top_signals]
         curation = pass1_curate(client, lite_model, totals, pool, max_curated)
+        if curation is None:
+            raise ValueError("pass1_curate returned None")
         meta["pass1_elapsed"] = curation.get("_elapsed")
         meta["curation"] = {k: v for k, v in curation.items() if k != "_elapsed"}
         kept_rows = curation.get("kept", [])
@@ -152,6 +156,8 @@ def run_hybrid_ceo_brief_sync(
         thesis = str(curation.get("narrative_thesis", "Mixed operational signals."))
 
     flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period)
+    if flat_brief is None:
+        raise ValueError("pass2_brief returned None")
     meta["pass2_elapsed"] = flat_brief.get("_elapsed")
 
     contract = get_ceo_section_contract(canonical_grain)
@@ -220,3 +226,70 @@ def save_hybrid_artifacts(outputs_dir: Path, meta: dict[str, Any]) -> None:
         path.write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
     except OSError:
         pass
+
+
+async def generate_hybrid_insights_report_async(meta: dict[str, Any]) -> str:
+    """Generate a simple MD file listing all top insights from hybrid metadata using Flash-Lite."""
+    curation = meta.get("curation")
+    if not curation or not curation.get("kept"):
+        return ""
+
+    # 'executive_brief_hybrid_curator' is the agent that uses 'brief' tier (3.1 flash lite)
+    model_name = get_agent_model("executive_brief_hybrid_curator")
+    client = genai.Client()
+    
+    kept = curation.get("kept", [])
+    thesis = curation.get("narrative_thesis", "No thesis provided.")
+    
+    prompt = f"""
+You are an executive operations analyst. Your task is to create a structured Markdown summary of the top operational insights for the CEO.
+
+### DATA SOURCE (JSON)
+{json.dumps(curation, indent=2)}
+
+### OUTPUT REQUIREMENTS
+1.  **Title**: # Top Operational Insights Summary
+2.  **Summary Section**: Include the "narrative_thesis" as a bolded summary at the top.
+3.  **Grouped Insights**: Organize the 'kept' insights by their 'category' (e.g., Revenue, Efficiency, Capacity).
+4.  **Ranking**: Within each category, list insights in ascending order of their 'rank'.
+5.  **Insight Format**:
+    - **[Rank #X] MetricName (Dimension)**: One-line explanation why it matters.
+    - *Metric Detail*: Full metric description with numbers.
+6.  **Tone**: Professional, crisp, and analytical.
+7.  **Constraint**: Do NOT include 'dropped' signals. ONLY the 'kept' signals.
+8.  **Output**: Return ONLY the Markdown content. No preamble or markdown code fences.
+"""
+
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.1,
+            )
+        )
+        return response.text.strip()
+    except Exception as e:
+        print(f"[HYBRID] Failed to generate insights report: {e}")
+        return ""
+
+
+async def save_hybrid_artifacts_async(outputs_dir: Path, meta: dict[str, Any]) -> None:
+    """Write hybrid debug JSON and the new insights MD report next to the brief."""
+    # First save the JSON metadata (sync)
+    save_hybrid_artifacts(outputs_dir, meta)
+    
+    # Then generate and save the insights report (async)
+    insights_md = await generate_hybrid_insights_report_async(meta)
+    if insights_md:
+        try:
+            # Place in deliverables/ if in standardized run dir, else outputs_dir
+            target_dir = outputs_dir / "deliverables" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else outputs_dir
+            if target_dir != outputs_dir:
+                target_dir.mkdir(parents=True, exist_ok=True)
+                
+            path = target_dir / "hybrid_insights.md"
+            path.write_text(insights_md, encoding="utf-8")
+            print(f"[HYBRID] Saved curation insights report to {path.name} (in {target_dir.name}/)")
+        except OSError as e:
+            print(f"[HYBRID] Error saving insights report: {e}")

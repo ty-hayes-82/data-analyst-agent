@@ -77,7 +77,7 @@ from .scope_utils import (
     _sanitize_entity_name,
     derive_scope_level_labels,
 )
-from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, save_hybrid_artifacts
+from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, save_hybrid_artifacts_async
 
 
 class ExecutiveBriefConfig:
@@ -1605,7 +1605,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         pro_model=pro_model,
                     )
                     used_fallback = False
-                    save_hybrid_artifacts(outputs_dir, hybrid_meta)
+                    await save_hybrid_artifacts_async(outputs_dir, hybrid_meta)
                     print(
                         f"[BRIEF] Hybrid complete (pass0={hybrid_meta.get('pass0_count')}, "
                         f"pass1_skipped={hybrid_meta.get('pass1_skipped', False)})"
