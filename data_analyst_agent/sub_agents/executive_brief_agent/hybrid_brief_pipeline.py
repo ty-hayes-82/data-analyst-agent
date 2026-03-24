@@ -252,11 +252,12 @@ You are an executive operations analyst. Your task is to create a structured Mar
 2.  **Summary Section**: Include the "narrative_thesis" as a bolded summary at the top.
 3.  **Grouped Insights**: Organize the 'kept' insights by their 'category' (e.g., Revenue, Efficiency, Capacity).
 4.  **Ranking**: Within each category, list insights in ascending order of their 'rank'.
-5.  **Insight Format**:
-    - **[Rank #X] MetricName (Dimension)**: One-line explanation why it matters.
-    - *Metric Detail*: Full metric description with numbers.
+5.  **Insight Format**: Use a single line for each insight in this exact format:
+    - **MetricName - Dimension**: One-line explanation why it matters. Statistics (e.g., ±X.X% WoW | current vs prior).
+    - Example: **Total Revenue - Location: Manteno**: Revenue impact in Manteno aligns with the sharp drop in miles. -95.3% WoW | $10.1K vs $214.2K
+    - *Note*: Extract the statistics part (e.g., "-95.3% WoW | $10.1K vs $214.2K") from the 'metric_description' field.
 6.  **Tone**: Professional, crisp, and analytical.
-7.  **Constraint**: Do NOT include 'dropped' signals. ONLY the 'kept' signals.
+7.  **Constraint**: Do NOT include 'dropped' signals. ONLY the 'kept' signals. Do NOT include the rank number (e.g., [Rank #3]) in the output.
 8.  **Output**: Return ONLY the Markdown content. No preamble or markdown code fences.
 """
 
