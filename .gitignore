@@ -63,10 +63,15 @@ temp_extracted/
 *.hyper
 
 # Tableau packaged data sources (large binaries, stored locally only)
-# Now stored within config/datasets/ folder
+# Stored in data/tableau/ or project-root data/
 *.tdsx
 *.tds
 *.hyper
+
+# Tableau extracts (unpacked Hyper files)
+# Target unified tree: data/tableau/extracted/
+data/tableau/extracted/
+**/extracted/
 
 # Legacy data folders (no longer used for datasets)
 # data/tableau/

@@ -6,7 +6,7 @@ hyper:
   tdsx_file: "Bookshop.tdsx"
   tdsx_path: "data/tableau"
   default_table: "Extract.Extract"
-  extract_dir: "temp_extracted/bookshop_sales"
+  extract_dir: "data/tableau/extracted/bookshop_sales"
 
 filter_columns:
   genre: "Genre"

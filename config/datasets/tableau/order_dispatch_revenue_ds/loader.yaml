@@ -6,7 +6,7 @@ hyper:
   tdsx_file: "Order - Dispatch - Revenue DS.tdsx"
   tdsx_path: "data/tableau"
   default_table: "Extract.Extract"
-  extract_dir: "temp_extracted/order_dispatch_revenue_ds"
+  extract_dir: "data/tableau/extracted/order_dispatch_revenue_ds"
 
 filter_columns:
   ordr_dt: "ordr_dt"

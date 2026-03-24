@@ -20,7 +20,7 @@ Example loader.yaml:
       tdsx_file: "Ops Metrics Weekly Scorecard.tdsx"
       tdsx_path: "data/tableau"
       default_table: "Extract.Extract"
-      extract_dir: "temp_extracted/ops_metrics"
+      extract_dir: "data/tableau/extracted/ops_metrics"
 
     filter_columns:
       lob: "ops_ln_of_bus_ref_nm"
@@ -75,7 +75,7 @@ class HyperConfig(BaseModel):
     tdsx_file: str
     tdsx_path: str = "."
     default_table: str = "Extract.Extract"
-    extract_dir: str = "temp_extracted"
+    extract_dir: str = "data/tableau/extracted"
 
 
 class DerivedMetricDef(BaseModel):

@@ -2,6 +2,17 @@
 
 This directory contains the configuration files required for the data analysis pipeline to interface with different data sources. Datasets are organized by source type (`csv` or `tableau`).
 
+## Repository Organization: Config vs Data
+
+This project maintains a strict separation between configuration (**intent**) and data (**payloads**).
+
+| Location | Purpose | Examples |
+|----------|---------|----------|
+| **`config/`** | Versioned **intent**: how to load, map columns, define metrics/dimensions, thresholds, prompts, and experiments. | `contract.yaml`, `loader.yaml`, `agent_config.yaml`, `prompts/` |
+| **`data/`** | **Payloads and tooling**: large or binary sources, validation CSVs, ad-hoc samples, and extraction scripts. | `data/tableau/*.tdsx`, `data/validation/*.csv`, `data/tableau/*.py` |
+
+---
+
 ## Standard Files per Dataset
 
 Every dataset directory should contain a set of core configuration files that define its structure and how the system should process it.
@@ -25,7 +36,8 @@ Every dataset directory should contain a set of core configuration files that de
 
 Used for flat-file data sources.
 
-*   **`<dataset_name>.csv`**: The raw data file.
+*   **`<dataset_name>.csv`**: Small, committed samples or CI datasets (optional).
+*   **Large CSVs**: Should be stored under `data/datasets/<dataset_name>/` or `data/validation/` and referenced in `loader.yaml` `source.file`.
 *   **`loader.yaml`**: Includes CSV-specific settings like `delimiter`, `encoding`, and `melt` instructions if the data is in a wide format.
 *   **`metric_units.yaml`** (Optional): Specific unit definitions for metrics.
 *   **`ratio_metrics.yaml`** (Optional): Definitions for calculated ratios between metrics.
@@ -36,8 +48,9 @@ Used for flat-file data sources.
 
 Used for datasets sourced from Tableau Packaged Data Sources (`.tdsx`) or Hyper extracts.
 
-*   **`.tdsx` files**: Store packaged sources under `data/tableau/` (see each dataset's `loader.yaml` `hyper.tdsx_path` / `hyper.tdsx_file`), not next to `contract.yaml`.
-*   **`loader.yaml`**: Includes Tableau-specific settings like `tdsx_file`, `default_table`, and `aggregation` rules (since Hyper files are often at a much finer grain than required for analysis).
+*   **`.tdsx` files**: Store packaged sources under `data/tableau/` (referenced by `hyper.tdsx_path` + `hyper.tdsx_file` in `loader.yaml`).
+*   **`extracted/`**: Hyper extracts are staged under `data/tableau/extracted/<dataset_name>/` (configured via `hyper.extract_dir`).
+*   **`loader.yaml`**: Includes Tableau-specific settings like `tdsx_file`, `default_table`, and `aggregation` rules.
 *   **`ratios.yaml`** or **`ratio_metrics.yaml`** (Optional): Definitions for ratios calculated post-aggregation.
 *   **`derived_metrics.yaml`** (Optional): Definitions for metrics computed via SQL expressions during the Hyper fetch process.
 
@@ -58,4 +71,6 @@ config/datasets/
 
 data/tableau/
 └── Ops Metrics Weekly Scorecard.tdsx   # referenced by loader hyper.tdsx_*
+└── extracted/
+    └── ops_metrics_weekly/             # hyper extract output (gitignored)
 ```

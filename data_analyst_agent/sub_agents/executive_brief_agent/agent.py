@@ -97,10 +97,11 @@ class ExecutiveBriefConfig:
         """Maximum attempts for scoped brief generation.
         
         Scoped briefs often have less signal and fail more frequently.
-        Default is 2 (vs 3 for network brief) to reduce wasted retry time.
-        Set EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES=3 to match network behavior.
+        Default is 3 to match network brief; scoped runs still fail occasionally
+        when the model returns placeholders (e.g. thin regional digest).
+        Set EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES=2 to reduce latency.
         """
-        return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES", 2)
+        return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES", 3)
     
     @staticmethod
     def llm_timeout_seconds() -> float:
@@ -885,15 +886,17 @@ async def _llm_generate_brief(
     if max_attempts is None:
         max_attempts = BRIEF_CONFIG.max_llm_retries()
 
+    effective_contents = user_message
     for attempt in range(1, max_attempts + 1):
         try:
             client = genai.Client()
+            msg_for_attempt = effective_contents
             response = await asyncio.wait_for(
                 loop.run_in_executor(
                     None,
-                    lambda: client.models.generate_content(
+                    lambda m=msg_for_attempt: client.models.generate_content(
                         model=model_name,
-                        contents=user_message,
+                        contents=m,
                         config=config,
                     ),
                 ),
@@ -975,6 +978,13 @@ async def _llm_generate_brief(
                 print(f"[BRIEF] {msg}")
                 if attempt < max_attempts:
                     print(f"[BRIEF] Retrying (attempt {attempt}/{max_attempts})...")
+                    effective_contents = (
+                        user_message
+                        + "\n\n---\nYour previous JSON failed validation. "
+                        "Reply with a single corrected JSON object only (no markdown fences). "
+                        "Fix ALL of the following:\n"
+                        + "\n".join(f"- {e}" for e in structural_errors)
+                    )
                     await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
                     continue
                 raise ValueError(msg)
@@ -1654,16 +1664,21 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         brief_md = brief_md.replace(_wrong_heading, f"## Next-{_correct_period} outlook")
                         print(f"[BRIEF] Post-fixed outlook: 'Next-{_wp}' → 'Next-{_correct_period}'")
 
+            # Create deliverables/ subfolder if in standardized run dir
+            deliverables_dir = outputs_dir / "deliverables" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else outputs_dir
+            if deliverables_dir != outputs_dir:
+                deliverables_dir.mkdir(parents=True, exist_ok=True)
+                
             brief_filename = "brief.md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.md"
-            brief_path = outputs_dir / brief_filename
+            brief_path = deliverables_dir / brief_filename
             brief_path.write_text(brief_md, encoding="utf-8")
-            print(f"[BRIEF] Saved executive brief to {brief_filename}")
+            print(f"[BRIEF] Saved executive brief to {brief_filename} (in {deliverables_dir.name}/)")
             print(f"[BRIEF] File size: {brief_path.stat().st_size} bytes")
 
             json_filename = "brief.json" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.json"
-            brief_json_path = outputs_dir / json_filename
+            brief_json_path = deliverables_dir / json_filename
             brief_json_path.write_text(json.dumps(brief_json, indent=2, ensure_ascii=False), encoding="utf-8")
-            print(f"[BRIEF] Saved executive brief JSON to {json_filename}")
+            print(f"[BRIEF] Saved executive brief JSON to {json_filename} (in {deliverables_dir.name}/)")
 
             print("\n" + "=" * 80)
             print("EXECUTIVE BRIEF")
@@ -1677,6 +1692,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             scope_level_labels = derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
             max_scoped_briefs = _max_scoped_briefs()
             scoped_sem = asyncio.Semaphore(_scope_concurrency_limit())
+            scoped_log_lock = asyncio.Lock()
 
             async def _generate_scoped_brief(
                 entity: str,
@@ -1687,7 +1703,11 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 level: int,
             ) -> tuple[str, dict[str, Any] | None]:
                 async with scoped_sem:
-                    print(f"[BRIEF] Generating scoped brief for {entity} ({level_name})...")
+                    async with scoped_log_lock:
+                        print(
+                            f"[BRIEF] Generating scoped brief for {entity} ({level_name})...",
+                            flush=True,
+                        )
                     try:
                         scoped_json, scoped_brief_md, scoped_fallback = await _llm_generate_brief(
                             model_name=model_name,
@@ -1712,15 +1732,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             if os.getenv("DATA_ANALYST_OUTPUT_DIR")
                             else f"executive_brief_{period_end}_{safe_entity}.md"
                         )
-                        scoped_path = outputs_dir / scoped_filename
+                        scoped_path = deliverables_dir / scoped_filename
                         scoped_path.write_text(scoped_brief_md, encoding="utf-8")
-                        print(f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename}")
+                        async with scoped_log_lock:
+                            print(
+                                f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename} (in {deliverables_dir.name}/)",
+                                flush=True,
+                            )
                         scoped_json_filename = (
                             "brief_" + safe_entity + ".json"
                             if os.getenv("DATA_ANALYST_OUTPUT_DIR")
                             else f"executive_brief_{period_end}_{safe_entity}.json"
                         )
-                        scoped_json_path = outputs_dir / scoped_json_filename
+                        scoped_json_path = deliverables_dir / scoped_json_filename
                         scoped_json_path.write_text(json.dumps(scoped_json, indent=2, ensure_ascii=False), encoding="utf-8")
                         return (
                             entity,
@@ -1775,7 +1799,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
                     print(
                         f"[BRIEF] Level {level} ({level_name}): {len(entities)} entities "
-                        f"(ranked by cross-metric |variance $| total, then |variance %|): {', '.join(entities)}"
+                        f"(ranked by cross-metric variance dollars, then variance pct): {', '.join(entities)}",
+                        flush=True,
                     )
 
                     hierarchy_map = _load_hierarchy_level_mapping(
@@ -2006,7 +2031,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                                 f"[BRIEF] PDF render: skipped {placeholder_count} placeholder brief(s) to avoid empty content."
                             )
                         pdf_filename = "brief.pdf" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.pdf"
-                        pdf_path = render_briefs_to_pdf(pdf_candidates, outputs_dir / pdf_filename, period_end)
+                        # Use deliverables_dir if in standardized run dir
+                        pdf_save_path = (deliverables_dir / pdf_filename) if os.getenv("DATA_ANALYST_OUTPUT_DIR") else (outputs_dir / pdf_filename)
+                        pdf_path = render_briefs_to_pdf(pdf_candidates, pdf_save_path, period_end)
                 except Exception as pdf_err:
                     print(f"[BRIEF] PDF rendering error (non-fatal): {pdf_err}")
 
@@ -2015,7 +2042,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     from .html_renderer import render_briefs_to_html
 
                     html_filename = "brief.html" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.html"
-                    html_path = render_briefs_to_html(pages, outputs_dir / html_filename, period_end)
+                    # Use deliverables_dir if in standardized run dir
+                    html_save_path = (deliverables_dir / html_filename) if os.getenv("DATA_ANALYST_OUTPUT_DIR") else (outputs_dir / html_filename)
+                    html_path = render_briefs_to_html(pages, html_save_path, period_end)
                 except Exception as html_err:
                     print(f"[BRIEF] HTML rendering error (non-fatal): {html_err}")
 

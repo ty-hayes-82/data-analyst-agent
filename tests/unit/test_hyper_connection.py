@@ -35,7 +35,7 @@ def basic_config():
             tdsx_file="Test.tdsx",
             tdsx_path="data/test",
             default_table="Extract.Extract",
-            extract_dir="temp_extracted/test",
+            extract_dir="data/tableau/extracted/test",
         ),
     )
 
@@ -136,7 +136,7 @@ class TestEnsureExtracted:
             zf.writestr("Data/Extracts/Test.hyper", b"fake")
 
         # Pre-populate extract dir with a "cached" hyper
-        extract_dir = tmp_path / "temp_extracted" / "test"
+        extract_dir = tmp_path / "data" / "tableau" / "extracted" / "test"
         extract_dir.mkdir(parents=True)
         cached_hyper = extract_dir / "Test.hyper"
         cached_hyper.write_bytes(b"cached fake")

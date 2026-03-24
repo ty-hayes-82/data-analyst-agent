@@ -15,7 +15,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-from data_analyst_agent.brief_utils import BriefUtils, SignalRanker, pass1_curate, pass2_brief
+from data_analyst_agent.brief_utils import (
+    BriefUtils,
+    SignalRanker,
+    merge_pass1_kept_into_signals,
+    pass1_curate,
+    pass2_brief,
+)
 from google import genai
 
 from .brief_format import render_flat_ceo_brief_markdown
@@ -139,8 +145,8 @@ def run_hybrid_ceo_brief_sync(
         curation = pass1_curate(client, lite_model, totals, pool, max_curated)
         meta["pass1_elapsed"] = curation.get("_elapsed")
         meta["curation"] = {k: v for k, v in curation.items() if k != "_elapsed"}
-        kept_ids = [k["id"] for k in curation.get("kept", [])]
-        curated = [s for s in signals if s["id"] in kept_ids]
+        kept_rows = curation.get("kept", [])
+        curated = merge_pass1_kept_into_signals(signals, kept_rows)
         if not curated:
             curated = signals[:max_curated]
         thesis = str(curation.get("narrative_thesis", "Mixed operational signals."))
@@ -205,7 +211,12 @@ async def run_hybrid_ceo_brief_async(
 def save_hybrid_artifacts(outputs_dir: Path, meta: dict[str, Any]) -> None:
     """Write hybrid debug JSON next to the brief (optional)."""
     try:
-        path = outputs_dir / "hybrid_brief_pipeline_meta.json"
+        # Move hybrid metadata to meta/ subfolder if in standardized run dir
+        meta_dir = outputs_dir / "meta" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else outputs_dir
+        if meta_dir != outputs_dir:
+            meta_dir.mkdir(parents=True, exist_ok=True)
+            
+        path = meta_dir / "hybrid_brief_pipeline_meta.json"
         path.write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
     except OSError:
         pass

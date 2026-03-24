@@ -199,9 +199,20 @@ def build_tier_payloads(cache_data: Dict[str, Any]) -> Dict[str, Tuple[str, str]
     # --- Tier 1: CONSERVATIVE ---
     run_dir = CACHE_DIR.parent
     reports = {}
-    for md_file in sorted(run_dir.glob("metric_*.md")):
-        name = md_file.stem.replace("metric_", "").replace("_", " ").replace("-", "/")
-        reports[name] = md_file.read_text(encoding="utf-8")
+    
+    # Priority 1: metrics/ subfolder
+    # Priority 2: root
+    metrics_dir = run_dir / "metrics"
+    search_dirs = [metrics_dir, run_dir] if metrics_dir.exists() else [run_dir]
+    
+    processed_files = set()
+    for s_dir in search_dirs:
+        for md_file in sorted(s_dir.glob("metric_*.md")):
+            if md_file.name in processed_files:
+                continue
+            name = md_file.stem.replace("metric_", "").replace("_", " ").replace("-", "/")
+            reports[name] = md_file.read_text(encoding="utf-8")
+            processed_files.add(md_file.name)
     
     digest_t1 = _build_slim_digest_from_json(reports, json_data, unit)
     

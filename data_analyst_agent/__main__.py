@@ -17,6 +17,9 @@ model_loader.py reads the override path during module-level agent construction.
 import os
 import sys
 
+# Track file dependencies for cleanup investigation
+import data_analyst_agent.utils.dependency_tracker
+
 # ------------------------------------------------------------------
 # 1. Pre-import flag scanning
 # ------------------------------------------------------------------

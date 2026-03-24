@@ -6,7 +6,7 @@ hyper:
   tdsx_file: "Ops Metrics DS.tdsx"
   tdsx_path: "data/tableau"
   default_table: "Extract.Extract"
-  extract_dir: "temp_extracted/ops_metrics_ds"
+  extract_dir: "data/tableau/extracted/ops_metrics_ds"
 
 filter_columns:
   region: "gl_rgn_nm"

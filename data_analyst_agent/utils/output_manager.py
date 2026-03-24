@@ -105,7 +105,7 @@ class OutputManager:
         return self.run_dir / "logs" / filename
 
     def save_run_metadata(self, cli_args: Dict[str, Any], extra_metadata: Optional[Dict[str, Any]] = None):
-        """Save run metadata to run_metadata.json in the run directory.
+        """Save run metadata to meta/run_metadata.json in the run directory.
         
         Creates a comprehensive metadata file documenting the run configuration,
         environment, and context. Useful for reproducing runs and debugging.
@@ -141,7 +141,7 @@ class OutputManager:
             ...     cli_args={"metrics": ["revenue"]},
             ...     extra_metadata={"model": "gemini-2.0-flash"}
             ... )
-            PosixPath('/data/outputs/trade_data/lob/Retail/20250312_143022/run_metadata.json')
+            PosixPath('/data/outputs/trade_data/lob/Retail/20250312_143022/meta/run_metadata.json')
         
         Note:
             - Automatically creates run directory if it doesn't exist
@@ -165,7 +165,11 @@ class OutputManager:
         if extra_metadata:
             metadata.update(extra_metadata)
             
-        metadata_path = self.get_file_path("run_metadata.json")
+        # Move run_metadata to meta/ subfolder
+        meta_dir = self.run_dir / "meta"
+        meta_dir.mkdir(parents=True, exist_ok=True)
+        metadata_path = meta_dir / "run_metadata.json"
+        
         self.create_run_directory()
         with open(metadata_path, "w", encoding="utf-8") as f:
             json.dump(metadata, f, indent=2)

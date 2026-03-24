@@ -90,9 +90,11 @@ class OutputPersistenceAgent(BaseAgent):
         
         if run_dir:
             base_path = Path(run_dir)
-            # Include target name to avoid collisions in parallel runs
+            # Use metrics/ subfolder for individual metric results
+            metrics_path = base_path / "metrics"
+            metrics_path.mkdir(parents=True, exist_ok=True)
             filename = f"category_{category_name}_{safe_target}.json"
-            return base_path / filename
+            return metrics_path / filename
         
         # Fallback to legacy behavior
         filename = f"category_{category_name}_{safe_target}.json"
@@ -225,9 +227,12 @@ class OutputPersistenceAgent(BaseAgent):
                 
                 if run_dir:
                     output_dir = Path(run_dir).resolve()
+                    # Use metrics/ subfolder for individual metric results
+                    metrics_dir = output_dir / "metrics"
+                    metrics_dir.mkdir(parents=True, exist_ok=True)
                     # Use metric_ prefix to match executive brief glob, even in standardized run-dir
                     # to prevent collisions when multiple metrics run in parallel.
-                    output_path = output_dir / f"metric_{safe_target_name}.json"
+                    output_path = metrics_dir / f"metric_{safe_target_name}.json"
                 else:
                     output_dir = Path("outputs").resolve()
                     output_dir.mkdir(parents=True, exist_ok=True)

@@ -12,7 +12,13 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from data_analyst_agent.brief_utils import BriefUtils, SignalRanker, pass1_curate, pass2_brief
+from data_analyst_agent.brief_utils import (
+    BriefUtils,
+    SignalRanker,
+    merge_pass1_kept_into_signals,
+    pass1_curate,
+    pass2_brief,
+)
 
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -58,8 +64,7 @@ def main():
     else:
         print(f"Pass 1: Curating with {args.lite_model}...")
         curation_results = pass1_curate(client, args.lite_model, totals, signals[:args.top_signals], args.max_curated)
-        kept_ids = [k["id"] for k in curation_results["kept"]]
-        curated_signals = [s for s in signals if s["id"] in kept_ids]
+        curated_signals = merge_pass1_kept_into_signals(signals, curation_results["kept"])
         thesis = curation_results["narrative_thesis"]
         print(f"Pass 1: Selected {len(curated_signals)} signals. [{curation_results['_elapsed']:.1f}s]")
     

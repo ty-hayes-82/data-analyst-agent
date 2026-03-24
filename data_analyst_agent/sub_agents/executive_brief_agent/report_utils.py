@@ -20,10 +20,22 @@ def _metric_name_to_stem(name: str) -> str:
 def _collect_metric_reports(outputs_dir: Path) -> dict[str, str]:
     """Read all metric reports and return {metric_name: markdown_content}."""
     reports: dict[str, str] = {}
-    for md_file in sorted(outputs_dir.glob("metric_*.md")):
-        name = md_file.stem.replace("metric_", "").replace("_", " ").replace("-", "/")
-        content = md_file.read_text(encoding="utf-8", errors="replace")
-        reports[name] = content
+    
+    # Priority 1: metrics/ subfolder (new layout)
+    # Priority 2: outputs_dir (legacy layout)
+    metrics_dir = outputs_dir / "metrics"
+    search_dirs = [metrics_dir, outputs_dir] if metrics_dir.exists() else [outputs_dir]
+    
+    processed_files = set()
+    for s_dir in search_dirs:
+        for md_file in sorted(s_dir.glob("metric_*.md")):
+            if md_file.name in processed_files:
+                continue
+            name = md_file.stem.replace("metric_", "").replace("_", " ").replace("-", "/")
+            content = md_file.read_text(encoding="utf-8", errors="replace")
+            reports[name] = content
+            processed_files.add(md_file.name)
+            
     if not reports:
         report_md = outputs_dir / "report.md"
         results_json = outputs_dir / "analysis_results.json"
@@ -249,19 +261,30 @@ def _build_slim_digest_from_json(
 def _collect_metric_json_data(outputs_dir: Path) -> dict[str, dict[str, Any]]:
     """Load structured metric JSON payloads when they exist."""
     data: dict[str, dict[str, Any]] = {}
-    for json_file in sorted(outputs_dir.glob("metric_*.json")):
-        try:
-            payload = json.loads(json_file.read_text(encoding="utf-8", errors="replace"))
-        except json.JSONDecodeError:
-            continue
-        metric_name = (
-            payload.get("metric")
-            or payload.get("dimension_value")
-            or payload.get("analysis_target")
-            or payload.get("target_label")
-        )
-        if metric_name:
-            data[str(metric_name)] = payload
+    
+    # Priority 1: metrics/ subfolder (new layout)
+    # Priority 2: outputs_dir (legacy layout)
+    metrics_dir = outputs_dir / "metrics"
+    search_dirs = [metrics_dir, outputs_dir] if metrics_dir.exists() else [outputs_dir]
+    
+    processed_files = set()
+    for s_dir in search_dirs:
+        for json_file in sorted(s_dir.glob("metric_*.json")):
+            if json_file.name in processed_files:
+                continue
+            try:
+                payload = json.loads(json_file.read_text(encoding="utf-8", errors="replace"))
+            except json.JSONDecodeError:
+                continue
+            metric_name = (
+                payload.get("metric")
+                or payload.get("dimension_value")
+                or payload.get("analysis_target")
+                or payload.get("target_label")
+            )
+            if metric_name:
+                data[str(metric_name)] = payload
+                processed_files.add(json_file.name)
     return data
 
 

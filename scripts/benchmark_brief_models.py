@@ -35,7 +35,14 @@ MODELS = [
 ]
 
 # Latest cache path
-CACHE_PATH = PROJECT_ROOT / "outputs" / "ops_metrics_ds" / "lob_ref" / "Line_Haul" / "20260323_122337" / ".cache" / "digest.json"
+def _resolve_cache_path(run_dir: Path) -> Path:
+    # New layout: .cache is in the run root
+    # Legacy: .cache is in the run root (no change for .cache location itself based on plan)
+    # However, plan says "metrics/ metric_*.json", but .cache stays at root for now.
+    return run_dir / ".cache" / "digest.json"
+
+RUN_DIR = PROJECT_ROOT / "outputs" / "ops_metrics_ds" / "lob_ref" / "Line_Haul" / "20260323_122337"
+CACHE_PATH = _resolve_cache_path(RUN_DIR)
 
 @dataclass
 class ModelResult:

@@ -112,13 +112,19 @@ def analyze_executive_brief(output_dir, expected_focus):
         "issues": []
     }
     
-    # Check metric files exist
+    # Check metric files exist (check metrics/ subfolder then root)
     metrics = expected_focus.get("metrics", [])
+    metrics_dir = output_dir / "metrics"
+    
     for metric in metrics:
-        metric_file = output_dir / f"metric_{metric}.md"
+        metric_file = metrics_dir / f"metric_{metric}.md"
+        if not metric_file.exists():
+            # Fallback to root for legacy compatibility
+            metric_file = output_dir / f"metric_{metric}.md"
+            
         if not metric_file.exists():
             critique["completeness"] = False
-            critique["issues"].append(f"Missing output file: metric_{metric}.md")
+            critique["issues"].append(f"Missing output file: metric_{metric}.md (checked metrics/ and root)")
         else:
             # Read and analyze narrative
             content = metric_file.read_text()
@@ -153,10 +159,15 @@ def extract_anomaly_counts(output_dir):
         dict: Metric name -> anomaly count
     """
     anomalies = {}
+    # Check alerts/ subfolder (new layout) then root/alerts/ (legacy)
     alerts_dir = output_dir / "alerts"
     
     if not alerts_dir.exists():
         return anomalies
+    
+    # Also check if it's a subfolder of metrics/ (if we ever move it there)
+    # but for now plan says alerts/ stays at root or moves to deliverables/? 
+    # Plan says: "alerts/ # unchanged meaning; may move from run root if today at root"
     
     for alert_file in alerts_dir.glob("alerts_payload_Metric-_*.json"):
         metric_name = alert_file.stem.replace("alerts_payload_Metric-_", "")

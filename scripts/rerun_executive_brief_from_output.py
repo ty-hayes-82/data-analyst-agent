@@ -44,13 +44,18 @@ def _infer_dataset_name(output_dir: Path) -> str:
 
 
 def _load_cache_meta(output_dir: Path) -> dict:
-    p = output_dir / "executive_brief_input_cache.json"
-    if not p.is_file():
-        return {}
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
+    # Priority 1: meta/ subfolder
+    # Priority 2: root
+    meta_dir = output_dir / "meta"
+    search_paths = [meta_dir / "executive_brief_input_cache.json", output_dir / "executive_brief_input_cache.json"]
+    
+    for p in search_paths:
+        if p.is_file():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+    return {}
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,6 +82,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Override EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS for this run",
     )
+    p.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print effective EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS (from env or code default)",
+    )
     return p.parse_args()
 
 
@@ -88,8 +99,10 @@ async def _main_async() -> int:
     if not out.is_dir():
         print(f"ERROR: not a directory: {out}", file=sys.stderr)
         return 1
-    if not any(out.glob("metric_*.json")):
-        print(f"ERROR: no metric_*.json under {out}", file=sys.stderr)
+    
+    # Check both layouts for metrics
+    if not any(out.glob("metric_*.json")) and not any((out / "metrics").glob("metric_*.json")):
+        print(f"ERROR: no metric_*.json under {out} or {out}/metrics/", file=sys.stderr)
         return 1
 
     dataset = args.dataset or _infer_dataset_name(out)
@@ -143,14 +156,33 @@ async def _main_async() -> int:
 
     print(f"Dataset contract: {contract.name}")
     print(f"Output dir: {out}")
-    print(f"EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS={os.environ.get('EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS', '(default)')}")
+    if args.max_scoped_briefs is not None:
+        print(f"Scoped brief cap: {args.max_scoped_briefs} (--max-scoped-briefs)")
+    elif args.verbose:
+        cap = os.environ.get("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", "(code default)")
+        print(f"EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS={cap}")
 
     async for _ in agent._run_async_impl(ctx):
         pass
 
-    brief_md = out / "brief.md"
-    scoped = sorted(out.glob("brief_*.md"))
-    network_ok = brief_md.is_file()
+    # Result paths (check deliverables/ then root)
+    deliverables = out / "deliverables"
+    search_dirs = [deliverables, out] if deliverables.exists() else [out]
+    
+    brief_md = None
+    scoped = []
+    
+    for s_dir in search_dirs:
+        if not brief_md:
+            p = s_dir / "brief.md"
+            if p.is_file():
+                brief_md = p
+        
+        for p in sorted(s_dir.glob("brief_*.md")):
+            if p.name not in [f.name for f in scoped]:
+                scoped.append(p)
+
+    network_ok = brief_md is not None
     print("\n--- Result ---")
     print(f"brief.md: {'ok' if network_ok else 'MISSING'}")
     for p in scoped:

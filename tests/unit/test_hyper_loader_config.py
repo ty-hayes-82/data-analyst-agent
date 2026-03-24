@@ -41,7 +41,7 @@ class TestHyperLoaderConfigConstruction:
                 tdsx_file="Ops.tdsx",
                 tdsx_path="data/tableau",
                 default_table="Extract.Extract",
-                extract_dir="temp_extracted/ops",
+                extract_dir="data/tableau/extracted/ops",
             ),
             filter_columns={"region": "gl_rgn_nm", "date": "cal_dt"},
             aggregation=AggregationRule(
@@ -95,7 +95,7 @@ class TestYAMLParsing:
                 "tdsx_file": "Bookshop.tdsx",
                 "tdsx_path": "data/tableau",
                 "default_table": "Extract.Extract",
-                "extract_dir": "temp_extracted/bookshop",
+                "extract_dir": "data/tableau/extracted/bookshop",
             },
             "filter_columns": {"genre": "Genre"},
             "aggregation": {
@@ -129,12 +129,12 @@ class TestPathResolution:
         cfg = HyperLoaderConfig(
             hyper=HyperConfig(
                 tdsx_file="test.tdsx",
-                extract_dir="temp_extracted/test",
+                extract_dir="data/tableau/extracted/test",
             ),
         )
         project_root = Path("/data/data-analyst-agent")
         result = cfg.resolve_extract_dir(project_root)
-        assert result == Path("/data/data-analyst-agent/temp_extracted/test")
+        assert result == Path("/data/data-analyst-agent/data/tableau/extracted/test")
 
     def test_resolve_tdsx_path_relative(self):
         cfg = HyperLoaderConfig(

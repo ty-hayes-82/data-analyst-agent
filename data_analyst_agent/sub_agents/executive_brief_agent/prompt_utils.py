@@ -88,8 +88,13 @@ def _write_executive_brief_cache(
     if payload is None:
         payload = dict(kwargs)
 
-    target_dir.mkdir(parents=True, exist_ok=True)
-    cache_path = target_dir / "executive_brief_input_cache.json"
+    # Move input cache to meta/ subfolder if in standardized run dir
+    import os as _os
+    target_dir = Path(target_dir)
+    meta_dir = target_dir / "meta" if _os.getenv("DATA_ANALYST_OUTPUT_DIR") else target_dir
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    
+    cache_path = meta_dir / "executive_brief_input_cache.json"
     cache_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     return cache_path
 

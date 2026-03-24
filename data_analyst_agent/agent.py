@@ -49,6 +49,9 @@ from pathlib import Path
 # of the project-level config/ package (directory).
 import sys as _sys
 from pathlib import Path as _Path
+
+# Track file dependencies for cleanup investigation
+import data_analyst_agent.utils.dependency_tracker
 _project_root = str(_Path(__file__).parent.parent)
 if _project_root in _sys.path:
     _sys.path.remove(_project_root)

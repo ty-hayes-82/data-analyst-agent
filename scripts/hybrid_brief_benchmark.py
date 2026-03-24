@@ -12,7 +12,13 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from data_analyst_agent.brief_utils import BriefUtils, SignalRanker, pass1_curate, pass2_brief
+from data_analyst_agent.brief_utils import (
+    BriefUtils,
+    SignalRanker,
+    merge_pass1_kept_into_signals,
+    pass1_curate,
+    pass2_brief,
+)
 from data_analyst_agent.sub_agents.executive_brief_agent.report_utils import (
     _collect_metric_reports,
     _collect_metric_json_data,
@@ -93,8 +99,7 @@ def run_hybrid_lite_pro_pipeline(client, cache_dir: Path, pro_model: str, lite_m
     signals = ranker.extract_all()
     
     curation = pass1_curate(client, lite_model, totals, signals[:30], 12)
-    kept_ids = [k["id"] for k in curation["kept"]]
-    curated_signals = [s for s in signals if s["id"] in kept_ids]
+    curated_signals = merge_pass1_kept_into_signals(signals, curation["kept"])
     
     brief = pass2_brief(client, pro_model, totals, curated_signals, curation["narrative_thesis"], "the analysis week")
     

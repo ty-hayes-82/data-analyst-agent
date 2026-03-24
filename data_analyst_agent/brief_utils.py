@@ -19,14 +19,23 @@ class BriefUtils:
         # Look for run directories (usually timestamped)
         runs = []
         for p in search_path.rglob("202*"):
-            if p.is_dir() and any(p.glob("metric_*.json")):
-                runs.append(p)
+            if p.is_dir():
+                # Check new layout: metrics/metric_*.json
+                if any((p / "metrics").glob("metric_*.json")):
+                    runs.append(p)
+                # Check legacy layout: metric_*.json at root
+                elif any(p.glob("metric_*.json")):
+                    runs.append(p)
         
         if not runs:
             # Fallback to the tableau-ops_metrics_weekly path if ops_metrics_ds not found
+            # (Checks both layouts there too)
             search_path = PROJECT_ROOT / "outputs/tableau-ops_metrics_weekly/global/all"
             if search_path.exists():
-                runs = [p for p in search_path.iterdir() if p.is_dir()]
+                for p in search_path.iterdir():
+                    if p.is_dir():
+                        if any((p / "metrics").glob("metric_*.json")) or any(p.glob("metric_*.json")):
+                            runs.append(p)
         
         if not runs:
             return None
@@ -35,14 +44,24 @@ class BriefUtils:
 
     @staticmethod
     def load_metrics(cache_dir: Path) -> Dict[str, Any]:
-        """Load all metric_*.json files from the cache directory."""
+        """Load all metric_*.json files from the cache directory (checks both layouts)."""
         metrics = {}
-        for jf in cache_dir.glob("metric_*.json"):
-            metric_name = jf.stem.replace("metric_", "")
-            try:
-                metrics[metric_name] = json.loads(jf.read_text(encoding="utf-8"))
-            except Exception as e:
-                print(f"Error loading {jf}: {e}")
+        
+        # Check new layout first
+        metrics_dir = cache_dir / "metrics"
+        search_dirs = [metrics_dir, cache_dir] if metrics_dir.exists() else [cache_dir]
+        
+        processed_stems = set()
+        for s_dir in search_dirs:
+            for jf in s_dir.glob("metric_*.json"):
+                if jf.stem in processed_stems:
+                    continue
+                metric_name = jf.stem.replace("metric_", "")
+                try:
+                    metrics[metric_name] = json.loads(jf.read_text(encoding="utf-8"))
+                    processed_stems.add(jf.stem)
+                except Exception as e:
+                    print(f"Error loading {jf}: {e}")
         return metrics
 
     @staticmethod
@@ -142,14 +161,31 @@ class SignalRanker:
                     
                     direction = "+" if var_pct > 0 else ""
                     detail = f"{item}: {m} {direction}{var_pct:.1f}% WoW (${abs(ev.get('variance_dollar', 0)):,.0f})"
-                    
-                    self.add_signal(score, "Variance", item, detail, m, f"hierarchy_{level_key}", 
-                                   entity=item, var_pct=var_pct, share=mat_weight)
+
+                    h_kwargs: Dict[str, Any] = {
+                        "entity": item,
+                        "var_pct": var_pct,
+                        "share": mat_weight,
+                    }
+                    if ev.get("current") is not None:
+                        h_kwargs["current_value"] = ev.get("current")
+                    if ev.get("prior") is not None:
+                        h_kwargs["prior_value"] = ev.get("prior")
+
+                    self.add_signal(
+                        score,
+                        "Variance",
+                        item,
+                        detail,
+                        m,
+                        f"hierarchy_{level_key}",
+                        **h_kwargs,
+                    )
 
     def extract_trends(self):
         """Extract 3-month trends."""
         for m, p in self.metrics.items():
-            stats = p.get("statistical_summary", {})
+            stats = p.get("statistical_summary") or {}
             for driver in stats.get("top_drivers", []):
                 slope = driver.get("slope_3mo")
                 p_val = driver.get("slope_3mo_p_value")
@@ -175,7 +211,7 @@ class SignalRanker:
     def extract_anomalies(self):
         """Extract statistical anomalies."""
         for m, p in self.metrics.items():
-            stats = p.get("statistical_summary", {})
+            stats = p.get("statistical_summary") or {}
             period_range = stats.get("summary_stats", {}).get("period_range", "")
             first_period = period_range.split(" to ")[0] if period_range else ""
             
@@ -257,40 +293,119 @@ class SignalRanker:
                 deduped.append(s)
         return deduped[:top_n]
 
+def merge_pass1_kept_into_signals(
+    signals: List[Dict[str, Any]], kept_rows: List[Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Attach Pass 1 structured fields to signals, ordered by Pass 1 rank (ascending)."""
+    by_id = {s["id"]: s for s in signals}
+    out: List[Dict[str, Any]] = []
+    for row in sorted(kept_rows, key=lambda r: (r.get("rank") is None, r.get("rank", 999))):
+        sid = row.get("id")
+        if not sid or sid not in by_id:
+            continue
+        merged = dict(by_id[sid])
+        merged["one_line_why"] = row.get("one_line_why", "")
+        merged["executive_category"] = row.get("category", "")
+        merged["metric_description"] = row.get("metric_description", "")
+        merged["clean_name"] = row.get("clean_name", "")
+        merged["dimension"] = row.get("dimension", "")
+        merged["pass1_rank"] = row.get("rank")
+        out.append(merged)
+    return out
+
+
 def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], max_curated: int) -> Dict[str, Any]:
     """Pass 1: Flash-Lite selects the most important signals from the ranked pool."""
     from google.genai import types
     import time
-    
-    # Filter signals for input: keep only id, category, detail, score
+
     input_signals = []
     for s in signals:
-        input_signals.append({
+        row: Dict[str, Any] = {
             "id": s["id"],
-            "category": s["category"],
+            "signal_type": s["category"],
+            "title": s.get("title", ""),
             "detail": s["detail"],
-            "score": s["score"]
-        })
-    
+            "metric_key": s["metric"],
+            "score": s["score"],
+        }
+        if s.get("entity") is not None:
+            row["entity"] = s["entity"]
+        if s.get("var_pct") is not None:
+            row["var_pct"] = s["var_pct"]
+        if s.get("current_value") is not None:
+            row["current_value"] = s["current_value"]
+        if s.get("prior_value") is not None:
+            row["prior_value"] = s["prior_value"]
+        input_signals.append(row)
+
+    valid_ids = {s["id"] for s in signals}
+    if not input_signals:
+        return {
+            "kept": [],
+            "dropped": [],
+            "narrative_thesis": "No ranked signals available for this period.",
+            "_elapsed": 0.0,
+        }
+
     prompt = (
         "You are a senior analyst for a trucking company. You have a list of ranked operational signals (deterministic stats).\n"
         f"Your job is to select the TOP {max_curated} most impactful and coherent signals for an executive CEO brief.\n"
+        "CRITICAL: Every kept id MUST match an id from RANKED SIGNALS exactly (same string). Never invent or rename ids.\n"
         "DROP signals that are noise, contradictory, or redundant across metrics.\n"
         "ENSURE coverage across Revenue, Efficiency, and Capacity if significant moves exist.\n\n"
+        "For EACH kept signal, also output:\n"
+        "- category: executive theme bucket — one of: Revenue, Efficiency, Utilization, Capacity, Yield, Cost, Network, Other.\n"
+        "- metric_description: ONE line in this EXACT pattern (no extra words before/after):\n"
+        '  \"{clean_name} - {slice}: {+/-X.X}% WoW | {current_fmt} vs {prior_fmt}.\"\n'
+        "  - clean_name: short label (e.g. \"Deadhead %\", \"Total Revenue\", \"Total Miles\").\n"
+        "  - slice: entity/region name ONLY (e.g. Manteno, East, Gary), or \"Network\" for network-wide or cross_metric signals.\n"
+        "  - WoW: use var_pct from the signal with one decimal and a leading + or - (e.g. +28.7% WoW).\n"
+        "  - current_fmt vs prior_fmt: format using current_value and prior_value when present in the signal JSON. "
+        "Use correct units: *_pct / deadhead → one-decimal percentages (e.g. 18.2% vs 14.1%); currency metrics → $ with K/M suffixes; "
+        "miles → compact mi. Never use $ for pure percentage metrics.\n"
+        "  - If current_value or prior_value is missing, end after WoW only: \"{clean_name} - {slice}: {+/-X.X}% WoW.\" "
+        "Do not invent levels.\n"
+        "- clean_name: same short metric label as embedded in metric_description.\n"
+        "- dimension: scope for filtering. Use \"Region: East\" / \"Location: Gary\" when sliced; \"Network\" when not sliced.\n\n"
         "NETWORK TOTALS (for context):\n"
     )
     for m, d in totals.items():
         prompt += f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f})\n"
-    
+
     prompt += "\nRANKED SIGNALS (from Pass 0):\n"
     prompt += json.dumps(input_signals, indent=2)
-    
+
     schema = types.Schema(type=types.Type.OBJECT, properties={
         "kept": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.OBJECT, properties={
             "id": types.Schema(type=types.Type.STRING),
             "rank": types.Schema(type=types.Type.INTEGER),
-            "one_line_why": types.Schema(type=types.Type.STRING)
-        }, required=["id", "rank", "one_line_why"])),
+            "one_line_why": types.Schema(type=types.Type.STRING),
+            "category": types.Schema(
+                type=types.Type.STRING,
+                description="Executive theme: Revenue, Efficiency, Utilization, Capacity, Yield, Cost, Network, or Other.",
+            ),
+            "metric_description": types.Schema(
+                type=types.Type.STRING,
+                description=(
+                    'Format: "{clean_name} - {slice}: ±X.X% WoW | current vs prior." '
+                    "Use signal current_value/prior_value when present; else end after WoW."
+                ),
+            ),
+            "clean_name": types.Schema(type=types.Type.STRING, description="Short human-readable metric name."),
+            "dimension": types.Schema(
+                type=types.Type.STRING,
+                description='Scope e.g. "Region: East" or "Network".',
+            ),
+        }, required=[
+            "id",
+            "rank",
+            "one_line_why",
+            "category",
+            "metric_description",
+            "clean_name",
+            "dimension",
+        ])),
         "dropped": types.Schema(type=types.Type.ARRAY, items=types.Schema(type=types.Type.OBJECT, properties={
             "id": types.Schema(type=types.Type.STRING),
             "reason": types.Schema(type=types.Type.STRING)
@@ -312,6 +427,22 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
     el = time.time() - t0
     curation = json.loads(r.text)
     curation["_elapsed"] = el
+    raw_kept = list(curation.get("kept") or [])
+    kept_ok = [k for k in raw_kept if isinstance(k, dict) and k.get("id") in valid_ids]
+    if len(kept_ok) != len(raw_kept):
+        for k in raw_kept:
+            if isinstance(k, dict) and k.get("id") not in valid_ids:
+                curation.setdefault("dropped", [])
+                if isinstance(curation["dropped"], list):
+                    curation["dropped"].append(
+                        {
+                            "id": str(k.get("id", "")),
+                            "reason": "Invalid id (not in Pass 0 signal list).",
+                        }
+                    )
+    for i, row in enumerate(sorted(kept_ok, key=lambda r: (r.get("rank") is None, r.get("rank", 999))), start=1):
+        row["rank"] = i
+    curation["kept"] = kept_ok
     return curation
 
 def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], thesis: str, period: str) -> Dict[str, Any]:
