@@ -1863,9 +1863,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         )
                         
                         # Build explicit section title reminder for scoped brief
+                        _scoped_titles_quoted = ", ".join(f'"{t}"' for t in scoped_expected_sections)
                         scoped_section_reminder = (
                             f"⚠️ REQUIRED SECTION TITLES (in this exact order):\n"
-                            f"{', '.join(f'\"{t}\"' for t in scoped_expected_sections)}\n\n"
+                            f"{_scoped_titles_quoted}\n\n"
                         )
                         
                         # Build numeric value enforcement for scoped briefs
