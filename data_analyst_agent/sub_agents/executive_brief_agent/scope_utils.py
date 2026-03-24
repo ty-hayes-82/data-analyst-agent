@@ -153,6 +153,29 @@ def _extract_entity_from_card_title(title: str) -> str:
     return ""
 
 
+def _extract_entity_from_card(card: Any) -> str:
+    """Resolve entity for scoped-brief discovery from title patterns and evidence."""
+    if not isinstance(card, dict):
+        return ""
+    title = str(card.get("title") or "")
+    ent = _extract_entity_from_card_title(title)
+    if ent:
+        return ent
+    ev = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+    for key in ("entity", "entity_name", "item"):
+        raw = ev.get(key)
+        if raw is not None:
+            v = str(raw).strip()
+            if v and v.lower() not in ("total", ""):
+                return v
+    # "metric_key (Region)" / "Label (Division)"
+    if "(" in title and title.rstrip().endswith(")"):
+        inner = title.rsplit("(", 1)[-1].rstrip(")").strip()
+        if inner and inner.lower() not in ("total", "unassigned"):
+            return inner
+    return ""
+
+
 def _extract_entity_from_alert_id(alert_id: str) -> str:
     if len(alert_id) <= 11:
         return ""
@@ -236,6 +259,29 @@ def _discover_level_entities(
     entities: set[str] = set()
     entity_max_share: dict[str, float] = {}
     entity_has_unknown_share: set[str] = set()
+    entity_dollar_sum: dict[str, float] = {}
+    entity_pct_max: dict[str, float] = {}
+
+    def _record_variance(entity: str, payload: dict[str, Any]) -> None:
+        if not entity or entity.lower() in ("total", ""):
+            return
+        ev = payload.get("evidence") if isinstance(payload.get("evidence"), dict) else {}
+        vd = _safe_float(
+            payload.get("variance_dollar")
+            or payload.get("variance")
+            or payload.get("variance_amount")
+        )
+        if vd is None:
+            vd = _safe_float(ev.get("variance_dollar") or ev.get("variance_amount"))
+        vp = _safe_float(payload.get("variance_pct") or ev.get("variance_pct"))
+        abs_d = abs(vd) if vd is not None else 0.0
+        abs_p = abs(vp) if vp is not None else 0.0
+        entities.add(entity)
+        entity_dollar_sum[entity] = entity_dollar_sum.get(entity, 0.0) + abs_d
+        entity_pct_max[entity] = max(entity_pct_max.get(entity, 0.0), abs_p)
+
+    def _impact_sort_key(entity: str) -> tuple[float, float, str]:
+        return (-entity_dollar_sum.get(entity, 0.0), -entity_pct_max.get(entity, 0.0), entity)
 
     def _extract_cards_from_block(block: Any) -> None:
         if isinstance(block, str):
@@ -247,15 +293,18 @@ def _discover_level_entities(
             for card in block.get("insight_cards", []):
                 if _is_skip_card_simple(card):
                     continue
-                entity = _extract_entity_from_card_title(card.get("title", ""))
+                entity = _extract_entity_from_card(card)
                 if entity and entity.lower() not in ("total", ""):
-                    entities.add(entity)
+                    if isinstance(card, dict):
+                        _record_variance(entity, card)
                     share = _extract_share_from_payload(card)
                     if share is None:
                         entity_has_unknown_share.add(entity)
                     else:
                         entity_max_share[entity] = max(entity_max_share.get(entity, 0.0), share)
             for row in block.get("level_results", []):
+                if not isinstance(row, dict):
+                    continue
                 item = (row.get("item") or "").strip()
                 if item and item.lower() not in ("total", ""):
                     var = row.get("variance_dollar") or row.get("variance")
@@ -264,7 +313,7 @@ def _discover_level_entities(
                             continue
                     except (ValueError, TypeError):
                         pass
-                    entities.add(item)
+                    _record_variance(item, row)
                     share = _extract_share_from_payload(row)
                     if share is None:
                         entity_has_unknown_share.add(item)
@@ -283,15 +332,16 @@ def _discover_level_entities(
         _extract_cards_from_block(ind_results.get(level_key))
 
     if min_share_of_total <= 0:
-        return sorted(entities)
+        return sorted(entities, key=_impact_sort_key)
 
-    filtered = []
-    for entity in sorted(entities):
+    filtered: list[str] = []
+    for entity in sorted(entities, key=_impact_sort_key):
         if entity in entity_has_unknown_share:
             filtered.append(entity)
             continue
         if entity_max_share.get(entity, 0.0) >= min_share_of_total:
             filtered.append(entity)
+    filtered.sort(key=_impact_sort_key)
     return filtered
 
 

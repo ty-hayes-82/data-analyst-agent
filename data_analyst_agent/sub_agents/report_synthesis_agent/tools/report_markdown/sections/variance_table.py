@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from ..formatting import format_variance, unit_display_label
 
@@ -29,7 +29,12 @@ def _recomputed_cumulative(drivers: list[dict], limit: int) -> List[float]:
     return cumulative
 
 
-def build_variance_section(levels_analyzed: list[int], level_analyses: dict, unit: str) -> List[str]:
+def build_variance_section(
+    levels_analyzed: list[int],
+    level_analyses: dict,
+    unit: str,
+    metric_key: Optional[str] = None,
+) -> List[str]:
     if not levels_analyzed:
         return []
     deepest_level = max(levels_analyzed)
@@ -68,7 +73,7 @@ def build_variance_section(levels_analyzed: list[int], level_analyses: dict, uni
         else:
             pct_display = "N/A"
 
-        var_display = format_variance(var_dollar, unit)
+        var_display = format_variance(var_dollar, unit, metric_key)
         if var_dollar > 0 and not var_display.startswith("+"):
             var_display = f"+{var_display}"
 

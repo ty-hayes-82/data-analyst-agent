@@ -78,6 +78,19 @@ def is_ceo_style() -> bool:
     return os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower() == "ceo"
 
 
+def load_standard_executive_brief_instruction() -> str:
+    """Load the standard (non-CEO) brief instruction for entity-scoped briefs.
+
+    Scoped briefs always use the Executive Summary / Key Findings JSON contract even when
+    the network brief uses CEO hybrid; the CEO prompt would mismatch validation.
+    """
+    project_root = Path(__file__).resolve().parent.parent.parent.parent
+    path = project_root / "config" / "prompts" / "executive_brief.md"
+    if path.exists():
+        return path.read_text(encoding="utf-8").strip()
+    return "You are an Executive Analyst. Synthesize metric analyses into a brief JSON."
+
+
 def get_ceo_section_contract(temporal_grain: str = "weekly") -> list:
     """Return CEO section contract with grain-appropriate outlook title."""
     grain = (temporal_grain or "weekly").lower()

@@ -86,9 +86,24 @@ def is_currency_unit(unit: str) -> bool:
     return normalized in _CURRENCY_TOKENS
 
 
-def format_value(value: float, unit: str) -> str:
+def is_revenue_per_mile_metric(analysis_target: Optional[str]) -> bool:
+    if not analysis_target:
+        return False
+    t = str(analysis_target).strip().lower().replace(" ", "_")
+    return t in ("lrpm", "trpm")
+
+
+def format_value(
+    value: float,
+    unit: str,
+    analysis_target: Optional[str] = None,
+) -> str:
     normalized = normalize_unit(unit)
     if is_currency_unit(normalized):
+        abs_v = abs(value)
+        if is_revenue_per_mile_metric(analysis_target) and abs_v < 1_000_000:
+            sign = "-" if value < 0 else ""
+            return f"{sign}${abs_v:,.2f}"
         return f"${value:,.0f}"
     if normalized.lower() in {"count", "units", "unit"}:
         return f"{value:,.0f}"
@@ -127,7 +142,7 @@ def resolve_unit(analysis_target: Optional[str], contract_unit: Optional[str] = 
 
 def format_variance(value: float, unit: str, analysis_target: Optional[str] = None) -> str:
     normalized = normalize_unit(unit)
-    return format_value(value, normalized)
+    return format_value(value, normalized, analysis_target=analysis_target)
 
 
 def is_skip_card(card: dict) -> bool:
@@ -159,6 +174,7 @@ def card_tags(card: dict) -> Set[str]:
 __all__ = [
     "_DERIVED_TAGS",
     "format_variance",
+    "is_revenue_per_mile_metric",
     "resolve_unit",
     "card_tags",
     "is_skip_card",

@@ -27,8 +27,8 @@ MAX_NARRATIVE_TOP_DRIVERS = _safe_int_env("NARRATIVE_MAX_TOP_DRIVERS", 3)
 MAX_NARRATIVE_ANOMALIES = _safe_int_env("NARRATIVE_MAX_ANOMALIES", 3)
 MAX_NARRATIVE_HIERARCHY_CARDS = _safe_int_env("NARRATIVE_MAX_HIERARCHY_CARDS", 2)
 MAX_NARRATIVE_INDEPENDENT_CARDS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CARDS", 1)
-MAX_NARRATIVE_ANALYST_CHARS = _safe_int_env("NARRATIVE_MAX_ANALYST_CHARS", 3200)
-MAX_NARRATIVE_STATS_CHARS = _safe_int_env("NARRATIVE_MAX_STATS_CHARS", 2100)
+MAX_NARRATIVE_ANALYST_CHARS = _safe_int_env("NARRATIVE_MAX_ANALYST_CHARS", 2000)
+MAX_NARRATIVE_STATS_CHARS = _safe_int_env("NARRATIVE_MAX_STATS_CHARS", 1500)
 MAX_NARRATIVE_HIERARCHY_CHARS = _safe_int_env("NARRATIVE_MAX_HIER_CHARS", 2000)
 MAX_NARRATIVE_INDEPENDENT_CHARS = _safe_int_env("NARRATIVE_MAX_INDEPENDENT_CHARS", 1200)
 
@@ -123,6 +123,10 @@ def _json_payload_or_note(raw: str | None, max_chars: int, label: str, preview_l
     if raw:
         note["preview"] = raw[:preview_len]
     return note
+
+
+def _env_true(var_name: str, default: str = "false") -> bool:
+    return str(os.getenv(var_name, default)).strip().lower() in {"1", "true", "yes", "on"}
 
 
 _base_agent = Agent(
@@ -434,6 +438,62 @@ class NarrativeWrapper(BaseAgent):
             f"[NarrativeAgent] Prompt size — instruction={len(self.wrapped_agent.instruction):,} chars, payload={len(payload_json):,} chars"
         )
 
+        if _env_true("NARRATIVE_CARD_AUDIT_ENABLED", "true"):
+            hierarchy_card_count = 0
+            for level_payload in hierarchical_payload.values():
+                if isinstance(level_payload, dict):
+                    cards = level_payload.get("insight_cards")
+                    if isinstance(cards, list):
+                        hierarchy_card_count += len(cards)
+
+            independent_card_count = 0
+            for level_payload in independent_payload.values():
+                if isinstance(level_payload, dict):
+                    cards = level_payload.get("insight_cards")
+                    if isinstance(cards, list):
+                        independent_card_count += len(cards)
+
+            stats_anomalies_count = 0
+            stats_top_driver_count = 0
+            if isinstance(stats_component, dict):
+                anomalies = stats_component.get("anomalies")
+                top_drivers = stats_component.get("top_drivers")
+                if isinstance(anomalies, list):
+                    stats_anomalies_count = len(anomalies)
+                if isinstance(top_drivers, list):
+                    stats_top_driver_count = len(top_drivers)
+
+            audit_payload = {
+                "target": state.get("current_analysis_target"),
+                "instruction_chars": len(self.wrapped_agent.instruction),
+                "payload_chars": len(payload_json),
+                "hierarchy_levels": len(hierarchical_payload),
+                "hierarchy_cards": hierarchy_card_count,
+                "independent_levels": len(independent_payload),
+                "independent_cards": independent_card_count,
+                "stats_top_drivers": stats_top_driver_count,
+                "stats_anomalies": stats_anomalies_count,
+            }
+            print(
+                "[NarrativeAgent][Audit] "
+                f"target={audit_payload['target']} "
+                f"payload={audit_payload['payload_chars']} "
+                f"hier_cards={audit_payload['hierarchy_cards']} "
+                f"ind_cards={audit_payload['independent_cards']} "
+                f"drivers={audit_payload['stats_top_drivers']} "
+                f"anomalies={audit_payload['stats_anomalies']}"
+            )
+            try:
+                safe_target = str(state.get("current_analysis_target", "unknown")).replace("/", "_")
+                output_dir = state.get("output_dir")
+                debug_root = Path(output_dir) / "debug" if output_dir else Path("outputs") / "debug"
+                audit_dir = debug_root / "narrative_cards_audit"
+                audit_dir.mkdir(parents=True, exist_ok=True)
+                with open(audit_dir / f"{safe_target}.json", "w", encoding="utf-8") as f:
+                    json.dump(audit_payload, f, indent=2)
+            except Exception as e:
+                print(f"[NarrativeAgent][Audit] Failed to write audit payload: {e}")
+
         # DEBUG: Save prompt to file for optimization review
         try:
             safe_target = ctx.session.state.get('current_analysis_target', 'unknown').replace('/', '_')
@@ -487,7 +547,7 @@ def create_narrative_agent():
         generate_content_config=types.GenerateContentConfig(
             response_mime_type="application/json",
             temperature=0.0,
-            max_output_tokens=4096,
+            max_output_tokens=2048,
             thinking_config=get_agent_thinking_config("narrative_agent"),
         ),
     )

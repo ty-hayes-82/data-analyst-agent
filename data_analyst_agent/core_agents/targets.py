@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import os
 import re
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from google.adk.agents.base_agent import BaseAgent
-from google.adk.agents.sequential_agent import SequentialAgent
 from google.adk.agents.invocation_context import InvocationContext
+from google.adk.agents.run_config import RunConfig
+from google.adk.agents.sequential_agent import SequentialAgent
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.sessions.session import Session
 from pydantic import Field
 
 from ..tools import iterate_analysis_targets
@@ -169,128 +171,224 @@ class ParallelDimensionTargetAgent(BaseAgent):
             yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
             return
 
-        cap = _read_parallel_cap()
-        effective_cap = cap if 0 < cap < len(targets) else len(targets)
-        mode = "sequential" if effective_cap == 1 else f"parallel (cap={effective_cap})"
+        compute_cap = _read_parallel_compute_cap()
+        llm_cap = _read_parallel_llm_cap()
+        compute_effective_cap = _effective_cap(compute_cap, len(targets))
+        llm_effective_cap = _effective_cap(llm_cap, len(targets))
+
         print(
-            f"[ParallelDimensionTargetAnalysis] {len(targets)} target(s), MAX_PARALLEL_METRICS={cap} -> running {mode}"
+            "[ParallelDimensionTargetAnalysis] "
+            f"{len(targets)} target(s), "
+            f"MAX_PARALLEL_COMPUTE={compute_cap} -> cap={compute_effective_cap}, "
+            f"MAX_PARALLEL_LLM={llm_cap} -> cap={llm_effective_cap}"
         )
 
-        from google.adk.agents.invocation_context import InvocationContext as _IC
-        from google.adk.agents.run_config import RunConfig
-        from google.adk.sessions.session import Session
-        from ..sub_agents.data_cache import current_session_id
-        from ..sub_agents.dynamic_parallel_agent import DynamicParallelAnalysisAgent
-        from ..sub_agents.narrative_agent.agent import create_narrative_agent
-        from ..sub_agents.alert_scoring_agent.agent import root_agent as alert_scoring_agent
-        from ..sub_agents.report_synthesis_agent.agent import create_report_synthesis_agent
-        from ..sub_agents.output_persistence_agent.agent import OutputPersistenceAgent
-        from ..sub_agents.planner_agent.agent import RuleBasedPlanner
+        compute_runners = [
+            _SingleTargetRunner(target, _make_compute_pipeline())
+            for target in targets
+        ]
+        async for event in _run_runners(compute_runners, ctx, semaphore_cap=compute_effective_cap):
+            yield event
 
-        class SingleTargetRunner(BaseAgent):
-            target_val: str
-            inner_pipeline: BaseAgent = Field(..., exclude=True)
+        compute_results: dict[str, dict[str, Any]] = {}
+        session_id_by_target: dict[str, str] = {}
+        for runner in compute_runners:
+            compute_results[runner.target_val] = dict(runner.final_state)
+            session_id_by_target[runner.target_val] = runner.isolated_session_id
 
-            def __init__(self, target, pipeline):
-                safe_name = re.sub(r"_+", "_", re.sub(r"[^a-zA-Z0-9_]", "_", str(target))).strip("_")
-                super().__init__(name=f"run_{safe_name}", target_val=target, inner_pipeline=pipeline)
-
-            async def _run_async_impl(self, inner_ctx: _IC) -> AsyncGenerator[Event, None]:
-                import asyncio
-                session_id = getattr(inner_ctx.session, "id", str(__import__("uuid").uuid4()))
-                isolated_id = f"{session_id}_{self.target_val.replace('/', '_').replace(' ', '_')}"
-                token = current_session_id.set(isolated_id)
-                isolated_session = Session(
-                    id=isolated_id,
-                    app_name=inner_ctx.session.app_name,
-                    user_id=inner_ctx.session.user_id,
-                    state=inner_ctx.session.state.copy(),
-                    events=list(inner_ctx.session.events),
-                )
-                new_ctx = _IC(
-                    agent=self.inner_pipeline,
-                    session=isolated_session,
-                    session_service=inner_ctx.session_service,
-                    invocation_id=inner_ctx.invocation_id,
-                    run_config=inner_ctx.run_config or RunConfig(),
-                )
-                new_ctx.session.state["current_analysis_target"] = self.target_val
-                new_ctx.session.state["phase_logger"] = PhaseLogger(dimension_value=self.target_val)
-                try:
-                    async for event in self.inner_pipeline.run_async(new_ctx):
-                        if event.actions and event.actions.state_delta:
-                            new_ctx.session.state.update(event.actions.state_delta)
-                        yield event
-                finally:
-                    current_session_id.reset(token)
-
-        def _make_pipeline() -> BaseAgent:
-            pipeline = SequentialAgent(
-                name="target_analysis_pipeline",
-                sub_agents=[
-                    TimedAgentWrapper(AnalysisContextInitializer()),
-                    TimedAgentWrapper(RuleBasedPlanner()),
-                    TimedAgentWrapper(DynamicParallelAnalysisAgent()),
-                    TimedAgentWrapper(create_narrative_agent()),
-                    TimedAgentWrapper(alert_scoring_agent),
-                    TimedAgentWrapper(create_report_synthesis_agent()),
-                    TimedAgentWrapper(OutputPersistenceAgent(level="dimension_value")),
-                ],
+        llm_runners = [
+            _SingleTargetRunner(
+                target,
+                _make_llm_pipeline(),
+                seed_state=compute_results.get(target),
+                forced_session_id=session_id_by_target.get(target),
             )
-            for agent in pipeline.sub_agents:
-                if hasattr(agent, "parent") and agent.parent is not None:
-                    object.__setattr__(agent, "parent", None)
-            return pipeline
+            for target in targets
+        ]
+        async for event in _run_runners(llm_runners, ctx, semaphore_cap=llm_effective_cap):
+            yield event
 
-        runners = [SingleTargetRunner(target, _make_pipeline()) for target in targets]
-        for runner in runners:
-            if hasattr(runner, "parent") and runner.parent is not None:
-                object.__setattr__(runner, "parent", None)
 
-        import asyncio
+class _SingleTargetRunner(BaseAgent):
+    """Runs one target in an isolated session and captures final state."""
 
-        sem = asyncio.Semaphore(effective_cap)
-        queue: asyncio.Queue[Event | None] = asyncio.Queue()
+    target_val: str
+    inner_pipeline: BaseAgent = Field(..., exclude=True)
+    seed_state: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    forced_session_id: str | None = Field(default=None, exclude=True)
+    final_state: dict[str, Any] = Field(default_factory=dict, exclude=True)
+    isolated_session_id: str = Field(default="", exclude=True)
 
-        async def _run_runner(runner: SingleTargetRunner):
+    def __init__(
+        self,
+        target: str,
+        pipeline: BaseAgent,
+        seed_state: dict[str, Any] | None = None,
+        forced_session_id: str | None = None,
+    ):
+        safe_name = re.sub(r"_+", "_", re.sub(r"[^a-zA-Z0-9_]", "_", str(target))).strip("_")
+        super().__init__(
+            name=f"run_{safe_name}",
+            target_val=str(target),
+            inner_pipeline=pipeline,
+            seed_state=seed_state or {},
+            forced_session_id=forced_session_id,
+        )
+
+    async def _run_async_impl(self, inner_ctx: InvocationContext) -> AsyncGenerator[Event, None]:
+        import uuid
+
+        from ..sub_agents.data_cache import current_session_id
+
+        session_id = getattr(inner_ctx.session, "id", str(uuid.uuid4()))
+        isolated_id = (
+            self.forced_session_id
+            or f"{session_id}_{self.target_val.replace('/', '_').replace(' ', '_')}"
+        )
+        token = current_session_id.set(isolated_id)
+
+        state_copy = inner_ctx.session.state.copy()
+        if self.seed_state:
+            state_copy.update(self.seed_state)
+        isolated_session = Session(
+            id=isolated_id,
+            app_name=inner_ctx.session.app_name,
+            user_id=inner_ctx.session.user_id,
+            state=state_copy,
+            events=list(inner_ctx.session.events),
+        )
+
+        new_ctx = InvocationContext(
+            agent=self.inner_pipeline,
+            session=isolated_session,
+            session_service=inner_ctx.session_service,
+            invocation_id=inner_ctx.invocation_id,
+            run_config=inner_ctx.run_config or RunConfig(),
+        )
+        new_ctx.session.state["current_analysis_target"] = self.target_val
+        if "phase_logger" not in new_ctx.session.state:
+            new_ctx.session.state["phase_logger"] = PhaseLogger(dimension_value=self.target_val)
+
+        try:
+            async for event in self.inner_pipeline.run_async(new_ctx):
+                if event.actions and event.actions.state_delta:
+                    new_ctx.session.state.update(event.actions.state_delta)
+                yield event
+        finally:
+            object.__setattr__(self, "final_state", dict(new_ctx.session.state))
+            object.__setattr__(self, "isolated_session_id", isolated_id)
+            current_session_id.reset(token)
+
+
+def _clear_parent_links(pipeline: SequentialAgent) -> SequentialAgent:
+    for agent in pipeline.sub_agents:
+        if hasattr(agent, "parent") and agent.parent is not None:
+            object.__setattr__(agent, "parent", None)
+    return pipeline
+
+
+def _make_compute_pipeline() -> BaseAgent:
+    """Phase A: context + planning + compute + alerts."""
+    from ..sub_agents.alert_scoring_agent.agent import root_agent as alert_scoring_agent
+    from ..sub_agents.dynamic_parallel_agent import DynamicParallelAnalysisAgent
+    from ..sub_agents.planner_agent.agent import RuleBasedPlanner
+
+    return _clear_parent_links(
+        SequentialAgent(
+            name="compute_pipeline",
+            sub_agents=[
+                TimedAgentWrapper(AnalysisContextInitializer()),
+                TimedAgentWrapper(RuleBasedPlanner()),
+                TimedAgentWrapper(DynamicParallelAnalysisAgent()),
+                TimedAgentWrapper(alert_scoring_agent),
+            ],
+        )
+    )
+
+
+def _make_llm_pipeline() -> BaseAgent:
+    """Phase B: narrative + report synthesis + persistence."""
+    from ..sub_agents.output_persistence_agent.agent import OutputPersistenceAgent
+    from ..sub_agents.report_synthesis_agent.agent import create_report_synthesis_agent
+    from .narrative_gate import create_conditional_narrative_agent
+
+    return _clear_parent_links(
+        SequentialAgent(
+            name="llm_pipeline",
+            sub_agents=[
+                TimedAgentWrapper(create_conditional_narrative_agent()),
+                TimedAgentWrapper(create_report_synthesis_agent()),
+                TimedAgentWrapper(OutputPersistenceAgent(level="dimension_value")),
+            ],
+        )
+    )
+
+
+async def _run_runners(
+    runners: list[_SingleTargetRunner],
+    ctx: InvocationContext,
+    semaphore_cap: int,
+) -> AsyncGenerator[Event, None]:
+    import asyncio
+
+    if not runners:
+        return
+
+    effective_cap = _effective_cap(semaphore_cap, len(runners))
+    sem = asyncio.Semaphore(effective_cap)
+    queue: asyncio.Queue[tuple[str, Event | Exception | None]] = asyncio.Queue()
+
+    async def _run_runner(runner: _SingleTargetRunner):
+        try:
             async with sem:
                 async for event in runner.run_async(ctx):
-                    await queue.put(event)
-            await queue.put(None)
+                    await queue.put(("event", event))
+        except Exception as exc:
+            await queue.put(("error", exc))
+        finally:
+            await queue.put(("done", None))
 
-        for runner in runners:
-            asyncio.create_task(_run_runner(runner))
+    tasks = [asyncio.create_task(_run_runner(runner)) for runner in runners]
 
-        finished = 0
-        while finished < len(runners):
-            event = await queue.get()
-            if event is None:
-                finished += 1
-            else:
-                yield event
+    finished = 0
+    while finished < len(runners):
+        kind, payload = await queue.get()
+        if kind == "done":
+            finished += 1
+            continue
+        if kind == "error":
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise payload  # type: ignore[misc]
+        if kind == "event" and isinstance(payload, Event):
+            yield payload
+
+    await asyncio.gather(*tasks)
 
 
-def _read_parallel_cap() -> int:
-    """Read the MAX_PARALLEL_METRICS environment variable.
-    
-    Parses MAX_PARALLEL_METRICS as an integer with safe fallback to 4.
-    
-    Args:
-        None (reads from environment).
-        
-    Returns:
-        int: Concurrency cap (0 = unlimited, 1 = sequential, N > 1 = parallel cap).
-        
-    Example:
-        >>> os.environ["MAX_PARALLEL_METRICS"] = "8"
-        >>> _read_parallel_cap()
-        8
-        >>> os.environ["MAX_PARALLEL_METRICS"] = "invalid"
-        >>> _read_parallel_cap()
-        4  # Safe fallback
-    """
-    raw = os.environ.get("MAX_PARALLEL_METRICS", "4").strip()
+def _effective_cap(cap: int, total: int) -> int:
+    if total <= 0:
+        return 1
+    return cap if 0 < cap < total else total
+
+
+def _parse_parallel_cap(var_name: str, default: int) -> int:
+    raw = os.environ.get(var_name, str(default)).strip()
     try:
         return max(0, int(raw))
     except ValueError:
-        return 4
+        return default
+
+
+def _read_parallel_compute_cap() -> int:
+    return _parse_parallel_cap("MAX_PARALLEL_COMPUTE", 0)
+
+
+def _read_parallel_llm_cap() -> int:
+    if os.environ.get("MAX_PARALLEL_LLM"):
+        return _parse_parallel_cap("MAX_PARALLEL_LLM", 4)
+    return _parse_parallel_cap("MAX_PARALLEL_METRICS", 4)
+
+
+def _read_parallel_cap() -> int:
+    """Legacy compatibility alias for LLM phase cap."""
+    return _read_parallel_llm_cap()

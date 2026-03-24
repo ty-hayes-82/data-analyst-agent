@@ -375,7 +375,27 @@ class AnalysisContextInitializer(BaseAgent):
         if not target_metric:
             # Default to first metric from contract
             target_metric = contract.metrics[0]
-            
+
+        # Derived targets: materialize a numeric column so hierarchy/stat tools see metric_col in df
+        mtype = (getattr(target_metric, "type", None) or "").lower()
+        if mtype == "derived" and getattr(target_metric, "formula", None):
+            out_col = target_metric.column or target_metric.name
+            if out_col not in df.columns:
+                try:
+                    df = df.copy()
+                    df[out_col] = df.eval(target_metric.formula)
+                    print(
+                        f"[AnalysisContextInitializer] Computed derived column '{out_col}' "
+                        f"for target '{target_metric.name}'."
+                    )
+                except Exception as exc:
+                    print(
+                        f"[AnalysisContextInitializer] WARNING: Failed to compute derived metric "
+                        f"'{target_metric.name}': {exc}"
+                    )
+            if out_col in df.columns:
+                target_metric = target_metric.model_copy(update={"column": out_col})
+
         primary_dim = None
         requested_dim = req_analysis.get("primary_dimension")
         if requested_dim:
@@ -455,6 +475,30 @@ class AnalysisContextInitializer(BaseAgent):
                 grain_confidence = 0.0
             detected_anchor = grain_result.detected_anchor if grain_result else "unknown"
             periods_analyzed = int(grain_result.periods_analyzed) if grain_result else 0
+
+        # Contract may claim daily while timestamps step weekly (e.g. 7-day gaps).
+        if (
+            time_col
+            and time_col in df.columns
+            and normalize_temporal_grain(temporal_grain) == "daily"
+            and grain_source != "aggregation"
+            and env_time_frequency == "unknown"
+        ):
+            parsed = pd.to_datetime(df[time_col].unique(), errors="coerce")
+            all_periods = sorted([p for p in parsed if pd.notna(p)])
+            if len(all_periods) >= 2:
+                median_gap = pd.Series(all_periods).diff().median()
+                if pd.notna(median_gap):
+                    gap_days = int(median_gap.days)
+                    if 5 <= gap_days <= 8:
+                        temporal_grain = "weekly"
+                        grain_source = f"{grain_source}+data_gap_weekly"
+                        grain_confidence = min(float(grain_confidence or 1.0), 0.95)
+                        periods_analyzed = len(all_periods)
+                        print(
+                            f"[TemporalGrain] Override to weekly from median gap {gap_days}d "
+                            "(contract_frequency was daily)"
+                        )
 
         print(
             f"[TemporalGrain] detected={temporal_grain} source={grain_source} "

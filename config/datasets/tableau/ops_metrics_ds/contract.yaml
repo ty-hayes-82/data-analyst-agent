@@ -1,0 +1,333 @@
+name: ops_metrics_ds
+version: 1.0.0
+display_name: Ops Metrics DS
+target_label: Metric
+description: Weekly operational metrics scorecard for trucking operations from Ops Metrics DS
+materiality:
+  variance_pct: 5
+  variance_absolute: 10000
+presentation:
+  unit: USD
+low_activity_dimension_values:
+  - Corporate
+reporting:
+  # Hierarchy analysis: deep enough for terminal-level (driver mgr) cards in metric JSON
+  max_drill_depth: 4
+  # Scoped briefs: still emit network + per-region only (not per-terminal)
+  executive_brief_drill_levels: 2
+  executive_brief_max_scoped_level: 1
+  max_scope_entities: 15
+  output_format: pdf
+data_source:
+  type: tableau_hyper
+  file: data/tableau/Ops Metrics DS.tdsx
+  table: Extract.Extract
+time:
+  column: cal_dt
+  frequency: daily
+  temporal_grain_override: weekly
+  format: '%Y-%m-%d %H:%M:%S'
+  range_months: 24
+grain:
+  columns:
+  - cal_dt
+  - gl_rgn_nm
+  - gl_div_nm
+  - ops_ln_of_bus_nm
+  - icc_cst_ctr_cd
+metrics:
+- name: ttl_rev_amt
+  column: ttl_rev_amt
+  display_name: Total Revenue
+  brief_category: Revenue / yield
+  brief_label: Total Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Total revenue amount
+- name: lh_rev_amt
+  column: lh_rev_amt
+  display_name: Line Haul Revenue
+  brief_category: Revenue / yield
+  brief_label: LH Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Line haul revenue amount
+- name: fuel_srchrg_rev_amt
+  column: fuel_srchrg_rev_amt
+  display_name: Fuel Surcharge Revenue
+  brief_category: Revenue / yield
+  brief_label: Fuel Surcharge
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Fuel surcharge revenue amount
+- name: acsrl_rev_amt
+  column: acsrl_rev_amt
+  display_name: Accessorial Revenue
+  brief_category: Revenue / yield
+  brief_label: Accessorial Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Accessorial revenue amount
+- name: ordr_cnt
+  column: ordr_cnt
+  display_name: Order Count
+  brief_category: Volume
+  brief_label: Orders
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total number of orders
+- name: ordr_miles
+  column: ordr_miles
+  display_name: Order Miles
+  brief_category: Productivity
+  brief_label: Order Miles
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total miles for orders (used for Avg LOH)
+- name: ttl_trf_mi
+  column: ttl_trf_mi
+  display_name: Total Traffic Miles
+  brief_category: Productivity
+  brief_label: Total Miles
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total traffic miles
+- name: ld_trf_mi
+  column: ld_trf_mi
+  display_name: Loaded Traffic Miles
+  brief_category: Productivity
+  brief_label: Loaded Miles
+  type: additive
+  format: float
+  optimization: maximize
+  description: Loaded traffic miles
+- name: ld_mi_less_swift_billto
+  column: ld_mi_less_swift_billto
+  display_name: Loaded Miles (excl. Swift bill-to)
+  brief_category: Productivity
+  brief_label: Loaded Mi (Swift adj.)
+  type: additive
+  format: float
+  optimization: maximize
+  description: Loaded miles excluding Swift bill-to (matches Tableau Linehaul scorecard loaded miles)
+- name: dh_miles
+  column: dh_miles
+  display_name: Deadhead Miles
+  brief_category: Network efficiency
+  brief_label: Deadhead
+  type: additive
+  format: float
+  optimization: minimize
+  description: Deadhead (empty) miles
+- name: truck_count
+  column: truck_count
+  display_name: Raw Truck Count
+  brief_category: Capacity
+  brief_label: Raw Trucks
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total number of trucks (raw sum)
+- name: exprncd_drvr_cnt
+  column: exprncd_drvr_cnt
+  display_name: Experienced Driver Count
+  brief_category: Capacity
+  brief_label: Experienced Drivers
+  type: additive
+  format: float
+  optimization: maximize
+  description: Number of experienced drivers
+- name: ttl_fuel_qty
+  column: ttl_fuel_qty
+  display_name: Total Fuel Quantity
+  brief_category: Network efficiency
+  brief_label: Fuel Consumed
+  type: additive
+  format: float
+  optimization: minimize
+  description: Total fuel quantity purchased
+- name: idle_fuel_qty
+  column: idle_fuel_qty
+  display_name: Idle Fuel Quantity
+  brief_category: Network efficiency
+  brief_label: Idle Fuel
+  type: additive
+  format: float
+  optimization: minimize
+  description: Fuel quantity used while idling
+- name: ttl_engn_tm
+  column: drvr_engn_tm
+  display_name: Total Engine Time
+  brief_category: Capacity
+  brief_label: Engine Hours
+  type: additive
+  format: float
+  optimization: neutral
+  description: Total engine time in minutes
+- name: idle_engn_tm
+  column: idle_engn_tm
+  display_name: Idle Engine Time
+  brief_category: Network efficiency
+  brief_label: Idle Time
+  type: additive
+  format: float
+  optimization: minimize
+  description: Idle engine time in minutes
+derived_kpis:
+- name: ttl_rev_xf_sr_amt
+  display_name: Total Revenue xFSR
+  brief_label: Total Revenue xFSR
+  brief_category: Revenue / yield
+  numerator: ttl_rev_amt
+  subtract: fuel_srchrg_rev_amt
+  format: currency
+  description: Total revenue minus fuel surcharge revenue
+- name: truck_count_avg
+  display_name: Truck Count
+  brief_label: Trucks
+  brief_category: Capacity
+  numerator: truck_count
+  divide_by: 7
+  format: float
+  description: Average daily truck count
+- name: rev_trk_day
+  display_name: Rev/Trk/Day
+  brief_label: Rev/Trk/Day
+  brief_category: Productivity
+  numerator: ttl_rev_xf_sr_amt
+  denominator: truck_count
+  multiply: 1.4
+  format: currency
+  description: Revenue per truck per business day ((Rev / 5) / (Trk / 7) = Rev / Trk * 1.4)
+- name: total_miles_rpt
+  display_name: Total Miles
+  brief_label: Total Miles
+  brief_category: Productivity
+  numerator: ld_mi_less_swift_billto
+  add: dh_miles
+  format: float
+  description: Total miles per Tableau (ld_mi_less_swift_billto + dh_miles)
+- name: miles_trk_wk
+  display_name: Miles/Trk/Wk
+  brief_label: Miles/Trk/Wk
+  brief_category: Productivity
+  numerator: total_miles_rpt
+  denominator: truck_count
+  multiply: 7
+  format: float
+  description: Miles per truck per week
+- name: trpm
+  display_name: TRPM
+  brief_label: TRPM
+  brief_category: Revenue / yield
+  numerator: ttl_rev_xf_sr_amt
+  denominator: total_miles_rpt
+  format: currency
+  description: Total revenue (xFSR) per total traffic mile
+- name: lrpm
+  display_name: LRPM
+  brief_label: LRPM
+  brief_category: Revenue / yield
+  numerator: ttl_rev_xf_sr_amt
+  denominator: ld_mi_less_swift_billto
+  format: currency
+  description: Revenue xFSR per loaded mile (Tableau uses ld_mi_less_swift_billto)
+- name: avg_loh
+  display_name: Avg LOH
+  brief_label: Avg LOH
+  brief_category: Productivity
+  numerator: ordr_miles
+  denominator: ordr_cnt
+  format: float
+  description: Average length of haul (using Order Miles)
+- name: deadhead_pct
+  display_name: Deadhead %
+  brief_label: Deadhead %
+  brief_category: Network efficiency
+  numerator: dh_miles
+  denominator: total_miles_rpt
+  multiply: 100
+  format: percentage
+  description: Deadhead miles as percentage of total traffic miles
+dimensions:
+- name: gl_rgn_nm
+  column: gl_rgn_nm
+  display_name: Region
+  role: primary
+  description: General ledger region name
+- name: gl_div_nm
+  column: gl_div_nm
+  display_name: Terminal
+  role: primary
+  description: General ledger division name
+- name: ops_ln_of_bus_ref_nm
+  column: ops_ln_of_bus_ref_nm
+  display_name: LOB
+  role: primary
+  description: Operations line of business reference name
+- name: ops_ln_of_bus_nm
+  column: ops_ln_of_bus_nm
+  display_name: Operations Line of Business
+  role: secondary
+  description: Operations line of business name
+- name: icc_cst_ctr_cd
+  column: icc_cst_ctr_cd
+  display_name: Cost Center Code
+  role: secondary
+  description: ICC cost center code
+- name: icc_cst_ctr_nm
+  column: icc_cst_ctr_nm
+  display_name: ICC Cost Center Name
+  role: secondary
+  description: ICC cost center name
+- name: flt_mgr_cd
+  column: flt_mgr_cd
+  display_name: Fleet Manager
+  brief_category: Leadership
+  brief_label: Fleet Manager
+  role: primary
+  description: Fleet manager code - driver leader responsible for a group of drivers
+- name: drvr_mgr_cd
+  column: drvr_mgr_cd
+  display_name: Driver Manager
+  brief_category: Leadership
+  brief_label: Driver Manager
+  role: primary
+  description: Driver manager code - driver leader responsible for a group of drivers
+- name: ownr_oprtr_flg
+  column: ownr_oprtr_flg
+  display_name: Owner Operator Flag
+  role: secondary
+  description: Owner operator flag (Y/N)
+- name: drvr_2_flg
+  column: drvr_2_flg
+  display_name: Driver 2 Flag
+  role: secondary
+  description: Driver 2 flag (Y/N)
+- name: top_gun_stdnt_flg
+  column: top_gun_stdnt_flg
+  display_name: Top Gun Student Flag
+  role: secondary
+  description: Top Gun student flag (Y/N)
+hierarchies:
+- name: geographic
+  display_name: Geographic Hierarchy
+  levels:
+  - gl_rgn_nm
+  - gl_div_nm
+  - drvr_mgr_cd
+  description: geographic
+- name: business_line
+  display_name: Business Line Hierarchy
+  levels:
+  - ops_ln_of_bus_ref_nm
+  - ops_ln_of_bus_nm
+  - icc_cst_ctr_nm
+  description: business_line

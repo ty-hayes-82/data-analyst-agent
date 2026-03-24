@@ -70,9 +70,9 @@ agents:
     tier: "lite"
     description: "Extracts dimension values — schema-constrained slot-filling"
 
-  # --- Narrative: advanced — CONFIRMED (Phase 3+, 14.5s/4 cards vs fast 18s/2 cards) ---
+  # --- Narrative: optimized for latency (Phase 4 tuning) ---
   narrative_agent:
-    tier: "flash_2_5_thinking"
+    tier: "brief"
     description: "Evaluates insight cards, writes per-metric narrative with causal and statistical evidence"
 
   statistical_insights_agent:
@@ -104,6 +104,15 @@ agents:
   executive_brief_agent:
     tier: "brief"
     description: "Cross-metric synthesis executive brief — gemini-3-flash-preview (Tier 1 winner)"
+
+  # CEO hybrid brief: code rank -> Flash-Lite curate -> Pro synthesis (see EXECUTIVE_BRIEF_USE_HYBRID_PIPELINE)
+  executive_brief_hybrid_curator:
+    tier: "brief"
+    description: "CEO hybrid Pass 1 — curate top signals (Flash-Lite)"
+
+  executive_brief_hybrid_synthesis:
+    tier: "pro"
+    description: "CEO hybrid Pass 2 — Pro synthesis from curated signals"
 
   # --- Code-backed / file I/O agents: lite ---
   output_persistence_agent:

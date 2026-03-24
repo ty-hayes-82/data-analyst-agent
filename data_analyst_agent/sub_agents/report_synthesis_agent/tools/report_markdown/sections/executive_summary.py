@@ -17,6 +17,7 @@ def build_executive_summary_section(
     lag_meta: Optional[dict],
     unit: str,
     target_name: str,
+    metric_key: Optional[str] = None,
 ) -> List[str]:
     lines: List[str] = ["## Executive Summary", ""]
 
@@ -29,7 +30,7 @@ def build_executive_summary_section(
         lvl_data = level_analyses.get(f"level_{shallowest_level}", {})
         total_var = lvl_data.get("total_variance_dollar", 0)
         if total_var:
-            lines.append(f"- **Total Variance:** {format_variance(total_var, unit, target_name)}")
+            lines.append(f"- **Total Variance:** {format_variance(total_var, unit, metric_key)}")
 
     if lag_meta:
         lag_periods = lag_meta.get("lag_periods", 0)

@@ -8,13 +8,20 @@
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# WITHOUT WARRANTIES OR ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
 """Statistical Insights Agent exports."""
 
-from .agent import root_agent
+from typing import Any
 
 __all__ = ["root_agent"]
 
+
+def __getattr__(name: str) -> Any:
+    if name == "root_agent":
+        from .agent import root_agent as _root_agent
+
+        return _root_agent
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -17,7 +17,16 @@ Score Alerts tool for alert_scoring_coordinator_agent.
 """
 
 import json
+import math
 from typing import Any
+
+
+def _finite_float(x: Any, default: float = 0.0) -> float:
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return default
+    return v if math.isfinite(v) else default
 
 
 def _calculate_impact_score(variance_amount: float, variance_pct: float,
@@ -122,9 +131,13 @@ async def score_alerts(data: str) -> str:
                 continue
             
             alert_id = alert["id"]
-            variance_amount = abs(float(alert["variance_amount"]))
-            variance_pct = abs(float(alert.get("variance_pct", 0)))
-            revenue = float(alert.get("revenue")) if alert.get("revenue") is not None else None
+            variance_amount = abs(_finite_float(alert["variance_amount"]))
+            variance_pct = abs(_finite_float(alert.get("variance_pct", 0)))
+            revenue = (
+                _finite_float(alert.get("revenue"))
+                if alert.get("revenue") is not None
+                else None
+            )
             
             # Detection signals (which methods flagged this)
             signals = alert.get("signals", {})
@@ -134,8 +147,8 @@ async def score_alerts(data: str) -> str:
             
             # Calculate component scores
             period = alert.get("period")
-            item_total = float(alert.get("item_total", 0))
-            grand_total = float(alert.get("grand_total", 0))
+            item_total = _finite_float(alert.get("item_total", 0))
+            grand_total = _finite_float(alert.get("grand_total", 0))
             impact = _calculate_impact_score(
                 variance_amount, variance_pct, revenue, period,
                 item_total=item_total, grand_total=grand_total

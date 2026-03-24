@@ -112,7 +112,9 @@ def _resolve_target_metric(df: pd.DataFrame, ctx) -> str | None:
             current_metric_name = ctx.target_metric.name
         else:
             try:
-                from ..ratio_metrics_config import get_ratio_config_for_metric as _get_rc
+                from data_analyst_agent.semantic.ratio_metrics_config import (
+                    get_ratio_config_for_metric as _get_rc,
+                )
 
                 for m in u_metrics:
                     if _get_rc(ctx.contract, m):
@@ -129,7 +131,9 @@ def _apply_materiality_filter(df, pivot, ctx, metric_name, grain_col, time_col):
     if not (ctx and ctx.contract and metric_name and "metric" in df.columns):
         return
     try:
-        from ..ratio_metrics_config import get_ratio_config_for_metric as _get_rc
+        from data_analyst_agent.semantic.ratio_metrics_config import (
+            get_ratio_config_for_metric as _get_rc,
+        )
         from .....tools.validation_data_loader import load_validation_data
 
         ratio_cfg = _get_rc(ctx.contract, metric_name)

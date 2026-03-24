@@ -17,12 +17,150 @@ Extract Alerts From Analysis tool for alert_scoring_coordinator_agent.
 """
 
 import json
+import math
 import os
 from collections.abc import Mapping
 from typing import Any
 
 
 _VOLATILITY_ALERT_THRESHOLD = 0.5
+
+
+def _safe_float(x: Any, default: float = 0.0) -> float:
+    """Coerce to float; replace NaN and non-finite values with default."""
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(v):
+        return default
+    return v
+
+
+def _safe_round(x: Any, ndigits: int, default: float = 0.0) -> float:
+    return round(_safe_float(x, default), ndigits)
+
+
+def _analysis_target_is_ratio_like(analysis_target: str) -> bool:
+    at = (analysis_target or "").lower()
+    return any(
+        x in at
+        for x in (
+            "pct",
+            "lrpm",
+            "trpm",
+            "rate",
+            "ratio",
+            "avg_loh",
+            "mph",
+            "_per_",
+            "deadhead",
+        )
+    )
+
+
+def _parse_skip_item_names(raw: str | None) -> set[str]:
+    if not raw:
+        return set()
+    return {
+        token.strip().lower()
+        for token in str(raw).split(",")
+        if token and token.strip()
+    }
+
+
+def _collect_low_activity_values(contract_dict: Mapping[str, Any]) -> set[str]:
+    """Collect contract-configured low-activity labels for alert suppression."""
+    if not isinstance(contract_dict, Mapping):
+        return set()
+    configured = contract_dict.get("low_activity_dimension_values")
+    if not isinstance(configured, list):
+        return set()
+    values: set[str] = set()
+    for item in configured:
+        text = str(item).strip().lower()
+        if text:
+            values.add(text)
+    return values
+
+
+def _build_item_share_map(stats_data: Mapping[str, Any]) -> dict[str, float]:
+    """Build per-item business share map (lower-cased item_name -> share_of_total)."""
+    share_map: dict[str, float] = {}
+    enhanced = stats_data.get("enhanced_top_drivers", [])
+    if isinstance(enhanced, list):
+        for row in enhanced:
+            if not isinstance(row, Mapping):
+                continue
+            key = str(row.get("item_name") or row.get("item") or "").strip().lower()
+            if not key:
+                continue
+            share_val = _safe_float(row.get("share_of_total"), default=-1.0)
+            if share_val >= 0:
+                share_map[key] = share_val
+    if share_map:
+        return share_map
+
+    # Fallback for payloads without enhanced_top_drivers.
+    top_drivers = stats_data.get("top_drivers", [])
+    if not isinstance(top_drivers, list):
+        return share_map
+    totals: dict[str, float] = {}
+    total_abs_avg = 0.0
+    for row in top_drivers:
+        if not isinstance(row, Mapping):
+            continue
+        key = str(row.get("item_name") or row.get("item") or "").strip().lower()
+        if not key:
+            continue
+        avg_val = abs(_safe_float(row.get("avg"), default=0.0))
+        if avg_val <= 0:
+            continue
+        totals[key] = avg_val
+        total_abs_avg += avg_val
+    if total_abs_avg <= 0:
+        return share_map
+    for key, value in totals.items():
+        share_map[key] = value / total_abs_avg
+    return share_map
+
+
+def _skip_anomaly_for_materiality(
+    variance_amount: float,
+    variance_pct: float,
+    item_name: str,
+    item_avgs: dict[str, float],
+    grand_total: float,
+    analysis_target: str,
+    skip_item_names: set[str] | None = None,
+    item_share_of_total: float | None = None,
+) -> bool:
+    """Drop negligible share-of-total or tiny absolute-variance rows (e.g. vestigial dimensions)."""
+    share_max = _safe_float(os.environ.get("ALERT_MATERIALITY_SHARE_MAX", "0.001"))
+    min_var = _safe_float(os.environ.get("ALERT_MATERIALITY_MIN_VARIANCE_ABS", "0"))
+    ratio_like = _analysis_target_is_ratio_like(analysis_target)
+    item_name_norm = str(item_name or "").strip().lower()
+    blocked = skip_item_names or set()
+    if item_name_norm and item_name_norm in blocked:
+        return True
+    gt = _safe_float(grand_total)
+    if item_share_of_total is not None and share_max > 0 and item_share_of_total < share_max:
+        return True
+    if gt > 0 and share_max > 0:
+        it = _safe_float(item_avgs.get(item_name, 0))
+        if it > 0 and (it / gt) < share_max:
+            return True
+    if not ratio_like and min_var > 0 and _safe_float(variance_amount) < min_var:
+        return True
+    # Ratio metrics can show huge % deltas on operationally tiny absolute changes.
+    if ratio_like:
+        extreme_pct_min = _safe_float(os.environ.get("ALERT_SKIP_RATIO_EXTREME_PCT_MIN", "200"))
+        tiny_abs_max = _safe_float(os.environ.get("ALERT_SKIP_RATIO_ABS_VARIANCE_MAX", "0"))
+        abs_pct = abs(_safe_float(variance_pct))
+        abs_var = abs(_safe_float(variance_amount))
+        if extreme_pct_min > 0 and tiny_abs_max > 0 and abs_pct >= extreme_pct_min and abs_var <= tiny_abs_max:
+            return True
+    return False
 
 
 def _coerce_contract_dict(contract: Any) -> dict:
@@ -112,6 +250,8 @@ async def extract_alerts_from_analysis(
         contract_dict = _coerce_contract_dict(contract)
         dimension_label = _primary_dimension_label(contract_dict)
         target_display = _target_display_name(contract_dict, target_name)
+        skip_item_names = _parse_skip_item_names(os.environ.get("ALERT_SKIP_ITEM_NAMES"))
+        skip_item_names.update(_collect_low_activity_values(contract_dict))
 
         print(f"[extract_alerts_from_analysis] Starting extraction for {target_name}...", flush=True)
         alerts = []
@@ -130,27 +270,29 @@ async def extract_alerts_from_analysis(
         _grand_total = 0.0
         if isinstance(_summary_stats, dict) and _summary_stats.get('grand_total'):
             try:
-                _grand_total = abs(float(_summary_stats['grand_total']))
+                _grand_total = _safe_float(abs(float(_summary_stats['grand_total'])))
             except (ValueError, TypeError):
                 pass
         if not _grand_total:
             _monthly = stats_data.get('monthly_totals', {})
             if isinstance(_monthly, dict):
-                _vals = [abs(v) for v in _monthly.values() if isinstance(v, (int, float))]
+                _vals = [_safe_float(abs(v)) for v in _monthly.values() if isinstance(v, (int, float))]
                 # Use average of period totals (not sum) so ratio metrics aren't inflated
                 _grand_total = sum(_vals) / len(_vals) if _vals else 0.0
             elif isinstance(_monthly, list):
                 for t in _monthly:
                     if isinstance(t, dict):
-                        _grand_total += abs(t.get('total', 0))
+                        _grand_total += _safe_float(abs(t.get('total', 0)))
                     elif isinstance(t, (int, float)):
-                        _grand_total += abs(t)
+                        _grand_total += _safe_float(abs(t))
 
         # Build a lookup of item averages for materiality weighting
         _item_avgs: dict[str, float] = {}
         for _d in stats_data.get('top_drivers', []):
             _key = _d.get('item_name', _d.get('item', ''))
-            _item_avgs[_key] = abs(_d.get('avg', 0)) * _d.get('count', 1)
+            _raw_item = abs(_safe_float(_d.get('avg', 0))) * _safe_float(_d.get('count', 1), default=1.0)
+            _item_avgs[_key] = _safe_float(_raw_item)
+        _item_share_of_total = _build_item_share_map(stats_data)
 
         print(f"[extract_alerts_from_analysis] Processing anomalies...", flush=True)
         anomalies = stats_data.get('anomalies', [])
@@ -160,13 +302,28 @@ async def extract_alerts_from_analysis(
             period = anomaly.get('period', 'unknown')
             item_id = anomaly.get('item', 'unknown')
             item_name = anomaly.get('item_name', item_id)
-            value = anomaly.get('value', 0)
-            z_score = abs(anomaly.get('z_score', 0))
-            avg = anomaly.get('avg', 0)
-            std = anomaly.get('std', 0)
+            value = _safe_float(anomaly.get('value', 0))
+            z_score_raw = _safe_float(anomaly.get('z_score', 0))
+            z_score = abs(z_score_raw)
+            avg = _safe_float(anomaly.get('avg', 0))
+            std = _safe_float(anomaly.get('std', 0))
             
             variance_amount = abs(value - avg)
             variance_pct = abs((variance_amount / avg * 100)) if avg != 0 else 0
+            variance_amount = _safe_float(variance_amount)
+            variance_pct = _safe_float(variance_pct)
+
+            if _skip_anomaly_for_materiality(
+                variance_amount,
+                variance_pct,
+                str(item_name),
+                _item_avgs,
+                _grand_total,
+                target_name,
+                skip_item_names=skip_item_names,
+                item_share_of_total=_item_share_of_total.get(str(item_name).strip().lower()),
+            ):
+                continue
             
             alert = {
                 "id": f"{period}-{item_id}-anomaly",
@@ -175,11 +332,11 @@ async def extract_alerts_from_analysis(
                 "item_name": item_name,
                 "dimension_value": _format_dimension_value(item_name, target_display, dimension_label),
                 "category": "statistical_anomaly",
-                "variance_amount": round(variance_amount, 2),
-                "variance_pct": round(variance_pct, 2),
-                "item_total": round(_item_avgs.get(item_name, 0), 2),
-                "grand_total": round(_grand_total, 2),
-                "cv": abs(std / avg) if avg != 0 else 0,
+                "variance_amount": _safe_round(variance_amount, 2),
+                "variance_pct": _safe_round(variance_pct, 2),
+                "item_total": _safe_round(_item_avgs.get(item_name, 0), 2),
+                "grand_total": _safe_round(_grand_total, 2),
+                "cv": _safe_float(abs(std / avg) if avg != 0 else 0),
                 "history_count": stats_data.get('summary_stats', {}).get('total_periods', 0) if isinstance(stats_data.get('summary_stats'), dict) else 0,
                 "signals": {
                     "mad_outlier": z_score >= 2.0,
@@ -194,7 +351,7 @@ async def extract_alerts_from_analysis(
                 "revenue": None,
                 "details": {
                     "description": f"Statistical anomaly in {item_name} for {period}",
-                    "z_score": round(z_score, 2),
+                    "z_score": _safe_round(z_score, 2),
                     "trend": "increasing" if value > avg else "decreasing",
                     "amount": value,
                     "baseline": avg,
@@ -209,7 +366,21 @@ async def extract_alerts_from_analysis(
         for driver in most_volatile[:5]:  # Top 5 most volatile
             item_id = driver.get('item', 'unknown')
             item_name = driver.get('item_name', item_id)
-            cv = driver.get('cv', 0)
+            cv = _safe_float(driver.get('cv', 0))
+            avg_val = _safe_float(driver.get('avg', 0))
+            # Apply the same suppression policy used for anomaly rows so
+            # vestigial dimensions (e.g. Corporate) do not leak via volatility.
+            if _skip_anomaly_for_materiality(
+                variance_amount=abs(avg_val),
+                variance_pct=0.0,
+                item_name=str(item_name),
+                item_avgs=_item_avgs,
+                grand_total=_grand_total,
+                analysis_target=target_name,
+                skip_item_names=skip_item_names,
+                item_share_of_total=_item_share_of_total.get(str(item_name).strip().lower()),
+            ):
+                continue
             
             if cv >= _VOLATILITY_ALERT_THRESHOLD:
                 alert = {
@@ -221,9 +392,9 @@ async def extract_alerts_from_analysis(
                     "category": "volatility",
                     "variance_amount": 0,
                     "variance_pct": 0,
-                    "item_total": round(_item_avgs.get(item_name, 0), 2),
-                    "grand_total": round(_grand_total, 2),
-                    "cv": round(cv, 4),
+                    "item_total": _safe_round(_item_avgs.get(item_name, 0), 2),
+                    "grand_total": _safe_round(_grand_total, 2),
+                    "cv": _safe_round(cv, 4),
                     "history_count": stats_data.get('summary_stats', {}).get('total_periods', 0) if isinstance(stats_data.get('summary_stats'), dict) else 0,
                     "signals": {
                         "mad_outlier": False,
@@ -238,9 +409,9 @@ async def extract_alerts_from_analysis(
                     "revenue": None,
                     "details": {
                         "description": f"High volatility detected in {item_name}",
-                        "cv": round(cv, 4),
-                        "avg": driver.get('avg', 0),
-                        "std": driver.get('std', 0)
+                        "cv": _safe_round(cv, 4),
+                        "avg": _safe_float(driver.get('avg', 0)),
+                        "std": _safe_float(driver.get('std', 0))
                     }
                 }
                 alerts.append(alert)
@@ -257,9 +428,20 @@ async def extract_alerts_from_analysis(
             period = cp.get('period', 'unknown')
             item_id = cp.get('item', 'unknown')
             item_name = cp.get('item_name', item_id)
-            mag_dollar = cp.get('magnitude_dollar', 0)
-            mag_pct = cp.get('magnitude_pct', 0)
-            conf = cp.get('confidence_score', 0)
+            mag_dollar = _safe_float(cp.get('magnitude_dollar', 0))
+            mag_pct = _safe_float(cp.get('magnitude_pct', 0))
+            conf = _safe_float(cp.get('confidence_score', 0))
+            if _skip_anomaly_for_materiality(
+                variance_amount=abs(mag_dollar),
+                variance_pct=abs(mag_pct),
+                item_name=str(item_name),
+                item_avgs=_item_avgs,
+                grand_total=_grand_total,
+                analysis_target=target_name,
+                skip_item_names=skip_item_names,
+                item_share_of_total=_item_share_of_total.get(str(item_name).strip().lower()),
+            ):
+                continue
             
             alert = {
                 "id": f"{period}-{item_id}-changepoint",
@@ -268,10 +450,10 @@ async def extract_alerts_from_analysis(
                 "item_name": item_name,
                 "dimension_value": _format_dimension_value(item_name, target_display, dimension_label),
                 "category": "structural_break",
-                "variance_amount": round(mag_dollar, 2),
-                "variance_pct": round(mag_pct, 2),
-                "item_total": round(_item_avgs.get(item_name, 0), 2),
-                "grand_total": round(_grand_total, 2),
+                "variance_amount": _safe_round(mag_dollar, 2),
+                "variance_pct": _safe_round(mag_pct, 2),
+                "item_total": _safe_round(_item_avgs.get(item_name, 0), 2),
+                "grand_total": _safe_round(_grand_total, 2),
                 "cv": 0,
                 "history_count": stats_data.get('summary_stats', {}).get('total_periods', 0) if isinstance(stats_data.get('summary_stats'), dict) else 0,
                 "signals": {
@@ -287,10 +469,10 @@ async def extract_alerts_from_analysis(
                 "revenue": None,
                 "details": {
                     "description": f"Structural shift detected in {item_name} starting {period}",
-                    "magnitude": round(mag_dollar, 2),
-                    "confidence": round(conf, 2),
-                    "before_mean": cp.get('before_mean', 0),
-                    "after_mean": cp.get('after_mean', 0)
+                    "magnitude": _safe_round(mag_dollar, 2),
+                    "confidence": _safe_round(conf, 2),
+                    "before_mean": _safe_float(cp.get('before_mean', 0)),
+                    "after_mean": _safe_float(cp.get('after_mean', 0))
                 }
             }
             alerts.append(alert)
@@ -304,7 +486,7 @@ async def extract_alerts_from_analysis(
                 if isinstance(synth_anoms, list) and synth_anoms:
                     for a in synth_anoms[:10]:
                         scenario_id = a.get("scenario_id", "unknown")
-                        deviation_pct = float(a.get("deviation_pct", 0) or 0)
+                        deviation_pct = _safe_float(a.get("deviation_pct", 0) or 0)
                         severity = (a.get("severity") or a.get("anomaly_severity") or "HIGH").upper()
                         alert = {
                             "id": f"{scenario_id}-fixture-anomaly",
@@ -314,12 +496,12 @@ async def extract_alerts_from_analysis(
                             "dimension_value": _format_dimension_value(scenario_id, target_display, dimension_label),
                             "category": "fixture_anomaly",
                             "variance_amount": None,
-                            "variance_pct": round(abs(deviation_pct), 2),
+                            "variance_pct": _safe_round(abs(deviation_pct), 2),
                             "severity": severity,
                             "signals": {"fixture_labeled": True},
                             "details": {
                                 "description": a.get("ground_truth_insight") or a.get("description") or "Fixture-labeled anomaly detected",
-                                "deviation_pct": deviation_pct,
+                                "deviation_pct": _safe_float(deviation_pct),
                             },
                         }
                         alerts.append(alert)
@@ -333,9 +515,9 @@ async def extract_alerts_from_analysis(
         for util_alert in util_degradation[:10]:
             metric = util_alert.get('metric', 'unknown')
             label = util_alert.get('label', metric)
-            current_val = util_alert.get('current', 0)
-            baseline_val = util_alert.get('baseline_3m', 0)
-            variance_pct = util_alert.get('variance_pct', 0)
+            current_val = _safe_float(util_alert.get('current', 0))
+            baseline_val = _safe_float(util_alert.get('baseline_3m', 0))
+            variance_pct = _safe_float(util_alert.get('variance_pct', 0))
             severity = util_alert.get('severity', 'MEDIUM')
             period = util_alert.get('period', 'unknown')
 
@@ -346,10 +528,10 @@ async def extract_alerts_from_analysis(
                 "item_name": label,
                 "dimension_value": target_display,
                 "category": "utilization_degradation",
-                "variance_amount": round(abs(current_val - baseline_val), 4),
-                "variance_pct": round(abs(variance_pct), 2),
-                "item_total": round(_item_avgs.get(label, 0), 2),
-                "grand_total": round(_grand_total, 2),
+                "variance_amount": _safe_round(abs(current_val - baseline_val), 4),
+                "variance_pct": _safe_round(abs(variance_pct), 2),
+                "item_total": _safe_round(_item_avgs.get(label, 0), 2),
+                "grand_total": _safe_round(_grand_total, 2),
                 "cv": 0,
                 "history_count": stats_data.get('utilization_summary', {}).get('periods_analyzed', 0) if isinstance(stats_data.get('utilization_summary'), dict) else 0,
                 "signals": {
@@ -377,9 +559,12 @@ async def extract_alerts_from_analysis(
         for outlier in util_outliers[:5]:
             metric = outlier.get('metric', 'unknown')
             period = outlier.get('period', 'unknown')
-            z_score = outlier.get('z_score', 0)
-            value = outlier.get('value', 0)
-            mean_val = outlier.get('mean', 0)
+            z_score = abs(_safe_float(outlier.get('z_score', 0)))
+            value = _safe_float(outlier.get('value', 0))
+            mean_val = _safe_float(outlier.get('mean', 0))
+            _var_amt = _safe_float(abs(value - mean_val))
+            _var_pct = abs((value - mean_val) / mean_val * 100) if mean_val != 0 else 0.0
+            _var_pct = _safe_float(_var_pct)
 
             _outlier_label = f"Utilization Outlier: {metric}"
             alert = {
@@ -389,10 +574,10 @@ async def extract_alerts_from_analysis(
                 "item_name": _outlier_label,
                 "dimension_value": target_display,
                 "category": "utilization_outlier",
-                "variance_amount": round(abs(value - mean_val), 4),
-                "variance_pct": round(abs((value - mean_val) / mean_val * 100), 2) if mean_val != 0 else 0,
-                "item_total": round(_item_avgs.get(metric, 0), 2),
-                "grand_total": round(_grand_total, 2),
+                "variance_amount": _safe_round(_var_amt, 4),
+                "variance_pct": _safe_round(_var_pct, 2),
+                "item_total": _safe_round(_item_avgs.get(metric, 0), 2),
+                "grand_total": _safe_round(_grand_total, 2),
                 "cv": 0,
                 "history_count": 0,
                 "signals": {
@@ -408,7 +593,7 @@ async def extract_alerts_from_analysis(
                 "revenue": None,
                 "details": {
                     "description": f"Utilization outlier in {metric} for {period}",
-                    "z_score": round(z_score, 2),
+                    "z_score": _safe_round(z_score, 2),
                     "value": value,
                     "mean": mean_val,
                     "metric_type": "utilization",

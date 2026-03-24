@@ -1,0 +1,77 @@
+source:
+  type: tableau_hyper
+  format: long
+
+hyper:
+  tdsx_file: "Order - Dispatch - Revenue DS.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+  extract_dir: "temp_extracted/order_dispatch_revenue_ds"
+
+filter_columns:
+  ordr_dt: "ordr_dt"
+  disp_dt: "disp_dt"
+  orig_ops_region: "orig_ops_region"
+  dest_ops_region: "dest_ops_region"
+  shpr_nm: "shpr_nm"
+  billto_nm: "billto_nm"
+
+aggregation:
+  period_type: day
+  date_column: "ordr_dt"
+  period_alias: "ordr_dt"
+  group_by_columns:
+    - "ordr_nbr"
+    - "disp_nbr"
+    - "logistics_order_id"
+    - "shpr_nm"
+    - "billto_nm"
+    - "cnsgne_nm"
+    - "orig_cty_nm"
+    - "orig_st_cd"
+    - "dest_cty_nm"
+    - "dest_st_cd"
+    - "orig_ops_region"
+    - "dest_ops_region"
+    - "ownr_oprtr_flg"
+    - "non_rev_flg"
+    - "swift_billto_flg"
+  sum_columns:
+    - "lh_amt"
+    - "fuel_srchrg_amt"
+    - "acsrl_amt"
+    - "ttl_amt"
+    - "loaded_miles"
+    - "empty_miles"
+    - "ttl_trf_mi"
+
+date_parsing:
+  source_column: "ordr_dt"
+  input_format: "%Y-%m-%d %H:%M:%S"
+  output_column: "ordr_dt"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "ordr_dt"
+  - "ordr_nbr"
+  - "disp_nbr"
+  - "logistics_order_id"
+  - "shpr_nm"
+  - "billto_nm"
+  - "cnsgne_nm"
+  - "orig_cty_nm"
+  - "orig_st_cd"
+  - "dest_cty_nm"
+  - "dest_st_cd"
+  - "orig_ops_region"
+  - "dest_ops_region"
+  - "ownr_oprtr_flg"
+  - "non_rev_flg"
+  - "swift_billto_flg"
+  - "lh_amt"
+  - "fuel_srchrg_amt"
+  - "acsrl_amt"
+  - "ttl_amt"
+  - "loaded_miles"
+  - "empty_miles"
+  - "ttl_trf_mi"

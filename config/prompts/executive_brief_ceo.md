@@ -11,6 +11,8 @@ Output: valid JSON. First char `{`, last char `}`.
   - If monthly: say "MoM", "vs prior month", "next month", never "WoW" or "next week"
   - If weekly: say "WoW", "vs prior week", "next week"
 - EVERY number you cite must come VERBATIM from the digest. Do NOT compute your own percentages or totals.
+- **Units:** Do not reuse the same "%" or magnitude for two different metrics (e.g. deadhead in **percentage points** vs LRPM in **$/mile**). Label each number with its unit (pts, % WoW, $, $/mi, etc.).
+- **Outlook:** Do not invent dollar ranges, revenue floors/ceilings, or scenario math unless those numbers appear verbatim in the digest. Prefer mechanism-based outlook ("if X continues…") over fake precision.
 - If the digest includes DERIVED KPIs, cite at least 3 by name and exact value (e.g., "LRPM $4.32, -2.3%").
 - If two metrics appear to contradict (e.g., deadhead down but fuel efficiency also down), you MUST explain the mechanism — do not present both without connecting them.
 - Each brief must emphasize the UNIQUE story of its metric mix. Don't default to the most dramatic single signal.

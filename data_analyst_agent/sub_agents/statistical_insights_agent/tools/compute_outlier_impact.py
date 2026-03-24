@@ -111,7 +111,7 @@ async def compute_outlier_impact(
         denominator_metric_name = None
         if ctx and ctx.contract:
             try:
-                from .ratio_metrics_config import get_ratio_config_for_metric
+                from data_analyst_agent.semantic.ratio_metrics_config import get_ratio_config_for_metric
                 current_metric_name = None
                 if "metric" in df.columns:
                     u_metrics = [str(m).strip() for m in df["metric"].unique() if m]

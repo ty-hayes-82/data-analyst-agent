@@ -7,7 +7,11 @@ from typing import Optional
 
 import pandas as pd
 
-from data_analyst_agent.sub_agents.data_cache import resolve_data_and_columns
+from data_analyst_agent.sub_agents.data_cache import (
+    refresh_analysis_context_temporal_grain,
+    resolve_data_and_columns,
+)
+from data_analyst_agent.utils.temporal_grain import normalize_temporal_grain
 from .hierarchy import resolve_level_metadata
 from .materiality import get_materiality_thresholds
 from .periods import (
@@ -92,6 +96,18 @@ async def compute_level_statistics_impl(
             if pd.notna(median_gap) and median_gap.days <= 8:
                 variance_type = "wow"
                 print(f"[LevelStats] Auto-switched to WoW comparison for {grain} grain (median gap: {median_gap.days}d)")
+                gap_days = int(median_gap.days)
+                if normalize_temporal_grain(grain) == "daily" and 5 <= gap_days <= 8:
+                    prior_conf = float(getattr(ctx, "temporal_grain_confidence", 1.0) or 1.0)
+                    ctx = refresh_analysis_context_temporal_grain(
+                        ctx,
+                        "weekly",
+                        temporal_grain_confidence=min(prior_conf, 0.95),
+                    )
+                    print(
+                        f"[LevelStats] Corrected temporal_grain to weekly "
+                        f"(contract implied daily; median period gap {gap_days}d)"
+                    )
 
     full_year_payload = None
     if variance_type.lower() == "yoy":
@@ -115,7 +131,7 @@ async def compute_level_statistics_impl(
 
     df[time_col] = df[time_col].astype(str)
 
-    ratio_config, current_agg, prior_agg, network_variance = compute_ratio_aggregations(
+    ratio_config, current_agg, prior_agg, network_variance, network_ratio_totals = compute_ratio_aggregations(
         df,
         ctx,
         level_col,
@@ -142,11 +158,37 @@ async def compute_level_statistics_impl(
     merged["variance_pct"] = (merged["current"] - merged["prior"]) / prior_abs * 100
     merged["is_new_from_zero"] = (merged["prior"] == 0) & (merged["current"] != 0)
 
-    total_current = merged["current"].sum() or 1e-9
-    total_prior = merged["prior"].sum() or 1e-9
-    merged["share_current"] = merged["current"] / total_current
-    merged["share_prior"] = merged["prior"] / total_prior
+    # Ratio metrics (TRPM, LRPM, etc.): network total is aggregate-then-divide, not sum(child ratios).
+    if (
+        network_ratio_totals is not None
+        and isinstance(network_ratio_totals, (tuple, list))
+        and len(network_ratio_totals) == 2
+    ):
+        total_current = float(network_ratio_totals[0])
+        total_prior = float(network_ratio_totals[1])
+        abs_cur = merged["current"].abs().sum() or 1e-9
+        abs_pri = merged["prior"].abs().sum() or 1e-9
+        merged["share_current"] = merged["current"].abs() / abs_cur
+        merged["share_prior"] = merged["prior"].abs() / abs_pri
+    else:
+        total_current = merged["current"].sum() or 1e-9
+        total_prior = merged["prior"].sum() or 1e-9
+        merged["share_current"] = merged["current"] / total_current
+        merged["share_prior"] = merged["prior"] / total_prior
     merged["share_change"] = merged["share_current"] - merged["share_prior"]
+
+    prior_abs_sum = float(merged["prior"].abs().sum())
+    cur_abs_sum = float(merged["current"].abs().sum())
+    suppressed_phantom_prior = cur_abs_sum > 1e-12 and prior_abs_sum < 1e-12
+    if suppressed_phantom_prior:
+        merged["prior"] = merged["current"]
+        merged["variance_dollar"] = 0.0
+        merged["variance_pct"] = 0.0
+        merged["is_new_from_zero"] = False
+        total_prior = total_current
+        merged["share_prior"] = merged["share_current"]
+        merged["share_change"] = 0.0
+        network_variance = 0.0
 
     pct_threshold, dollar_threshold = get_materiality_thresholds(ctx)
     merged["exceeds_threshold"] = (
@@ -237,6 +279,10 @@ async def compute_level_statistics_impl(
 
     # Data quality: flag uniform -100% or +100% variance (likely data issue, not operational)
     dq_flags = []
+    if suppressed_phantom_prior:
+        dq_flags.append(
+            "NO_PRIOR_PERIOD_DATA: No prior-period observations; period-over-period deltas were suppressed."
+        )
     if not merged.empty and merged["variance_pct"].notna().any():
         pct_vals = merged["variance_pct"].dropna()
         if len(pct_vals) > 1 and (pct_vals == -100.0).all():

@@ -166,6 +166,40 @@ def set_analysis_context(context: Any, session_id: Optional[str] = None) -> None
     except Exception as e:
         print(f"[data_cache] WARNING: Failed to persist AnalysisContext: {e}")
 
+
+def refresh_analysis_context_temporal_grain(
+    context: Any,
+    temporal_grain: str,
+    temporal_grain_confidence: Optional[float] = None,
+    session_id: Optional[str] = None,
+) -> Any:
+    """Replace cached AnalysisContext with a copy that updates temporal grain (context is frozen)."""
+    if not context or not hasattr(context, "model_copy"):
+        return context
+    conf = (
+        temporal_grain_confidence
+        if temporal_grain_confidence is not None
+        else float(getattr(context, "temporal_grain_confidence", 0.0) or 0.0)
+    )
+    updated = context.model_copy(
+        update={
+            "temporal_grain": temporal_grain,
+            "temporal_grain_confidence": conf,
+        }
+    )
+    global _analysis_context_cache
+    resolved_sid = session_id
+    if not resolved_sid:
+        for sid, cached in list(_analysis_context_cache.items()):
+            if cached is context:
+                resolved_sid = sid
+                break
+    if not resolved_sid:
+        resolved_sid = current_session_id.get() or "default"
+    set_analysis_context(updated, session_id=resolved_sid)
+    return updated
+
+
 def get_analysis_context(session_id: Optional[str] = None) -> Any:
     """Retrieve AnalysisContext from memory cache or reconstruct from file."""
     global _analysis_context_cache
@@ -282,7 +316,13 @@ def resolve_data_and_columns(caller: str = "Tool") -> tuple:
 
     df = ctx.df  # Pass by reference for read-only tools
     time_col = ctx.contract.time.column if ctx.contract and ctx.contract.time else "period"
-    metric_col = ctx.target_metric.column if ctx.target_metric else "amount"
+    metric_col = None
+    if ctx.target_metric:
+        metric_col = ctx.target_metric.column or (
+            ctx.target_metric.name if ctx.target_metric.name in df.columns else None
+        )
+    if not metric_col:
+        metric_col = "amount"
     grain_cols = ctx.contract.grain.columns if ctx.contract and ctx.contract.grain else []
     
     # Filter out time_col from grain_cols for tool usage

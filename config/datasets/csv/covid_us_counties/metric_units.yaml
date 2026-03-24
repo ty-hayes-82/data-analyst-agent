@@ -1,6 +1,0 @@
-# Metric Units Configuration for COVID-19 US Counties Dataset
-# Maps each metric to its appropriate unit for display and interpretation
-
-metrics:
-  cases: "people"
-  deaths: "people"

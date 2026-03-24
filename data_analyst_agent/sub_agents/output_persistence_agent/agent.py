@@ -32,6 +32,7 @@ from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 
 from ..report_synthesis_agent.tools.generate_markdown_report import generate_markdown_report
+from ...utils import parse_bool_env
 from ...utils.stub_guard import contains_stub_content, stub_outputs_allowed
 
 
@@ -354,7 +355,8 @@ class OutputPersistenceAgent(BaseAgent):
                     data["gl_drilldowns"] = []
                 
                 # Generate and save Markdown report for analysis_target level
-                if self.level == "dimension_value":
+                skip_metric_md = parse_bool_env(os.environ.get("DATA_ANALYST_SKIP_METRIC_MARKDOWN", "true"))
+                if self.level == "dimension_value" and not skip_metric_md:
                     try:
                         markdown_content = await self._generate_metric_markdown(
                             session_state=session_state,
@@ -376,6 +378,11 @@ class OutputPersistenceAgent(BaseAgent):
                         print(f"[PERSIST] WARNING: Failed to generate Markdown report: {e}")
                         import traceback
                         traceback.print_exc()
+                elif self.level == "dimension_value" and skip_metric_md:
+                    print(
+                        "[PERSIST] DATA_ANALYST_SKIP_METRIC_MARKDOWN=true — skipping per-metric "
+                        f".md for {output_path.name} (JSON still written)"
+                    )
                 
                 with output_path.open("w", encoding="utf-8") as f:
                     json.dump(data, f, indent=2)

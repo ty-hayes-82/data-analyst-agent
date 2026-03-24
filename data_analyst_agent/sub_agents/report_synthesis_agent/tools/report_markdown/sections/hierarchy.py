@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from ..formatting import format_variance, is_skip_card
 from ..parsing import collect_insight_cards
@@ -23,6 +23,7 @@ def build_hierarchy_section(
     unit: str,
     target_name: str,
     condensed: bool,
+    metric_key: Optional[str] = None,
 ) -> List[str]:
     if condensed:
         return []
@@ -37,7 +38,7 @@ def build_hierarchy_section(
 
         lines.append(f"### Level {level}: {level_name}")
         if total_var:
-            lines.append(f"- **Total Variance:** {format_variance(total_var, unit, target_name)}")
+            lines.append(f"- **Total Variance:** {format_variance(total_var, unit, metric_key)}")
 
         cards = [c for c in collect_insight_cards(level_data) if not is_skip_card(c)]
         if cards:
@@ -51,7 +52,7 @@ def build_hierarchy_section(
                     line += f" — {what}"
                 lines.append(line)
         elif total_var:
-            lines.append(f"- Total: {format_variance(total_var, unit, target_name)}")
+            lines.append(f"- Total: {format_variance(total_var, unit, metric_key)}")
         lines.append("")
 
     return lines

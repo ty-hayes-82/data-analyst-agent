@@ -68,8 +68,24 @@ parser.add_argument("--interactive", action="store_true",
                      help="Interactive mode: guided terminal menus for all parameters")
 parser.add_argument("--exclude-partial-week", action="store_true",
                      help="Drop the most recent partial week from the loaded data")
+parser.add_argument(
+    "--write-metric-markdown",
+    action="store_true",
+    help=(
+        "Write metric_*.md for each metric (default is skip). "
+        "JSON is always written; executive brief uses JSON-backed digest when .md is absent."
+    ),
+)
 parser.add_argument("--period-type", default=None, choices=["week_end", "month_end", "day"],
                      help="Override aggregation period type (default: from loader.yaml)")
+parser.add_argument(
+    "--standard-brief",
+    action="store_true",
+    help=(
+        "Use standard executive brief (single digest LLM). Default is CEO hybrid: "
+        "code rank -> gemini-3.1-flash-lite curate -> gemini-3.1-pro synthesis."
+    ),
+)
 
 # Cache / brief-only mode
 parser.add_argument("--from-cache", default=None, metavar="PATH",
@@ -203,6 +219,12 @@ if args.start_date and args.end_date and not validate_date_range(args.start_date
 # ------------------------------------------------------------------
 os.environ["ACTIVE_DATASET"] = args.dataset
 
+# CEO hybrid brief by default (Pass1: 3.1 Flash-Lite, Pass2: 3.1 Pro). Override with .env or --standard-brief.
+if args.standard_brief:
+    os.environ["EXECUTIVE_BRIEF_STYLE"] = "default"
+else:
+    os.environ.setdefault("EXECUTIVE_BRIEF_STYLE", "ceo")
+
 ds_csv_datasets = {"validation_ops"}
 if args.dataset in ds_csv_datasets:
     os.environ["DATA_ANALYST_VALIDATION_CSV_MODE"] = "true"
@@ -221,6 +243,8 @@ if args.exclude_partial_week:
     os.environ["DATA_ANALYST_EXCLUDE_PARTIAL_WEEK"] = "true"
 if args.period_type:
     os.environ["DATA_ANALYST_PERIOD_TYPE"] = args.period_type
+if args.write_metric_markdown:
+    os.environ["DATA_ANALYST_SKIP_METRIC_MARKDOWN"] = "false"
 
 # Initialize OutputManager and set run-specific environment
 from data_analyst_agent.utils.output_manager import OutputManager
@@ -256,6 +280,14 @@ print(f"  Metrics   : {args.metrics}")
 print(f"  Dimension : {args.dimension or '(all)'}{'=' + args.dimension_value if args.dimension_value else ''}")
 print(f"  Dates     : {args.start_date or '(auto)'} to {args.end_date or '(auto)'}")
 print(f"  Output    : {os.environ.get('DATA_ANALYST_OUTPUT_DIR', '(default)')}")
+if args.write_metric_markdown:
+    print(f"  Metric MD : write enabled (metric_*.md + .json)")
+else:
+    print(f"  Metric MD : skipped by default (metric_*.json only; --write-metric-markdown for .md)")
+if args.standard_brief:
+    print(f"  Brief style: standard (digest + single LLM)")
+else:
+    print(f"  Brief style: CEO hybrid (Lite curate + Pro); use --standard-brief to disable")
 print(f"  Query     : {query[:80]}{'...' if len(query) > 80 else ''}")
 print(f"{'='*60}\n")
 

@@ -27,9 +27,7 @@ VALIDATION_CONTRACT_PATH = resolve_dataset_file("validation_ops")
 def test_ratio_config_resolution_rev_trk_wk():
     """get_ratio_config_for_metric returns numerator/denominator for Rev/Trk/Wk."""
     from data_analyst_agent.semantic.models import DatasetContract
-    from data_analyst_agent.sub_agents.statistical_insights_agent.tools.ratio_metrics_config import (
-        get_ratio_config_for_metric,
-    )
+    from data_analyst_agent.semantic.ratio_metrics_config import get_ratio_config_for_metric
 
     contract_path = VALIDATION_CONTRACT_PATH
     if not contract_path or not contract_path.exists():
@@ -46,9 +44,7 @@ def test_ratio_config_resolution_rev_trk_wk():
 def test_ratio_config_returns_none_for_additive_metric():
     """get_ratio_config_for_metric returns None for non-ratio metric."""
     from data_analyst_agent.semantic.models import DatasetContract
-    from data_analyst_agent.sub_agents.statistical_insights_agent.tools.ratio_metrics_config import (
-        get_ratio_config_for_metric,
-    )
+    from data_analyst_agent.semantic.ratio_metrics_config import get_ratio_config_for_metric
 
     contract_path = VALIDATION_CONTRACT_PATH
     if not contract_path or not contract_path.exists():
@@ -63,9 +59,7 @@ def test_ratio_config_returns_none_for_additive_metric():
 def test_ratio_config_lrpm():
     """LRPM is in ratio_metrics with Revenue xFuel / Loaded Miles."""
     from data_analyst_agent.semantic.models import DatasetContract
-    from data_analyst_agent.sub_agents.statistical_insights_agent.tools.ratio_metrics_config import (
-        get_ratio_config_for_metric,
-    )
+    from data_analyst_agent.semantic.ratio_metrics_config import get_ratio_config_for_metric
 
     contract_path = VALIDATION_CONTRACT_PATH
     if not contract_path or not contract_path.exists():

@@ -101,3 +101,81 @@ def render_ceo_brief_markdown(brief: dict[str, Any]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def render_flat_ceo_brief_markdown(
+    brief: dict[str, Any],
+    *,
+    heading: str = "CEO Brief",
+    analysis_period: str = "",
+    outlook_heading: str = "Next-week outlook",
+) -> str:
+    """Render CEO JSON from hybrid pass2_brief (flat schema: what_moved, trend_status, etc.)."""
+    lines: list[str] = []
+    lines.append(f"# {heading}")
+    if analysis_period:
+        lines.append(f"*{analysis_period}*")
+    lines.append("")
+
+    data = {k: v for k, v in brief.items() if not str(k).startswith("_")}
+
+    bottom = data.get("bottom_line", "")
+    if bottom:
+        lines.append(f"**Bottom line:** {bottom}")
+        lines.append("")
+
+    movers = data.get("what_moved") or []
+    if movers:
+        lines.append("## What moved the business")
+        lines.append("")
+        for m in movers:
+            if isinstance(m, dict):
+                label = m.get("label", "")
+                line = m.get("line", "")
+                lines.append(f"- **{label}:** {line}")
+            else:
+                lines.append(f"- {m}")
+        lines.append("")
+
+    trends = data.get("trend_status") or []
+    if trends:
+        lines.append("## Trend status")
+        lines.append("")
+        for t in trends:
+            lines.append(f"- {t}")
+        lines.append("")
+
+    where = data.get("where_it_came_from") or {}
+    if where and isinstance(where, dict):
+        lines.append("## Where it came from")
+        lines.append("")
+        pos = where.get("positive", "")
+        drag = where.get("drag", "")
+        watch = where.get("watch_item", "")
+        if pos:
+            lines.append(f"- **Positive:** {pos}")
+        if drag:
+            lines.append(f"- **Drag:** {drag}")
+        if watch:
+            lines.append(f"- **Watch item:** {watch}")
+        lines.append("")
+
+    why = data.get("why_it_matters", "")
+    if why:
+        lines.append(f"**Why it matters:** {why}")
+        lines.append("")
+
+    outlook = data.get("next_week_outlook", "")
+    if outlook:
+        lines.append(f"**{outlook_heading}:** {outlook}")
+        lines.append("")
+
+    actions = data.get("leadership_focus") or []
+    if actions:
+        lines.append("## Leadership focus")
+        lines.append("")
+        for a in actions:
+            lines.append(f"- {a}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"

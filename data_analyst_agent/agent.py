@@ -79,7 +79,6 @@ from typing import AsyncGenerator
 from .sub_agents.statistical_insights_agent.agent import root_agent as statistical_insights_agent
 from .sub_agents.hierarchical_analysis_agent import root_agent as hierarchical_analysis_agent
 from .sub_agents.planner_agent.agent import root_agent as planner_agent
-from .sub_agents.narrative_agent.agent import root_agent as narrative_agent
 from .sub_agents.dynamic_parallel_agent import DynamicParallelAnalysisAgent
 from .sub_agents.report_synthesis_agent.agent import root_agent as report_synthesis_agent
 from .sub_agents.alert_scoring_agent.agent import root_agent as alert_scoring_coordinator
@@ -95,6 +94,7 @@ from .core_agents.cli import CLIParameterInjector
 from .core_agents.test_mode import TestModeReportSynthesisAgent
 from .core_agents.fetchers import UniversalDataFetcher
 from .core_agents.alerting import ConditionalAlertScoringAgent
+from .core_agents.narrative_gate import create_conditional_narrative_agent
 from .core_agents.targets import ParallelDimensionTargetAgent
 import os
 
@@ -214,8 +214,8 @@ cc_analysis_sub_agents = [
     TimedAgentWrapper(AnalysisContextInitializer()),
     TimedAgentWrapper(planner_agent),
     TimedAgentWrapper(DynamicParallelAnalysisAgent()),
-    TimedAgentWrapper(narrative_agent),
     TimedAgentWrapper(ConditionalAlertScoringAgent(alert_scoring_coordinator)),
+    TimedAgentWrapper(create_conditional_narrative_agent()),
     TimedAgentWrapper(synthesis_agent),
     TimedAgentWrapper(OutputPersistenceAgent(level="dimension_value")),
 ]
@@ -314,6 +314,19 @@ __all__ = [
 ]
 
 
+def _safe_console_str(value: object) -> str:
+    """Avoid UnicodeEncodeError on Windows consoles (e.g. cp1252) when printing tool payloads."""
+    import sys
+
+    text = str(value)
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        text.encode(enc, errors="strict")
+        return text
+    except UnicodeEncodeError:
+        return text.encode(enc, errors="replace").decode(enc, errors="replace")
+
+
 async def run_analysis(query: str):
     """Run the complete analysis pipeline for a given query."""
     from google.adk.agents.invocation_context import InvocationContext
@@ -324,7 +337,14 @@ async def run_analysis(query: str):
     import sys
     import uuid
     import yaml
-    
+
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError, AttributeError):
+            pass
+
     # --- PRE-FLIGHT AUTH CHECK (T031) ---
     if os.getenv("DATA_ANALYST_TEST_MODE") != "true":
         print("Checking LLM connectivity...", end=" ", flush=True)
@@ -418,11 +438,18 @@ async def run_analysis(query: str):
         if event.content and event.content.parts:
             for part in event.content.parts:
                 if part.text:
-                    print(part.text, flush=True)
+                    print(_safe_console_str(part.text), flush=True)
                 if hasattr(part, 'function_call') and part.function_call:
-                    print(f"\n[Tool Call] {part.function_call.name}({part.function_call.args})", flush=True)
+                    print(
+                        f"\n[Tool Call] {part.function_call.name}({_safe_console_str(part.function_call.args)})",
+                        flush=True,
+                    )
                 if hasattr(part, 'function_response') and part.function_response:
-                    print(f"\n[Tool Result] {part.function_response.name} -> {part.function_response.response}", flush=True)
+                    print(
+                        f"\n[Tool Result] {part.function_response.name} -> "
+                        f"{_safe_console_str(part.function_response.response)}",
+                        flush=True,
+                    )
 
 
 if __name__ == "__main__":

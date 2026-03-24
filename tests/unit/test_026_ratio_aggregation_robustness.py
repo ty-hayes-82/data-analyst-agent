@@ -41,7 +41,7 @@ async def test_statistical_summary_robust_ratio_detection():
         mock_resolve.return_value = (df, "week_ending", "value", "terminal", "terminal", mock_ctx)
         
         # Patch the ratio config to return config for Rev/Trk/Wk
-        with patch("data_analyst_agent.sub_agents.statistical_insights_agent.tools.ratio_metrics_config.get_ratio_config_for_metric") as mock_get_rc:
+        with patch("data_analyst_agent.semantic.ratio_metrics_config.get_ratio_config_for_metric") as mock_get_rc:
             def side_effect(contract, name):
                 if name == "Rev/Trk/Wk":
                     return {
@@ -116,7 +116,7 @@ async def test_level_statistics_robust_ratio_detection():
         mock_resolve.return_value = (df, "week_ending", "value", "terminal", "terminal", mock_ctx)
         
         # Patch the ratio config
-        with patch("data_analyst_agent.sub_agents.statistical_insights_agent.tools.ratio_metrics_config.get_ratio_config_for_metric") as mock_get_rc:
+        with patch("data_analyst_agent.semantic.ratio_metrics_config.get_ratio_config_for_metric") as mock_get_rc:
             def side_effect(contract, name):
                 if name == "Rev/Trk/Wk":
                     return {

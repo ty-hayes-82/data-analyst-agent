@@ -21,6 +21,7 @@ data_source:
 time:
   column: cal_dt
   frequency: daily
+  temporal_grain_override: weekly
   format: '%Y-%m-%d %H:%M:%S'
   range_months: 24
 grain:

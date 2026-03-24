@@ -134,6 +134,13 @@ def _list_metrics_from_contract(dataset: str) -> list[str]:
             return []
         with open(contract_path, encoding="utf-8") as f:
             contract = yaml.safe_load(f)
-        return [m.get("name", "") for m in contract.get("metrics", [])]
+        names = [m.get("name", "") for m in contract.get("metrics", []) if m.get("name")]
+        seen = set(names)
+        for k in contract.get("derived_kpis") or []:
+            n = k.get("name")
+            if n and n not in seen:
+                names.append(n)
+                seen.add(n)
+        return names
     except Exception:
         return []

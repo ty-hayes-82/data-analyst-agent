@@ -18,6 +18,16 @@ class _NeverRunAgent:
         return _generator()
 
 
+def test_report_synthesis_execution_mode_defaults_to_direct(monkeypatch):
+    monkeypatch.delenv("REPORT_SYNTHESIS_EXECUTION_MODE", raising=False)
+    assert report_agent_module._report_synthesis_execution_mode() == "direct"
+
+
+def test_report_synthesis_execution_mode_accepts_direct(monkeypatch):
+    monkeypatch.setenv("REPORT_SYNTHESIS_EXECUTION_MODE", "direct")
+    assert report_agent_module._report_synthesis_execution_mode() == "direct"
+
+
 def _build_ctx_state(**overrides):
     state = {
         "dataset_contract": None,

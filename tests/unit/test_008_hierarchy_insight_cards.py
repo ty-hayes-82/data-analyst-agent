@@ -149,10 +149,10 @@ def test_pvm_data_included_in_evidence():
 
 @pytest.mark.unit
 def test_no_material_items_returns_empty_cards():
-    """Level stats with items below BOTH materiality thresholds returns empty insight_cards.
+    """Level 0 with |variance_pct| below legacy gate returns no insight cards.
 
-    Materiality: |variance_dollar| >= $50K OR |variance_pct| >= 5%.
-    Items here have variance_dollar < $50K AND variance_pct < 5%.
+    _is_material_variance uses |variance_pct| >= 2% (see _LEGACY_MIN_VARIANCE_PCT).
+    Level 0 so regional period snapshots do not apply.
     """
     fmt, _ = _import_formatter()
     drivers = [
@@ -160,15 +160,16 @@ def test_no_material_items_returns_empty_cards():
         {
             "rank": 4, "item": "TERM-D",
             "current": -44000.0, "prior": -43000.0,
-            "variance_dollar": -1000.0,   # Below $50K
-            "variance_pct": -2.33,        # Below 5%
+            "variance_dollar": -1000.0,
+            "variance_pct": -1.5,
             "cumulative_pct": 98.9,
             "exceeds_threshold": False, "materiality": "LOW",
         },
     ]
-    result = fmt(_level_stats(top_drivers=drivers))
+    result = fmt(_level_stats(top_drivers=drivers, level=0, level_name="Total"))
     assert result["insight_cards"] == []
-    print("[PASS] Immaterial items (below both thresholds) → empty insight_cards")
+    assert result.get("top_drivers") == drivers
+    print("[PASS] Immaterial items at level 0 → empty insight_cards, top_drivers preserved")
 
 
 @pytest.mark.unit
@@ -177,7 +178,60 @@ def test_empty_drivers_returns_empty_cards():
     fmt, _ = _import_formatter()
     result = fmt(_level_stats(top_drivers=[]))
     assert result["insight_cards"] == []
+    assert result.get("top_drivers") == []
     print("[PASS] Empty top_drivers → empty insight_cards")
+
+
+@pytest.mark.unit
+def test_low_variance_level1_emits_regional_period_snapshots():
+    """Ratio-style small WoW still surfaces regional current/prior for scorecard alignment."""
+    fmt, _ = _import_formatter()
+    stats = {
+        "level": 1,
+        "level_name": "gl_rgn_nm",
+        "metric": "trpm",
+        "analysis_period": "2026-03-14",
+        "prior_period": "2026-03-07",
+        "total_variance_dollar": -0.01,
+        "current_total": 2.332,
+        "prior_total": 2.339,
+        "items_analyzed": 2,
+        "variance_explained_pct": 100.0,
+        "top_drivers": [
+            {
+                "rank": 1,
+                "item": "West",
+                "current": 2.286,
+                "prior": 2.29,
+                "variance_dollar": -0.004,
+                "variance_pct": -0.17,
+                "share_current": 0.33,
+                "share_prior": 0.33,
+                "share_change": 0.0,
+                "cumulative_pct": 40.0,
+            },
+            {
+                "rank": 2,
+                "item": "East",
+                "current": 2.438,
+                "prior": 2.44,
+                "variance_dollar": -0.002,
+                "variance_pct": -0.08,
+                "share_current": 0.34,
+                "share_prior": 0.34,
+                "share_change": 0.0,
+                "cumulative_pct": 70.0,
+            },
+        ],
+        "is_last_level": False,
+    }
+    result = fmt(stats)
+    assert len(result["insight_cards"]) == 2
+    assert all("regional_period_snapshot" in c.get("tags", []) for c in result["insight_cards"])
+    west = next(c for c in result["insight_cards"] if "West" in c["title"])
+    assert west["evidence"]["current_value"] == pytest.approx(2.286)
+    assert west["evidence"]["signal"] == "regional_period_snapshot"
+    assert len(result["top_drivers"]) == 2
 
 
 # ============================================================================

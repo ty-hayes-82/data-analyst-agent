@@ -472,3 +472,69 @@ async def test_markdown_report_populates_anomalies_from_stats():
     anomaly_section = report.split("## Anomalies", 1)[1].split("##", 1)[0]
     assert "California" in anomaly_section
     assert "z=3.50" in anomaly_section
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
+async def test_markdown_report_anomalies_skip_blocklisted_items(monkeypatch):
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+    stats_payload = {
+        "anomalies": [
+            {"item": "Corporate", "period": "2026-02-28", "value": 1400, "z_score": 3.6, "p_value": 0.0003},
+            {"item": "East", "period": "2026-01-03", "value": 99000, "z_score": 2.2, "p_value": 0.02},
+        ],
+        "enhanced_top_drivers": [
+            {"item_name": "Corporate", "share_of_total": 0.0005},
+            {"item_name": "East", "share_of_total": 0.35},
+        ],
+    }
+
+    monkeypatch.setenv("ALERT_SKIP_ITEM_NAMES", "Corporate")
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        statistical_summary=json.dumps(stats_payload),
+        analysis_target="avg_loh",
+    )
+    anomaly_section = report.split("## Anomalies", 1)[1].split("##", 1)[0]
+    assert "Corporate" not in anomaly_section
+    assert "East" in anomaly_section
+
+
+@pytest.mark.unit
+@pytest.mark.csv_mode
+@pytest.mark.asyncio
+async def test_markdown_report_anomalies_prefer_payload_over_raw_stats(monkeypatch):
+    mod = import_report_synthesis_tool("generate_markdown_report")
+    results = _make_hierarchical_results()
+    stats_payload = {
+        "anomalies": [
+            {"item": "Corporate", "period": "2026-02-28", "value": 1400, "z_score": 3.6, "p_value": 0.0003},
+        ]
+    }
+    anomaly_payload = {
+        "alerts": [
+            {
+                "id": "2026-01-03-east-anomaly",
+                "period": "2026-01-03",
+                "item_id": "East",
+                "item_name": "East",
+                "category": "statistical_anomaly",
+                "variance_amount": 250.0,
+                "variance_pct": 12.0,
+                "details": {"description": "Statistical anomaly in East"},
+            }
+        ]
+    }
+
+    monkeypatch.delenv("ALERT_SKIP_ITEM_NAMES", raising=False)
+    report = await mod.generate_markdown_report(
+        hierarchical_results=json.dumps(results),
+        statistical_summary=json.dumps(stats_payload),
+        anomaly_indicators=json.dumps(anomaly_payload),
+        analysis_target="avg_loh",
+    )
+    anomaly_section = report.split("## Anomalies", 1)[1].split("##", 1)[0]
+    assert "East" in anomaly_section
+    assert "Corporate" not in anomaly_section

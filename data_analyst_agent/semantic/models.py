@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional, Literal, Union, Any
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 import yaml
 import pandas as pd
 from datetime import datetime
@@ -80,6 +80,15 @@ class ReportingConfig(BaseModel):
     """Configuration for report generation and analysis depth."""
     max_drill_depth: int = Field(3, description="Max depth for hierarchical drill-down")
     executive_brief_drill_levels: int = Field(0, description="Levels of scoped briefs to generate")
+    executive_brief_max_scoped_level: Optional[int] = Field(
+        None,
+        description=(
+            "Cap hierarchy level for per-entity executive briefs (1=first drill e.g. region, "
+            "2=second e.g. terminal). None = legacy: min(executive_brief_drill_levels, 2). "
+            "Use 1 to keep full hierarchy analysis (max_drill_depth) while emitting only "
+            "network + first-level scoped briefs."
+        ),
+    )
     max_scope_entities: int = Field(10, description="Max entities to process per level in scoped briefs")
     min_scope_share_of_total: float = Field(
         0.0,
@@ -149,19 +158,50 @@ class DatasetContract(BaseModel):
     materiality: Dict[str, Any] = Field(default_factory=dict, description="Thresholds for absolute and percentage variance")
     presentation: Dict[str, Any] = Field(default_factory=dict, description="Rules for display, sign correction, and units")
     reporting: ReportingConfig = Field(default_factory=ReportingConfig, description="Report generation and analysis depth settings")
+    low_activity_dimension_values: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Dimension values that are operationally low-signal and should be "
+            "suppressed from anomaly/alert extraction."
+        ),
+    )
     policies: Dict[str, Any] = Field(default_factory=dict, description="Domain-specific rules")
     validation: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional dataset-specific validation/fixture configuration (contract-driven).",
     )
-    
+    derived_kpis: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Optional Tableau-style KPI definitions; merged into metrics as type=derived when valid.",
+    )
+
     # Internal mappings for fast lookup
     _metric_map: Dict[str, MetricDefinition] = {}
     _dim_map: Dict[str, DimensionDefinition] = {}
     _source_path: Optional[str] = None
 
-    def __init__(self, **data):
-        super().__init__(**data)
+    @model_validator(mode="after")
+    def _merge_derived_kpis_into_metrics(self) -> "DatasetContract":
+        """Register derived_kpis as first-class metrics so CLI and pipeline can target them."""
+        if self.derived_kpis:
+            base_names = {m.name for m in self.metrics}
+            from .derived_kpi_formula import derived_kpis_to_metric_definitions
+
+            extra_dicts = derived_kpis_to_metric_definitions(self.derived_kpis, base_names)
+            merged = list(self.metrics)
+            seen = {m.name for m in merged}
+            for d in extra_dicts:
+                if d["name"] in seen:
+                    continue
+                merged.append(MetricDefinition(**d))
+                seen.add(d["name"])
+            self.metrics = merged
+        # Rebuild lookup maps here so they stay in sync (model_post_init can run before some validators in edge cases).
+        self._metric_map = {m.name: m for m in self.metrics}
+        self._dim_map = {d.name: d for d in self.dimensions}
+        return self
+
+    def model_post_init(self, __context: Any) -> None:
         self._metric_map = {m.name: m for m in self.metrics}
         self._dim_map = {d.name: d for d in self.dimensions}
 

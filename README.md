@@ -79,7 +79,28 @@ python -m data_analyst_agent --dataset <dataset_name> --metrics "metric1,metric2
 --start-date YYYY-MM-DD     Override analysis start date
 --end-date YYYY-MM-DD       Override analysis end date
 --interactive               Interactive mode with guided menus
+--write-metric-markdown     Write metric_*.md per metric (default: skip .md; JSON only is enough for the executive brief)
+--standard-brief            Standard executive brief (one digest LLM). Default is CEO hybrid (Lite + Pro); see below.
 ```
+
+### CEO network brief (hybrid pipeline) — **CLI default**
+
+Unless you pass **`--standard-brief`** or set `EXECUTIVE_BRIEF_STYLE=default`, the CLI sets **`EXECUTIVE_BRIEF_STYLE=ceo`**. When CEO style is on and per-metric JSON payloads are present, the **network** executive brief uses a fixed 3-step pipeline:
+
+1. **Pass 0 (code)** — rank and extract signals from metric JSON  
+2. **Pass 1 — `gemini-3.1-flash-lite-preview`** (tier `brief`, agent `executive_brief_hybrid_curator`) — curate the top pool (optional; see below)  
+3. **Pass 2 — `gemini-3.1-pro-preview`** (tier `pro`, agent `executive_brief_hybrid_synthesis`) — synthesize the flat CEO brief JSON, then map it to the same `brief.json` / PDF / HTML shape as the legacy path  
+
+**Not hybrid:** With `--standard-brief` (or `EXECUTIVE_BRIEF_STYLE=default`), the network brief is a **single** LLM call using `executive_brief_agent` (default tier **`brief`** = `gemini-3.1-flash-lite-preview` only) — no separate Pro pass.
+
+**Disable** only the hybrid steps while keeping CEO JSON shape: `EXECUTIVE_BRIEF_USE_HYBRID_PIPELINE=false` (still CEO prompts; falls back to digest LLM).
+
+**Tuning:** `EXECUTIVE_BRIEF_HYBRID_TOP_SIGNALS`, `EXECUTIVE_BRIEF_HYBRID_MAX_CURATED`, `EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION`.  
+**Models:** `EXECUTIVE_BRIEF_HYBRID_LITE_MODEL` / `EXECUTIVE_BRIEF_HYBRID_PRO_MODEL`, or `executive_brief_hybrid_curator` / `executive_brief_hybrid_synthesis` in `config/agent_models.yaml`.
+
+Scoped hierarchy briefs (when `EXECUTIVE_BRIEF_DRILL_LEVELS` is set above 0) still use the **standard** digest + LLM JSON contract (not the CEO hybrid prompt), so they stay aligned with `Executive Summary` / `Key Findings` validation. Entities at each level are discovered from **all** level insight cards (including titles like `metric (Region)` and `evidence.entity`), not only `Variance Driver:` lines. **`EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` defaults to 20** so typical L1 regions (e.g. all three) each get a brief; set to `1` in `.env` if you want only the top entity for speed/cost.
+
+**Analysis depth vs brief depth:** `reporting.max_drill_depth` in the dataset contract controls how far hierarchy variance runs (e.g. terminal-level cards in `metric_*.json`). `executive_brief_max_scoped_level` (or `EXECUTIVE_BRIEF_MAX_SCOPED_LEVEL`) caps which hierarchy levels get their own scoped brief files (`1` = network + first level only, e.g. regions). `ops_metrics_ds` sets `max_drill_depth: 4` with `executive_brief_max_scoped_level: 1` by default.
 
 ### Examples
 
@@ -272,7 +293,7 @@ WEB_SERVER_PORT=8080           # Default port
 CORS_ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
 
 # Performance
-EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=3    # Limit entity-level briefs
+EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=20   # Default in code; lower to 1 to cap scoped briefs
 EXECUTIVE_BRIEF_SCOPE_CONCURRENCY=3    # Parallel brief generation
 
 # Logging
@@ -460,7 +481,7 @@ python -m pytest tests/e2e/ -q           # End-to-end tests
 
 | Env Var | Default | Description |
 |---------|---------|-------------|
-| `EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` | `3` | Caps how many scoped briefs (Level 1/2 entities) the executive brief agent will spawn per run. Tune down when profiling or when metric fan-out overwhelms the LLM budget. |
+| `EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` | `20` | Caps how many scoped briefs (Level 1/2 entities) the executive brief agent will spawn per run. Set to `1` to profile or limit LLM cost. |
 | `EXECUTIVE_BRIEF_SCOPE_CONCURRENCY` | `2` | Limits the asyncio semaphore that guards scoped brief fan-out to avoid saturating the GenAI backend. Set higher on beefier nodes or lower when profiling latency. |
 | `REPORT_SYNTHESIS_FORCE_DIRECT_TOOL` | `false` | Forces the synthesis stage to skip the LLM and call `generate_markdown_report` directly. Useful for deterministic tests or when profiling tool latency. The agent now also auto-enables this fast-path whenever no hierarchical payload is available. |
 

@@ -24,6 +24,8 @@ Implements the severity formula from ALERT_SCORING_INSTRUCTION prompt:
 
 from __future__ import annotations
 
+import math
+
 
 def compute_severity(scored_digest: dict) -> dict:
     """
@@ -51,6 +53,8 @@ def compute_severity(scored_digest: dict) -> dict:
 
     top_alerts = scored_digest.get("top_alerts", [])
     top_score = float(top_alerts[0]["score"]) if top_alerts else 0.0
+    if not math.isfinite(top_score):
+        top_score = 0.0
 
     if high_count > 0:
         severity_score = 0.6 + (top_score * 0.4)
@@ -76,6 +80,8 @@ def compute_severity(scored_digest: dict) -> dict:
 
     # Clamp to [0, 1]
     severity_score = max(0.0, min(1.0, severity_score))
+    if not math.isfinite(severity_score):
+        severity_score = 0.0
 
     return {
         "severity_score": round(severity_score, 3),

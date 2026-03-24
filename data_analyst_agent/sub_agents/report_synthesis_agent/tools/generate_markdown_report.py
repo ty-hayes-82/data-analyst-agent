@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import os
 import re
+import math
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from data_analyst_agent.utils.env_utils import parse_bool_env
 from data_analyst_agent.utils.stub_guard import contains_stub_content
 
-from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import resolve_unit, normalize_unit, is_currency_unit
+from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.formatting import (
+    is_revenue_per_mile_metric,
+    is_currency_unit,
+    normalize_unit,
+    resolve_unit,
+)
 from data_analyst_agent.sub_agents.report_synthesis_agent.tools.report_markdown.parsing import (
     normalize_hierarchical_results,
     parse_json_safe,
@@ -148,13 +154,19 @@ def _safe_float(value: Any) -> Optional[float]:
     return None
 
 
-def _format_amount_short(value: Optional[float], unit: str) -> str:
+def _format_amount_short(
+    value: Optional[float],
+    unit: str,
+    analysis_target: Optional[str] = None,
+) -> str:
     if value is None:
         return ""
     normalized_unit = normalize_unit(unit)
     sign = "+" if value >= 0 else "-"
     abs_val = abs(value)
     if is_currency_unit(normalized_unit):
+        if is_revenue_per_mile_metric(analysis_target) and abs_val < 1_000_000:
+            return f"{sign}${abs_val:,.2f}"
         if abs_val >= 1_000_000_000:
             scaled = abs_val / 1_000_000_000
             suffix = "B"
@@ -225,7 +237,13 @@ def _looks_like_placeholder(action: str) -> bool:
     return len(normalized) < 24
 
 
-def _variance_actions(final_cards: List[dict], metric_label: str, unit: str, period_label: str) -> List[str]:
+def _variance_actions(
+    final_cards: List[dict],
+    metric_label: str,
+    unit: str,
+    period_label: str,
+    metric_key: Optional[str] = None,
+) -> List[str]:
     """Operational follow-ups for the top variance drivers.
 
     Keep these deterministic and concise, but specific:
@@ -244,7 +262,10 @@ def _variance_actions(final_cards: List[dict], metric_label: str, unit: str, per
         variance_pct = _safe_float(evidence.get("variance_pct"))
         if variance_pct is None:
             variance_pct = _safe_float(card.get("variance_pct"))
-        change_clause = _compose_change_clause(_format_amount_short(variance_amt, unit), _format_pct(variance_pct))
+        change_clause = _compose_change_clause(
+            _format_amount_short(variance_amt, unit, metric_key),
+            _format_pct(variance_pct),
+        )
         if not change_clause:
             continue
         basis = variance_amt if variance_amt is not None else variance_pct or 0.0
@@ -269,20 +290,34 @@ def _variance_actions(final_cards: List[dict], metric_label: str, unit: str, per
     return actions
 
 
-def _anomaly_actions(stats_data: dict, metric_label: str, unit: str, period_label: str) -> List[str]:
-    anomalies = stats_data.get("anomalies") if isinstance(stats_data, dict) else []
+def _anomaly_actions(
+    stats_data: dict,
+    metric_label: str,
+    unit: str,
+    period_label: str,
+    metric_key: Optional[str] = None,
+) -> List[str]:
+    anomalies = stats_data.get("_report_anomaly_entries") if isinstance(stats_data, dict) else []
+    if not anomalies and isinstance(stats_data, dict):
+        anomalies = stats_data.get("anomalies")
     actions: List[str] = []
     if not isinstance(anomalies, list):
         return actions
     for anomaly in anomalies:
         if not isinstance(anomaly, dict):
             continue
-        item = anomaly.get("item") or anomaly.get("dimension") or anomaly.get("name")
+        item = (
+            anomaly.get("entity")
+            or anomaly.get("item_name")
+            or anomaly.get("item")
+            or anomaly.get("dimension")
+            or anomaly.get("name")
+        )
         if not item:
             continue
         period = _clean_period(anomaly.get("period") or anomaly.get("window")) or period_label
-        value = _format_amount_short(_safe_float(anomaly.get("value") or anomaly.get("amount")), unit)
-        z_score = _safe_float(anomaly.get("z_score") or anomaly.get("score"))
+        value = _format_amount_short(_safe_float(anomaly.get("value") or anomaly.get("amount")), unit, metric_key)
+        z_score = _safe_float(anomaly.get("z") or anomaly.get("z_score") or anomaly.get("score"))
         z_clause = f" (z={z_score:.2f})" if z_score is not None else ""
         value_clause = f"; observed value {value}" if value else ""
         trigger = "|z| ≥ 2" if z_score is not None else "repeat anomaly next period"
@@ -339,6 +374,98 @@ def _normalize_anomaly_entry(anomaly: Any) -> Optional[dict]:
         "severity": severity,
         "source": source,
     }
+
+
+def _parse_skip_item_names(raw: str | None) -> set[str]:
+    if not raw:
+        return set()
+    return {
+        token.strip().lower()
+        for token in str(raw).split(",")
+        if token and token.strip()
+    }
+
+
+def _build_stats_share_map(stats_data: dict | None) -> dict[str, float]:
+    if not isinstance(stats_data, dict):
+        return {}
+    share_map: dict[str, float] = {}
+    enhanced = stats_data.get("enhanced_top_drivers", [])
+    if isinstance(enhanced, list):
+        for row in enhanced:
+            if not isinstance(row, dict):
+                continue
+            key = str(row.get("item_name") or row.get("item") or "").strip().lower()
+            if not key:
+                continue
+            share_val = _safe_float(row.get("share_of_total"))
+            if share_val is None or not math.isfinite(share_val) or share_val < 0:
+                continue
+            share_map[key] = share_val
+    if share_map:
+        return share_map
+
+    top_drivers = stats_data.get("top_drivers", [])
+    if not isinstance(top_drivers, list):
+        return share_map
+    totals: dict[str, float] = {}
+    total_abs_avg = 0.0
+    for row in top_drivers:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("item_name") or row.get("item") or "").strip().lower()
+        if not key:
+            continue
+        avg_val = abs(_safe_float(row.get("avg")) or 0.0)
+        if avg_val <= 0:
+            continue
+        totals[key] = avg_val
+        total_abs_avg += avg_val
+    if total_abs_avg <= 0:
+        return share_map
+    for key, value in totals.items():
+        share_map[key] = value / total_abs_avg
+    return share_map
+
+
+def _is_ratio_like_metric(metric_key: Optional[str]) -> bool:
+    mk = (metric_key or "").lower()
+    return any(
+        token in mk
+        for token in ("pct", "rate", "ratio", "lrpm", "trpm", "avg_loh", "_per_", "deadhead")
+    )
+
+
+def _should_skip_anomaly_entry(
+    entry: dict,
+    metric_key: Optional[str],
+    skip_items: set[str],
+    share_map: dict[str, float],
+) -> bool:
+    entity = str(entry.get("entity") or "").strip()
+    if not entity:
+        return False
+    entity_norm = entity.lower()
+    if entity_norm in skip_items:
+        return True
+
+    share_max = _safe_float(os.environ.get("ALERT_MATERIALITY_SHARE_MAX"))
+    if share_max is None:
+        share_max = 0.001
+    share_val = share_map.get(entity_norm)
+    if share_val is not None and share_max > 0 and share_val < share_max:
+        return True
+
+    # Ratio-like metrics can emit extreme % spikes for tiny absolute movement.
+    if _is_ratio_like_metric(metric_key):
+        extreme_pct_min = _safe_float(os.environ.get("ALERT_SKIP_RATIO_EXTREME_PCT_MIN"))
+        tiny_abs_max = _safe_float(os.environ.get("ALERT_SKIP_RATIO_ABS_VARIANCE_MAX"))
+        if (extreme_pct_min or 0) > 0 and (tiny_abs_max or 0) > 0:
+            deviation_pct = abs(_safe_float(entry.get("deviation_pct")) or 0.0)
+            value_abs = abs(_safe_float(entry.get("value")) or 0.0)
+            if deviation_pct >= float(extreme_pct_min) and value_abs <= float(tiny_abs_max):
+                return True
+    return False
 
 
 def _anomaly_entry_score(entry: dict) -> float:
@@ -416,23 +543,28 @@ def _select_anomaly_entries(entries: List[dict], limit: int) -> tuple[List[dict]
     return selected, omitted
 
 
-def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> List[dict]:
+def _collect_anomaly_entries(
+    anomaly_payload: Any, stats_data: dict | None, metric_key: Optional[str] = None
+) -> List[dict]:
     entries: List[dict] = []
     seen: set[tuple] = set()
-
-    stats_entries = stats_data.get("anomalies") if isinstance(stats_data, dict) else []
-    for raw in stats_entries or []:
-        normalized = _normalize_anomaly_entry(raw)
-        if not normalized:
-            continue
-        normalized.setdefault("source", "stat_summary")
-        key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
-        if key in seen:
-            continue
-        seen.add(key)
-        entries.append(normalized)
+    skip_items = _parse_skip_item_names(os.environ.get("ALERT_SKIP_ITEM_NAMES"))
+    share_map = _build_stats_share_map(stats_data or {})
 
     payload = anomaly_payload if isinstance(anomaly_payload, dict) else {}
+    payload_entries_count = 0
+
+    def _append_entry(normalized: dict) -> None:
+        nonlocal payload_entries_count
+        if _should_skip_anomaly_entry(normalized, metric_key, skip_items, share_map):
+            return
+        key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
+        if key in seen:
+            return
+        seen.add(key)
+        entries.append(normalized)
+        payload_entries_count += 1
+
     for bucket_key in ("anomalies", "time_series_anomalies"):
         raw_bucket = payload.get(bucket_key) if isinstance(payload, dict) else None
         if not isinstance(raw_bucket, list):
@@ -442,11 +574,7 @@ def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> L
             if not normalized:
                 continue
             normalized.setdefault("source", raw.get("anomaly_type") or bucket_key.rstrip("s"))
-            key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
-            if key in seen:
-                continue
-            seen.add(key)
-            entries.append(normalized)
+            _append_entry(normalized)
 
     if isinstance(payload, dict):
         for alert_key in ("alerts", "top_alerts"):
@@ -454,16 +582,30 @@ def _collect_anomaly_entries(anomaly_payload: Any, stats_data: dict | None) -> L
             if not isinstance(alert_bucket, list):
                 continue
             for alert in alert_bucket:
+                # Keep anomaly section focused on true anomaly-like signals.
+                if isinstance(alert, dict) and alert.get("category") in {"volatility", "utilization_degradation"}:
+                    continue
                 compat = _convert_alert_to_anomaly(alert)
                 normalized = _normalize_anomaly_entry(compat)
                 if not normalized:
                     continue
                 normalized.setdefault("source", alert.get("category") or alert_key.rstrip("s"))
-                key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
-                if key in seen:
-                    continue
-                seen.add(key)
-                entries.append(normalized)
+                _append_entry(normalized)
+
+    if payload_entries_count == 0:
+        stats_entries = stats_data.get("anomalies") if isinstance(stats_data, dict) else []
+        for raw in stats_entries or []:
+            normalized = _normalize_anomaly_entry(raw)
+            if not normalized:
+                continue
+            normalized.setdefault("source", "stat_summary")
+            if _should_skip_anomaly_entry(normalized, metric_key, skip_items, share_map):
+                continue
+            key = (normalized.get("entity"), normalized.get("period"), normalized.get("description"))
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append(normalized)
 
     entries.sort(key=_anomaly_entry_score, reverse=True)
     return entries
@@ -476,7 +618,7 @@ def _clean_period(period_str: str) -> str:
     return str(period_str).split(" ")[0].split("T")[0]
 
 
-def _format_anomaly_line(entry: dict, unit: str) -> str:
+def _format_anomaly_line(entry: dict, unit: str, metric_key: Optional[str] = None) -> str:
     period = _clean_period(entry.get("period")) or "N/A"
     entity = entry.get("entity") or "Metric"
     # Prefer deviation % over raw observed value (raw value looks like a change with +/- prefix)
@@ -486,7 +628,9 @@ def _format_anomaly_line(entry: dict, unit: str) -> str:
         value_clause = f"Δ{deviation_pct:+.1f}%"
         deviation_clause = ""
     else:
-        value_clause = _format_amount_short(raw_value, unit) if raw_value is not None else ""
+        value_clause = (
+            _format_amount_short(raw_value, unit, metric_key) if raw_value is not None else ""
+        )
         deviation_clause = ""
     z_clause = f" z={entry['z']:.2f}" if entry.get("z") is not None else ""
     p_clause = f" p={entry['p']:.3f}" if entry.get("p") is not None else ""
@@ -517,8 +661,12 @@ def _build_anomalies_section(
     stats_data: dict,
     unit: str,
     metric_label: str,
+    metric_key: Optional[str] = None,
 ) -> tuple[List[str], List[str]]:
-    entries = _collect_anomaly_entries(anomaly_payload, stats_data)
+    entries = _collect_anomaly_entries(anomaly_payload, stats_data, metric_key=metric_key)
+    if isinstance(stats_data, dict):
+        # Reuse the exact filtered anomaly set for downstream action generation.
+        stats_data["_report_anomaly_entries"] = entries
     should_render = bool(anomaly_payload) or bool(entries)
     if not should_render:
         return [], []
@@ -589,7 +737,13 @@ def _correlation_actions(stats_data: dict, metric_label: str) -> List[str]:
     return actions
 
 
-def _trend_actions(stats_data: dict, metric_label: str, unit: str, period_label: str) -> List[str]:
+def _trend_actions(
+    stats_data: dict,
+    metric_label: str,
+    unit: str,
+    period_label: str,
+    metric_key: Optional[str] = None,
+) -> List[str]:
     top_drivers = stats_data.get("top_drivers") if isinstance(stats_data, dict) else []
     actions: List[str] = []
     if not isinstance(top_drivers, list):
@@ -602,7 +756,7 @@ def _trend_actions(stats_data: dict, metric_label: str, unit: str, period_label:
             continue
         direction = "upward" if slope > 0 else "downward"
         item = driver.get("item") or driver.get("dimension") or driver.get("name") or "Key driver"
-        slope_clause = _format_amount_short(slope, unit)
+        slope_clause = _format_amount_short(slope, unit, metric_key)
         actions.append(
             f"Statistics → top_drivers: monitor {item} trend over last 3 {period_label}s "
             f"(slope {slope_clause} per {period_label}) as an early signal for {metric_label}. "
@@ -643,6 +797,7 @@ def _derive_contextual_actions(
     metric_label: str,
     unit: str,
     period_label: str,
+    metric_key: Optional[str] = None,
 ) -> List[str]:
     actions: List[str] = []
     seen: set[str] = set()
@@ -655,10 +810,10 @@ def _derive_contextual_actions(
         actions.append(candidate.strip())
 
     for source in (
-        _variance_actions(final_cards, metric_label, unit, period_label),
-        _anomaly_actions(stats_data, metric_label, unit, period_label),
+        _variance_actions(final_cards, metric_label, unit, period_label, metric_key),
+        _anomaly_actions(stats_data, metric_label, unit, period_label, metric_key),
         _correlation_actions(stats_data, metric_label),
-        _trend_actions(stats_data, metric_label, unit, period_label),
+        _trend_actions(stats_data, metric_label, unit, period_label, metric_key),
     ):
         for action in source:
             _append_unique(action)
@@ -674,6 +829,7 @@ def _build_recommended_actions_section(
     metric_label: str,
     unit: str,
     period_label: str,
+    metric_key: Optional[str] = None,
 ) -> List[str]:
     lines = ["## Recommended Actions", ""]
     actions: List[str] = []
@@ -686,7 +842,9 @@ def _build_recommended_actions_section(
         seen.add(normalized)
         actions.append(action.strip())
 
-    for action in _derive_contextual_actions(final_cards, stats_data, metric_label, unit, period_label):
+    for action in _derive_contextual_actions(
+        final_cards, stats_data, metric_label, unit, period_label, metric_key
+    ):
         _append_unique(action)
         if len(actions) >= 5:
             break
@@ -712,11 +870,21 @@ def _build_recommended_actions_section(
     return lines
 
 
-def _build_summary_from_data(metric_label: str, period_label: str, stats_data: dict, final_cards: List[dict], unit: str) -> str:
+def _build_summary_from_data(
+    metric_label: str,
+    period_label: str,
+    stats_data: dict,
+    final_cards: List[dict],
+    unit: str,
+    metric_key: Optional[str] = None,
+) -> str:
     summary_stats = stats_data.get("summary_stats", {}) if isinstance(stats_data, dict) else {}
     variance_amt = _safe_float(summary_stats.get("variance_amount") or summary_stats.get("variance_dollar"))
     variance_pct = _safe_float(summary_stats.get("variance_pct"))
-    change_clause = _compose_change_clause(_format_amount_short(variance_amt, unit), _format_pct(variance_pct))
+    change_clause = _compose_change_clause(
+        _format_amount_short(variance_amt, unit, metric_key),
+        _format_pct(variance_pct),
+    )
     sentences: List[str] = []
     if change_clause:
         sentences.append(f"{metric_label} moved {change_clause} over the last {period_label}.")
@@ -726,7 +894,10 @@ def _build_summary_from_data(metric_label: str, period_label: str, stats_data: d
         evidence = card.get("evidence", {}) if isinstance(card, dict) else {}
         amount = _safe_float((evidence or {}).get("variance_dollar") or card.get("variance_dollar"))
         pct = _safe_float((evidence or {}).get("variance_pct") or card.get("variance_pct"))
-        clause = _compose_change_clause(_format_amount_short(amount, unit), _format_pct(pct))
+        clause = _compose_change_clause(
+            _format_amount_short(amount, unit, metric_key),
+            _format_pct(pct),
+        )
         label = _dimension_label(card)
         driver_bits.append(f"{label} ({clause})" if clause else label)
 
@@ -819,7 +990,9 @@ async def generate_markdown_report(
         insight_lines, final_cards = build_insight_cards_section(narrative_cards, level_analyses, levels_analyzed)
         summary_text = narrative_summary
         if contains_stub_content(summary_text):
-            summary_text = _build_summary_from_data(metric_label, period_label, stats_data, final_cards, unit)
+            summary_text = _build_summary_from_data(
+                metric_label, period_label, stats_data, final_cards, unit, analysis_target
+            )
 
         md.extend(
             build_executive_summary_section(
@@ -831,6 +1004,7 @@ async def generate_markdown_report(
                 lag_meta=lag_meta,
                 unit=unit,
                 target_name=target_name,
+                metric_key=analysis_target,
             )
         )
 
@@ -844,6 +1018,7 @@ async def generate_markdown_report(
                 unit=unit,
                 target_name=target_name,
                 condensed=condensed,
+                metric_key=analysis_target,
             )
         )
 
@@ -861,10 +1036,12 @@ async def generate_markdown_report(
         cross_dim_results = raw_results.get("cross_dimension_results", {}) if isinstance(raw_results, dict) else {}
         md.extend(build_cross_dimension_section(cross_dim_results, condensed))
 
-        md.extend(build_variance_section(levels_analyzed, level_analyses, unit))
+        md.extend(build_variance_section(levels_analyzed, level_analyses, unit, analysis_target))
 
         anomaly_payload = parse_json_safe(anomaly_indicators) if anomaly_indicators else None
-        anomaly_section, derived_anomaly_actions = _build_anomalies_section(anomaly_payload, stats_data or {}, unit, metric_label)
+        anomaly_section, derived_anomaly_actions = _build_anomalies_section(
+            anomaly_payload, stats_data or {}, unit, metric_label, analysis_target
+        )
         if anomaly_section:
             md.extend(anomaly_section)
             if derived_anomaly_actions and isinstance(narrative_data, dict) and not narrative_data.get("recommended_actions"):
@@ -890,6 +1067,7 @@ async def generate_markdown_report(
                 metric_label=metric_label,
                 unit=unit,
                 period_label=period_label,
+                metric_key=analysis_target,
             )
         )
 

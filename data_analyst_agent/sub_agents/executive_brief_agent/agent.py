@@ -1,8 +1,8 @@
 """
 Cross-Metric Executive Brief Agent
 
-Runs after all per-metric analysis pipelines complete. Reads every metric_*.md
-report from the outputs directory, feeds them to an LLM, and produces a
+Runs after all per-metric analysis pipelines complete. Reads metric_*.md when
+present; otherwise uses metric_*.json to build a minimal digest. Produces a
 structured one-page executive brief saved as outputs/executive_brief_<date>.md.
 
 Spec 029: Prefers metric_*.json when available for richer digest (cross-entity
@@ -35,6 +35,7 @@ from .prompt import (
     SCOPED_BRIEF_PREAMBLE,
     load_dataset_specific_append,
     load_prompt_variant,
+    load_standard_executive_brief_instruction,
 )
 from ...utils import parse_bool_env
 from ...utils.stub_guard import contains_stub_content
@@ -54,13 +55,10 @@ from ...utils.temporal_grain import (
     temporal_grain_to_short_delta_label,
 )
 from .prompt_utils import (
-    _build_structured_fallback_markdown,
     _build_weather_context_block,
     _format_analysis_period,
     _format_brief_with_fallback,
     _write_executive_brief_cache,
-    build_structured_fallback_brief,
-    collect_recommendations_from_reports,
     SECTION_FALLBACK_TEXT,
     _apply_unit_to_text,
 )
@@ -70,6 +68,7 @@ from .report_utils import (
     _build_digest_from_json,
     _collect_metric_json_data,
     _collect_metric_reports,
+    build_minimal_metric_markdown_from_json,
 )
 from .scope_utils import (
     _build_scoped_digest,
@@ -78,6 +77,7 @@ from .scope_utils import (
     _sanitize_entity_name,
     derive_scope_level_labels,
 )
+from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, save_hybrid_artifacts
 
 
 class ExecutiveBriefConfig:
@@ -140,8 +140,12 @@ def _parse_positive_int_env(var_name: str, default: int) -> int:
 
 
 def _max_scoped_briefs() -> int:
-    """Return the current scoped brief cap (reads env each call)."""
-    return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", 3)
+    """Return the current scoped brief cap (reads env each call).
+
+    Default allows all typical L1 regions (e.g. East/Central/West) without extra env.
+    Set EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=1 to cap cost/latency when drilling deeper.
+    """
+    return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", 20)
 
 
 def _scope_concurrency_limit() -> int:
@@ -289,6 +293,25 @@ def _is_placeholder_markdown(markdown: str, used_fallback: bool = False) -> bool
     return contains_stub_content(text)
 
 
+def _report_error_reason(markdown: str) -> str | None:
+    """Return reason code when a metric markdown is unusable for brief synthesis."""
+    text = (markdown or "").strip()
+    if not text:
+        return "empty_report"
+    lowered = text.lower()
+    if lowered.startswith("# error generating report"):
+        return "report_generation_error"
+    if "analysis could not generate insights for this period" in lowered:
+        return "analysis_error_placeholder"
+    if SECTION_FALLBACK_TEXT.lower() in lowered:
+        return "section_fallback_placeholder"
+    if contains_stub_content(text):
+        return "stub_content"
+    if len(text) < 100:
+        return "too_short"
+    return None
+
+
 def _backfill_missing_titles(json_data: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
     for metric_name, payload in json_data.items():
         prefix = str(metric_name).strip() or "Insight"
@@ -406,7 +429,14 @@ def _apply_section_contract(brief: dict, section_contract: list[dict[str, str]])
     """
     # Title mapping for common LLM mistakes — dynamic based on style
     from .prompt import is_ceo_style as _is_ceo
-    if _is_ceo():
+
+    _scoped_brief_contract = bool(
+        section_contract
+        and any(
+            str(spec.get("title") or "") == "Scope Overview" for spec in section_contract
+        )
+    )
+    if _is_ceo() and not _scoped_brief_contract:
         FORBIDDEN_TITLE_MAPPING = {
             "Executive Summary": "What moved the business",
             "Key Findings": "What moved the business",
@@ -596,7 +626,11 @@ def _validate_structured_brief(
     }
 
     errors: list[str] = []
-    
+
+    # Scoped briefs use standard sections; do not apply CEO validation rules to them.
+    from .prompt import is_ceo_style as _is_ceo_for_validation
+    _ceo_rules = _is_ceo_for_validation() and not is_scoped
+
     # Check for forbidden section titles FIRST (these should never appear after normalization)
     body = brief.get("body") or {}
     sections = body.get("sections") or []
@@ -620,9 +654,8 @@ def _validate_structured_brief(
         errors.append("header.summary is empty")
     
     # Validate header has minimum numeric values (skip for CEO style — bottom_line is the header)
-    from .prompt import is_ceo_style as _ceo_header_check
     header_value_count = _count_numeric_values(header_title + " " + header_summary)
-    if not _ceo_header_check():
+    if not _ceo_rules:
         if header_value_count < 2:
             errors.append(
                 f"header contains only {header_value_count} numeric values (minimum: 2)"
@@ -689,13 +722,12 @@ def _validate_structured_brief(
         if not title:
             errors.append(f"body.sections[{idx}] missing title")
         # CEO insight sections may have empty content (insights carry the data)
-        from .prompt import is_ceo_style as _ceo_validate
         _ceo_insight_titles = {"What moved the business", "Trend status", "Where it came from", "Leadership focus"}
-        if not content and not (_ceo_validate() and title in _ceo_insight_titles):
+        if not content and not (_ceo_rules and title in _ceo_insight_titles):
             errors.append(f"{title or f'section[{idx}]'} content empty")
         elif content == SECTION_FALLBACK_TEXT:
             # In CEO mode, content-only sections with fallback are errors; insight sections with fallback content are OK
-            if not (_ceo_validate() and title in _ceo_insight_titles):
+            if not (_ceo_rules and title in _ceo_insight_titles):
                 errors.append(
                     f"{title or f'section[{idx}]'} contains only placeholder fallback text - "
                     "LLM did not populate this section"
@@ -713,8 +745,7 @@ def _validate_structured_brief(
             continue
 
         # Determine which sections require insight validation
-        from .prompt import is_ceo_style as _ceo_check
-        _ceo_active = _ceo_check()
+        _ceo_active = _ceo_rules
         # CEO content-only sections: Why it matters, Next-week outlook (no insights required)
         _ceo_content_only = {"Why it matters", "Next-week outlook"}
         # CEO insight sections requiring numeric validation
@@ -767,8 +798,7 @@ def _validate_structured_brief(
         )
     
     # Validate total numeric values across entire brief
-    from .prompt import is_ceo_style as _ceo_total_check
-    MINIMUM_TOTAL_VALUES = 5 if _ceo_total_check() else (10 if is_scoped else 15)
+    MINIMUM_TOTAL_VALUES = 5 if _ceo_rules else (10 if is_scoped else 15)
     if total_numeric_values < MINIMUM_TOTAL_VALUES:
         errors.append(
             f"Brief contains only {total_numeric_values} total numeric values (minimum: {MINIMUM_TOTAL_VALUES}). "
@@ -838,15 +868,8 @@ async def _llm_generate_brief(
 
     Returns:
         Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
+        ``used_structured_fallback`` is always False; failures raise instead of substituting a digest brief.
     """
-    # Fast-path for E2E tests: skip LLM call entirely if env var is set
-    if parse_bool_env(os.getenv("SKIP_EXECUTIVE_BRIEF_LLM")):
-        print("[BRIEF] SKIP_EXECUTIVE_BRIEF_LLM=true — using deterministic fallback (E2E test mode)")
-        recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
-        brief_json = build_structured_fallback_brief(digest, "E2E test mode: LLM skipped", recs, unit=unit)
-        brief_markdown = _build_structured_fallback_markdown(digest, recs, unit=unit)
-        return brief_json, brief_markdown, True
-    
     import asyncio
 
     config = types.GenerateContentConfig(
@@ -858,16 +881,9 @@ async def _llm_generate_brief(
         thinking_config=thinking_config,
     )
     loop = asyncio.get_running_loop()
-    fallback_payload: tuple[dict, str] | None = None
     last_err: Exception | None = None
     if max_attempts is None:
         max_attempts = BRIEF_CONFIG.max_llm_retries()
-
-    def _structured_fallback(reason: str) -> tuple[dict, str]:
-        recs = collect_recommendations_from_reports(reports or {}, unit=unit) if reports else []
-        brief_json = build_structured_fallback_brief(digest, reason, recs, unit=unit)
-        brief_markdown = _build_structured_fallback_markdown(digest, recs, unit=unit)
-        return brief_json, brief_markdown
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -885,22 +901,22 @@ async def _llm_generate_brief(
             )
             raw = _extract_response_text(response)
             if not raw:
-                print("[BRIEF] Empty response payload from LLM — using deterministic fallback.")
-                fallback_json, fallback_markdown = _structured_fallback("Empty response from LLM")
-                return fallback_json, fallback_markdown, True
+                raise RuntimeError(
+                    "Executive brief: empty response from LLM (no structured fallback; fix model or prompt)."
+                )
             raw = re.sub(r"^```(?:json)?\s*", "", raw)
             raw = re.sub(r"\s*```$", "", raw)
             try:
                 brief_data = _parse_brief_json_payload(raw)
             except json.JSONDecodeError as json_err:
-                print(f"[BRIEF] JSON parse failed: {json_err}. Falling back to structured digest.")
-                fallback_json, fallback_markdown = _structured_fallback(f"JSON parse failed: {json_err}")
-                return fallback_json, fallback_markdown, True
+                raise RuntimeError(
+                    f"Executive brief: invalid JSON from LLM ({json_err}). "
+                    "No structured fallback."
+                ) from json_err
             except ValueError as val_err:
-                reason = f"Invalid JSON payload: {val_err}"
-                print(f"[BRIEF] {reason} Falling back to structured digest.")
-                fallback_json, fallback_markdown = _structured_fallback(reason)
-                return fallback_json, fallback_markdown, True
+                raise RuntimeError(
+                    f"Executive brief: invalid brief payload ({val_err}). No structured fallback."
+                ) from val_err
             
             # Check for forbidden titles FIRST (before normalization auto-fixes them)
             FORBIDDEN_TITLES = {
@@ -955,28 +971,27 @@ async def _llm_generate_brief(
                 is_scoped=is_scoped
             )
             if structural_errors:
-                # Check if errors include SECTION_FALLBACK_TEXT usage (indicates normalization failure)
-                fallback_errors = [e for e in structural_errors if "fallback text" in e.lower()]
-                if fallback_errors:
-                    print(f"[BRIEF] Fallback text detected: {'; '.join(fallback_errors)}")
-                    if attempt < max_attempts:
-                        print(f"[BRIEF] Retrying...")
-                        continue
-                raise ValueError(
-                    "Structured brief failed validation: " + '; '.join(structural_errors)
-                )
+                msg = "Structured brief failed validation: " + "; ".join(structural_errors)
+                print(f"[BRIEF] {msg}")
+                if attempt < max_attempts:
+                    print(f"[BRIEF] Retrying (attempt {attempt}/{max_attempts})...")
+                    await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
+                    continue
+                raise ValueError(msg)
 
             brief_markdown, used_fallback = _format_brief_with_fallback(brief_data, digest)
             if used_fallback:
-                fallback_payload = (brief_data, brief_markdown)
                 if attempt < max_attempts:
                     print(
-                        f"[BRIEF] Attempt {attempt}/{max_attempts} produced fallback output. Retrying in {BRIEF_CONFIG.retry_delay_seconds()}s..."
+                        f"[BRIEF] Attempt {attempt}/{max_attempts} produced placeholder markdown. Retrying in "
+                        f"{BRIEF_CONFIG.retry_delay_seconds()}s..."
                     )
                     await asyncio.sleep(BRIEF_CONFIG.retry_delay_seconds())
                     continue
-                print("[BRIEF] LLM returned fallback output after all retries — using structured fallback.")
-                return brief_data, brief_markdown, True
+                raise ValueError(
+                    "Executive brief: formatted output still matched placeholder heuristics after all retries; "
+                    "refusing structured fallback."
+                )
 
             return brief_data, brief_markdown, False
         except Exception as attempt_err:
@@ -987,12 +1002,9 @@ async def _llm_generate_brief(
             else:
                 print(f"[BRIEF] Attempt {attempt}/{max_attempts} failed: {attempt_err}.")
 
-    if fallback_payload:
-        print("[BRIEF] All attempts resulted in fallback output — using structured fallback text.")
-        return fallback_payload[0], fallback_payload[1], True
     if last_err:
         raise last_err
-    raise RuntimeError("LLM failed to return executive brief output")
+    raise RuntimeError("Executive brief: LLM did not return a valid brief after all retries.")
 
 
 
@@ -1011,14 +1023,31 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         run_dir = os.getenv("DATA_ANALYST_OUTPUT_DIR")
         outputs_dir = Path(run_dir).resolve() if run_dir else Path("outputs").resolve()
-        reports = _collect_metric_reports(outputs_dir)
 
         extracted_targets = ctx.session.state.get("extracted_targets") or []
+        requested_keys: set[str] | None = None
         if extracted_targets:
-            requested = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
-            reports = {k: v for k, v in reports.items() if k.replace(" ", "_").lower() in requested}
+            requested_keys = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
+
+        json_data = _collect_metric_json_data(outputs_dir)
+        if requested_keys:
+            json_data = {k: v for k, v in json_data.items() if k.replace(" ", "_").lower() in requested_keys}
+
+        reports = _collect_metric_reports(outputs_dir)
+        if requested_keys:
+            reports = {k: v for k, v in reports.items() if k.replace(" ", "_").lower() in requested_keys}
             if reports:
                 print(f"[BRIEF] Filtered to {len(reports)} requested metric(s): {', '.join(reports.keys())}")
+
+        use_json_digest = parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_JSON", "true"))
+        if not reports and json_data and use_json_digest:
+            reports = {
+                k: build_minimal_metric_markdown_from_json(v) for k, v in json_data.items()
+            }
+            print(
+                "[BRIEF] No metric_*.md files; using JSON-derived minimal markdown for digest "
+                f"({len(reports)} metric(s))"
+            )
 
         if not reports:
             if extracted_targets:
@@ -1044,10 +1073,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         )
         print(f"[BRIEF] Analysis period: {analysis_period}")
 
-        json_data = _collect_metric_json_data(outputs_dir)
-        if extracted_targets:
-            requested = {str(t).strip().replace(" ", "_").lower() for t in extracted_targets}
-            json_data = {k: v for k, v in json_data.items() if k.replace(" ", "_").lower() in requested}
         if json_data:
             json_data = _backfill_missing_titles(json_data)
 
@@ -1136,6 +1161,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
         max_scope_entities = 10
         min_scope_share_of_total = 0.0
         output_format = "pdf"
+        max_scoped_brief_level: int | None = None
 
         try:
             import yaml
@@ -1158,6 +1184,12 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             max_scope_entities = reporting_cfg.max_scope_entities
             min_scope_share_of_total = float(getattr(reporting_cfg, "min_scope_share_of_total", min_scope_share_of_total) or 0.0)
             output_format = reporting_cfg.output_format
+            cap_raw = getattr(reporting_cfg, "executive_brief_max_scoped_level", None)
+            if cap_raw is not None:
+                try:
+                    max_scoped_brief_level = int(cap_raw)
+                except (TypeError, ValueError):
+                    max_scoped_brief_level = None
             print(f"[BRIEF] Using reporting settings from contract: {contract.name}")
 
         session_drill = ctx.session.state.get("executive_brief_drill_levels")
@@ -1190,6 +1222,27 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 print(f"[BRIEF] Overriding min_scope_share_of_total={min_scope_share_of_total:.4f} from env")
             except (ValueError, TypeError):
                 pass
+
+        env_scoped_cap = os.environ.get("EXECUTIVE_BRIEF_MAX_SCOPED_LEVEL")
+        if env_scoped_cap is not None and str(env_scoped_cap).strip() != "":
+            try:
+                max_scoped_brief_level = int(env_scoped_cap.strip())
+                print(f"[BRIEF] Overriding max_scoped_brief_level={max_scoped_brief_level} from env")
+            except (ValueError, TypeError):
+                pass
+
+        _supported_scoped_hierarchy_levels = 2
+        scoped_brief_max_hierarchy_level = min(drill_levels, _supported_scoped_hierarchy_levels)
+        if max_scoped_brief_level is not None:
+            scoped_brief_max_hierarchy_level = min(
+                scoped_brief_max_hierarchy_level,
+                max(1, max_scoped_brief_level),
+            )
+            print(
+                f"[BRIEF] Scoped briefs capped at hierarchy level {scoped_brief_max_hierarchy_level} "
+                f"(executive_brief_max_scoped_level={max_scoped_brief_level}; "
+                f"analysis depth remains max_drill_depth from contract)"
+            )
 
         # Build contract-driven context for the prompt
         contract = ctx.session.state.get("dataset_contract")
@@ -1445,12 +1498,29 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             contract_metadata=contract_metadata,
         )
 
-        print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
+        if parse_bool_env(os.getenv("SKIP_EXECUTIVE_BRIEF_LLM")):
+            print(
+                "[BRIEF] SKIP_EXECUTIVE_BRIEF_LLM=true — skipping executive brief "
+                "(no LLM call; no synthetic brief)."
+            )
+            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            print("\n[BRIEF] CrossMetricExecutiveBriefAgent complete")
+            return
 
-        # Pre-check: if all metric reports are error-state or empty, skip LLM call
-        _empty_reports = sum(1 for v in reports.values() if "No insights" in v or "Error" in v or len(v.strip()) < 100)
-        if _empty_reports == len(reports):
-            print("[BRIEF] All metric reports are empty or error-state. Skipping LLM call.")
+        print(f"[BRIEF] Sending digest ({len(digest)} chars) to LLM...")
+        print(f"[BRIEF] LLM Payload: Instruction={len(instruction)} chars, UserMessage={len(user_message)} chars")
+
+        # Pre-check: skip only when every report is truly unusable.
+        report_quality_issues: dict[str, str] = {}
+        for metric_name, markdown in reports.items():
+            reason = _report_error_reason(markdown)
+            if reason:
+                report_quality_issues[metric_name] = reason
+        if report_quality_issues:
+            for metric_name, reason in sorted(report_quality_issues.items()):
+                print(f"[BRIEF] Digest quality check: metric={metric_name} reason={reason}")
+        if report_quality_issues and len(report_quality_issues) == len(reports):
+            print("[BRIEF] All metric reports are unusable. Skipping LLM call.")
             _fallback_md = (
                 f"# Analysis Summary — {analysis_period}\n\n"
                 "Analysis could not generate insights for this period. "
@@ -1466,26 +1536,103 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             print(f"[BRIEF] Saved error brief to {brief_path.name}")
             yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
             return
-
-        try:
-            # CEO style uses terse fragments — relax numeric validation
-            _ceo_min_values = 1 if is_ceo_style() else 3
-            brief_json, brief_md, used_fallback = await _llm_generate_brief(
-                model_name=model_name,
-                instruction=instruction,
-                user_message=user_message,
-                thinking_config=thinking_config,
-                digest=digest,
-                section_contract=active_section_contract,
-                reports=reports,
-                unit=presentation_unit,
-                has_critical_findings=has_critical,
-                critical_metrics=critical_metrics,
-                min_insight_values=_ceo_min_values,
+        if report_quality_issues:
+            print(
+                f"[BRIEF] Proceeding with partial digest quality: "
+                f"{len(reports) - len(report_quality_issues)}/{len(reports)} metric reports usable."
             )
 
-            if used_fallback:
-                print("[BRIEF] WARNING: Structured fallback output detected for network brief.")
+        try:
+            _ceo_min_values = 1 if is_ceo_style() else 3
+            use_hybrid_ceo = (
+                is_ceo_style()
+                and bool(json_data)
+                and parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_HYBRID_PIPELINE", "true"))
+            )
+            brief_json: dict[str, Any]
+            brief_md: str
+            used_fallback: bool
+
+            if use_hybrid_ceo:
+                print(
+                    "[BRIEF] Using hybrid CEO pipeline: Pass0 code rank -> "
+                    "Pass1 Flash-Lite curate -> Pass2 Pro synthesis"
+                )
+                try:
+                    def _hybrid_top_n() -> int:
+                        raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_TOP_SIGNALS", "30")
+                        try:
+                            return max(5, min(int(raw), 80))
+                        except (TypeError, ValueError):
+                            return 30
+
+                    def _hybrid_max_kept() -> int:
+                        raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_MAX_CURATED", "12")
+                        try:
+                            return max(4, min(int(raw), 20))
+                        except (TypeError, ValueError):
+                            return 12
+
+                    lite_model = os.environ.get(
+                        "EXECUTIVE_BRIEF_HYBRID_LITE_MODEL",
+                    ) or get_agent_model("executive_brief_hybrid_curator")
+                    pro_model = os.environ.get(
+                        "EXECUTIVE_BRIEF_HYBRID_PRO_MODEL",
+                    ) or get_agent_model("executive_brief_hybrid_synthesis")
+                    skip_cur = parse_bool_env(
+                        os.environ.get("EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION", "false")
+                    )
+
+                    brief_json, brief_md, hybrid_meta = await run_hybrid_ceo_brief_async(
+                        json_data,
+                        analysis_period=analysis_period,
+                        period_end=str(period_end),
+                        canonical_grain=canonical_grain,
+                        top_signals=_hybrid_top_n(),
+                        max_curated=_hybrid_max_kept(),
+                        skip_curation=skip_cur,
+                        lite_model=lite_model,
+                        pro_model=pro_model,
+                    )
+                    used_fallback = False
+                    save_hybrid_artifacts(outputs_dir, hybrid_meta)
+                    print(
+                        f"[BRIEF] Hybrid complete (pass0={hybrid_meta.get('pass0_count')}, "
+                        f"pass1_skipped={hybrid_meta.get('pass1_skipped', False)})"
+                    )
+                except Exception as hybrid_err:
+                    print(
+                        f"[BRIEF] Hybrid CEO pipeline failed ({hybrid_err}); "
+                        "falling back to digest LLM brief.",
+                        flush=True,
+                    )
+                    brief_json, brief_md, used_fallback = await _llm_generate_brief(
+                        model_name=model_name,
+                        instruction=instruction,
+                        user_message=user_message,
+                        thinking_config=thinking_config,
+                        digest=digest,
+                        section_contract=active_section_contract,
+                        reports=reports,
+                        unit=presentation_unit,
+                        has_critical_findings=has_critical,
+                        critical_metrics=critical_metrics,
+                        min_insight_values=_ceo_min_values,
+                    )
+            else:
+                brief_json, brief_md, used_fallback = await _llm_generate_brief(
+                    model_name=model_name,
+                    instruction=instruction,
+                    user_message=user_message,
+                    thinking_config=thinking_config,
+                    digest=digest,
+                    section_contract=active_section_contract,
+                    reports=reports,
+                    unit=presentation_unit,
+                    has_critical_findings=has_critical,
+                    critical_metrics=critical_metrics,
+                    min_insight_values=_ceo_min_values,
+                )
 
             # Post-process: fix temporal grain in title and section headings
             _grain_to_label = {"monthly": "Monthly", "weekly": "Weekly", "yearly": "Annual", "daily": "Daily"}
@@ -1588,13 +1735,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             },
                         )
                     except Exception as scope_err:
-                        print(f"[BRIEF] ERROR generating scoped brief for {entity}: {scope_err}")
-                        return entity, None
+                        print(
+                            f"[BRIEF] WARNING: scoped brief for {entity} failed after retries: {scope_err}",
+                            flush=True,
+                        )
+                        return (entity, None)
 
             if drill_levels >= 1 and json_data:
-                print(f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs")
+                print(
+                    f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs "
+                    f"(hierarchy levels 1..{scoped_brief_max_hierarchy_level})"
+                )
                 scheduled_scoped = 0
-                for level in range(1, min(drill_levels, 2) + 1):
+                for level in range(1, scoped_brief_max_hierarchy_level + 1):
                     if max_scoped_briefs and scheduled_scoped >= max_scoped_briefs:
                         print(
                             f"[BRIEF] Reached EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS={max_scoped_briefs}; skipping remaining levels"
@@ -1620,7 +1773,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             )
                             entities = entities[:remaining]
 
-                    print(f"[BRIEF] Level {level} ({level_name}): {len(entities)} entities: {', '.join(entities)}")
+                    print(
+                        f"[BRIEF] Level {level} ({level_name}): {len(entities)} entities "
+                        f"(ranked by cross-metric |variance $| total, then |variance %|): {', '.join(entities)}"
+                    )
 
                     hierarchy_map = _load_hierarchy_level_mapping(
                         json_data,
@@ -1680,8 +1836,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             "4. After exhausting retries → structured fallback output\n"
                         )
                         
+                        # Standard prompt only: CEO network prompt targets a different JSON shape and
+                        # breaks scoped validation / section contract when EXECUTIVE_BRIEF_STYLE=ceo.
                         scoped_instruction = _format_instruction(
-                            EXECUTIVE_BRIEF_INSTRUCTION,
+                            load_standard_executive_brief_instruction(),
                             metric_count=len(reports),
                             analysis_period=analysis_period,
                             scope_preamble=scope_preamble,
@@ -1689,6 +1847,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             prompt_variant_append=load_prompt_variant(
                                 os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")
                             ),
+                            min_insight_values="2",
+                            reference_period_end=str(period_end).split(" ")[0],
                         )
                         # Inject section title enforcement into system instruction
                         scoped_instruction = scoped_instruction + scoped_section_enforcement
@@ -1765,8 +1925,21 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         scheduled_scoped += 1
 
                     if tasks:
-                        results = await asyncio.gather(*tasks)
-                        for entity_name, scoped_info in results:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for res in results:
+                            if isinstance(res, BaseException):
+                                print(
+                                    f"[BRIEF] WARNING: scoped brief task raised: {res!r}",
+                                    flush=True,
+                                )
+                                continue
+                            if not isinstance(res, tuple) or len(res) != 2:
+                                print(
+                                    f"[BRIEF] WARNING: unexpected scoped brief result: {type(res).__name__}",
+                                    flush=True,
+                                )
+                                continue
+                            entity_name, scoped_info = res
                             if scoped_info:
                                 scoped_briefs[entity_name] = scoped_info
 
@@ -1865,16 +2038,16 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         except asyncio.TimeoutError:
-            print("[BRIEF] TIMEOUT: LLM call exceeded 300s. Executive brief not generated.")
-            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            print("[BRIEF] TIMEOUT: LLM call exceeded configured timeout.")
+            raise
         except json.JSONDecodeError as exc:
             print(f"[BRIEF] JSON parse error: {exc}.")
-            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            raise
         except Exception as exc:  # noqa: BLE001
             import traceback
 
             print(f"[BRIEF] ERROR: {exc}")
             traceback.print_exc()
-            yield Event(invocation_id=ctx.invocation_id, author=self.name, actions=EventActions())
+            raise
 
         print("\n[BRIEF] CrossMetricExecutiveBriefAgent complete")

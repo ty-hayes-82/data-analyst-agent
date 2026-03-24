@@ -1,0 +1,79 @@
+source:
+  type: tableau_hyper
+  format: long
+
+hyper:
+  tdsx_file: "Ops Metrics DS.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+  extract_dir: "temp_extracted/ops_metrics_ds"
+
+filter_columns:
+  region: "gl_rgn_nm"
+  division: "gl_div_nm"
+  lob: "ops_ln_of_bus_nm"
+  lob_ref: "ops_ln_of_bus_ref_nm"
+  cost_center: "icc_cst_ctr_cd"
+  date: "cal_dt"
+
+aggregation:
+  period_type: week_end
+  date_column: "cal_dt"
+  period_alias: "cal_dt"
+  group_by_columns:
+    - "gl_rgn_nm"
+    - "gl_div_nm"
+    - "drvr_mgr_cd"
+    - "ops_ln_of_bus_ref_nm"
+    - "ops_ln_of_bus_nm"
+    - "icc_cst_ctr_cd"
+    - "icc_cst_ctr_nm"
+  sum_columns:
+    - "ttl_rev_amt"
+    - "lh_rev_amt"
+    - "fuel_srchrg_rev_amt"
+    - "acsrl_rev_amt"
+    - "ordr_cnt"
+    - "ordr_miles"
+    - "ttl_trf_mi"
+    - "ld_trf_mi"
+    - "ld_mi_less_swift_billto"
+    - "dh_miles"
+    - "truck_count"
+    - "exprncd_drvr_cnt"
+    - "ttl_fuel_qty"
+    - "idle_fuel_qty"
+    - "drvr_engn_tm"
+    - "idle_engn_tm"
+
+date_parsing:
+  source_column: "cal_dt"
+  input_format: "%Y-%m-%d %H:%M:%S"
+  output_column: "cal_dt"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "cal_dt"
+  - "gl_rgn_nm"
+  - "gl_div_nm"
+  - "drvr_mgr_cd"
+  - "ops_ln_of_bus_ref_nm"
+  - "ops_ln_of_bus_nm"
+  - "icc_cst_ctr_cd"
+  - "icc_cst_ctr_nm"
+  - "ttl_rev_amt"
+  - "lh_rev_amt"
+  - "fuel_srchrg_rev_amt"
+  - "acsrl_rev_amt"
+  - "ordr_cnt"
+  - "ordr_miles"
+  - "ttl_trf_mi"
+  - "ld_trf_mi"
+  - "ld_mi_less_swift_billto"
+  - "dh_miles"
+  - "truck_count"
+  - "exprncd_drvr_cnt"
+  - "ttl_fuel_qty"
+  - "idle_fuel_qty"
+  - "drvr_engn_tm"
+  - "idle_engn_tm"

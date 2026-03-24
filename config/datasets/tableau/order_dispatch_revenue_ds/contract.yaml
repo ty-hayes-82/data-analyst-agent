@@ -1,0 +1,150 @@
+name: order_dispatch_revenue_ds
+version: 1.0.0
+display_name: Order - Dispatch - Revenue DS
+target_label: Metric
+description: Granular order, dispatch and revenue data from Order - Dispatch - Revenue DS
+materiality:
+  variance_pct: 5
+  variance_absolute: 50000
+presentation:
+  unit: USD
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: pdf
+data_source:
+  type: tableau_hyper
+  file: "data/tableau/Order - Dispatch - Revenue DS.tdsx"
+  table: Extract.Extract
+time:
+  column: ordr_dt
+  frequency: daily
+  format: '%Y-%m-%d %H:%M:%S'
+  range_months: 12
+grain:
+  columns:
+  - ordr_nbr
+  - disp_nbr
+  - logistics_order_id
+metrics:
+- name: lh_amt
+  column: lh_amt
+  display_name: Line Haul Amount
+  brief_category: Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Line haul revenue amount
+- name: fuel_srchrg_amt
+  column: fuel_srchrg_amt
+  display_name: Fuel Surcharge Amount
+  brief_category: Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Fuel surcharge revenue amount
+- name: acsrl_amt
+  column: acsrl_amt
+  display_name: Accessorial Amount
+  brief_category: Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Accessorial revenue amount
+- name: ttl_amt
+  column: ttl_amt
+  display_name: Total Amount
+  brief_category: Revenue
+  type: additive
+  format: currency
+  optimization: maximize
+  description: Total revenue amount
+- name: loaded_miles
+  column: loaded_miles
+  display_name: Loaded Miles
+  brief_category: Productivity
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total loaded miles
+- name: empty_miles
+  column: empty_miles
+  display_name: Empty Miles
+  brief_category: Productivity
+  type: additive
+  format: float
+  optimization: minimize
+  description: Total empty (deadhead) miles
+- name: ttl_trf_mi
+  column: ttl_trf_mi
+  display_name: Total Traffic Miles
+  brief_category: Productivity
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total traffic miles
+dimensions:
+- name: ordr_nbr
+  column: ordr_nbr
+  display_name: Order Number
+  role: primary
+- name: disp_nbr
+  column: disp_nbr
+  display_name: Dispatch Number
+  role: primary
+- name: shpr_nm
+  column: shpr_nm
+  display_name: Shipper Name
+  role: secondary
+- name: billto_nm
+  column: billto_nm
+  display_name: Bill-To Name
+  role: secondary
+- name: cnsgne_nm
+  column: cnsgne_nm
+  display_name: Consignee Name
+  role: secondary
+- name: orig_cty_nm
+  column: orig_cty_nm
+  display_name: Origin City
+  role: secondary
+- name: orig_st_cd
+  column: orig_st_cd
+  display_name: Origin State
+  role: secondary
+- name: dest_cty_nm
+  column: dest_cty_nm
+  display_name: Destination City
+  role: secondary
+- name: dest_st_cd
+  column: dest_st_cd
+  display_name: Destination State
+  role: secondary
+- name: orig_ops_region
+  column: orig_ops_region
+  display_name: Origin Ops Region
+  role: secondary
+- name: dest_ops_region
+  column: dest_ops_region
+  display_name: Destination Ops Region
+  role: secondary
+- name: ownr_oprtr_flg
+  column: ownr_oprtr_flg
+  display_name: Owner Operator Flag
+  role: secondary
+- name: non_rev_flg
+  column: non_rev_flg
+  display_name: Non-Revenue Flag
+  role: secondary
+- name: swift_billto_flg
+  column: swift_billto_flg
+  display_name: Swift Bill-To Flag
+  role: secondary
+hierarchies:
+- name: geography_flow
+  display_name: Geography Flow
+  levels:
+  - orig_st_cd
+  - dest_st_cd
+  - shpr_nm

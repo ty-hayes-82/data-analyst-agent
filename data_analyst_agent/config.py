@@ -202,6 +202,16 @@ class Config:
     
     def setup_environment(self):
         """Set up environment variables for Vertex AI and rate limiting."""
+        # Configure rate limiting
+        os.environ.setdefault("GOOGLE_GENAI_RPM_LIMIT", self.rpm_limit)
+        os.environ.setdefault("GOOGLE_GENAI_RETRY_DELAY", self.retry_delay)
+        os.environ.setdefault("GOOGLE_GENAI_MAX_RETRIES", self.max_retries)
+        os.environ.setdefault("GOOGLE_GENAI_EXPONENTIAL_BACKOFF", self.exponential_backoff)
+        os.environ.setdefault("GOOGLE_GENAI_BACKOFF_MULTIPLIER", self.backoff_multiplier)
+
+        # Set up authentication FIRST to discover service account and set GOOGLE_APPLICATION_CREDENTIALS
+        self.setup_google_auth()
+
         # Configure Vertex AI vs Google AI (API Key) endpoint selection.
         #
         # Priority:
@@ -225,16 +235,6 @@ class Config:
         
         os.environ.setdefault("GOOGLE_CLOUD_PROJECT", self.project_id)
         os.environ.setdefault("GOOGLE_CLOUD_LOCATION", self.location)
-        
-        # Configure rate limiting
-        os.environ.setdefault("GOOGLE_GENAI_RPM_LIMIT", self.rpm_limit)
-        os.environ.setdefault("GOOGLE_GENAI_RETRY_DELAY", self.retry_delay)
-        os.environ.setdefault("GOOGLE_GENAI_MAX_RETRIES", self.max_retries)
-        os.environ.setdefault("GOOGLE_GENAI_EXPONENTIAL_BACKOFF", self.exponential_backoff)
-        os.environ.setdefault("GOOGLE_GENAI_BACKOFF_MULTIPLIER", self.backoff_multiplier)
-        
-        # Set up authentication
-        self.setup_google_auth()
     
     def validate(self) -> bool:
         """Validate that all required configuration is present."""

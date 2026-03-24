@@ -10,8 +10,9 @@ from dotenv import load_dotenv
 load_dotenv(PROJECT_ROOT / ".env")
 # Also try parent .env for API keys (but don't override existing)
 load_dotenv(PROJECT_ROOT.parent / ".env", override=False)
-# Force ML Dev API mode (not Vertex)
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
+# Use environment for Vertex AI setting (default to Vertex if SA exists)
+if "GOOGLE_GENAI_USE_VERTEXAI" not in os.environ:
+    os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "1" if os.path.exists(PROJECT_ROOT / "service-account.json") or os.getenv("GOOGLE_APPLICATION_CREDENTIALS") else "0"
 os.environ["EXECUTIVE_BRIEF_STYLE"] = "ceo"
 
 # Load cached digest — check local outputs or use VPS-synced cache

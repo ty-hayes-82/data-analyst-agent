@@ -103,6 +103,9 @@ def build_contract_metadata(contract: Any | None) -> Dict[str, Any]:
     metadata["reporting"] = {
         "max_drill_depth": _field(reporting_cfg, "max_drill_depth"),
         "executive_brief_drill_levels": _field(reporting_cfg, "executive_brief_drill_levels"),
+        "executive_brief_max_scoped_level": _field(
+            reporting_cfg, "executive_brief_max_scoped_level"
+        ),
         "max_scope_entities": _field(reporting_cfg, "max_scope_entities"),
         "output_format": _field(reporting_cfg, "output_format"),
     }

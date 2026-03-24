@@ -243,7 +243,6 @@ def format_hierarchy_insight_cards(
         if not _is_material_variance(var_dollar, var_pct):
             continue
         item = str(driver.get("item", ""))
-        item = str(driver.get("item", ""))
         current = driver.get("current", 0.0)
         prior = driver.get("prior", 0.0)
         cumulative_pct = driver.get("cumulative_pct", 0.0)
@@ -359,6 +358,177 @@ def format_hierarchy_insight_cards(
         }
         cards.append(card)
 
+    # When every entity is below the % materiality gate (common for ratio KPIs with small
+    # WoW moves), still surface regional / entity period values so outputs match scorecards.
+    if not cards and level >= 1 and top_drivers:
+        mcol = str(level_stats.get("metric", "metric"))
+        ap = str(level_stats.get("analysis_period", ""))
+        prior_ap = str(level_stats.get("prior_period", "") or "")
+        net_total_raw = level_stats.get("current_total")
+        try:
+            net_total_f = float(net_total_raw) if net_total_raw is not None else None
+        except (TypeError, ValueError):
+            net_total_f = None
+        for driver in top_drivers[: _max_cards_per_level()]:
+            item = str(driver.get("item", ""))
+            if not item or item == "Total":
+                continue
+            try:
+                cur = float(driver.get("current", 0.0))
+                pri = float(driver.get("prior", 0.0))
+            except (TypeError, ValueError):
+                continue
+            var_d = float(driver.get("variance_dollar", 0.0))
+            vpc = driver.get("variance_pct")
+            vpc_f = None
+            if vpc is not None:
+                try:
+                    v = float(vpc)
+                    if v == v:  # filter NaN
+                        vpc_f = v
+                except (TypeError, ValueError):
+                    pass
+            if abs(cur) >= 100 and abs(cur - round(cur)) < 0.05:
+                cur_s = f"{cur:,.0f}"
+            else:
+                cur_s = f"{round(cur, 4):g}"
+            if abs(pri) >= 100 and abs(pri - round(pri)) < 0.05:
+                pri_s = f"{pri:,.0f}"
+            else:
+                pri_s = f"{round(pri, 4):g}"
+            delta_note = ""
+            if prior_ap and abs(cur - pri) > 1e-9:
+                if vpc_f is not None:
+                    delta_note = f" vs prior {pri_s} ({vpc_f:+.2f}% WoW)."
+                else:
+                    delta_note = f" vs prior {pri_s} (delta {var_d:+.4g})."
+            else:
+                delta_note = f" (prior {pri_s})." if prior_ap else "."
+            share_net = None
+            if net_total_f and abs(net_total_f) > 1e-12:
+                share_net = round(abs(cur) / abs(net_total_f), 4)
+            cards.append(
+                {
+                    "title": f"{mcol} ({item})",
+                    "what_changed": (
+                        f"{mcol} for {item} is {cur_s} for the analysis period{delta_note}"
+                    ),
+                    "why": (
+                        "Variance vs prior period was below the card materiality threshold; "
+                        "values shown for regional scorecard alignment."
+                    ),
+                    "evidence": {
+                        "metric": mcol,
+                        "baseline": "period_level",
+                        "period": ap,
+                        "prior_period": prior_ap or None,
+                        "current_value": cur,
+                        "prior_value": pri,
+                        "variance_dollar": round(var_d, 6),
+                        "variance_pct": round(vpc_f, 4) if vpc_f is not None else None,
+                        "entity": item,
+                        "share_of_network_metric": share_net,
+                        "signal": "regional_period_snapshot",
+                    },
+                    "now_what": "Use these entities when comparing to regional dashboard tables.",
+                    "priority": "low",
+                    "impact_score": 0.12,
+                    "materiality_weight": 1.0,
+                    "root_cause": "other",
+                    "tags": ["regional_period_snapshot", "hierarchy", "low_variance"],
+                }
+            )
+
+    dq_flags_list = level_stats.get("data_quality_flags") or []
+    no_prior_data = any(
+        isinstance(f, str) and "NO_PRIOR_PERIOD_DATA" in f for f in dq_flags_list
+    )
+    if not cards and no_prior_data:
+        mcol = str(level_stats.get("metric", "metric"))
+        ap = str(level_stats.get("analysis_period", ""))
+        for driver in (top_drivers or [])[:8]:
+            try:
+                cur = float(driver.get("current", 0.0))
+            except (TypeError, ValueError):
+                continue
+            item = str(driver.get("item", ""))
+            if not item:
+                continue
+            if abs(cur) >= 100 and abs(cur - round(cur)) < 0.05:
+                val_str = f"{cur:,.0f}"
+            else:
+                val_str = f"{round(cur, 4):g}"
+            label = item if item != "Total" else "network"
+            cards.append(
+                {
+                    "title": f"{mcol} ({label})",
+                    "what_changed": (
+                        f"{mcol} for {label} is {val_str} in the analysis window; "
+                        "no prior period was in scope for comparison."
+                    ),
+                    "why": (
+                        "Extend the date range to include a prior week to compute WoW deltas."
+                    ),
+                    "evidence": {
+                        "metric": mcol,
+                        "baseline": "snapshot_only",
+                        "period": ap,
+                        "current_value": cur,
+                        "prior_value": None,
+                        "delta_abs": 0.0,
+                        "delta_pct": None,
+                        "entity": item,
+                        "signal": "early_signal",
+                    },
+                    "now_what": "Broaden dates or compare to the Tableau scorecard for the same week.",
+                    "priority": "medium",
+                    "impact_score": 0.25,
+                    "materiality_weight": 1.0,
+                    "root_cause": "other",
+                    "tags": ["snapshot", "single_period", "hierarchy"],
+                }
+            )
+        if not cards:
+            ct_raw = level_stats.get("current_total")
+            if ct_raw is not None:
+                try:
+                    ct = float(ct_raw)
+                except (TypeError, ValueError):
+                    ct = None
+                if ct is not None:
+                    if abs(ct) >= 100 and abs(ct - round(ct)) < 0.05:
+                        val_str = f"{ct:,.0f}"
+                    else:
+                        val_str = f"{round(ct, 4):g}"
+                    cards.append(
+                        {
+                            "title": f"{mcol}: weekly snapshot",
+                            "what_changed": (
+                                f"{mcol} is {val_str} for the analysis window; "
+                                "no prior period was in scope for comparison."
+                            ),
+                            "why": (
+                                "Extend the date range to include the previous week to see WoW change."
+                            ),
+                            "evidence": {
+                                "metric": mcol,
+                                "baseline": "snapshot_only",
+                                "period": ap,
+                                "current_value": ct,
+                                "prior_value": None,
+                                "delta_abs": 0.0,
+                                "delta_pct": None,
+                                "signal": "early_signal",
+                            },
+                            "now_what": "Broaden dates or compare to the Tableau scorecard for the same week.",
+                            "priority": "medium",
+                            "impact_score": 0.25,
+                            "materiality_weight": 1.0,
+                            "root_cause": "other",
+                            "tags": ["snapshot", "single_period", "hierarchy"],
+                        }
+                    )
+
     # Rank by impact score, take top N
     cards.sort(key=lambda c: -c.get("impact_score", 0.0))
     top_cards = cards[: _max_cards_per_level()]
@@ -377,6 +547,9 @@ def format_hierarchy_insight_cards(
         "total_candidates": len(cards),
         "current_total": level_stats.get("current_total"),
         "prior_total": level_stats.get("prior_total"),
+        # Always expose ranked drivers so consumers get correct regional numbers even when
+        # no material-variance cards are emitted (e.g. ratio KPIs with small WoW %).
+        "top_drivers": list(top_drivers) if isinstance(top_drivers, list) else [],
     }
     dq_flags = level_stats.get("data_quality_flags")
     if dq_flags:
@@ -452,9 +625,14 @@ def should_continue_drilling(
         return {"action": "STOP", "reasoning": f"Level {current_level} is a duplicate.",
                 "material_variances": [], "next_level": None}
 
-    if current_level >= max_depth:
-        return {"action": "STOP", "reasoning": f"Reached max drill depth ({max_depth}).",
-                "material_variances": [], "next_level": None}
+    # max_drill_depth is the exclusive cap on the next level index (aligns with decisions.py).
+    if max_depth > 0 and current_level >= max_depth - 1:
+        return {
+            "action": "STOP",
+            "reasoning": f"Reached max drill depth ({max_depth}).",
+            "material_variances": [],
+            "next_level": None,
+        }
 
     insight_cards = level_result.get("insight_cards", [])
     high_impact_items = [

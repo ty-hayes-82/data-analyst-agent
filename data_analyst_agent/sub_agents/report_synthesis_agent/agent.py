@@ -199,6 +199,14 @@ _FAST_PATH_PLACEHOLDER_PHRASES = (
 )
 
 
+def _report_synthesis_execution_mode() -> str:
+    """Return execution mode: direct (default), llm, or auto."""
+    raw = str(os.environ.get("REPORT_SYNTHESIS_EXECUTION_MODE", "direct")).strip().lower()
+    if raw in {"auto", "llm", "direct"}:
+        return raw
+    return "direct"
+
+
 def _string_has_hierarchical_signal(text: str | None) -> bool:
     if not text:
         return False
@@ -791,17 +799,20 @@ class ReportSynthesisWrapper(BaseAgent):
 
         fast_path_reason = None
         if tool_arguments:
+            execution_mode = _report_synthesis_execution_mode()
             force_direct = parse_bool_env(os.environ.get("REPORT_SYNTHESIS_FORCE_DIRECT_TOOL"))
             has_hierarchy_signal = _has_hierarchical_signal(hierarchical_payload, hierarchical_text)
             if force_direct:
                 fast_path_reason = "REPORT_SYNTHESIS_FORCE_DIRECT_TOOL=1"
-            elif not has_hierarchy_signal:
+            elif execution_mode == "direct":
+                fast_path_reason = "REPORT_SYNTHESIS_EXECUTION_MODE=direct"
+            elif execution_mode == "auto" and not has_hierarchy_signal:
                 if plan_hint:
-                    fast_path_reason = f"{plan_hint}; no hierarchical payload detected"
+                    fast_path_reason = f"auto mode ({plan_hint}); no hierarchical payload detected"
                 elif not contract_has_hierarchy:
-                    fast_path_reason = "no hierarchical payload expected"
+                    fast_path_reason = "auto mode; no hierarchical payload expected"
                 else:
-                    fast_path_reason = "no hierarchical payload detected"
+                    fast_path_reason = "auto mode; no hierarchical payload detected"
 
         if fast_path_reason and tool_arguments:
             print(f"[REPORT_SYNTHESIS] Fast-path triggered ({fast_path_reason}); calling generate_markdown_report directly.", flush=True)
@@ -835,15 +846,16 @@ class ReportSynthesisWrapper(BaseAgent):
         
         print(f"[REPORT_SYNTHESIS] Calling LLM agent (timeout={timeout_s}s)...", flush=True)
         
+        max_tool_calls = 4
+        try:
+            max_tool_calls = max(1, int(os.environ.get("REPORT_SYNTHESIS_MAX_TOOL_CALLS", "4")))
+        except (ValueError, TypeError):
+            pass
+
         event_count = 0
         tool_call_count = 0
+        last_partial_llm_text = ""
         try:
-            max_tool_calls = 1
-            try:
-                max_tool_calls = max(1, int(os.environ.get("REPORT_SYNTHESIS_MAX_TOOL_CALLS", "1")))
-            except (ValueError, TypeError):
-                pass
-
             gen = wrapped_agent.run_async(ctx)
             
             while True:
@@ -855,6 +867,15 @@ class ReportSynthesisWrapper(BaseAgent):
                     event = await asyncio.wait_for(gen.__anext__(), timeout=remaining)
                     event_count += 1
                     yield event
+
+                    try:
+                        if event.content and event.content.parts:
+                            for part in event.content.parts:
+                                txt = getattr(part, "text", None)
+                                if txt and len(txt) > len(last_partial_llm_text):
+                                    last_partial_llm_text = txt
+                    except Exception:
+                        pass
 
                     # Compatibility: ensure markdown lands in session state.
                     try:
@@ -888,7 +909,11 @@ class ReportSynthesisWrapper(BaseAgent):
                                 if name == "generate_markdown_report":
                                     tool_call_count += 1
                                     if tool_call_count >= max_tool_calls:
-                                        print(f"[REPORT_SYNTHESIS] Reached max tool calls ({max_tool_calls}), stopping.", flush=True)
+                                        print(
+                                            f"[REPORT_SYNTHESIS] Reached max tool calls ({max_tool_calls}), stopping "
+                                            f"(if markdown is still empty, fallback will run with reason logged).",
+                                            flush=True,
+                                        )
                                         stop_early = True
                                         break
                     if stop_early:
@@ -914,7 +939,24 @@ class ReportSynthesisWrapper(BaseAgent):
             fallback_reason = "LLM returned error payload"
 
         if fallback_reason and tool_arguments:
-            print(f"[REPORT_SYNTHESIS] Fallback triggered ({fallback_reason}); calling generate_markdown_report directly.", flush=True)
+            partial_len = len(last_partial_llm_text)
+            out_s = report_output if isinstance(report_output, str) else ""
+            out_len = len(out_s)
+            preview = (out_s[:280] + "…") if len(out_s) > 280 else out_s
+            log_prefix = "Fallback triggered"
+            if fallback_reason == "missing LLM output":
+                log_prefix = "Direct-render recovery"
+            print(
+                f"[REPORT_SYNTHESIS] {log_prefix}: reason={fallback_reason}; "
+                f"injection_chars={len(injection_message)}; "
+                f"last_llm_text_chars={partial_len}; "
+                f"session_output_chars={out_len}; "
+                f"generate_markdown_tool_calls={tool_call_count}/{max_tool_calls}; "
+                f"events={event_count}; "
+                f"output_preview={preview!r}. "
+                f"Calling generate_markdown_report directly.",
+                flush=True,
+            )
             try:
                 fallback_markdown = await generate_markdown_report(**tool_arguments)
                 ctx.session.state["report_markdown"] = fallback_markdown
@@ -958,7 +1000,7 @@ def create_report_synthesis_agent(model: str | None = None, thinking_budget: int
         generate_content_config=types.GenerateContentConfig(
             response_modalities=["TEXT"],
             temperature=0.2,
-            max_output_tokens=2048,  # Reduced from 4096: typical tool call output is ~600-800 tokens
+            max_output_tokens=4096,
             thinking_config=thinking_config,
         ),
     )

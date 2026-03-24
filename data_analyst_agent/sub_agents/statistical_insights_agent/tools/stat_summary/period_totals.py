@@ -49,7 +49,7 @@ def compute_monthly_totals(state: SummaryState) -> None:
     ratio_config: Optional[dict] = None
 
     if ctx and ctx.contract and state.current_metric_name:
-        from ..ratio_metrics_config import get_ratio_config_for_metric
+        from data_analyst_agent.semantic.ratio_metrics_config import get_ratio_config_for_metric
 
         ratio_config = get_ratio_config_for_metric(ctx.contract, state.current_metric_name)
 
@@ -78,6 +78,55 @@ def compute_monthly_totals(state: SummaryState) -> None:
                 state.contribution_share[account] = float(period_delta.loc[account] / total_change_denom)
 
 
+def _compute_ratio_totals_from_exprs(
+    df: pd.DataFrame,
+    pivot: pd.DataFrame,
+    ctx,
+    ratio_config: dict,
+    state: SummaryState,
+) -> dict[str, float] | None:
+    """Tableau wide frame: sum bases per period, then eval numerator/denominator expressions."""
+    from data_analyst_agent.semantic.derived_kpi_formula import column_refs_in_expr
+
+    num_expr = ratio_config.get("numerator_expr")
+    den_expr = ratio_config.get("denominator_expr")
+    if not num_expr or not den_expr:
+        return None
+    mult = float(ratio_config.get("multiply", 1.0))
+    tcol = state.time_col if state.time_col in df.columns else None
+    if not tcol and ctx and ctx.contract and ctx.contract.time:
+        tcol = ctx.contract.time.column
+    if not tcol or tcol not in df.columns:
+        return None
+
+    available = set(df.columns)
+    cols = column_refs_in_expr(str(num_expr), available) | column_refs_in_expr(str(den_expr), available)
+    if not cols:
+        return None
+
+    work = df[list(cols | {tcol})].copy()
+    for c in cols:
+        work[c] = pd.to_numeric(work[c], errors="coerce").fillna(0)
+    work["_period_key"] = work[tcol].astype(str).str[:10]
+    g = work.groupby("_period_key", dropna=False)[sorted(cols)].sum()
+    try:
+        g["_n"] = g.eval(str(num_expr))
+        g["_d"] = g.eval(str(den_expr))
+    except Exception:
+        return None
+    series = mult * g["_n"] / g["_d"].replace(0, float("nan"))
+    series.index = series.index.astype(str).str[:10]
+
+    monthly_totals: dict[str, float] = {}
+    for period in pivot.columns:
+        pkey = str(period).split(" ")[0].split("T")[0][:10]
+        if pkey in series.index and pd.notna(series.loc[pkey]):
+            monthly_totals[str(period)] = round(float(series.loc[pkey]), 2)
+        else:
+            monthly_totals[str(period)] = 0.0
+    return monthly_totals
+
+
 def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> dict[str, float] | None:
     num_metric = ratio_config.get("numerator_metric")
     denom_metric = ratio_config.get("denominator_metric")
@@ -91,6 +140,9 @@ def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> 
             and getattr(ctx.contract, "data_source", None)
             and getattr(ctx.contract.data_source, "type", None) == "tableau_hyper"
         )
+
+        if ratio_config.get("numerator_expr") and ratio_config.get("denominator_expr"):
+            return _compute_ratio_totals_from_exprs(df, pivot, ctx, ratio_config, state)
 
         if num_metric in df.columns and denom_metric in df.columns:
             nd_df = df.copy()

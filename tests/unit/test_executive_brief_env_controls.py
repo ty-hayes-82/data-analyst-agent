@@ -3,7 +3,7 @@ from data_analyst_agent.sub_agents.executive_brief_agent import agent as executi
 
 def test_max_scoped_briefs_default(monkeypatch):
     monkeypatch.delenv("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", raising=False)
-    assert executive_agent._max_scoped_briefs() == 3
+    assert executive_agent._max_scoped_briefs() == 20
 
 
 def test_max_scoped_briefs_env_override(monkeypatch):
