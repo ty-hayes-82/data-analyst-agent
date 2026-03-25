@@ -30,7 +30,7 @@ Produce a JSON object with a list of `insight_cards`. Each card must follow this
     {
       "title": "Short title of the finding",
       "what_changed": "Precise delta description",
-      "why": "Statistical reasoning (e.g., 'Significant mean shift detected')",
+      "why": "Detailed statistical explanation, referencing specific statistical tests, p-values, confidence intervals, or effect sizes where applicable, to explain *how* the pattern was identified and its significance.",
       "evidence": {
         "avg": 123.4,
         "std_dev": 12.3,
