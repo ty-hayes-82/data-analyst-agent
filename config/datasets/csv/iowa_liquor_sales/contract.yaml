@@ -1,0 +1,210 @@
+name: iowa_liquor_sales
+version: 1.0.0
+display_name: Iowa Liquor Sales — Revenue & Volume Analysis
+target_label: Metric
+description: >
+  Iowa state liquor sales data with 50,000 transactions. Covers store-level
+  sales across counties and cities with detailed product categorization by
+  vendor and category. Includes cost, retail price, volume, and revenue metrics
+  for margin and mix analysis.
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 1000.0
+
+presentation:
+  unit: USD
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  executive_brief_max_scoped_level: 1
+  max_scope_entities: 15
+  output_format: pdf
+
+data_source:
+  type: csv
+  file: data/csv/iowa_liquor_sales/Iowa_Liquor_Sales.csv
+
+time:
+  column: date
+  frequency: daily
+  temporal_grain_override: weekly
+  format: "%Y-%m-%dT%H:%M:%S.%f"
+  range_months: 24
+
+grain:
+  columns:
+    - date
+    - county
+    - city
+    - name
+    - category_name
+    - vendor_name
+
+metrics:
+  - name: sale_dollars
+    column: sale_dollars
+    display_name: Sale Dollars
+    brief_category: Revenue
+    brief_label: Revenue
+    type: additive
+    format: currency
+    optimization: maximize
+    description: Total dollar amount of the sale
+
+  - name: sale_bottles
+    column: sale_bottles
+    display_name: Bottles Sold
+    brief_category: Volume
+    brief_label: Bottles
+    type: additive
+    format: float
+    optimization: maximize
+    description: Number of bottles sold
+
+  - name: sale_liters
+    column: sale_liters
+    display_name: Liters Sold
+    brief_category: Volume
+    brief_label: Liters
+    type: additive
+    format: float
+    optimization: maximize
+    description: Volume sold in liters
+
+  - name: sale_gallons
+    column: sale_gallons
+    display_name: Gallons Sold
+    brief_category: Volume
+    brief_label: Gallons
+    type: additive
+    format: float
+    optimization: maximize
+    description: Volume sold in gallons
+
+  - name: state_bottle_cost
+    column: state_bottle_cost
+    display_name: Bottle Cost
+    brief_category: Cost
+    brief_label: Cost/Bottle
+    type: ratio
+    format: currency
+    optimization: minimize
+    description: State cost per bottle
+
+  - name: state_bottle_retail
+    column: state_bottle_retail
+    display_name: Bottle Retail
+    brief_category: Pricing
+    brief_label: Retail/Bottle
+    type: ratio
+    format: currency
+    optimization: maximize
+    description: State retail price per bottle
+
+derived_kpis:
+  - name: revenue_per_bottle
+    display_name: Revenue per Bottle
+    brief_label: Rev/Bottle
+    brief_category: Pricing
+    numerator: sale_dollars
+    denominator: sale_bottles
+    format: currency
+    description: Average revenue per bottle sold
+
+  - name: avg_volume_per_sale
+    display_name: Avg Liters per Transaction
+    brief_label: L/Txn
+    brief_category: Volume
+    numerator: sale_liters
+    denominator: sale_bottles
+    format: float
+    description: Average liters per bottle (proxy for bottle size mix)
+
+dimensions:
+  - name: county
+    column: county
+    display_name: County
+    role: primary
+    description: Iowa county name
+
+  - name: city
+    column: city
+    display_name: City
+    role: primary
+    description: City where store is located
+
+  - name: store_name
+    column: name
+    display_name: Store Name
+    role: primary
+    description: Name of the retail store
+
+  - name: category_name
+    column: category_name
+    display_name: Liquor Category
+    role: primary
+    description: Liquor product category (e.g., Vodka, Whiskey, Rum)
+
+  - name: vendor_name
+    column: vendor_name
+    display_name: Vendor
+    role: primary
+    description: Liquor vendor/distributor name
+
+  - name: im_desc
+    column: im_desc
+    display_name: Item Description
+    role: secondary
+    description: Specific product item description
+
+  - name: zipcode
+    column: zipcode
+    display_name: Zip Code
+    role: secondary
+    description: Store zip code
+
+hierarchies:
+  - name: geographic
+    display_name: Geographic Hierarchy
+    levels:
+      - county
+      - city
+      - name
+    description: County > City > Store drill-down
+
+  - name: product
+    display_name: Product Hierarchy
+    levels:
+      - category_name
+      - vendor_name
+      - im_desc
+    description: Category > Vendor > Item drill-down
+
+hierarchy_entity_filters:
+  hierarchy_name: geographic
+  ranking_metric: sale_dollars
+  levels:
+    - level: 1
+      mode: top_pct
+      value: 100
+    - level: 2
+      mode: top_pct
+      value: 95
+    - level: 3
+      mode: top_n
+      value: 20
+      partition_by_dimension: county
+
+capabilities:
+  - Weekly time-series analysis of liquor sales
+  - County > City > Store geographic drill-down
+  - Product category and vendor performance analysis
+  - Revenue per bottle and volume mix variance
+  - Cost vs retail price margin analysis
+  - Store-level performance comparison
+  - Seasonal demand pattern identification
+
+policies:
+  degradation_threshold: 0.10

@@ -1,0 +1,6 @@
+# Default analysis parameters for Online Retail dataset
+default_metric: quantity
+default_dimension: country
+default_hierarchy: geographic
+default_time_range_months: 6
+default_comparison: wow

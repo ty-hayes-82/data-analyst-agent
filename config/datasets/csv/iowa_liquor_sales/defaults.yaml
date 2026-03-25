@@ -1,0 +1,6 @@
+# Default analysis parameters for Iowa Liquor Sales dataset
+default_metric: sale_dollars
+default_dimension: county
+default_hierarchy: geographic
+default_time_range_months: 12
+default_comparison: wow

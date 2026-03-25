@@ -1,0 +1,137 @@
+name: online_retail
+version: 1.0.0
+display_name: Online Retail — E-Commerce Revenue & Volume Analysis
+target_label: Metric
+description: >
+  UCI Online Retail dataset with 531,282 transactions from a UK-based online
+  retailer. Covers December 2010 through December 2011. Sales span 38 countries
+  with the UK as the dominant market. Ideal for country-level variance analysis,
+  product mix, and customer purchasing pattern analysis.
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 200.0
+
+presentation:
+  unit: GBP
+
+reporting:
+  max_drill_depth: 2
+  executive_brief_drill_levels: 2
+  executive_brief_max_scoped_level: 1
+  max_scope_entities: 15
+  output_format: pdf
+
+data_source:
+  type: csv
+  file: data/csv/online_retail/Online_Retail.csv
+
+time:
+  column: invoice_date
+  frequency: daily
+  temporal_grain_override: weekly
+  format: "%Y-%m-%d %H:%M:%S"
+  range_months: 13
+
+grain:
+  columns:
+    - invoice_date
+    - country
+    - stock_code
+
+metrics:
+  - name: quantity
+    column: Quantity
+    display_name: Quantity
+    brief_category: Volume
+    brief_label: Units
+    type: additive
+    format: float
+    optimization: maximize
+    description: Number of units in the transaction (negative = returns)
+
+  - name: unit_price
+    column: UnitPrice
+    display_name: Unit Price
+    brief_category: Pricing
+    brief_label: Price
+    type: ratio
+    format: currency
+    optimization: maximize
+    description: Price per unit (GBP)
+
+derived_kpis:
+  - name: revenue
+    display_name: Revenue
+    brief_label: Revenue
+    brief_category: Revenue
+    numerator: quantity
+    denominator_literal: 1
+    multiply_by_metric: unit_price
+    format: currency
+    description: Calculated revenue (Quantity * UnitPrice)
+
+dimensions:
+  - name: country
+    column: Country
+    display_name: Country
+    role: primary
+    description: Customer country (38 unique, dominated by United Kingdom)
+
+  - name: stock_code
+    column: StockCode
+    display_name: Product Code
+    role: primary
+    description: Unique product stock code
+
+  - name: description
+    column: Description
+    display_name: Product Description
+    role: secondary
+    description: Product item description
+
+  - name: invoice_no
+    column: InvoiceNo
+    display_name: Invoice Number
+    role: secondary
+    description: Invoice number (prefix C = cancellation)
+
+  - name: customer_id
+    column: CustomerID
+    display_name: Customer ID
+    role: secondary
+    description: Unique customer identifier
+
+hierarchies:
+  - name: geographic
+    display_name: Geographic Hierarchy
+    levels:
+      - Country
+    description: Country-level analysis (single level)
+
+  - name: product
+    display_name: Product Hierarchy
+    levels:
+      - StockCode
+      - Description
+    description: Product code > Description drill-down
+
+hierarchy_entity_filters:
+  hierarchy_name: geographic
+  ranking_metric: quantity
+  levels:
+    - level: 1
+      mode: top_pct
+      value: 100
+
+capabilities:
+  - Weekly time-series analysis over 13 months (Dec 2010 - Dec 2011)
+  - Country-level revenue and volume variance
+  - Product mix analysis by stock code
+  - Returns analysis (negative quantities indicate cancellations)
+  - Customer purchasing pattern analysis
+  - Cross-country product demand comparison
+  - Seasonal demand patterns (holiday periods)
+
+policies:
+  degradation_threshold: 0.10

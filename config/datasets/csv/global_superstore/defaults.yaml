@@ -1,0 +1,6 @@
+# Default analysis parameters for Global Superstore dataset
+default_metric: sales
+default_dimension: market
+default_hierarchy: geographic
+default_time_range_months: 12
+default_comparison: yoy

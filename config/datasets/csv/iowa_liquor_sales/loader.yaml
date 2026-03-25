@@ -1,0 +1,55 @@
+source:
+  type: csv
+  format: long
+  file: "data/csv/iowa_liquor_sales/Iowa_Liquor_Sales.csv"
+  encoding: utf-8
+  delimiter: ","
+
+filter_columns:
+  county: "county"
+  city: "city"
+  store: "name"
+  category: "category_name"
+  vendor: "vendor_name"
+  date: "date"
+
+aggregation:
+  period_type: week_end
+  date_column: "date"
+  period_alias: "date"
+  group_by_columns:
+    - "county"
+    - "city"
+    - "name"
+    - "category_name"
+    - "vendor_name"
+  sum_columns:
+    - "sale_dollars"
+    - "sale_bottles"
+    - "sale_liters"
+    - "sale_gallons"
+  avg_columns:
+    - "state_bottle_cost"
+    - "state_bottle_retail"
+    - "bottle_volume_ml"
+
+date_parsing:
+  source_column: "date"
+  input_format: "%Y-%m-%dT%H:%M:%S.%f"
+  output_column: "date"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "date"
+  - "county"
+  - "city"
+  - "name"
+  - "category_name"
+  - "vendor_name"
+  - "sale_dollars"
+  - "sale_bottles"
+  - "sale_liters"
+  - "sale_gallons"
+  - "state_bottle_cost"
+  - "state_bottle_retail"
+  - "bottle_volume_ml"

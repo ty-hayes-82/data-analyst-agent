@@ -1,0 +1,43 @@
+source:
+  type: csv
+  format: long
+  file: "data/csv/online_retail/Online_Retail.csv"
+  encoding: utf-8
+  delimiter: ","
+
+filter_columns:
+  country: "Country"
+  stock_code: "StockCode"
+  date: "InvoiceDate"
+
+aggregation:
+  period_type: week_end
+  date_column: "InvoiceDate"
+  period_alias: "invoice_date"
+  group_by_columns:
+    - "Country"
+    - "StockCode"
+    - "Description"
+  sum_columns:
+    - "Quantity"
+  avg_columns:
+    - "UnitPrice"
+  count_distinct_columns:
+    - "InvoiceNo"
+    - "CustomerID"
+
+date_parsing:
+  source_column: "InvoiceDate"
+  input_format: "%Y-%m-%d %H:%M:%S"
+  output_column: "invoice_date"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "invoice_date"
+  - "Country"
+  - "StockCode"
+  - "Description"
+  - "Quantity"
+  - "UnitPrice"
+  - "InvoiceNo"
+  - "CustomerID"

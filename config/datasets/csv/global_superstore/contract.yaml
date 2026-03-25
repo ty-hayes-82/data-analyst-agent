@@ -1,0 +1,229 @@
+name: global_superstore
+version: 1.0.0
+display_name: Global Superstore — Sales & Profitability Analysis
+target_label: Metric
+description: >
+  Global retail dataset with 51,290 orders across 147 countries, 4 markets, and
+  3 product categories over 4 years (2012-2015). Includes sales, profit, quantity,
+  discount, and shipping cost. Supports multi-hierarchy geographic and product
+  drill-down for variance analysis.
+
+materiality:
+  variance_pct: 5.0
+  variance_absolute: 500.0
+
+presentation:
+  unit: USD
+
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  executive_brief_max_scoped_level: 1
+  max_scope_entities: 15
+  output_format: pdf
+
+data_source:
+  type: csv
+  file: data/csv/global_superstore/Global_Superstore.csv
+
+time:
+  column: order_date
+  frequency: daily
+  temporal_grain_override: weekly
+  format: "%d-%m-%Y"
+  range_months: 48
+
+grain:
+  columns:
+    - order_date
+    - market
+    - region
+    - country
+    - segment
+    - category
+    - sub_category
+
+metrics:
+  - name: sales
+    column: Sales
+    display_name: Sales
+    brief_category: Revenue
+    brief_label: Sales
+    type: additive
+    format: currency
+    optimization: maximize
+    description: Total sales amount (USD)
+
+  - name: profit
+    column: Profit
+    display_name: Profit
+    brief_category: Profitability
+    brief_label: Profit
+    type: additive
+    format: currency
+    optimization: maximize
+    description: Profit amount (Sales minus Cost)
+
+  - name: quantity
+    column: Quantity
+    display_name: Quantity
+    brief_category: Volume
+    brief_label: Units
+    type: additive
+    format: float
+    optimization: maximize
+    description: Number of units sold
+
+  - name: discount
+    column: Discount
+    display_name: Discount
+    brief_category: Pricing
+    brief_label: Discount
+    type: ratio
+    format: percent
+    optimization: minimize
+    description: Discount percentage applied to the order
+
+  - name: shipping_cost
+    column: Shipping Cost
+    display_name: Shipping Cost
+    brief_category: Logistics
+    brief_label: Shipping
+    type: additive
+    format: currency
+    optimization: minimize
+    description: Cost of shipping the order
+
+derived_kpis:
+  - name: profit_margin
+    display_name: Profit Margin
+    brief_label: Margin %
+    brief_category: Profitability
+    numerator: profit
+    denominator: sales
+    multiply: 100
+    format: percentage
+    description: Profit as a percentage of sales
+
+  - name: revenue_per_unit
+    display_name: Revenue per Unit
+    brief_label: Rev/Unit
+    brief_category: Revenue
+    numerator: sales
+    denominator: quantity
+    format: currency
+    description: Average revenue per unit sold
+
+  - name: shipping_pct
+    display_name: Shipping % of Sales
+    brief_label: Ship %
+    brief_category: Logistics
+    numerator: shipping_cost
+    denominator: sales
+    multiply: 100
+    format: percentage
+    description: Shipping cost as percentage of sales
+
+dimensions:
+  - name: market
+    column: Market
+    display_name: Market
+    role: primary
+    description: "Global market: US, APAC, EU, LATAM, Africa, EMEA, Canada"
+
+  - name: region
+    column: Region
+    display_name: Region
+    role: primary
+    description: Sub-market region (e.g., Central, East, West, South, etc.)
+
+  - name: country
+    column: Country
+    display_name: Country
+    role: primary
+    description: Country name (147 unique countries)
+
+  - name: state
+    column: State
+    display_name: State
+    role: secondary
+    description: State or province
+
+  - name: city
+    column: City
+    display_name: City
+    role: secondary
+    description: City name
+
+  - name: segment
+    column: Segment
+    display_name: Customer Segment
+    role: primary
+    description: "Customer segment: Consumer, Corporate, Home Office"
+
+  - name: category
+    column: Category
+    display_name: Product Category
+    role: primary
+    description: "Product category: Furniture, Office Supplies, Technology"
+
+  - name: sub_category
+    column: Sub-Category
+    display_name: Sub-Category
+    role: primary
+    description: Product sub-category (17 unique values)
+
+  - name: ship_mode
+    column: Ship Mode
+    display_name: Ship Mode
+    role: secondary
+    description: "Shipping mode: Standard, Second Class, First Class, Same Day"
+
+  - name: order_priority
+    column: Order Priority
+    display_name: Order Priority
+    role: secondary
+    description: "Priority level: Low, Medium, High, Critical"
+
+hierarchies:
+  - name: geographic
+    display_name: Geographic Hierarchy
+    levels:
+      - Market
+      - Region
+      - Country
+    description: Market > Region > Country drill-down
+
+  - name: product
+    display_name: Product Hierarchy
+    levels:
+      - Category
+      - Sub-Category
+    description: Category > Sub-Category drill-down
+
+hierarchy_entity_filters:
+  hierarchy_name: geographic
+  ranking_metric: sales
+  levels:
+    - level: 1
+      mode: top_pct
+      value: 100
+    - level: 2
+      mode: top_pct
+      value: 95
+    - level: 3
+      mode: top_n
+      value: 20
+      partition_by_dimension: market
+
+capabilities:
+  - Weekly time-series analysis over 4 years (2012-2015)
+  - Geographic drill-down from Market to Region to Country
+  - Product performance by Category and Sub-Category
+  - Customer segment comparison (Consumer vs Corporate vs Home Office)
+  - Profitability variance analysis (profit margin, discount impact)
+  - Shipping cost efficiency by ship mode and geography
+  - Year-over-year, quarter-over-quarter variance decomposition
+
+policies:
+  degradation_threshold: 0.10

@@ -1,0 +1,54 @@
+source:
+  type: csv
+  format: long
+  file: "data/csv/global_superstore/Global_Superstore.csv"
+  encoding: utf-8
+  delimiter: ","
+
+filter_columns:
+  market: "Market"
+  region: "Region"
+  country: "Country"
+  segment: "Segment"
+  category: "Category"
+  sub_category: "Sub-Category"
+  date: "Order Date"
+
+aggregation:
+  period_type: week_end
+  date_column: "Order Date"
+  period_alias: "order_date"
+  group_by_columns:
+    - "Market"
+    - "Region"
+    - "Country"
+    - "Segment"
+    - "Category"
+    - "Sub-Category"
+  sum_columns:
+    - "Sales"
+    - "Profit"
+    - "Quantity"
+    - "Shipping Cost"
+  avg_columns:
+    - "Discount"
+
+date_parsing:
+  source_column: "Order Date"
+  input_format: "%d-%m-%Y"
+  output_column: "order_date"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "order_date"
+  - "Market"
+  - "Region"
+  - "Country"
+  - "Segment"
+  - "Category"
+  - "Sub-Category"
+  - "Sales"
+  - "Profit"
+  - "Quantity"
+  - "Discount"
+  - "Shipping Cost"
