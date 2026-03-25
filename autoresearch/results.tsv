@@ -1,4 +1,2 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
-2026-03-25T20:33:42	0	9462840	0.0	0.0	0.0	baseline	-	Initial baseline	105
-2026-03-25T20:34:06	0	9462840	0.0	0.0	0.0	baseline	-	Initial baseline	100
-2026-03-25T20:34:21	0	9462840	0.0	0.0	0.0	baseline	-	Initial baseline	97
+2026-03-25T20:40:27	0	620530c	22.0	22.0	0.0	baseline	-	Initial baseline	101

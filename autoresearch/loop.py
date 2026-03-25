@@ -153,10 +153,19 @@ Return valid JSON:
 """
 
     try:
+        from dotenv import load_dotenv
+        load_dotenv(PROJECT_ROOT / ".env", override=False)
         from google import genai
         from google.genai import types
 
-        client = genai.Client()
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if api_key:
+            client = genai.Client(api_key=api_key)
+        else:
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+            client = genai.Client(vertexai=True, project=project, location=location)
+
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
