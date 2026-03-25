@@ -606,8 +606,9 @@ def _perform_etl(csv_path: str, config: Dict[str, Any], exclude_partial: bool) -
             pd.to_datetime(df[date_cfg["source_column"]], format=date_cfg["input_format"], errors="coerce")
             .dt.strftime(date_cfg["output_format"])
         )
-        # Drop helper column and rows with failed date parsing
-        df = df.drop(columns=[date_cfg["source_column"]])
+        # Drop source column only if it differs from output (avoid dropping the just-parsed column)
+        if date_cfg["source_column"] != date_cfg["output_column"]:
+            df = df.drop(columns=[date_cfg["source_column"]])
         df = df.dropna(subset=[date_cfg["output_column"]])
 
     # 5. Column Renaming
