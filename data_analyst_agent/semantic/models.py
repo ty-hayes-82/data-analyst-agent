@@ -313,6 +313,46 @@ class CrossDimensionConfig(BaseModel):
         return level in self.apply_at_levels
 
 
+
+
+class AnalysisConfig(BaseModel):
+    """Contract-driven analysis thresholds. Defaults match prior hardcoded values."""
+    outlier_z_threshold: float = Field(3.5, description="MAD outlier detection z-score threshold")
+    anomaly_z_threshold: float = Field(2.0, description="Anomaly flagging z-score threshold")
+    significance_level: float = Field(0.05, description="Statistical significance p-value cutoff")
+    cumulative_detection_threshold: float = Field(0.85, description="Monotonic growth detection threshold")
+    aggregation_row_threshold: int = Field(100_000, description="Auto-aggregate to weekly above this row count")
+    max_insights_per_level: int = Field(10, description="Top-N insights per hierarchy level")
+    max_top_drivers: int = Field(10, description="Max top variance drivers to report")
+    max_anomalies: int = Field(20, description="Max anomalies to surface")
+    forecast_train_split: float = Field(0.8, description="Forecast model train/test split ratio")
+
+
+class PriorityThresholds(BaseModel):
+    """Alert priority classification thresholds."""
+    critical: float = Field(0.7, description="Score >= this is critical")
+    high: float = Field(0.6, description="Score >= this is high")
+    medium: float = Field(0.3, description="Score >= this is medium; below is low")
+
+
+class AlertPolicyConfig(BaseModel):
+    """Contract-driven alert scoring weights and thresholds."""
+    impact_weight: float = Field(0.6, description="Weight for impact component in composite score")
+    confidence_weight: float = Field(0.25, description="Weight for confidence component")
+    persistence_weight: float = Field(0.15, description="Weight for persistence component")
+    priority_thresholds: PriorityThresholds = Field(default_factory=PriorityThresholds)
+    volatility_alert_threshold: float = Field(0.5, description="Coefficient of variation threshold for volatility alerts")
+
+
+class NarrativeConfig(BaseModel):
+    """Contract-driven narrative generation parameters."""
+    min_share_threshold: float = Field(0.10, description="Skip dimension slices below this share of total")
+    min_variance_explanation: float = Field(0.60, description="Include low-share slices if they explain this much variance")
+    max_top_drivers: int = Field(3, description="Max top drivers in narrative")
+    max_anomalies: int = Field(3, description="Max anomalies in narrative")
+    max_hierarchy_cards: int = Field(2, description="Max hierarchy cards in narrative")
+
+
 class DatasetContract(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -338,6 +378,9 @@ class DatasetContract(BaseModel):
     materiality: Dict[str, Any] = Field(default_factory=dict, description="Thresholds for absolute and percentage variance")
     presentation: Dict[str, Any] = Field(default_factory=dict, description="Rules for display, sign correction, and units")
     reporting: ReportingConfig = Field(default_factory=ReportingConfig, description="Report generation and analysis depth settings")
+    analysis: AnalysisConfig = Field(default_factory=AnalysisConfig, description="Analysis thresholds (z-scores, p-values, limits)")
+    alert_policy: AlertPolicyConfig = Field(default_factory=AlertPolicyConfig, description="Alert scoring weights and priority thresholds")
+    narrative: NarrativeConfig = Field(default_factory=NarrativeConfig, description="Narrative generation parameters")
     low_activity_dimension_values: List[str] = Field(
         default_factory=list,
         description=(

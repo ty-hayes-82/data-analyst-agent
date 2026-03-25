@@ -33,6 +33,7 @@ if '_config_data_loader_cache' not in sys.modules:
 _cache = sys.modules['_config_data_loader_cache']
 
 # --- AGGREGATION THRESHOLD ---
+# Default; overridden by contract.analysis.aggregation_row_threshold
 AUTO_AGGREGATION_ROW_THRESHOLD = 100_000  # Auto-aggregate datasets with >100K rows
 
 

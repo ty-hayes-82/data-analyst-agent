@@ -159,7 +159,7 @@ def _compute_ratio_totals(df, pivot, ctx, ratio_config, state: SummaryState) -> 
         # Use contract-defined time column or fallback to "period"
         contract_time_col = (ctx.contract.time.column if ctx and ctx.contract and ctx.contract.time else None) or "period"
         tcol = state.time_col if state.time_col in nd_df.columns else (contract_time_col if contract_time_col in nd_df.columns else "period")
-        default_grain = get_default_grain_column(ctx.contract if ctx else None, fallback="terminal")
+        default_grain = get_default_grain_column(ctx.contract if ctx else None, fallback="entity")
         gcol = state.grain_col if state.grain_col in nd_df.columns else default_grain
 
         if num_metric in nd_df.columns and denom_metric in nd_df.columns:

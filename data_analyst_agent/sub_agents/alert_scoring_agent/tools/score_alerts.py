@@ -13,6 +13,15 @@
 # limitations under the License.
 
 """
+
+# Alert policy weights — defaults match prior hardcoded values.
+# Override via contract.alert_policy in dataset contract YAML.
+_DEFAULT_IMPACT_W = 0.6
+_DEFAULT_CONFIDENCE_W = 0.25
+_DEFAULT_PERSISTENCE_W = 0.15
+_DEFAULT_HIGH_THRESHOLD = 0.6
+_DEFAULT_MEDIUM_THRESHOLD = 0.3
+
 Score Alerts tool for alert_scoring_coordinator_agent.
 """
 
@@ -157,7 +166,7 @@ async def score_alerts(data: str) -> str:
             persistence = _calculate_persistence_score(months_flagged, lookback_months=3)
             
             # Overall score: impact-weighted additive (impact dominates, confidence/persistence boost)
-            score = impact * 0.6 + confidence * 0.25 + persistence * 0.15
+            score = impact * _DEFAULT_IMPACT_W + confidence * _DEFAULT_CONFIDENCE_W + persistence * _DEFAULT_PERSISTENCE_W
             
             # Priority classification
             if score >= 0.6:
