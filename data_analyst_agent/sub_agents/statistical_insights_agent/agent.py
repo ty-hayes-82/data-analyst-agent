@@ -43,6 +43,48 @@ from ...utils.focus_directives import augment_instruction
 USE_CODE_INSIGHTS = os.environ.get("USE_CODE_INSIGHTS", "true").lower() == "true"
 
 
+def _cache_statistical_insight_cards_for_troubleshooting(
+    ctx: InvocationContext, result: dict
+) -> None:
+    """Write code-generated statistical insight cards under run ``.cache/`` (always on).
+
+    Hierarchy finalization overwrites ``data_analyst_result`` with drill-down output,
+    so this file preserves cards for debugging and brief forensics.
+    """
+    out_dir = os.environ.get("DATA_ANALYST_OUTPUT_DIR")
+    if not out_dir:
+        return
+    target = ctx.session.state.get("current_analysis_target") or ctx.session.state.get(
+        "analysis_target"
+    )
+    if not target:
+        return
+    try:
+        from data_analyst_agent.cache import InsightCache
+
+        metric_key = str(target).replace(" ", "_").lower()
+        cache = InsightCache(out_dir)
+        payload = {
+            "metric": target,
+            "insight_cards": result.get("insight_cards", []),
+            "summary_stats": result.get("summary_stats", {}),
+            "card_count": len(result.get("insight_cards", [])),
+        }
+        if result.get("error"):
+            payload["error"] = result["error"]
+        path = cache.save_stage("statistical_insight_cards", metric_key, payload)
+        print(
+            f"[StatisticalInsightCardGenerator] Cached {payload['card_count']} cards for "
+            f"troubleshooting: {path}",
+            flush=True,
+        )
+    except Exception as exc:
+        print(
+            f"[StatisticalInsightCardGenerator] WARNING: could not cache insight cards: {exc}",
+            flush=True,
+        )
+
+
 class StatisticalComputationAgent(BaseAgent):
     """Computes comprehensive statistics using pure Python/pandas/numpy."""
     
@@ -206,6 +248,10 @@ class StatisticalInsightCardGenerator(BaseAgent):
                 "summary_stats": {}
             })
             print(f"[StatisticalInsightCardGenerator] Upstream error: {stats['error']}\n")
+            _cache_statistical_insight_cards_for_troubleshooting(
+                ctx,
+                {"insight_cards": [], "summary_stats": {}, "error": str(stats.get("error", ""))},
+            )
             yield Event(
                 invocation_id=ctx.invocation_id,
                 author=self.name,
@@ -218,6 +264,8 @@ class StatisticalInsightCardGenerator(BaseAgent):
 
         n_cards = len(result.get("insight_cards", []))
         print(f"[StatisticalInsightCardGenerator] Generated {n_cards} insight cards (no LLM call)\n")
+
+        _cache_statistical_insight_cards_for_troubleshooting(ctx, result)
 
         yield Event(
             invocation_id=ctx.invocation_id,

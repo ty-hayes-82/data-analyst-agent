@@ -921,12 +921,19 @@ def _parse_statistical_summary(statistical_summary: Any) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _detect_temporal_labels(stats_data: dict) -> Tuple[str, str, str]:
+def _detect_temporal_labels(
+    stats_data: dict,
+    temporal_grain_override: Optional[str] = None,
+) -> Tuple[str, str, str]:
     summary_stats = stats_data.get("summary_stats", {}) if isinstance(stats_data, dict) else {}
     metadata = stats_data.get("metadata", {}) if isinstance(stats_data, dict) else {}
     raw_grain = summary_stats.get("temporal_grain") or metadata.get("temporal_grain")
     frequency_hint = metadata.get("time_frequency")
     temporal_grain = normalize_temporal_grain(raw_grain or frequency_hint or "unknown")
+    if temporal_grain == "unknown" and temporal_grain_override:
+        ov = normalize_temporal_grain(str(temporal_grain_override))
+        if ov != "unknown":
+            temporal_grain = ov
     short_delta_label = temporal_grain_to_short_delta_label(temporal_grain)
     period_label = temporal_grain_to_period_unit(temporal_grain)
     return temporal_grain, short_delta_label, period_label
@@ -956,6 +963,7 @@ async def generate_markdown_report(
     dataset_description: Optional[str] = None,
     independent_findings: Optional[str] = None,
     presentation_unit: Optional[str] = None,
+    temporal_grain_override: Optional[str] = None,
 ) -> str:
     try:
         target_name = cost_center or analysis_target or dataset_display_name or "Network Total"
@@ -968,7 +976,9 @@ async def generate_markdown_report(
         narrative_summary = narrative_data.get("narrative_summary", "") if isinstance(narrative_data, dict) else ""
 
         stats_data = _parse_statistical_summary(statistical_summary)
-        temporal_grain, short_delta_label, period_label = _detect_temporal_labels(stats_data)
+        temporal_grain, short_delta_label, period_label = _detect_temporal_labels(
+            stats_data, temporal_grain_override=temporal_grain_override
+        )
 
         lag_meta = _extract_lag_metadata([hierarchical_results, statistical_summary, narrative_results])
         unit = resolve_unit(analysis_target or dataset_display_name or target_name or "", contract_unit=presentation_unit)

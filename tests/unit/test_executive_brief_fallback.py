@@ -176,4 +176,4 @@ async def test_executive_brief_partial_digest_quality_continues_llm(
     assert "Proceeding with partial digest quality: 1/2 metric reports usable." in captured
     assert "[BRIEF] All metric reports are unusable. Skipping LLM call." not in captured
     assert events
-    assert (tmp_path / "brief.md").exists()
+    assert (tmp_path / "deliverables" / "brief.md").exists()

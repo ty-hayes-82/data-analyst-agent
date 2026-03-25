@@ -69,12 +69,21 @@ def test_has_material_findings_detects_high_severity_anomaly():
     assert has_material_findings(state) is True
 
 
-def test_has_material_findings_false_when_below_thresholds():
+def test_has_material_findings_true_when_cards_present_even_if_small_deltas():
     state = {
         "dataset_contract": {"materiality": {"variance_pct": 8, "variance_absolute": 20000}},
         "level_0_analysis": json.dumps(
             {"insight_cards": [{"evidence": {"delta_pct": 1.2, "delta_abs": 1500}}]}
         ),
+        "statistical_summary": json.dumps({"anomalies": [{"severity": "low"}]}),
+    }
+    assert has_material_findings(state) is True
+
+
+def test_has_material_findings_false_when_no_cards_and_only_low_anomalies():
+    state = {
+        "dataset_contract": {"materiality": {"variance_pct": 5, "variance_absolute": 10000}},
+        "level_0_analysis": json.dumps({"insight_cards": []}),
         "statistical_summary": json.dumps({"anomalies": [{"severity": "low"}]}),
     }
     assert has_material_findings(state) is False
@@ -111,6 +120,7 @@ async def test_conditional_narrative_skips_when_immaterial(monkeypatch):
     assert wrapped.called is False
     payload = json.loads(events[-1].actions.state_delta["narrative_results"])
     assert payload["meta"]["narrative_skipped"] is True
+    assert payload["meta"]["reason"] == "no_hierarchy_insights_for_narrative"
 
 
 @pytest.mark.asyncio
@@ -118,7 +128,36 @@ async def test_conditional_narrative_runs_when_gate_disabled(monkeypatch):
     monkeypatch.setenv("SKIP_NARRATIVE_BELOW_MATERIALITY", "false")
     wrapped = _StubNarrativeAgent()
     agent = ConditionalNarrativeAgent(wrapped)
-    ctx = _ctx_with_state(agent, {"current_analysis_target": "lrpm"})
+    ctx = _ctx_with_state(
+        agent,
+        {
+            "current_analysis_target": "lrpm",
+            "level_0_analysis": json.dumps(
+                {"insight_cards": [{"title": "Total", "evidence": {"metric": "lrpm"}}]}
+            ),
+        },
+    )
+
+    events = [event async for event in agent._run_async_impl(ctx)]
+
+    assert wrapped.called is True
+    assert json.loads(events[-1].actions.state_delta["narrative_results"])["narrative_summary"] == "from_llm"
+
+
+@pytest.mark.asyncio
+async def test_conditional_narrative_runs_when_skip_true_but_hierarchy_has_cards(monkeypatch):
+    monkeypatch.setenv("SKIP_NARRATIVE_BELOW_MATERIALITY", "true")
+    wrapped = _StubNarrativeAgent()
+    agent = ConditionalNarrativeAgent(wrapped)
+    ctx = _ctx_with_state(
+        agent,
+        {
+            "current_analysis_target": "lrpm",
+            "level_1_analysis": json.dumps(
+                {"insight_cards": [{"title": "x", "evidence": {"variance_pct": 0.1}}]}
+            ),
+        },
+    )
 
     events = [event async for event in agent._run_async_impl(ctx)]
 

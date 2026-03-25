@@ -38,7 +38,31 @@ class DrillDownDecisionFunction(BaseAgent):
         except json.JSONDecodeError:
             level_result = {}
 
-        decision = should_continue_drilling(level_result, current_level, max_depth)
+        min_impact: float | None = None
+        force_depth: int | None = None
+        contract = ctx.session.state.get("dataset_contract")
+        if contract and getattr(contract, "reporting", None):
+            rc = contract.reporting
+            raw_min = getattr(rc, "hierarchy_min_drill_impact_score", None)
+            if raw_min is not None:
+                try:
+                    min_impact = float(raw_min)
+                except (TypeError, ValueError):
+                    min_impact = None
+            fd = getattr(rc, "force_hierarchy_drill_depth", None)
+            if fd is not None:
+                try:
+                    force_depth = int(fd)
+                except (TypeError, ValueError):
+                    force_depth = None
+
+        decision = should_continue_drilling(
+            level_result,
+            current_level,
+            max_depth,
+            min_impact_score=min_impact,
+            contract_force_drill_depth=force_depth,
+        )
         decision_json = json.dumps(decision)
 
         print(

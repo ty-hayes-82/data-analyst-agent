@@ -85,6 +85,18 @@ class FinalizeAnalysisResults(BaseAgent):
                 f"net-new cards across {len(independent_level_results)} level(s)"
             )
 
+        if not levels_analyzed:
+            sample_keys = [
+                k
+                for k in ctx.session.state
+                if "level_" in k and "_analysis" in k and not k.startswith("independent_")
+            ][:20]
+            print(
+                f"[FinalizeAnalysisResults] WARNING: levels_analyzed is empty for "
+                f"target={analysis_target!r}; check planner/drill loop and data availability. "
+                f"Sample level-related session keys: {sample_keys}"
+            )
+
         state_delta: Dict[str, Any] = {
             "data_analyst_result": hierarchical_result,
             "hierarchical_analysis_complete": True,

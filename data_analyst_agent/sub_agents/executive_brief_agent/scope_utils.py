@@ -16,6 +16,24 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _PARENT_CHILD_CACHE: dict[tuple[str, str, str], dict[str, list[str]]] = {}
 
 
+def count_scoped_digest_signals(scoped_digest: str) -> int:
+    """Estimate how many data-bearing lines exist in a scoped digest (validator tuning).
+
+    Low counts relax Key Findings requirements for thin entity scopes.
+    """
+    if not scoped_digest or not str(scoped_digest).strip():
+        return 0
+    text = str(scoped_digest)
+    n = 0
+    for line in text.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if re.search(r"[\d%$]|WoW|variance|sigma|z-score|p-value|driver|anomal|trend|changepoint", s, re.I):
+            n += 1
+    return n
+
+
 def _resolve_scope_hierarchy(contract: Any | None, preferred_name: str | None = None):
     if not contract or not getattr(contract, "hierarchies", None):
         return None
@@ -408,6 +426,62 @@ def _filter_alerts_for_scope(
     return filtered
 
 
+def _build_trend_context_section(
+    scope_entity: str,
+    scoped_drivers: list[dict[str, Any]],
+    stats: dict[str, Any],
+) -> list[str]:
+    """Lines for Forward Outlook grounding (slopes, changepoints)."""
+    el = scope_entity.strip().lower()
+    lines: list[str] = []
+    for d in scoped_drivers:
+        item = (d.get("item") or d.get("item_name") or "").strip()
+        if item.lower() != el:
+            continue
+        slope = d.get("slope_3mo")
+        p_sl = d.get("slope_3mo_p_value")
+        avg = d.get("avg")
+        bits: list[str] = []
+        if slope is not None:
+            try:
+                bits.append(f"3mo slope {float(slope):+.6g} vs trailing level")
+            except (TypeError, ValueError):
+                bits.append(f"3mo slope {slope}")
+        if avg is not None:
+            try:
+                bits.append(f"series avg {float(avg):.6g}")
+            except (TypeError, ValueError):
+                bits.append(f"series avg {avg}")
+        if p_sl is not None:
+            try:
+                bits.append(f"slope p-value {float(p_sl):.3f}")
+            except (TypeError, ValueError):
+                pass
+        if bits:
+            lines.append(f"- {scope_entity}: " + "; ".join(bits))
+
+    cps = stats.get("change_points") or stats.get("changepoints") or []
+    if isinstance(cps, dict):
+        cps = list(cps.values())
+    if isinstance(cps, list):
+        for cp in cps[:8]:
+            if not isinstance(cp, dict):
+                continue
+            it = str(cp.get("item") or cp.get("item_id") or "").strip()
+            if it.lower() != el:
+                continue
+            dt = cp.get("date") or cp.get("period") or cp.get("as_of") or ""
+            lines.append(f"- Changepoint: {scope_entity} at {dt}")
+
+    if not lines:
+        return []
+    header = (
+        "TREND CONTEXT (Forward Outlook: cite slopes/changepoints below; "
+        "avoid generic best/worst scenarios unless tied to these indicators):"
+    )
+    return [header, *lines]
+
+
 def _build_scoped_digest(
     json_data: dict[str, dict[str, Any]],
     reports_md: dict[str, str],
@@ -604,6 +678,10 @@ def _build_scoped_digest(
                 except (TypeError, ValueError):
                     alert_lines.append(f"- {entity}: {category}")
             section_parts.append("\n".join(alert_lines))
+
+        trend_ctx = _build_trend_context_section(scope_entity, scoped_drivers, stats)
+        if trend_ctx:
+            section_parts.append("\n".join(trend_ctx))
 
         if len(section_parts) > 1:
             parts.append("\n\n".join(section_parts))

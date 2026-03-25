@@ -749,6 +749,7 @@ class ReportSynthesisWrapper(BaseAgent):
                 "dataset_display_name": dataset_display_name,
                 "dataset_description": dataset_description or "",
                 "presentation_unit": presentation_unit,
+                "temporal_grain_override": temporal_context.get("temporal_grain"),
             }
 
             plan_hint = _deterministic_plan_hint(ctx.session.state.get("execution_plan"))

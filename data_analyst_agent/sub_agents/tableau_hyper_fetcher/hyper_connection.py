@@ -20,6 +20,7 @@ import glob as glob_mod
 import os
 import shutil
 import tempfile
+import threading
 import time
 import zipfile
 from pathlib import Path
@@ -47,6 +48,22 @@ from .loader_config import HyperLoaderConfig
 # ---------------------------------------------------------------------------
 
 _MANAGERS: Dict[str, "HyperConnectionManager"] = {}
+# One open Connection per .hyper file path (Tableau locks the file per process).
+_SHARED_BY_PATH: Dict[str, "HyperConnectionManager"] = {}
+_PATH_LOCK_GUARD = threading.Lock()
+_PATH_QUERY_LOCKS: Dict[str, threading.RLock] = {}
+
+
+def _canonical_hyper_path(hyper_path: str) -> str:
+    return os.path.normcase(os.path.abspath(os.path.realpath(hyper_path)))
+
+
+def _query_lock_for_path(hyper_path: str) -> threading.RLock:
+    canon = _canonical_hyper_path(hyper_path)
+    with _PATH_LOCK_GUARD:
+        if canon not in _PATH_QUERY_LOCKS:
+            _PATH_QUERY_LOCKS[canon] = threading.RLock()
+        return _PATH_QUERY_LOCKS[canon]
 
 
 def get_or_create_manager(dataset_key: str, config: HyperLoaderConfig) -> "HyperConnectionManager":
@@ -54,6 +71,57 @@ def get_or_create_manager(dataset_key: str, config: HyperLoaderConfig) -> "Hyper
     if dataset_key not in _MANAGERS:
         _MANAGERS[dataset_key] = HyperConnectionManager(dataset_key, config)
     return _MANAGERS[dataset_key]
+
+
+def reuse_hyper_manager_after_extract(mgr: "HyperConnectionManager") -> "HyperConnectionManager":
+    """Return the process-wide singleton manager for this Hyper file path.
+
+    Tableau Hyper allows only one Connection per .hyper file per process. Call this
+    immediately after :meth:`HyperConnectionManager.ensure_extracted` so diagnostics
+    and the fetcher share one manager even when ``dataset_key`` differs.
+    """
+    hp = mgr.get_hyper_path()
+    if not hp or not os.path.exists(hp):
+        return mgr
+    canon = _canonical_hyper_path(hp)
+    existing = _SHARED_BY_PATH.get(canon)
+    if existing is not None and existing is not mgr:
+        mgr.cleanup()
+        _MANAGERS[mgr._key] = existing
+        return existing
+    _SHARED_BY_PATH[canon] = mgr
+    _MANAGERS[mgr._key] = mgr
+    return mgr
+
+
+def shutdown_all_hyper_managers() -> int:
+    """Close every Hyper Connection/Process registered in this interpreter.
+
+    Clears module registries. Use before a fresh run if a prior analysis left
+    connections open in the same long-lived Python process (e.g. REPL).
+    Returns the number of managers that called :meth:`HyperConnectionManager.cleanup`.
+    """
+    seen: set[int] = set()
+    closed = 0
+    candidates = list(
+        dict.fromkeys(list(_MANAGERS.values()) + list(_SHARED_BY_PATH.values()))
+    )
+    for mgr in candidates:
+        i = id(mgr)
+        if i in seen:
+            continue
+        seen.add(i)
+        try:
+            if mgr._initialized:
+                mgr.cleanup()
+                closed += 1
+        except Exception:
+            pass
+    _MANAGERS.clear()
+    _SHARED_BY_PATH.clear()
+    with _PATH_LOCK_GUARD:
+        _PATH_QUERY_LOCKS.clear()
+    return closed
 
 
 # ---------------------------------------------------------------------------
@@ -185,25 +253,47 @@ class HyperConnectionManager:
         """
         if not PANDAS_AVAILABLE:
             raise ImportError("[HyperConnectionManager] pandas is required but not installed.")
+        if not self._hyper_path:
+            raise RuntimeError(
+                f"[{self._key}] Hyper path not set. Call ensure_extracted() before execute_query()."
+            )
 
-        conn = self.get_connection()
-        
-        # [PROFILING] SQL execution timing
-        print(f"[SQL Query] Executing query...")
-        sql_start = time.perf_counter()
-        with conn.execute_query(sql) as result_set:
-            columns = [col.name.unescaped for col in result_set.schema.columns]
-            rows = [list(row) for row in result_set]
-        sql_time = time.perf_counter() - sql_start
-        print(f"[SQL Execution] {sql_time:.2f}s for {len(rows)} rows")
-        
-        # [PROFILING] DataFrame conversion timing
-        convert_start = time.perf_counter()
-        df = pd.DataFrame(rows, columns=columns)
-        convert_time = time.perf_counter() - convert_start
-        print(f"[DataFrame Conversion] {convert_time:.2f}s")
-        
-        return df
+        qlock = _query_lock_for_path(self._hyper_path)
+        last_err: Optional[Exception] = None
+        for attempt in range(1, 4):
+            with qlock:
+                try:
+                    conn = self.get_connection()
+                    print(f"[SQL Query] Executing query...")
+                    sql_start = time.perf_counter()
+                    with conn.execute_query(sql) as result_set:
+                        columns = [col.name.unescaped for col in result_set.schema.columns]
+                        rows = [list(row) for row in result_set]
+                    sql_time = time.perf_counter() - sql_start
+                    print(f"[SQL Execution] {sql_time:.2f}s for {len(rows)} rows")
+
+                    convert_start = time.perf_counter()
+                    df = pd.DataFrame(rows, columns=columns)
+                    convert_time = time.perf_counter() - convert_start
+                    print(f"[DataFrame Conversion] {convert_time:.2f}s")
+                    return df
+                except Exception as exc:
+                    msg = str(exc).lower()
+                    last_err = exc
+                    if (
+                        attempt < 3
+                        and ("locked" in msg or "lock" in msg)
+                    ):
+                        print(
+                            f"[{self._key}] Hyper query blocked (attempt {attempt}/3): {exc}. "
+                            "Retrying after reconnect..."
+                        )
+                        self.cleanup()
+                        time.sleep(1.0 * attempt)
+                        continue
+                    raise
+        assert last_err is not None
+        raise last_err
 
     def execute_query_to_csv(self, sql: str) -> str:
         """Execute *sql* and return the result as a CSV string."""

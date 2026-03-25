@@ -66,6 +66,23 @@ def _should_drop_stub(value: Any) -> bool:
     return contains_stub_content(value) and not stub_outputs_allowed()
 
 
+def _severity_from_alert_data(alert_data: dict[str, Any]) -> float:
+    """Extract scalar severity from alert scoring payload (nested or legacy root key)."""
+    sev = alert_data.get("severity")
+    if isinstance(sev, dict) and "severity_score" in sev:
+        try:
+            return float(sev["severity_score"])
+        except (TypeError, ValueError):
+            pass
+    raw = alert_data.get("severity_score")
+    if raw is not None:
+        try:
+            return float(raw)
+        except (TypeError, ValueError):
+            pass
+    return 0.0
+
+
 class OutputPersistenceAgent(BaseAgent):
     """
     Persists analysis insights to per-category JSON files.
@@ -140,6 +157,7 @@ class OutputPersistenceAgent(BaseAgent):
             dataset_display_name=dataset_display_name,
             dataset_description=dataset_description,
             presentation_unit=presentation_unit,
+            temporal_grain_override=session_state.get("temporal_grain"),
         )
 
     def _parse_alert_summary(self, alert_summary: Any) -> dict[str, Any]:
@@ -290,8 +308,10 @@ class OutputPersistenceAgent(BaseAgent):
                     from ...utils.json_utils import safe_parse_json
                     da_result = safe_parse_json(da_result_raw) if isinstance(da_result_raw, str) else da_result_raw
                 
-                hierarchical_results = da_result.get("level_results", {})
-                
+                hierarchical_results = da_result.get("level_results") or {}
+                if not isinstance(hierarchical_results, dict):
+                    hierarchical_results = {}
+
                 # Fallback: check session state directly for level-specific keys
                 if not hierarchical_results:
                     print(f"[PERSIST] Checking for hierarchical results in session state. keys: {[k for k in session_state.keys() if 'level_' in k]}")
@@ -304,7 +324,7 @@ class OutputPersistenceAgent(BaseAgent):
                 
                 # Parse alert summary and extract severity
                 alert_data = self._parse_alert_summary(alert_summary)
-                severity = alert_data.get("severity_score", 0.0)
+                severity = _severity_from_alert_data(alert_data)
 
                 # Persist narrative_results and statistical_summary for executive brief (Spec 029)
                 narrative_raw = session_state.get("narrative_results") or session_state.get("narrative_result", "")
@@ -349,7 +369,7 @@ class OutputPersistenceAgent(BaseAgent):
                         "alert_scoring": alert_data,
                         "gl_totals": gl_totals,
                     },
-                    "hierarchical_analysis": hierarchical_results if hierarchical_results else None,
+                    "hierarchical_analysis": hierarchical_results,
                     "narrative_results": narrative_data,
                     "statistical_summary": statistical_summary,
                 }
@@ -447,7 +467,7 @@ class OutputPersistenceAgent(BaseAgent):
                     return
                 
                 alert_data = self._parse_alert_summary(alert_summary)
-                severity = alert_data.get("severity_score", 0.0)
+                severity = _severity_from_alert_data(alert_data)
                 
                 gl_entry = {
                     "gl_string": gl_string,

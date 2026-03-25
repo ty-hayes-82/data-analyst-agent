@@ -1,0 +1,140 @@
+name: tolls_expense_weekly_lane_ds
+version: 1.0.0
+display_name: Tolls Expense (weekly by shipper parent / shipper / stop lane)
+target_label: Metric
+description: >
+  Weekly rollup of toll revenue, expense, and recommended variance aggregated by shipper parent,
+  shipper, and stop-route-line w/customer. Same Hyper extract as tolls_expense_ds; use this dataset
+  for hierarchical analysis without exceeding fetch row limits.
+materiality:
+  variance_pct: 7
+  variance_absolute: 25000
+presentation:
+  unit: USD
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: pdf
+  hierarchy_min_drill_impact_score: 0.10
+  executive_brief_relax_numeric_validation: true
+  # Network brief: billing assurance (customer / lane review queue), not COO strategy
+  executive_brief_style: billing_auditor
+data_source:
+  type: tableau_hyper
+  file: data/tableau/Tolls Expense.tdsx
+  table: Extract.Extract
+time:
+  column: empty_call_dt
+  frequency: weekly
+  format: "%Y-%m-%d"
+  range_months: 12
+grain:
+  columns:
+  - empty_call_dt
+  - shpr_prnt_nm
+  - shpr_nm
+  - stop_location_w_cust
+metrics:
+  - name: toll_expense
+    column: toll_expense
+    display_name: Toll Expense
+    brief_category: Cost
+    type: additive
+    format: currency
+    optimization: minimize
+    description: Actual toll cost (summed weekly per grain)
+  - name: recomm_toll_cost
+    column: recomm_toll_cost
+    display_name: Recommended Toll Expense
+    brief_category: Cost
+    type: additive
+    format: currency
+    optimization: neutral
+    description: Recommended toll cost (summed weekly)
+  - name: toll_revenue
+    column: toll_revenue
+    display_name: Toll Revenue
+    brief_category: Revenue
+    type: additive
+    format: currency
+    optimization: maximize
+    description: Toll-related revenue (summed weekly)
+derived_kpis:
+  - name: recomm_toll_variance
+    display_name: Recommended Toll Variance
+    brief_category: Cost
+    numerator: toll_expense
+    subtract: recomm_toll_cost
+    format: currency
+    description: Actual toll expense minus recommended toll
+  - name: expense_pct_of_rec_toll
+    display_name: Expense as % of Rec. Toll
+    brief_category: Cost
+    numerator: toll_expense
+    denominator: recomm_toll_cost
+    multiply: 100
+    format: percentage
+    description: Toll expense as a percent of recommended toll
+  - name: expense_pct_of_toll_rev
+    display_name: Expense as % of Rev
+    brief_category: Cost
+    numerator: toll_expense
+    denominator: toll_revenue
+    multiply: 100
+    format: percentage
+    description: Toll expense as a percent of toll revenue
+dimensions:
+  - name: shpr_prnt_nm
+    column: shpr_prnt_nm
+    display_name: Shipper Parent
+    role: primary
+  - name: shpr_nm
+    column: shpr_nm
+    display_name: Shipper
+    role: secondary
+  - name: stop_location_w_cust
+    column: stop_location_w_cust
+    display_name: Stop-Route-Line w/Customer
+    role: secondary
+hierarchies:
+  - name: shipper_parent_shipper_stop_lane
+    display_name: Shipper parent to shipper to stop lane
+    levels:
+      - shpr_prnt_nm
+      - shpr_nm
+      - stop_location_w_cust
+  - name: shipper_parent_to_stop_lane
+    display_name: Shipper parent to stop lane (w/customer) — two-level only
+    levels:
+      - shpr_prnt_nm
+      - stop_location_w_cust
+
+# Post-load hierarchy statistics: narrow entities at each drill level (distinct from ranked_subset_fetch SQL caps).
+hierarchy_entity_filters:
+  hierarchy_name: shipper_parent_shipper_stop_lane
+  ranking_metric: toll_expense
+  levels:
+    - level: 1
+      mode: top_pct
+      value: 90
+    - level: 2
+      mode: top_pct
+      value: 80
+      partition_by_dimension: shpr_prnt_nm
+    - level: 3
+      mode: top_n
+      value: 10
+      partition_by_dimension: shpr_nm
+
+# Optional Hyper scope: pass --lob <name> or DATA_ANALYST_LOB (maps to ops_ln_of_bus_ref_nm in loader).
+# Ranked Hyper slice: SUM(ranking_metric) over the full SQL date window (not per week).
+# Level 0 = shipper parent, level 1 = shipper, level 2 = stop lane.
+# Legacy YAML keys top_parents / top_children_per_parent are still accepted via model validator.
+ranked_subset_fetch:
+  enabled: true
+  hierarchy_name: shipper_parent_shipper_stop_lane
+  ranking_metric: toll_expense
+  top_level_0: 20
+  top_level_1_per_level_0: 20
+  top_level_2_per_level_1: 30

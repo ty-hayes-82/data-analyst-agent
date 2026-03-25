@@ -10,6 +10,7 @@ from data_analyst_agent.sub_agents.tableau_hyper_fetcher.loader_config import (
     DerivedMetricDef,
 )
 from data_analyst_agent.sub_agents.tableau_hyper_fetcher.query_builder import HyperQueryBuilder
+from data_analyst_agent.sub_agents.tableau_hyper_fetcher.ranked_subset import RankedSubsetSpec
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +231,116 @@ class TestSchemaAndExport:
 # ---------------------------------------------------------------------------
 # Tests — SQL safety
 # ---------------------------------------------------------------------------
+
+class TestRankedSubsetQuery:
+    """Contract-resolved ranked subset wraps aggregation in WITH + allowed_pairs join."""
+
+    @pytest.fixture
+    def weekly_lane_like_config(self):
+        return HyperLoaderConfig(
+            hyper=HyperConfig(tdsx_file="Tolls.tdsx", default_table="Extract.Extract"),
+            aggregation=AggregationRule(
+                period_type="week_end",
+                date_column="empty_call_dt",
+                period_alias="empty_call_dt",
+                group_by_columns=["shpr_prnt_nm", "stop_location_w_cust"],
+                sum_columns=["toll_expense", "toll_revenue"],
+            ),
+        )
+
+    def test_ranked_sql_has_ctes_limits_and_join(self, weekly_lane_like_config):
+        spec = RankedSubsetSpec(
+            rank_col="toll_expense",
+            column_level_0="shpr_prnt_nm",
+            column_level_1="stop_location_w_cust",
+            top_level_0=25,
+            top_level_1_per_level_0=100,
+        )
+        sql = HyperQueryBuilder(weekly_lane_like_config).build_query(
+            date_start="2025-12-23",
+            date_end="2026-03-24",
+            ranked_spec=spec,
+        )
+        assert sql.startswith("WITH")
+        assert "ranked_top_level_0 AS" in sql
+        assert "agg_level_0_level_1 AS" in sql
+        assert "allowed_level_0_level_1 AS" in sql
+        assert "LIMIT 25" in sql
+        assert "rn <= 100" in sql
+        assert "INNER JOIN allowed_level_0_level_1 AS _a" in sql
+        assert "_f.\"shpr_prnt_nm\" = _a.l0" in sql
+        assert "_f.\"stop_location_w_cust\" = _a.l1" in sql
+        assert "2025-12-23" in sql
+        assert "2026-03-24" in sql
+
+    def test_ranked_sql_three_level_ctes_and_join(self):
+        cfg = HyperLoaderConfig(
+            hyper=HyperConfig(tdsx_file="Tolls.tdsx", default_table="Extract.Extract"),
+            aggregation=AggregationRule(
+                period_type="week_end",
+                date_column="empty_call_dt",
+                period_alias="empty_call_dt",
+                group_by_columns=["shpr_prnt_nm", "shpr_nm", "stop_location_w_cust"],
+                sum_columns=["toll_expense", "toll_revenue"],
+            ),
+        )
+        spec = RankedSubsetSpec(
+            rank_col="toll_expense",
+            column_level_0="shpr_prnt_nm",
+            column_level_1="shpr_nm",
+            column_level_2="stop_location_w_cust",
+            top_level_0=20,
+            top_level_1_per_level_0=20,
+            top_level_2_per_level_1=30,
+        )
+        sql = HyperQueryBuilder(cfg).build_query(
+            date_start="2025-12-23",
+            date_end="2026-03-24",
+            ranked_spec=spec,
+        )
+        assert "allowed_level_0_level_1_level_2 AS" in sql
+        assert "INNER JOIN allowed_level_0_level_1_level_2 AS _a" in sql
+        assert "_f.\"shpr_prnt_nm\" = _a.l0" in sql
+        assert "_f.\"shpr_nm\" = _a.l1" in sql
+        assert "_f.\"stop_location_w_cust\" = _a.l2" in sql
+        assert "rn <= 30" in sql
+        assert "PARTITION BY l0, l1" in sql
+
+    def test_ranked_sql_qualifies_date_in_where(self, weekly_lane_like_config):
+        spec = RankedSubsetSpec(
+            rank_col="toll_expense",
+            column_level_0="p",
+            column_level_1="c",
+            top_level_0=3,
+            top_level_1_per_level_0=5,
+        )
+        sql = HyperQueryBuilder(weekly_lane_like_config).build_query(
+            date_start="2025-01-01",
+            date_end="2025-01-31",
+            ranked_spec=spec,
+        )
+        assert "_f.\"empty_call_dt\"" in sql
+
+    def test_ranked_diagnostic_sqls(self, weekly_lane_like_config):
+        spec = RankedSubsetSpec(
+            rank_col="toll_expense",
+            column_level_0="shpr_prnt_nm",
+            column_level_1="stop_location_w_cust",
+            top_level_0=20,
+            top_level_1_per_level_0=20,
+        )
+        diag = HyperQueryBuilder(weekly_lane_like_config).build_ranked_fetch_diagnostic_sqls(
+            "2025-12-23", "2026-03-24", {}, spec
+        )
+        assert set(diag) == {
+            "distinct_level_0_in_range",
+            "top_level_0_rank_slots_used",
+            "allowed_level_0_level_1",
+        }
+        assert "COUNT(DISTINCT" in diag["distinct_level_0_in_range"]
+        assert "FROM allowed_level_0_level_1" in diag["allowed_level_0_level_1"]
+        assert "LIMIT 20" in diag["top_level_0_rank_slots_used"]
+
 
 class TestSQLSafety:
     def test_single_quote_escaped_in_filter(self, agg_config):

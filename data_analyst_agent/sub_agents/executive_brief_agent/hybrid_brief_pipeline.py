@@ -27,7 +27,7 @@ from google.genai import types
 
 from config.model_loader import get_agent_model
 from .brief_format import render_flat_ceo_brief_markdown
-from .prompt import get_ceo_section_contract
+from .prompt import get_ceo_section_contract, is_billing_auditor_style
 
 
 def _grain_display_label(canonical_grain: str) -> str:
@@ -50,7 +50,10 @@ def flat_hybrid_ceo_to_executive_structure(
     flat_clean = {k: v for k, v in flat.items() if not str(k).startswith("_")}
     grain_label = _grain_display_label(canonical_grain)
     pe = str(period_end).split(" ")[0]
-    header_title = f"CEO {grain_label} Performance Brief: {pe}"
+    if is_billing_auditor_style():
+        header_title = f"Billing Assurance {grain_label} Brief: {pe}"
+    else:
+        header_title = f"CEO {grain_label} Performance Brief: {pe}"
 
     where = flat_clean.get("where_it_came_from") or {}
     where_insights: list[dict[str, str]] = []
@@ -135,6 +138,104 @@ def run_hybrid_ceo_brief_sync(
     signals = ranker.extract_all()
     totals = BriefUtils.get_network_totals(json_data)
 
+    if not signals:
+        if is_billing_auditor_style():
+            flat_brief = {
+                "bottom_line": (
+                    "No ranked toll signals were extracted for this period; cannot prioritize "
+                    "customers or lanes for billing review until hierarchy and stats populate."
+                ),
+                "what_moved": [
+                    {
+                        "label": "Summary",
+                        "line": (
+                            "No deterministic signals passed Pass 0; verify per-metric JSON includes "
+                            "hierarchical_analysis and statistics."
+                        ),
+                    }
+                ],
+                "trend_status": ["No billing drift signals available."],
+                "where_it_came_from": {
+                    "positive": "N/A — no customer or lane drivers extracted.",
+                    "drag": "N/A — no customer or lane drivers extracted.",
+                    "watch_item": "",
+                },
+                "why_it_matters": (
+                    "Without Pass 0 signals, the billing assurance brief cannot list review targets; "
+                    "confirm extracts and analysis completed for each toll metric."
+                ),
+                "next_week_outlook": (
+                    "Re-run after validating Hyper extract, date window, and row limits; then sample "
+                    "top shipper/lane tiers from the contract."
+                ),
+                "leadership_focus": [
+                    "Confirm pipeline produced hierarchy cards and stats before relying on this brief for audit.",
+                ],
+                "_elapsed": 0.0,
+            }
+        else:
+            flat_brief = {
+                "bottom_line": (
+                    "No ranked signals were extracted for this period; metric outputs may lack "
+                    "hierarchy cards, statistical summaries, or material variance."
+                ),
+                "what_moved": [
+                    {
+                        "label": "Summary",
+                        "line": (
+                            "No deterministic signals passed Pass 0; verify per-metric JSON includes "
+                            "hierarchical_analysis and statistics."
+                        ),
+                    }
+                ],
+                "trend_status": ["No trend signals available."],
+                "where_it_came_from": {
+                    "positive": "N/A — no regional or entity drivers extracted.",
+                    "drag": "N/A — no regional or entity drivers extracted.",
+                    "watch_item": "",
+                },
+                "why_it_matters": (
+                    "Without Pass 0 signals, the CEO brief cannot be grounded in automated variance drivers; "
+                    "confirm analysis pipelines completed for each metric."
+                ),
+                "next_week_outlook": (
+                    "Re-run after validating data extracts, hierarchy drill-down, and time window configuration."
+                ),
+                "leadership_focus": [
+                    "Validate that metric runs produce hierarchy and stats before executive synthesis.",
+                ],
+                "_elapsed": 0.0,
+            }
+        meta_empty: dict[str, Any] = {
+            "pass0_count": 0,
+            "pass1_skipped": True,
+            "empty_signals": True,
+        }
+        contract_early = get_ceo_section_contract(canonical_grain)
+        outlook_early = next(
+            (s["title"] for s in contract_early if s["title"].lower().startswith("next")),
+            "Next-week outlook",
+        )
+        executive_empty = flat_hybrid_ceo_to_executive_structure(
+            flat_brief,
+            period_end=period_end,
+            outlook_title=outlook_early,
+            canonical_grain=canonical_grain,
+        )
+        grain_early = _grain_display_label(canonical_grain)
+        md_empty = render_flat_ceo_brief_markdown(
+            flat_brief,
+            heading=(
+                f"{grain_early} Billing Assurance Review"
+                if is_billing_auditor_style()
+                else f"{grain_early} Performance Overview"
+            ),
+            analysis_period=analysis_period,
+            outlook_heading=outlook_early,
+            persona="billing_auditor" if is_billing_auditor_style() else "ceo",
+        )
+        return executive_empty, md_empty, meta_empty
+
     client = genai.Client()
     meta: dict[str, Any] = {"pass0_count": len(signals)}
 
@@ -174,12 +275,17 @@ def run_hybrid_ceo_brief_sync(
     )
 
     grain_label = _grain_display_label(canonical_grain)
-    md_heading = f"{grain_label} Performance Overview"
+    md_heading = (
+        f"{grain_label} Billing Assurance Review"
+        if is_billing_auditor_style()
+        else f"{grain_label} Performance Overview"
+    )
     md = render_flat_ceo_brief_markdown(
         flat_brief,
         heading=md_heading,
         analysis_period=analysis_period,
         outlook_heading=outlook_title,
+        persona="billing_auditor" if is_billing_auditor_style() else "ceo",
     )
 
     return executive, md, meta
@@ -241,16 +347,33 @@ async def generate_hybrid_insights_report_async(meta: dict[str, Any]) -> str:
     kept = curation.get("kept", [])
     thesis = curation.get("narrative_thesis", "No thesis provided.")
     
+    _aud = os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower() == "billing_auditor"
+    _title = (
+        "# Top Billing Review Candidates"
+        if _aud
+        else "# Top Operational Insights Summary"
+    )
+    _role = (
+        "You are a billing auditor summarizing which customers, shippers, or lanes to review for toll "
+        "billing accuracy (revenue vs expense vs recommended toll)."
+        if _aud
+        else "You are an executive operations analyst. Your task is to create a structured Markdown summary of the top operational insights for the CEO."
+    )
+    _group = (
+        "Group by category (e.g. Revenue, Cost alignment, Lane anomaly, Customer concentration)."
+        if _aud
+        else "Organize the 'kept' insights by their 'category' (e.g., Revenue, Efficiency, Capacity)."
+    )
     prompt = f"""
-You are an executive operations analyst. Your task is to create a structured Markdown summary of the top operational insights for the CEO.
+{_role}
 
 ### DATA SOURCE (JSON)
 {json.dumps(curation, indent=2)}
 
 ### OUTPUT REQUIREMENTS
-1.  **Title**: # Top Operational Insights Summary
+1.  **Title**: {_title}
 2.  **Summary Section**: Include the "narrative_thesis" as a bolded summary at the top.
-3.  **Grouped Insights**: Organize the 'kept' insights by their 'category' (e.g., Revenue, Efficiency, Capacity).
+3.  **Grouped Insights**: {_group}
 4.  **Ranking**: Within each category, list insights in ascending order of their 'rank'.
 5.  **Insight Format**: Use a single line for each insight in this exact format:
     - **MetricName - Dimension**: One-line explanation why it matters. Statistics (e.g., ±X.X% WoW | current vs prior).

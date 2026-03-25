@@ -21,6 +21,46 @@ from ..utils.timing_utils import TimedAgentWrapper
 from .loaders import AnalysisContextInitializer
 
 
+_TARGET_SCOPED_STATE_PATTERN = re.compile(
+    r"^(?:"
+    r"level_\d+_analysis|"
+    r"level_\d+_cross_dimension_.*|"
+    r"independent_level_\d+_analysis|"
+    r"independent_level_results|"
+    r"level_analysis_result|"
+    r"hierarchical_analysis_complete|"
+    r"data_analyst_result|"
+    r"drill_down_decision|"
+    r"drill_down_history|"
+    r"levels_analyzed|"
+    r"current_level|"
+    r"continue_loop|"
+    r"max_drill_depth|"
+    r"hierarchy_name|"
+    r"narrative_results|"
+    r"narrative_result|"
+    r"report_synthesis_result|"
+    r"alert_scoring_result|"
+    r"statistical_summary"
+    r")$"
+)
+
+
+def _strip_target_scoped_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Remove keys that must not leak across target runs.
+
+    Each target executes in its own isolated session, but the parent session emits
+    merged state updates while runners execute. Stripping target-scoped keys here
+    prevents stale hierarchy/narrative outputs from previous targets contaminating
+    the next target's synthesis stage.
+    """
+    cleaned = dict(state)
+    for key in list(cleaned.keys()):
+        if _TARGET_SCOPED_STATE_PATTERN.match(key):
+            cleaned.pop(key, None)
+    return cleaned
+
+
 class TargetIteratorAgent(BaseAgent):
     """Iterates through extracted targets and seeds per-target state.
     
@@ -247,7 +287,8 @@ class _SingleTargetRunner(BaseAgent):
         )
         token = current_session_id.set(isolated_id)
 
-        state_copy = inner_ctx.session.state.copy()
+        # Prevent per-target analysis artifacts from leaking between runners.
+        state_copy = _strip_target_scoped_state(inner_ctx.session.state)
         if self.seed_state:
             state_copy.update(self.seed_state)
         isolated_session = Session(

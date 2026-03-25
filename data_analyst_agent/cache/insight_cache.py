@@ -11,8 +11,13 @@ class InsightCache:
     """
 
     STAGES = [
-        "statistical_cards", "hierarchy_cards", "narrative_cards",
-        "alerts", "synthesis", "digest"
+        "statistical_cards",
+        "statistical_insight_cards",
+        "hierarchy_cards",
+        "narrative_cards",
+        "alerts",
+        "synthesis",
+        "digest",
     ]
 
     def __init__(self, output_dir: str):

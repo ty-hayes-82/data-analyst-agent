@@ -87,6 +87,8 @@ class CLIParameterInjector(BaseAgent):
         DATA_ANALYST_HIERARCHY: Selected hierarchy name
         DATA_ANALYST_HIERARCHY_LEVELS: Comma-separated hierarchy levels
         DATA_ANALYST_HIERARCHY_FILTERS: JSON-encoded hierarchy filters
+        DATA_ANALYST_LOB: Hyper LOB filter (loader logical key ``lob`` -> physical column)
+        DATA_ANALYST_TIER_FILTER: Override hierarchy_entity_filters levels (see --tier-filter)
         
     Focus Directives:
         - recent_weekly_trends: Last 8 weeks, weekly grain
@@ -133,6 +135,8 @@ class CLIParameterInjector(BaseAgent):
         metrics = [m.strip() for m in metrics_raw.split(",") if m.strip()]
         dim = os.environ.get("DATA_ANALYST_DIMENSION")
         dim_val = os.environ.get("DATA_ANALYST_DIMENSION_VALUE")
+        lob_filter = (os.environ.get("DATA_ANALYST_LOB") or "").strip()
+        tier_filter_raw = (os.environ.get("DATA_ANALYST_TIER_FILTER") or "").strip()
         start = os.environ.get("DATA_ANALYST_START_DATE")
         end = os.environ.get("DATA_ANALYST_END_DATE")
 
@@ -217,6 +221,10 @@ class CLIParameterInjector(BaseAgent):
             if first_col and isinstance(hierarchy_filters.get(first_col), list) and len(hierarchy_filters[first_col]) == 1:
                 print(f"[CLIParameterInjector] Scoping run to {first_col}={hierarchy_filters[first_col][0]}")
 
+        if tier_filter_raw:
+            state_delta["tier_filter_override"] = tier_filter_raw
+            print(f"[CLIParameterInjector] DATA_ANALYST_TIER_FILTER={tier_filter_raw!r}")
+
         inferred_dim = _infer_primary_dimension(contract)
         inferred_total = _infer_total_label(contract)
         primary_dim = dim or inferred_dim
@@ -242,7 +250,7 @@ class CLIParameterInjector(BaseAgent):
         # Use display label for total/aggregate level
         dim_display = primary_val if primary_val else (inferred_total or "all")
         data_query = f"Retrieve {frequency} {display_name} for {primary_dim} {dim_display}."
-        state_delta["request_analysis"] = {
+        request_analysis_payload = {
             "analysis_type": "operational_trend",
             "primary_dimension": primary_dim,
             "primary_dimension_value": primary_val,  # None when analyzing all data
@@ -256,6 +264,10 @@ class CLIParameterInjector(BaseAgent):
             "data_fetch_query_primary": data_query,
             "data_fetch_query_supplementary": None,
         }
+        if lob_filter:
+            request_analysis_payload["lob"] = lob_filter
+            print(f"[CLIParameterInjector] Hyper fetch scoped to lob={lob_filter!r}")
+        state_delta["request_analysis"] = request_analysis_payload
 
         if start or end:
             overrides = {

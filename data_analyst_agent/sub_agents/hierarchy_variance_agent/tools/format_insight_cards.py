@@ -25,7 +25,7 @@ card creation.
 
 from __future__ import annotations
 import os
-from typing import Any
+from typing import Any, Optional
 
 
 def _max_cards_per_level() -> int:
@@ -51,11 +51,6 @@ def _max_cards_per_level() -> int:
 
 MAX_CARDS_PER_LEVEL = 15  # Legacy default; _max_cards_per_level() used at runtime
 MIN_DRILL_IMPACT_SCORE = 0.15  # top insight must beat this to justify drill-down
-
-# Materiality is now relative (share of variance, % change magnitude)
-# not fixed dollar thresholds. These legacy values are only used as
-# fallbacks when contract materiality config is not available.
-_LEGACY_MIN_VARIANCE_PCT = 2.0  # lowered from 5.0 — relative scoring handles priority
 
 
 # ---------------------------------------------------------------------------
@@ -95,18 +90,6 @@ def _priority_from_score(score: float) -> str:
     if score >= 0.15:
         return "medium"
     return "low"
-
-
-def _is_material_variance(var_dollar: float, var_pct: float | None) -> bool:
-    """Check if a variance is material enough to include.
-
-    Uses relative % change — no fixed dollar thresholds.
-    A $5K variance is material if it's a 30% change for a driver manager.
-    """
-    pct_val = abs(var_pct) if var_pct is not None else 0.0
-    # Any % change above the minimum threshold is material
-    # regardless of absolute dollar amount
-    return pct_val >= _LEGACY_MIN_VARIANCE_PCT
 
 
 def _priority_from_variance(var_dollar: float, var_pct: float | None) -> str:
@@ -240,8 +223,6 @@ def format_hierarchy_insight_cards(
         var_pct = driver.get("variance_pct")  # May be None
         is_new = bool(driver.get("is_new_from_zero", False))
 
-        if not _is_material_variance(var_dollar, var_pct):
-            continue
         item = str(driver.get("item", ""))
         current = driver.get("current", 0.0)
         prior = driver.get("prior", 0.0)
@@ -340,6 +321,23 @@ def format_hierarchy_insight_cards(
                     f"{dominant.capitalize()} effect is dominant."
                 )
 
+        if not pvm_row and not mix_row:
+            vap = driver.get("vs_rolling_avg_pct")
+            if vap is not None:
+                try:
+                    vapf = float(vap)
+                    ra = driver.get("rolling_avg")
+                    rw = driver.get("rolling_avg_window")
+                    if ra is not None and rw is not None:
+                        why_note += (
+                            f" Deviation vs {int(rw)}-period rolling avg ({float(ra):.2f}): "
+                            f"{vapf:+.1f}%."
+                        )
+                    else:
+                        why_note += f" Current {vapf:+.1f}% vs rolling average."
+                except (TypeError, ValueError):
+                    pass
+
         card: dict[str, Any] = {
             "title": title,
             "what_changed": what_changed,
@@ -358,8 +356,8 @@ def format_hierarchy_insight_cards(
         }
         cards.append(card)
 
-    # When every entity is below the % materiality gate (common for ratio KPIs with small
-    # WoW moves), still surface regional / entity period values so outputs match scorecards.
+    # When there are no variance/mix cards yet (e.g. empty drivers after upstream filter),
+    # still surface regional / entity period values so outputs match scorecards.
     if not cards and level >= 1 and top_drivers:
         mcol = str(level_stats.get("metric", "metric"))
         ap = str(level_stats.get("analysis_period", ""))
@@ -578,20 +576,29 @@ def should_continue_drilling(
     level_result: dict,
     current_level: int,
     max_depth: int,
+    *,
+    min_impact_score: Optional[float] = None,
+    contract_force_drill_depth: Optional[int] = None,
 ) -> dict:
     """
     Determine whether to drill down based on whether top-level findings
     have sufficient impact to warrant deeper investigation.
 
     Criteria:
-      - At least one insight card with impact_score >= MIN_DRILL_IMPACT_SCORE
+      - At least one insight card with impact_score >= threshold (default MIN_DRILL_IMPACT_SCORE)
       - Not at last level or max depth
       - Not a duplicate level
       - Level 0 always drills to Level 1 (Level 0 is aggregate baseline only)
     
     Test Mode:
       - Set FORCE_DRILL_DOWN_DEPTH=N to force drilling to depth N regardless of impact
+        (overrides contract_force_drill_depth when set).
     """
+    threshold = (
+        float(min_impact_score)
+        if min_impact_score is not None
+        else MIN_DRILL_IMPACT_SCORE
+    )
     is_last_level = level_result.get("is_last_level", False)
     is_duplicate = level_result.get("is_duplicate", False)
     
@@ -639,7 +646,7 @@ def should_continue_drilling(
         c.get("title", "").split(": ", 1)[-1]
         for c in insight_cards
         if (
-            c.get("impact_score", 0.0) >= MIN_DRILL_IMPACT_SCORE
+            c.get("impact_score", 0.0) >= threshold
             or str(c.get("priority", "")).lower() in {"high", "critical"}
         )
     ]

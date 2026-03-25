@@ -8,6 +8,31 @@ from collections import defaultdict
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+
+def format_brief_current_value(current: Any) -> str:
+    """Format level-0 / network current values for CEO brief prompts.
+
+    Large revenue totals use whole dollars; small per-mile or per-unit rates keep decimals.
+    """
+    if current is None:
+        return "N/A"
+    try:
+        f = float(current)
+    except (TypeError, ValueError):
+        return str(current)
+    a = abs(f)
+    if a < 100:
+        return f"${f:,.2f}"
+    if a < 10_000:
+        return f"${f:,.1f}"
+    return f"${f:,.0f}"
+
+
+def _dict_or_empty(value: Any) -> Dict[str, Any]:
+    """JSON-null or non-dict nested fields must not break chained .get() calls."""
+    return value if isinstance(value, dict) else {}
+
+
 class BriefUtils:
     @staticmethod
     def get_latest_cache_dir(base_dir: str = "outputs/ops_metrics_ds") -> Optional[Path]:
@@ -69,9 +94,13 @@ class BriefUtils:
         """Extract L0 totals for all metrics."""
         totals = {}
         for m, p in metrics.items():
-            l0 = p.get("hierarchical_analysis", {}).get("level_0", {}).get("insight_cards", [])
+            ha = _dict_or_empty(p.get("hierarchical_analysis"))
+            l0_block = _dict_or_empty(ha.get("level_0"))
+            l0 = l0_block.get("insight_cards") or []
+            if not isinstance(l0, list):
+                l0 = []
             if l0:
-                ev = l0[0].get("evidence", {})
+                ev = l0[0].get("evidence", {}) if isinstance(l0[0], dict) else {}
                 totals[m] = {
                     "current": ev.get("current", 0),
                     "prior": ev.get("prior", 0),
@@ -79,7 +108,7 @@ class BriefUtils:
                     "var_dollar": ev.get("variance_dollar", 0)
                 }
             else:
-                l0_stats = p.get("hierarchical_analysis", {}).get("level_0", {})
+                l0_stats = l0_block
                 current = l0_stats.get("current_total")
                 prior = l0_stats.get("prior_total")
                 if current is not None and prior is not None:
@@ -140,12 +169,18 @@ class SignalRanker:
     def extract_hierarchy_cards(self):
         """Extract L0-L2 cards from hierarchy analysis."""
         for m, p in self.metrics.items():
-            hierarchy = p.get("hierarchical_analysis", {})
+            hierarchy = _dict_or_empty(p.get("hierarchical_analysis"))
             for level_key in ["level_0", "level_1", "level_2"]:
-                level = hierarchy.get(level_key, {})
+                level = _dict_or_empty(hierarchy.get(level_key))
                 level_num = int(level_key.split("_")[1])
-                for card in level.get("insight_cards", []):
-                    ev = card.get("evidence", {})
+                cards = level.get("insight_cards") or []
+                if not isinstance(cards, list):
+                    cards = []
+                for card in cards:
+                    if not isinstance(card, dict):
+                        continue
+                    raw_ev = card.get("evidence")
+                    ev = raw_ev if isinstance(raw_ev, dict) else {}
                     var_pct = ev.get("variance_pct")
                     if var_pct is None: continue
                     
@@ -161,6 +196,8 @@ class SignalRanker:
                     
                     direction = "+" if var_pct > 0 else ""
                     detail = f"{item}: {m} {direction}{var_pct:.1f}% WoW (${abs(ev.get('variance_dollar', 0)):,.0f})"
+                    if ev.get("current") is not None:
+                        detail += f", current {format_brief_current_value(ev.get('current'))}"
 
                     h_kwargs: Dict[str, Any] = {
                         "entity": item,
@@ -185,8 +222,13 @@ class SignalRanker:
     def extract_trends(self):
         """Extract 3-month trends."""
         for m, p in self.metrics.items():
-            stats = p.get("statistical_summary") or {}
-            for driver in stats.get("top_drivers", []):
+            stats = _dict_or_empty(p.get("statistical_summary"))
+            drivers = stats.get("top_drivers") or []
+            if not isinstance(drivers, list):
+                drivers = []
+            for driver in drivers:
+                if not isinstance(driver, dict):
+                    continue
                 slope = driver.get("slope_3mo")
                 p_val = driver.get("slope_3mo_p_value")
                 avg = driver.get("avg", 0)
@@ -211,11 +253,15 @@ class SignalRanker:
     def extract_anomalies(self):
         """Extract statistical anomalies."""
         for m, p in self.metrics.items():
-            stats = p.get("statistical_summary") or {}
-            period_range = stats.get("summary_stats", {}).get("period_range", "")
+            stats = _dict_or_empty(p.get("statistical_summary"))
+            period_range = _dict_or_empty(stats.get("summary_stats")).get("period_range", "")
             first_period = period_range.split(" to ")[0] if period_range else ""
-            
-            for anom in stats.get("anomalies", []):
+            anomalies = stats.get("anomalies") or []
+            if not isinstance(anomalies, list):
+                anomalies = []
+            for anom in anomalies:
+                if not isinstance(anom, dict):
+                    continue
                 if anom.get("period") == first_period: continue
                 
                 z = anom.get("z_score", 0)
@@ -319,6 +365,9 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
     from google.genai import types
     import time
 
+    _style = os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower()
+    _auditor = _style == "billing_auditor"
+
     input_signals = []
     for s in signals:
         row: Dict[str, Any] = {
@@ -348,30 +397,58 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
             "_elapsed": 0.0,
         }
 
+    _role = (
+        "You are a billing auditor and revenue-assurance analyst. You have ranked toll and operational signals.\n"
+        f"Select the TOP {max_curated} signals that best indicate **customers (shipper parents), shippers, or lanes** "
+        "where **billing, rating, or accruals** should be reviewed (revenue vs expense vs recommended toll mismatches, "
+        "unusual WoW swings, concentration risk).\n"
+        if _auditor
+        else (
+            "You are a senior analyst for a trucking company. You have a list of ranked operational signals (deterministic stats).\n"
+            f"Your job is to select the TOP {max_curated} most impactful and coherent signals for an executive CEO brief.\n"
+        )
+    )
+    _cover = (
+        "ENSURE coverage across toll revenue, toll expense, and recommended toll cost when material; "
+        "prioritize named shipper parents and lanes.\n\n"
+        if _auditor
+        else "ENSURE coverage across Revenue, Efficiency, and Capacity if significant moves exist.\n\n"
+    )
+    _cat_desc = (
+        "billing / assurance theme — one of: Revenue, Cost alignment, Recommended vs actual, Lane anomaly, "
+        "Customer concentration, Accrual risk, Network, Other.\n"
+        if _auditor
+        else "executive theme bucket — one of: Revenue, Efficiency, Utilization, Capacity, Yield, Cost, Network, Other.\n"
+    )
     prompt = (
-        "You are a senior analyst for a trucking company. You have a list of ranked operational signals (deterministic stats).\n"
-        f"Your job is to select the TOP {max_curated} most impactful and coherent signals for an executive CEO brief.\n"
-        "CRITICAL: Every kept id MUST match an id from RANKED SIGNALS exactly (same string). Never invent or rename ids.\n"
-        "DROP signals that are noise, contradictory, or redundant across metrics.\n"
-        "ENSURE coverage across Revenue, Efficiency, and Capacity if significant moves exist.\n\n"
-        "For EACH kept signal, also output:\n"
-        "- category: executive theme bucket — one of: Revenue, Efficiency, Utilization, Capacity, Yield, Cost, Network, Other.\n"
-        "- metric_description: ONE line in this EXACT pattern (no extra words before/after):\n"
-        '  \"{clean_name} - {slice}: {+/-X.X}% WoW | {current_fmt} vs {prior_fmt}.\"\n'
-        "  - clean_name: short label (e.g. \"Deadhead %\", \"Total Revenue\", \"Total Miles\").\n"
-        "  - slice: entity/region name ONLY (e.g. Manteno, East, Gary), or \"Network\" for network-wide or cross_metric signals.\n"
-        "  - WoW: use var_pct from the signal with one decimal and a leading + or - (e.g. +28.7% WoW).\n"
-        "  - current_fmt vs prior_fmt: format using current_value and prior_value when present in the signal JSON. "
-        "Use correct units: *_pct / deadhead → one-decimal percentages (e.g. 18.2% vs 14.1%); currency metrics → $ with K/M suffixes; "
-        "miles → compact mi. Never use $ for pure percentage metrics.\n"
-        "  - If current_value or prior_value is missing, end after WoW only: \"{clean_name} - {slice}: {+/-X.X}% WoW.\" "
-        "Do not invent levels.\n"
-        "- clean_name: same short metric label as embedded in metric_description.\n"
-        "- dimension: scope for filtering. Use \"Region: East\" / \"Location: Gary\" when sliced; \"Network\" when not sliced.\n\n"
-        "NETWORK TOTALS (for context):\n"
+        _role
+        + (
+            "CRITICAL: Every kept id MUST match an id from RANKED SIGNALS exactly (same string). Never invent or rename ids.\n"
+            "DROP signals that are noise, contradictory, or redundant across metrics.\n"
+        )
+        + _cover
+        + "For EACH kept signal, also output:\n"
+        + "- category: "
+        + _cat_desc
+        + "- metric_description: ONE line in this EXACT pattern (no extra words before/after):\n"
+        + '  \"{clean_name} - {slice}: {+/-X.X}% WoW | {current_fmt} vs {prior_fmt}.\"\n'
+        + "  - clean_name: short label (e.g. \"Deadhead %\", \"Total Revenue\", \"Total Miles\").\n"
+        + "  - slice: entity/region name ONLY (e.g. Manteno, East, Gary), or \"Network\" for network-wide or cross_metric signals.\n"
+        + "  - WoW: use var_pct from the signal with one decimal and a leading + or - (e.g. +28.7% WoW).\n"
+        + "  - current_fmt vs prior_fmt: format using current_value and prior_value when present in the signal JSON. "
+        + "Use correct units: *_pct / deadhead → one-decimal percentages (e.g. 18.2% vs 14.1%); currency metrics → $ with K/M suffixes; "
+        + "miles → compact mi. Never use $ for pure percentage metrics.\n"
+        + "  - If current_value or prior_value is missing, end after WoW only: \"{clean_name} - {slice}: {+/-X.X}% WoW.\" "
+        + "Do not invent levels.\n"
+        + "- clean_name: same short metric label as embedded in metric_description.\n"
+        + "- dimension: scope for filtering. Use \"Region: East\" / \"Location: Gary\" when sliced; \"Network\" when not sliced.\n\n"
+        + "NETWORK TOTALS (for context):\n"
     )
     for m, d in totals.items():
-        prompt += f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f})\n"
+        line = f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f})"
+        if d.get("current") is not None:
+            line += f", current {format_brief_current_value(d['current'])}"
+        prompt += line + "\n"
 
     prompt += "\nRANKED SIGNALS (from Pass 0):\n"
     prompt += json.dumps(input_signals, indent=2)
@@ -410,7 +487,12 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
             "id": types.Schema(type=types.Type.STRING),
             "reason": types.Schema(type=types.Type.STRING)
         }, required=["id", "reason"])),
-        "narrative_thesis": types.Schema(type=types.Type.STRING, description="A single sentence summarizing the week's performance.")
+        "narrative_thesis": types.Schema(
+            type=types.Type.STRING,
+            description=(
+                "One sentence: billing assurance thesis for the week (auditor mode), or week's performance (CEO mode)."
+            ),
+        )
     }, required=["kept", "dropped", "narrative_thesis"])
 
     t0 = time.time()
@@ -446,11 +528,17 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
     return curation
 
 def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], thesis: str, period: str) -> Dict[str, Any]:
-    """Pass 2: Synthesize final CEO brief from curated signals."""
+    """Pass 2: Synthesize final CEO or billing-auditor brief from curated signals."""
     from google.genai import types
     import time
-    
-    prompt_template = (PROJECT_ROOT / "config/prompts/executive_brief_ceo.md").read_text(encoding="utf-8").strip()
+
+    _style = os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower()
+    _prompt_name = (
+        "executive_brief_billing_auditor.md"
+        if _style == "billing_auditor"
+        else "executive_brief_ceo.md"
+    )
+    prompt_template = (PROJECT_ROOT / "config" / "prompts" / _prompt_name).read_text(encoding="utf-8").strip()
     system_instruction = prompt_template.replace("{analysis_period}", period)
     # Clear other template vars
     for k in ["metric_count", "scope_preamble", "dataset_specific_append", "prompt_variant_append"]:
@@ -462,7 +550,10 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         "NETWORK TOTALS:\n"
     )
     for m, d in totals.items():
-        user_msg += f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current ${d['current']:,.0f}\n"
+        cur_fmt = format_brief_current_value(d.get("current"))
+        user_msg += (
+            f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
+        )
     
     user_msg += "\nCURATED INSIGHTS (use ONLY these signals, preserve exact numbers):\n"
     for i, s in enumerate(signals, 1):

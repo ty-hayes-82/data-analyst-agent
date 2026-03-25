@@ -31,7 +31,7 @@ from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import (
-    EXECUTIVE_BRIEF_INSTRUCTION,
+    get_executive_brief_instruction,
     SCOPED_BRIEF_PREAMBLE,
     load_dataset_specific_append,
     load_prompt_variant,
@@ -75,6 +75,7 @@ from .scope_utils import (
     _discover_level_entities,
     _load_hierarchy_level_mapping,
     _sanitize_entity_name,
+    count_scoped_digest_signals,
     derive_scope_level_labels,
 )
 from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, save_hybrid_artifacts_async
@@ -605,6 +606,8 @@ def _validate_structured_brief(
     critical_metrics: list[str] | None = None,
     min_insight_values: int = 3,
     is_scoped: bool = False,
+    min_total_numeric_values: int | None = None,
+    scoped_digest_signal_count: int | None = None,
 ) -> list[str]:
     """Return a list of validation errors for the structured brief payload.
     
@@ -612,6 +615,8 @@ def _validate_structured_brief(
         min_insight_values: Minimum numeric values per Key Findings insight (default 3).
                            Use 2 for scoped briefs with less signal.
         is_scoped: True for entity-scoped briefs (relaxed validation).
+        min_total_numeric_values: When set, overrides the default minimum total numeric tokens.
+        scoped_digest_signal_count: When set with is_scoped and low value, relaxes Key Findings rules.
     """
 
     # Forbidden titles that should have been mapped by _apply_section_contract
@@ -745,6 +750,15 @@ def _validate_structured_brief(
             errors.append(f"{title or f'section[{idx}]'} insights is not a list")
             continue
 
+        kf_placeholder_count = 0
+        if title == "Key Findings":
+            kf_placeholder_count = sum(
+                1
+                for ins in insights
+                if isinstance(ins, dict)
+                and str(ins.get("details") or "").strip() == SECTION_FALLBACK_TEXT
+            )
+
         # Determine which sections require insight validation
         _ceo_active = _ceo_rules
         # CEO content-only sections: Why it matters, Next-week outlook (no insights required)
@@ -754,6 +768,12 @@ def _validate_structured_brief(
 
         if title == "Key Findings" and not _ceo_active:
             min_key_findings = 2 if is_scoped else TOP_INSIGHT_MIN_COUNT
+            if (
+                is_scoped
+                and scoped_digest_signal_count is not None
+                and scoped_digest_signal_count <= 3
+            ):
+                min_key_findings = 1
             if len(insights) < min_key_findings:
                 errors.append(f"Key Findings must include at least {min_key_findings} entries")
             if len(insights) > 5:
@@ -769,11 +789,19 @@ def _validate_structured_brief(
                 errors.append(f"Key Findings entry {insight_idx} missing details")
             elif details == SECTION_FALLBACK_TEXT:
                 # Skip fallback check for CEO content-only sections
+                allow_kf_placeholder = (
+                    is_scoped
+                    and title == "Key Findings"
+                    and scoped_digest_signal_count is not None
+                    and scoped_digest_signal_count <= 3
+                    and kf_placeholder_count <= 1
+                )
                 if not (_ceo_active and title in _ceo_content_only):
-                    errors.append(
-                        f"{title} entry {insight_idx} contains only placeholder fallback text - "
-                        "LLM did not populate this insight"
-                    )
+                    if not allow_kf_placeholder:
+                        errors.append(
+                            f"{title} entry {insight_idx} contains only placeholder fallback text - "
+                            "LLM did not populate this insight"
+                        )
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
 
@@ -800,6 +828,8 @@ def _validate_structured_brief(
     
     # Validate total numeric values across entire brief
     MINIMUM_TOTAL_VALUES = 5 if _ceo_rules else (10 if is_scoped else 15)
+    if min_total_numeric_values is not None:
+        MINIMUM_TOTAL_VALUES = int(min_total_numeric_values)
     if total_numeric_values < MINIMUM_TOTAL_VALUES:
         errors.append(
             f"Brief contains only {total_numeric_values} total numeric values (minimum: {MINIMUM_TOTAL_VALUES}). "
@@ -859,6 +889,8 @@ async def _llm_generate_brief(
     max_attempts: int | None = None,
     min_insight_values: int = 3,
     is_scoped: bool = False,
+    min_total_numeric_values: int | None = None,
+    scoped_digest_signal_count: int | None = None,
 ) -> tuple[dict, str, bool]:
     """Call the LLM to generate a brief JSON.
 
@@ -866,6 +898,8 @@ async def _llm_generate_brief(
         max_attempts: Maximum retry attempts. If None, uses BRIEF_CONFIG.max_llm_retries().
         min_insight_values: Minimum numeric values per Key Findings insight (default 3 for network, 2 for scoped).
         is_scoped: True for entity-scoped briefs (relaxed validation).
+        min_total_numeric_values: Optional override for minimum total numeric tokens in the brief.
+        scoped_digest_signal_count: When set with is_scoped, low values relax Key Findings validation.
 
     Returns:
         Tuple of (brief_data_dict, brief_markdown, used_structured_fallback).
@@ -971,7 +1005,9 @@ async def _llm_generate_brief(
                 has_critical_findings=has_critical_findings,
                 critical_metrics=critical_metrics or [],
                 min_insight_values=min_insight_values,
-                is_scoped=is_scoped
+                is_scoped=is_scoped,
+                min_total_numeric_values=min_total_numeric_values,
+                scoped_digest_signal_count=scoped_digest_signal_count,
             )
             if structural_errors:
                 msg = "Structured brief failed validation: " + "; ".join(structural_errors)
@@ -1201,6 +1237,14 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 except (TypeError, ValueError):
                     max_scoped_brief_level = None
             print(f"[BRIEF] Using reporting settings from contract: {contract.name}")
+            eb_style = getattr(reporting_cfg, "executive_brief_style", None)
+            if (
+                eb_style
+                and str(eb_style).strip()
+                and os.environ.get("EXECUTIVE_BRIEF_STYLE_FROM_CLI") != "1"
+            ):
+                os.environ["EXECUTIVE_BRIEF_STYLE"] = str(eb_style).strip().lower()
+                print(f"[BRIEF] executive_brief_style from contract: {os.environ['EXECUTIVE_BRIEF_STYLE']}")
 
         session_drill = ctx.session.state.get("executive_brief_drill_levels")
         if session_drill is not None:
@@ -1330,7 +1374,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
         
         instruction = _format_instruction(
-            EXECUTIVE_BRIEF_INSTRUCTION,
+            get_executive_brief_instruction(),
             metric_count=len(reports),
             analysis_period=analysis_period,
             scope_preamble=focus_block,
@@ -1553,7 +1597,28 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             )
 
         try:
+            _brief_min_total: int | None = None
+            _brief_min_insight: int | None = None
+            if contract and getattr(contract, "reporting", None):
+                rc = contract.reporting
+                mtn = getattr(rc, "executive_brief_min_total_numerics", None)
+                if mtn is not None:
+                    _brief_min_total = int(mtn)
+                min_in = getattr(rc, "executive_brief_min_insight_numerics", None)
+                if min_in is not None:
+                    _brief_min_insight = int(min_in)
+                if not is_ceo_style() and bool(
+                    getattr(rc, "executive_brief_relax_numeric_validation", False)
+                ):
+                    if _brief_min_total is None:
+                        _brief_min_total = 8
+                    if _brief_min_insight is None:
+                        _brief_min_insight = 2
+
             _ceo_min_values = 1 if is_ceo_style() else 3
+            if _brief_min_insight is not None and not is_ceo_style():
+                _ceo_min_values = _brief_min_insight
+
             use_hybrid_ceo = (
                 is_ceo_style()
                 and bool(json_data)
@@ -1628,6 +1693,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         has_critical_findings=has_critical,
                         critical_metrics=critical_metrics,
                         min_insight_values=_ceo_min_values,
+                        min_total_numeric_values=_brief_min_total,
                     )
             else:
                 brief_json, brief_md, used_fallback = await _llm_generate_brief(
@@ -1642,6 +1708,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     has_critical_findings=has_critical,
                     critical_metrics=critical_metrics,
                     min_insight_values=_ceo_min_values,
+                    min_total_numeric_values=_brief_min_total,
                 )
 
             # Post-process: fix temporal grain in title and section headings
@@ -1709,6 +1776,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             flush=True,
                         )
                     try:
+                        _sig_ct = count_scoped_digest_signals(scoped_digest)
+                        _min_iv = 1 if _sig_ct <= 3 else 2
+                        _min_total = 5 if _sig_ct <= 3 else None
                         scoped_json, scoped_brief_md, scoped_fallback = await _llm_generate_brief(
                             model_name=model_name,
                             instruction=scoped_instruction,
@@ -1721,8 +1791,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             has_critical_findings=False,  # TODO: Implement scope-specific critical check
                             critical_metrics=[],
                             max_attempts=BRIEF_CONFIG.max_scoped_retries(),
-                            min_insight_values=2,  # Scoped briefs have less signal, require only 2 values
+                            min_insight_values=_min_iv,
                             is_scoped=True,  # Relaxed validation for entity-scoped briefs
+                            min_total_numeric_values=_min_total,
+                            scoped_digest_signal_count=_sig_ct,
                         )
                         if scoped_fallback:
                             print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
@@ -1785,6 +1857,27 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     )
                     if level == 2:
                         entities = entities[:max_scope_entities]
+                        parent_to_l2 = _load_hierarchy_level_mapping(
+                            json_data,
+                            1,
+                            2,
+                            contract=contract,
+                            preferred_hierarchy=hierarchy_hint,
+                        )
+                        if parent_to_l2:
+                            sole_l2_children = {
+                                ch[0]
+                                for ch in parent_to_l2.values()
+                                if isinstance(ch, list) and len(ch) == 1
+                            }
+                            for _e in list(entities):
+                                if _e in sole_l2_children:
+                                    print(
+                                        f"[BRIEF] Skipping scoped brief for {_e} — sole child under "
+                                        "shipper parent (redundant with Level 1 scoped brief)",
+                                        flush=True,
+                                    )
+                            entities = [e for e in entities if e not in sole_l2_children]
                     level_name = scope_level_labels.get(level, f"Level {level}")
 
                     if max_scoped_briefs:

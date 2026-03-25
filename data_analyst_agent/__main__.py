@@ -63,6 +63,15 @@ parser.add_argument("--dimension", default=None, metavar="DIM",
                      help="Primary dimension name (e.g. region, terminal)")
 parser.add_argument("--dimension-value", default=None, metavar="VAL",
                      help="Value to filter the dimension by (e.g. Central)")
+parser.add_argument(
+    "--lob",
+    default=None,
+    metavar="NAME",
+    help=(
+        "Line-of-business filter for Hyper loaders that define filter_columns.lob "
+        "(e.g. Dedicated for tolls_expense_weekly_lane_ds)"
+    ),
+)
 parser.add_argument("--start-date", default=None, metavar="YYYY-MM-DD",
                      help="Override analysis start date")
 parser.add_argument("--end-date", default=None, metavar="YYYY-MM-DD",
@@ -87,6 +96,28 @@ parser.add_argument(
     help=(
         "Use standard executive brief (single digest LLM). Default is CEO hybrid: "
         "code rank -> gemini-3.1-flash-lite curate -> gemini-3.1-pro synthesis."
+    ),
+)
+parser.add_argument(
+    "--brief-style",
+    default=None,
+    choices=["ceo", "billing_auditor", "default"],
+    metavar="STYLE",
+    help=(
+        "Override network executive brief persona. "
+        "billing_auditor = customer/lane billing review queue; "
+        "ceo = COO-style hybrid; default = standard JSON brief. "
+        "When omitted, uses contract reporting.executive_brief_style if set, else CEO hybrid."
+    ),
+)
+parser.add_argument(
+    "--tier-filter",
+    default=None,
+    metavar="SPEC",
+    help=(
+        "Override hierarchy tier filters (requires hierarchy_entity_filters in contract). "
+        "Comma-separated segments: level:top_pct|top_n:value, optional @partition_dim per segment. "
+        "Example: 1:top_pct:100,2:top_pct:95,3:top_n:20@gl_div_nm"
     ),
 )
 
@@ -222,8 +253,11 @@ if args.start_date and args.end_date and not validate_date_range(args.start_date
 # ------------------------------------------------------------------
 os.environ["ACTIVE_DATASET"] = args.dataset
 
-# CEO hybrid brief by default (Pass1: 3.1 Flash-Lite, Pass2: 3.1 Pro). Override with .env or --standard-brief.
-if args.standard_brief:
+# CEO hybrid brief by default (Pass1: 3.1 Flash-Lite, Pass2: 3.1 Pro). Override with .env, --brief-style, or --standard-brief.
+if args.brief_style:
+    os.environ["EXECUTIVE_BRIEF_STYLE"] = args.brief_style
+    os.environ["EXECUTIVE_BRIEF_STYLE_FROM_CLI"] = "1"
+elif args.standard_brief:
     os.environ["EXECUTIVE_BRIEF_STYLE"] = "default"
 else:
     os.environ.setdefault("EXECUTIVE_BRIEF_STYLE", "ceo")
@@ -238,6 +272,8 @@ if args.dimension:
     os.environ["DATA_ANALYST_DIMENSION"] = args.dimension
 if args.dimension_value:
     os.environ["DATA_ANALYST_DIMENSION_VALUE"] = args.dimension_value
+if args.lob:
+    os.environ["DATA_ANALYST_LOB"] = args.lob
 if args.start_date:
     os.environ["DATA_ANALYST_START_DATE"] = args.start_date
 if args.end_date:
@@ -246,6 +282,8 @@ if args.exclude_partial_week:
     os.environ["DATA_ANALYST_EXCLUDE_PARTIAL_WEEK"] = "true"
 if args.period_type:
     os.environ["DATA_ANALYST_PERIOD_TYPE"] = args.period_type
+if args.tier_filter:
+    os.environ["DATA_ANALYST_TIER_FILTER"] = args.tier_filter.strip()
 if args.write_metric_markdown:
     os.environ["DATA_ANALYST_SKIP_METRIC_MARKDOWN"] = "false"
 
@@ -281,6 +319,8 @@ print(f"\n{'='*60}")
 print(f"  Dataset   : {args.dataset}")
 print(f"  Metrics   : {args.metrics}")
 print(f"  Dimension : {args.dimension or '(all)'}{'=' + args.dimension_value if args.dimension_value else ''}")
+print(f"  LOB       : {args.lob or '(none)'}")
+print(f"  Tier filt.: {args.tier_filter or '(contract default / env DATA_ANALYST_TIER_FILTER)'}")
 print(f"  Dates     : {args.start_date or '(auto)'} to {args.end_date or '(auto)'}")
 print(f"  Output    : {os.environ.get('DATA_ANALYST_OUTPUT_DIR', '(default)')}")
 if args.write_metric_markdown:

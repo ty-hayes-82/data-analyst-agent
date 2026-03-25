@@ -13,6 +13,7 @@ from data_analyst_agent.sub_agents.data_cache import (
 )
 from data_analyst_agent.utils.temporal_grain import normalize_temporal_grain
 from .hierarchy import resolve_level_metadata
+from .tier_filter import apply_tier_filter_to_dataframe, resolve_effective_filter_config
 from .materiality import get_materiality_thresholds
 from .periods import (
     determine_period_context,
@@ -77,6 +78,12 @@ async def compute_level_statistics_impl(
             "dimension": skip_info.get("dimension"),
         }
         return json.dumps(payload, indent=2)
+
+    filter_cfg = resolve_effective_filter_config(ctx.contract, hierarchy_name)
+    if filter_cfg:
+        df = apply_tier_filter_to_dataframe(
+            df, ctx.contract, level, level_col, hierarchy_name, filter_cfg
+        )
 
     (
         current_period,

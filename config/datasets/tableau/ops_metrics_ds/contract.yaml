@@ -18,6 +18,22 @@ reporting:
   executive_brief_max_scoped_level: 1
   max_scope_entities: 15
   output_format: pdf
+# Analysis-time entity caps per hierarchy drill level (1=region, 2=terminal, 3=driver mgr for geographic).
+# ranking_metric must be additive with a physical column in the loaded frame. Override via --tier-filter or DATA_ANALYST_TIER_FILTER.
+hierarchy_entity_filters:
+  hierarchy_name: geographic
+  ranking_metric: truck_count
+  levels:
+    - level: 1
+      mode: top_pct
+      value: 100
+    - level: 2
+      mode: top_pct
+      value: 95
+    - level: 3
+      mode: top_n
+      value: 20
+      partition_by_dimension: gl_div_nm
 data_source:
   type: tableau_hyper
   file: data/tableau/Ops Metrics DS.tdsx

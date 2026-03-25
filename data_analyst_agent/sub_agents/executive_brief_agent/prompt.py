@@ -59,6 +59,13 @@ def _load_executive_brief_instruction() -> str:
             return ceo_path.read_text(encoding="utf-8").strip()
         print("[BRIEF] Warning: CEO prompt not found, falling back to default")
 
+    if style == "billing_auditor":
+        aud_path = project_root / "config" / "prompts" / "executive_brief_billing_auditor.md"
+        if aud_path.exists():
+            print("[BRIEF] Using billing auditor brief style")
+            return aud_path.read_text(encoding="utf-8").strip()
+        print("[BRIEF] Warning: billing_auditor prompt not found, falling back to default")
+
     try:
         path = project_root / "config" / "prompts" / "executive_brief.md"
         if path.exists():
@@ -72,10 +79,22 @@ def _load_executive_brief_instruction() -> str:
 EXECUTIVE_BRIEF_INSTRUCTION = _load_executive_brief_instruction()
 
 
+def get_executive_brief_instruction() -> str:
+    """Reload brief instruction from disk using current EXECUTIVE_BRIEF_STYLE (call after contract overrides env)."""
+    return _load_executive_brief_instruction()
+
+
 def is_ceo_style() -> bool:
-    """Check if CEO brief style is active."""
+    """True when the hybrid CEO-format pipeline runs (CEO or billing_auditor persona)."""
     import os
-    return os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower() == "ceo"
+    s = os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower()
+    return s in ("ceo", "billing_auditor")
+
+
+def is_billing_auditor_style() -> bool:
+    """True when network brief uses billing assurance / audit framing."""
+    import os
+    return os.environ.get("EXECUTIVE_BRIEF_STYLE", "").lower() == "billing_auditor"
 
 
 def load_standard_executive_brief_instruction() -> str:

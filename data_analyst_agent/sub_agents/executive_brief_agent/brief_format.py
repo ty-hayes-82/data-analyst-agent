@@ -109,8 +109,20 @@ def render_flat_ceo_brief_markdown(
     heading: str = "CEO Brief",
     analysis_period: str = "",
     outlook_heading: str = "Next-week outlook",
+    persona: str = "ceo",
 ) -> str:
     """Render CEO JSON from hybrid pass2_brief (flat schema: what_moved, trend_status, etc.)."""
+    _aud = (persona or "ceo").lower() == "billing_auditor"
+    _bl = "Audit summary:" if _aud else "Bottom line:"
+    _moved = "Accounts and lanes to review" if _aud else "What moved the business"
+    _trend = "Patterns suggesting billing drift" if _aud else "Trend status"
+    _where = "Customer / lane drivers" if _aud else "Where it came from"
+    _why = "Billing risk:" if _aud else "Why it matters:"
+    _lead = "Review queue (billing)" if _aud else "Leadership focus"
+    _pos = "Favorable reconciliation" if _aud else "Positive"
+    _drag = "Mismatch / risk" if _aud else "Drag"
+    _watch = "Sample next" if _aud else "Watch item"
+
     lines: list[str] = []
     lines.append(f"# {heading}")
     if analysis_period:
@@ -121,12 +133,12 @@ def render_flat_ceo_brief_markdown(
 
     bottom = data.get("bottom_line", "")
     if bottom:
-        lines.append(f"**Bottom line:** {bottom}")
+        lines.append(f"**{_bl}** {bottom}")
         lines.append("")
 
     movers = data.get("what_moved") or []
     if movers:
-        lines.append("## What moved the business")
+        lines.append(f"## {_moved}")
         lines.append("")
         for m in movers:
             if isinstance(m, dict):
@@ -139,7 +151,7 @@ def render_flat_ceo_brief_markdown(
 
     trends = data.get("trend_status") or []
     if trends:
-        lines.append("## Trend status")
+        lines.append(f"## {_trend}")
         lines.append("")
         for t in trends:
             lines.append(f"- {t}")
@@ -147,22 +159,22 @@ def render_flat_ceo_brief_markdown(
 
     where = data.get("where_it_came_from") or {}
     if where and isinstance(where, dict):
-        lines.append("## Where it came from")
+        lines.append(f"## {_where}")
         lines.append("")
         pos = where.get("positive", "")
         drag = where.get("drag", "")
         watch = where.get("watch_item", "")
         if pos:
-            lines.append(f"- **Positive:** {pos}")
+            lines.append(f"- **{_pos}:** {pos}")
         if drag:
-            lines.append(f"- **Drag:** {drag}")
+            lines.append(f"- **{_drag}:** {drag}")
         if watch:
-            lines.append(f"- **Watch item:** {watch}")
+            lines.append(f"- **{_watch}:** {watch}")
         lines.append("")
 
     why = data.get("why_it_matters", "")
     if why:
-        lines.append(f"**Why it matters:** {why}")
+        lines.append(f"**{_why}** {why}")
         lines.append("")
 
     outlook = data.get("next_week_outlook", "")
@@ -172,7 +184,7 @@ def render_flat_ceo_brief_markdown(
 
     actions = data.get("leadership_focus") or []
     if actions:
-        lines.append("## Leadership focus")
+        lines.append(f"## {_lead}")
         lines.append("")
         for a in actions:
             lines.append(f"- {a}")

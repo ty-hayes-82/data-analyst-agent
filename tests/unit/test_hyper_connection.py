@@ -17,6 +17,7 @@ from data_analyst_agent.sub_agents.tableau_hyper_fetcher.hyper_connection import
     HyperConnectionManager,
     get_or_create_manager,
     _MANAGERS,
+    _SHARED_BY_PATH,
 )
 
 
@@ -24,8 +25,10 @@ from data_analyst_agent.sub_agents.tableau_hyper_fetcher.hyper_connection import
 def clear_manager_registry():
     """Ensure each test starts with a clean manager registry."""
     _MANAGERS.clear()
+    _SHARED_BY_PATH.clear()
     yield
     _MANAGERS.clear()
+    _SHARED_BY_PATH.clear()
 
 
 @pytest.fixture

@@ -1,0 +1,45 @@
+source:
+  type: tableau_hyper
+  format: long
+
+hyper:
+  tdsx_file: "Tolls Expense.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+  extract_dir: "data/tableau/extracted/tolls_expense_weekly_lane_ds"
+
+filter_columns:
+  empty_call_dt: "empty_call_dt"
+  lob: "ops_ln_of_bus_ref_nm"
+  region: "region"
+  shipper_parent: "shpr_prnt_nm"
+  shipper: "shpr_nm"
+  stop_route_customer: "stop_location_w_cust"
+
+aggregation:
+  period_type: week_end
+  date_column: "empty_call_dt"
+  period_alias: "empty_call_dt"
+  group_by_columns:
+    - "shpr_prnt_nm"
+    - "shpr_nm"
+    - "stop_location_w_cust"
+  sum_columns:
+    - "toll_expense"
+    - "recomm_toll_cost"
+    - "toll_revenue"
+
+date_parsing:
+  source_column: "empty_call_dt"
+  input_format: "%Y-%m-%d"
+  output_column: "empty_call_dt"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "empty_call_dt"
+  - "shpr_prnt_nm"
+  - "shpr_nm"
+  - "stop_location_w_cust"
+  - "toll_expense"
+  - "recomm_toll_cost"
+  - "toll_revenue"

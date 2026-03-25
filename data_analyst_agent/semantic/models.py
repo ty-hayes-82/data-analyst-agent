@@ -98,6 +98,46 @@ class ReportingConfig(BaseModel):
         ),
     )
     output_format: Literal["pdf", "md", "both"] = Field("pdf", description="Final report format")
+    hierarchy_min_drill_impact_score: Optional[float] = Field(
+        None,
+        description=(
+            "Override default 0.15 minimum insight impact_score to continue drilling past level 1. "
+            "Use for sparse or low-variance KPIs (e.g. ranked tolls slice)."
+        ),
+    )
+    force_hierarchy_drill_depth: Optional[int] = Field(
+        None,
+        ge=0,
+        description=(
+            "When set, keep drilling while current_level < this value (same semantics as env "
+            "FORCE_DRILL_DOWN_DEPTH). Env wins when both are set."
+        ),
+    )
+    executive_brief_relax_numeric_validation: bool = Field(
+        False,
+        description=(
+            "When true, relax structured brief numeric floors (fewer required values per insight "
+            "and lower total numerics) for small digests."
+        ),
+    )
+    executive_brief_min_total_numerics: Optional[int] = Field(
+        None,
+        ge=0,
+        description="Override minimum total numeric tokens in the brief body (default 15 network / 10 scoped).",
+    )
+    executive_brief_min_insight_numerics: Optional[int] = Field(
+        None,
+        ge=0,
+        description="Override minimum numeric tokens per Key Findings insight (default 3 network).",
+    )
+    executive_brief_style: Optional[str] = Field(
+        None,
+        description=(
+            "Sets EXECUTIVE_BRIEF_STYLE when the executive brief agent runs: "
+            "'ceo' (default hybrid CEO brief), 'billing_auditor' (billing assurance / customer-lane review), "
+            "'default' (standard JSON brief). Overrides CLI default for this dataset."
+        ),
+    )
 
 class HierarchyNode(BaseModel):
     name: str
@@ -106,6 +146,146 @@ class HierarchyNode(BaseModel):
     level_names: Dict[int, str] = Field(default_factory=dict, description="Map level index to human-readable name")
     
     model_config = ConfigDict(populate_by_name=True)
+
+
+class RankedSubsetFetchConfig(BaseModel):
+    """Optional Hyper fetch: restrict rows to top-N values per hierarchy level by SUM(ranking_metric)."""
+
+    enabled: bool = Field(False, description="When true, apply ranked subset CTEs to the Hyper query.")
+    hierarchy_name: Optional[str] = Field(
+        None,
+        description=(
+            "If set (and explicit level dimensions omitted), hierarchy levels[0..1] or [0..2] "
+            "give dimension names (2- or 3-level ranked slice)."
+        ),
+    )
+    level_0_dimension: Optional[str] = Field(
+        None,
+        description="Contract dimension name for hierarchy level 0 (coarsest ranked grouping).",
+    )
+    level_1_dimension: Optional[str] = Field(
+        None,
+        description="Contract dimension name for hierarchy level 1.",
+    )
+    level_2_dimension: Optional[str] = Field(
+        None,
+        description="When set with level_0 and level_1, enables 3-level ranked slice (finest grain).",
+    )
+    ranking_metric: Optional[str] = Field(
+        None,
+        description="Contract metric name used to rank (must be additive with a physical column).",
+    )
+    top_level_0: int = Field(
+        25,
+        ge=1,
+        le=50_000,
+        description="Keep this many distinct level-0 values with highest SUM(ranking_metric) over the date range.",
+    )
+    top_level_1_per_level_0: int = Field(
+        100,
+        ge=1,
+        le=500_000,
+        description=(
+            "Per retained level-0 value, keep this many level-1 values (highest SUM(ranking_metric))."
+        ),
+    )
+    top_level_2_per_level_1: Optional[int] = Field(
+        None,
+        ge=1,
+        le=500_000,
+        description=(
+            "3-level mode only: per retained (level_0, level_1) pair, keep this many level-2 values."
+        ),
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _legacy_ranked_fetch_yaml_keys(cls, data: Any) -> Any:
+        """Accept legacy keys top_parents / top_children_per_parent / parent_dimension / child_dimension."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        if "top_level_0" not in out and "top_parents" in out:
+            out["top_level_0"] = out["top_parents"]
+        if "top_level_1_per_level_0" not in out and "top_children_per_parent" in out:
+            out["top_level_1_per_level_0"] = out["top_children_per_parent"]
+        if "level_0_dimension" not in out and "parent_dimension" in out:
+            out["level_0_dimension"] = out["parent_dimension"]
+        if "level_1_dimension" not in out and "child_dimension" in out:
+            out["level_1_dimension"] = out["child_dimension"]
+        return out
+
+    @model_validator(mode="after")
+    def _require_level_source(self) -> "RankedSubsetFetchConfig":
+        if not self.enabled:
+            return self
+        if not (self.ranking_metric and str(self.ranking_metric).strip()):
+            raise ValueError("ranked_subset_fetch: when enabled=true, ranking_metric is required.")
+        has_hier = bool(self.hierarchy_name and self.hierarchy_name.strip())
+        has_explicit_two = bool(self.level_0_dimension and self.level_1_dimension)
+        if not has_hier and not has_explicit_two:
+            raise ValueError(
+                "ranked_subset_fetch: when enabled=true, set hierarchy_name or both "
+                "level_0_dimension and level_1_dimension."
+            )
+        if self.level_2_dimension and not (self.level_0_dimension and self.level_1_dimension):
+            raise ValueError(
+                "ranked_subset_fetch: level_2_dimension requires level_0_dimension and level_1_dimension."
+            )
+        return self
+
+
+class TierFilterRule(BaseModel):
+    """Per drill-level entity filter (matches ``compute_level_statistics`` level: 1 = first hierarchy dimension)."""
+
+    level: int = Field(
+        ...,
+        ge=1,
+        le=128,
+        description="Hierarchy drill level (1 = first dimension after Total, 2 = second, ...).",
+    )
+    mode: Literal["top_pct", "top_n"] = Field(
+        "top_pct",
+        description="top_pct: cumulative share of ranking metric; top_n: keep N entities by rank.",
+    )
+    value: float = Field(
+        ...,
+        gt=0,
+        description="For top_pct: percent of total (0-100). For top_n: maximum entities to keep.",
+    )
+    partition_by_dimension: Optional[str] = Field(
+        None,
+        description=(
+            "Optional contract dimension name. When set, top_pct/top_n applies within each "
+            "parent value (e.g. top shippers per shipper parent)."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_rule(self) -> "TierFilterRule":
+        if self.mode == "top_pct" and self.value > 100:
+            raise ValueError("tier filter top_pct value must be <= 100")
+        if self.mode == "top_n" and int(self.value) < 1:
+            raise ValueError("tier filter top_n value must be >= 1")
+        return self
+
+
+class HierarchyEntityFilterConfig(BaseModel):
+    """Analysis-time filtering of entities at each hierarchy drill level."""
+
+    hierarchy_name: Optional[str] = Field(
+        None,
+        description="If set, only apply when this hierarchy is selected (matches drill hierarchy_name).",
+    )
+    ranking_metric: str = Field(
+        ...,
+        min_length=1,
+        description="Contract metric name used to rank entities (additive column required in dataframe).",
+    )
+    levels: List[TierFilterRule] = Field(
+        default_factory=list,
+        description="Rules keyed by drill level (see TierFilterRule.level).",
+    )
 
 
 class CrossDimensionConfig(BaseModel):
@@ -173,6 +353,20 @@ class DatasetContract(BaseModel):
     derived_kpis: List[Dict[str, Any]] = Field(
         default_factory=list,
         description="Optional Tableau-style KPI definitions; merged into metrics as type=derived when valid.",
+    )
+    ranked_subset_fetch: Optional[RankedSubsetFetchConfig] = Field(
+        None,
+        description=(
+            "Optional ranked subset for Tableau Hyper fetch: top parents and top children per parent "
+            "by ranking_metric over the requested date range."
+        ),
+    )
+    hierarchy_entity_filters: Optional[HierarchyEntityFilterConfig] = Field(
+        None,
+        description=(
+            "Optional per-drill-level entity filtering during hierarchy statistics (top %% or top N), "
+            "after data load. Independent of ranked_subset_fetch (SQL fetch caps)."
+        ),
     )
 
     # Internal mappings for fast lookup

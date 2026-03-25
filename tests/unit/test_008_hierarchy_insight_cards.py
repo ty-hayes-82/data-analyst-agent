@@ -144,16 +144,12 @@ def test_pvm_data_included_in_evidence():
 
 
 # ============================================================================
-# T047 — No material items → empty cards
+# T047 — Small-variance drivers still become ranked cards
 # ============================================================================
 
 @pytest.mark.unit
-def test_no_material_items_returns_empty_cards():
-    """Level 0 with |variance_pct| below legacy gate returns no insight cards.
-
-    _is_material_variance uses |variance_pct| >= 2% (see _LEGACY_MIN_VARIANCE_PCT).
-    Level 0 so regional period snapshots do not apply.
-    """
+def test_small_variance_drivers_still_emit_ranked_cards():
+    """All top_drivers are card candidates; impact_score ranks and top N are kept."""
     fmt, _ = _import_formatter()
     drivers = [
         _immaterial_driver("TERM-C"),  # -$2K, -0.96%
@@ -167,9 +163,10 @@ def test_no_material_items_returns_empty_cards():
         },
     ]
     result = fmt(_level_stats(top_drivers=drivers, level=0, level_name="Total"))
-    assert result["insight_cards"] == []
+    assert len(result["insight_cards"]) >= 1
+    assert all("variance" in c.get("tags", []) for c in result["insight_cards"])
     assert result.get("top_drivers") == drivers
-    print("[PASS] Immaterial items at level 0 → empty insight_cards, top_drivers preserved")
+    print("[PASS] Small-variance drivers → ranked insight_cards, top_drivers preserved")
 
 
 @pytest.mark.unit
@@ -183,8 +180,8 @@ def test_empty_drivers_returns_empty_cards():
 
 
 @pytest.mark.unit
-def test_low_variance_level1_emits_regional_period_snapshots():
-    """Ratio-style small WoW still surfaces regional current/prior for scorecard alignment."""
+def test_low_variance_level1_emits_variance_driver_cards():
+    """Ratio-style small WoW still surfaces ranked variance driver cards (not filtered out)."""
     fmt, _ = _import_formatter()
     stats = {
         "level": 1,
@@ -227,10 +224,10 @@ def test_low_variance_level1_emits_regional_period_snapshots():
     }
     result = fmt(stats)
     assert len(result["insight_cards"]) == 2
-    assert all("regional_period_snapshot" in c.get("tags", []) for c in result["insight_cards"])
+    assert all("variance" in c.get("tags", []) for c in result["insight_cards"])
     west = next(c for c in result["insight_cards"] if "West" in c["title"])
-    assert west["evidence"]["current_value"] == pytest.approx(2.286)
-    assert west["evidence"]["signal"] == "regional_period_snapshot"
+    assert west["evidence"]["current"] == pytest.approx(2.29)
+    assert west["evidence"]["variance_pct"] == pytest.approx(-0.17)
     assert len(result["top_drivers"]) == 2
 
 
@@ -301,6 +298,25 @@ def test_stop_at_max_depth():
 
 
 @pytest.mark.unit
+def test_min_impact_score_override_allows_marginal_cards():
+    """Default 0.15 threshold stops; contract-style override can continue to next level."""
+    _, scd = _import_formatter()
+    level_result = {
+        "insight_cards": [
+            _card(-1000.0, -1.0, impact_score=0.12, priority="medium"),
+        ],
+        "is_last_level": False,
+        "is_duplicate": False,
+    }
+    assert scd(level_result, current_level=1, max_depth=5)["action"] == "STOP"
+    decision = scd(
+        level_result, current_level=1, max_depth=5, min_impact_score=0.10
+    )
+    assert decision["action"] == "CONTINUE"
+    assert decision["next_level"] == 2
+
+
+@pytest.mark.unit
 def test_stop_on_duplicate_level():
     """is_duplicate=true → STOP."""
     _, scd = _import_formatter()
@@ -318,9 +334,15 @@ def test_stop_on_duplicate_level():
 # Helpers for drill-down tests
 # ---------------------------------------------------------------------------
 
-def _card(var_dollar: float, var_pct: float) -> dict:
+def _card(
+    var_dollar: float,
+    var_pct: float,
+    *,
+    impact_score: float | None = None,
+    priority: str = "high",
+) -> dict:
     """Build a minimal insight card for drill-down decision tests."""
-    return {
+    card = {
         "title": f"Level 2 Variance Driver: TERM-X",
         "what_changed": f"${var_dollar:+,.0f} ({var_pct:+.1f}%)",
         "why": "Material variance.",
@@ -330,9 +352,12 @@ def _card(var_dollar: float, var_pct: float) -> dict:
             "is_pvm": False,
         },
         "now_what": "Drill down.",
-        "priority": "high",
+        "priority": priority,
         "tags": ["hierarchy", "variance"],
     }
+    if impact_score is not None:
+        card["impact_score"] = impact_score
+    return card
 
 
 # ============================================================================

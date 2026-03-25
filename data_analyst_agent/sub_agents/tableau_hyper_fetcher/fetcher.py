@@ -34,9 +34,14 @@ from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
 from google.genai.types import Content, Part
 
-from .hyper_connection import HyperConnectionManager, get_or_create_manager
+from .hyper_connection import (
+    HyperConnectionManager,
+    get_or_create_manager,
+    reuse_hyper_manager_after_extract,
+)
 from .loader_config import HyperLoaderConfig
 from .query_builder import HyperQueryBuilder
+from .ranked_subset import resolve_ranked_subset_spec
 
 
 def _project_root() -> Path:
@@ -91,6 +96,7 @@ class TableauHyperFetcher(BaseAgent):
 
         try:
             manager.ensure_extracted(_project_root())
+            manager = reuse_hyper_manager_after_extract(manager)
         except FileNotFoundError as exc:
             yield self._error_event(ctx, str(exc))
             return
@@ -119,29 +125,43 @@ class TableauHyperFetcher(BaseAgent):
         if prefetch_all:
             print("[TableauHyperFetcher] PREFETCH_ALL=true: Skipping dimension filters to pull all data up front.")
         
+        primary_dim_norm = (req_analysis.get("primary_dimension") or "").strip().lower()
+
         for logical_key, physical_col in (loader_config.filter_columns or {}).items():
             if logical_key == "date":
                 # Date handled via date_start / date_end
                 continue
-            
+
             if prefetch_all:
                 continue
-                
-            value = req_analysis.get(logical_key) or req_analysis.get("primary_dimension_value")
+
+            # Explicit request_analysis key (e.g. lob, region) always maps to its column,
+            # even when primary_dimension is something else (e.g. shpr_prnt_nm).
+            explicit = req_analysis.get(logical_key)
+            if explicit is not None and str(explicit).strip() != "":
+                value = explicit
+            elif primary_dim_norm == logical_key.lower():
+                pv = req_analysis.get("primary_dimension_value")
+                value = pv if pv is not None and str(pv).strip() != "" else None
+            else:
+                value = None
+
             if value and str(value).lower() not in unfiltered_tokens:
-                primary_dim = req_analysis.get("primary_dimension", "")
-                if not primary_dim or primary_dim.lower() == logical_key.lower():
-                    physical_filters[physical_col] = [str(value)]
+                physical_filters[physical_col] = [str(value)]
 
         # ------------------------------------------------------------------ #
         # Step 4 — Build and execute SQL query                                #
         # ------------------------------------------------------------------ #
-        # [PROFILING] Query parameters
-        print(f"\n[HyperQuery] Building query with parameters:")
-        print(f"[HyperQuery]   Date range: {date_start} to {date_end}")
-        print(f"[HyperQuery]   Filters: {physical_filters}")
-        print(f"[HyperQuery]   Metrics requested: {req_analysis.get('metrics', 'N/A')}")
-        
+        ranked_spec = None
+        try:
+            ranked_spec = resolve_ranked_subset_spec(contract)
+        except ValueError as exc:
+            yield self._error_event(
+                ctx,
+                f"[TableauHyperFetcher] Invalid ranked_subset_fetch on contract: {exc}",
+            )
+            return
+
         # Allow CLI override of aggregation period_type via env var
         period_override = os.environ.get("DATA_ANALYST_PERIOD_TYPE", "").strip().lower()
         if period_override and loader_config.aggregation:
@@ -149,11 +169,32 @@ class TableauHyperFetcher(BaseAgent):
                 print(f"[HyperQuery] Overriding period_type: {loader_config.aggregation.period_type} -> {period_override}")
                 loader_config.aggregation.period_type = period_override
 
+        # [PROFILING] Query parameters
+        print(f"\n[HyperQuery] Building query with parameters:")
+        print(f"[HyperQuery]   Date range: {date_start} to {date_end}")
+        print(f"[HyperQuery]   Filters: {physical_filters}")
+        print(f"[HyperQuery]   Metrics requested: {req_analysis.get('metrics', 'N/A')}")
+        if ranked_spec:
+            if ranked_spec.is_three_level:
+                print(
+                    f"[HyperQuery]   ranked_subset_fetch: top {ranked_spec.top_level_0} at level 0, "
+                    f"top {ranked_spec.top_level_1_per_level_0} at level 1 per level-0, "
+                    f"top {ranked_spec.top_level_2_per_level_1} at level 2 per (level-0,level-1) "
+                    f"by {ranked_spec.rank_col}"
+                )
+            else:
+                print(
+                    f"[HyperQuery]   ranked_subset_fetch: top {ranked_spec.top_level_0} at level 0, "
+                    f"top {ranked_spec.top_level_1_per_level_0} at level 1 per level-0 "
+                    f"by {ranked_spec.rank_col}"
+                )
+
         builder = HyperQueryBuilder(loader_config)
         sql = builder.build_query(
             date_start=date_start,
             date_end=date_end,
             filters=physical_filters,
+            ranked_spec=ranked_spec,
         )
         print(f"\n[HyperQuery] Generated SQL:\n{sql}\n")
 

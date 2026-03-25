@@ -58,6 +58,8 @@ You are synthesizing {metric_count} metric analyses for {analysis_period} as a *
 **Include:** Expected trajectory, best/worst case scenarios, leading indicators, historical precedents  
 **Exclude:** Action recommendations, prescriptive language ("should", "must"), made-up roles
 
+**Scoped entity briefs:** When the digest contains a **TREND CONTEXT** block, tie Forward Outlook to those slopes, p-values, and changepoint dates. Do not use generic best/worst framing unless each scenario references a specific indicator from TREND CONTEXT or the scoped metric summaries above.
+
 **❌ BAD:** "Management should monitor key metrics and implement corrective actions."  
 **✅ GOOD:** "Based on current trajectory, the primary metric will likely remain in $2.3-2.5M range. Best case: Recovery to $2.8M if demand normalizes. Worst case: Further $500K decline if correlation persists. Watch leading indicator (5-day lag)."
 

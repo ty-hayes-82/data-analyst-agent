@@ -1,0 +1,233 @@
+name: tolls_expense_ds
+version: 1.0.0
+display_name: Tolls Expense
+target_label: Metric
+description: >
+  Dispatch- and toll-event level data for recommended tolls analysis: actual toll expense,
+  recommended toll cost, toll revenue, and operational dimensions (LOB, region, terminal,
+  cost center, plaza, shipper hierarchy). Aligns with the Tableau "Recommended Tolls Expense"
+  view filters and measures; variance and percentage KPIs are derived from base columns in the extract.
+materiality:
+  variance_pct: 7
+  variance_absolute: 25000
+presentation:
+  unit: USD
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: pdf
+data_source:
+  type: tableau_hyper
+  file: data/tableau/Tolls Expense.tdsx
+  table: Extract.Extract
+time:
+  column: empty_call_dt
+  frequency: daily
+  format: "%Y-%m-%d"
+  range_months: 12
+grain:
+  columns:
+  - ordr_nbr
+  - disp_nbr
+  - empty_call_dt
+metrics:
+  - name: toll_expense
+    column: toll_expense
+    display_name: Toll Expense
+    brief_category: Cost
+    type: additive
+    format: currency
+    optimization: minimize
+    description: Actual toll cost incurred (Tableau Toll Expense)
+  - name: recomm_toll_cost
+    column: recomm_toll_cost
+    display_name: Recommended Toll Expense
+    brief_category: Cost
+    type: additive
+    format: currency
+    optimization: neutral
+    description: Expected or standard toll cost from AS400 / recommendation engine
+  - name: toll_revenue
+    column: toll_revenue
+    display_name: Toll Revenue
+    brief_category: Revenue
+    type: additive
+    format: currency
+    optimization: maximize
+    description: Toll-related revenue on the dispatch
+  - name: loaded_miles
+    column: loaded_miles
+    display_name: Loaded Miles
+    brief_category: Productivity
+    type: additive
+    format: float
+    optimization: maximize
+    description: Loaded miles on dispatch
+  - name: empty_miles
+    column: empty_miles
+    display_name: Empty Miles
+    brief_category: Productivity
+    type: additive
+    format: float
+    optimization: minimize
+    description: Empty (deadhead) miles on dispatch
+  - name: ordr_miles
+    column: ordr_miles
+    display_name: Order Miles
+    brief_category: Productivity
+    type: additive
+    format: float
+    optimization: maximize
+    description: Total order miles
+derived_kpis:
+  - name: recomm_toll_variance
+    display_name: Recommended Toll Variance
+    brief_category: Cost
+    numerator: toll_expense
+    subtract: recomm_toll_cost
+    format: currency
+    description: Actual toll expense minus recommended toll (positive = spend above recommendation)
+  - name: expense_pct_of_rec_toll
+    display_name: Expense as % of Rec. Toll
+    brief_category: Cost
+    numerator: toll_expense
+    denominator: recomm_toll_cost
+    multiply: 100
+    format: percentage
+    description: Toll expense as a percent of recommended toll
+  - name: expense_pct_of_toll_rev
+    display_name: Expense as % of Rev
+    brief_category: Cost
+    numerator: toll_expense
+    denominator: toll_revenue
+    multiply: 100
+    format: percentage
+    description: Toll expense as a percent of toll revenue
+dimensions:
+  - name: ordr_nbr
+    column: ordr_nbr
+    display_name: Order Number
+    role: primary
+  - name: disp_nbr
+    column: disp_nbr
+    display_name: Dispatch Number
+    role: primary
+  - name: ops_ln_of_bus_ref_nm
+    column: ops_ln_of_bus_ref_nm
+    display_name: LOB
+    role: secondary
+  - name: region
+    column: region
+    display_name: Region
+    role: secondary
+  - name: terminal
+    column: terminal
+    display_name: Terminal
+    role: secondary
+  - name: icc_cst_ctr_cd
+    column: icc_cst_ctr_cd
+    display_name: Cost Center Code
+    role: secondary
+  - name: icc_cst_ctr_nm
+    column: icc_cst_ctr_nm
+    display_name: Cost Center
+    role: secondary
+  - name: drvr_ldr
+    column: drvr_ldr
+    display_name: Driver Leader
+    role: secondary
+  - name: flt_ldr
+    column: flt_ldr
+    display_name: Fleet Leader
+    role: secondary
+  - name: unit_cd
+    column: unit_cd
+    display_name: Unit Number
+    role: secondary
+  - name: drvr_1_cd
+    column: drvr_1_cd
+    display_name: Driver
+    role: secondary
+  - name: ownr_oprtr_flg
+    column: ownr_oprtr_flg
+    display_name: Owner Operator
+    role: secondary
+  - name: dh_order_flg
+    column: dh_order_flg
+    display_name: DH Flag
+    role: secondary
+  - name: exit_plaza
+    column: exit_plaza
+    display_name: Exit Plaza
+    role: secondary
+  - name: exit_plaza_agency
+    column: exit_plaza_agency
+    display_name: Exit Plaza Agency
+    role: secondary
+  - name: shpr_prnt_nm
+    column: shpr_prnt_nm
+    display_name: Shipper Parent
+    role: secondary
+  - name: shpr_nm
+    column: shpr_nm
+    display_name: Shipper
+    role: secondary
+  - name: shpr_cd
+    column: shpr_cd
+    display_name: Shipper Code
+    role: secondary
+  - name: billed_status
+    column: billed_status
+    display_name: Billed Status
+    role: secondary
+  - name: stop_location_w_cust
+    column: stop_location_w_cust
+    display_name: Stop-Route-Line w/Customer
+    role: secondary
+  - name: stop_location
+    column: stop_location
+    display_name: Stop Location
+    role: secondary
+  - name: orig_st_cd
+    column: orig_st_cd
+    display_name: Origin State
+    role: secondary
+  - name: dest_st_cd
+    column: dest_st_cd
+    display_name: Destination State
+    role: secondary
+  - name: orig_cty_nm
+    column: orig_cty_nm
+    display_name: Origin City
+    role: secondary
+  - name: dest_cty_nm
+    column: dest_cty_nm
+    display_name: Destination City
+    role: secondary
+hierarchies:
+  - name: shipper_parent_to_shipper
+    display_name: Shipper hierarchy
+    levels:
+      - shpr_prnt_nm
+      - shpr_nm
+  - name: region_to_terminal
+    display_name: Region to terminal
+    levels:
+      - region
+      - terminal
+  - name: toll_plaza
+    display_name: Agency to plaza
+    levels:
+      - exit_plaza_agency
+      - exit_plaza
+  - name: stop_route_customer
+    display_name: Stop / route (customer)
+    levels:
+      - stop_location_w_cust
+      - stop_location
+  - name: shipper_parent_to_stop_lane
+    display_name: Shipper parent to stop lane (w/customer)
+    levels:
+      - shpr_prnt_nm
+      - stop_location_w_cust
