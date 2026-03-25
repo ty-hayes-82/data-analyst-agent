@@ -37,7 +37,6 @@ grain:
   columns:
     - invoice_date
     - Country
-    - StockCode
 
 metrics:
   - name: quantity
@@ -66,8 +65,7 @@ derived_kpis:
     brief_label: Revenue
     brief_category: Revenue
     numerator: quantity
-    denominator_literal: 1
-    multiply_by_metric: unit_price
+    multiply_by: unit_price
     format: currency
     description: Calculated revenue (Quantity * UnitPrice)
 

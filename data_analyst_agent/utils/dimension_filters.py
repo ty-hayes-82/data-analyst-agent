@@ -95,6 +95,15 @@ def extract_dimension_filters(
         for key, value in candidates:
             _maybe_add(key, value)
 
+    # Known metadata keys in request_analysis that should never be treated as
+    # dimension filters, even if the contract has a dimension with the same name.
+    _REQUEST_ANALYSIS_META_KEYS = frozenset({
+        "description", "intent", "confidence", "primary_dimension",
+        "primary_dimension_value", "dimension", "dimension_value",
+        "metrics", "metric", "query", "focus", "analysis_type",
+        "time_range", "comparison_type", "summary",
+    })
+
     if isinstance(request_analysis, dict):
         _maybe_add(
             request_analysis.get("primary_dimension"),
@@ -104,6 +113,8 @@ def extract_dimension_filters(
             request_analysis.get("dimension"), request_analysis.get("dimension_value")
         )
         for key, value in request_analysis.items():
+            if key in _REQUEST_ANALYSIS_META_KEYS:
+                continue
             _maybe_add(key, value)
 
     return filters

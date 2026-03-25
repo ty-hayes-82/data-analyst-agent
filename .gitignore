@@ -130,3 +130,4 @@ __pycache__/
 *.pyc
 *.tds
 *.hyper
+data/csv/

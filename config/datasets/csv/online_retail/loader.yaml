@@ -16,15 +16,9 @@ aggregation:
   period_alias: "invoice_date"
   group_by_columns:
     - "Country"
-    - "StockCode"
-    - "Description"
   sum_columns:
     - "Quantity"
-  avg_columns:
     - "UnitPrice"
-  count_distinct_columns:
-    - "InvoiceNo"
-    - "CustomerID"
 
 date_parsing:
   source_column: "InvoiceDate"
@@ -35,9 +29,5 @@ date_parsing:
 output_columns:
   - "invoice_date"
   - "Country"
-  - "StockCode"
-  - "Description"
   - "Quantity"
   - "UnitPrice"
-  - "InvoiceNo"
-  - "CustomerID"

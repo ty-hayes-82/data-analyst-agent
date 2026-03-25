@@ -77,7 +77,19 @@ def kpi_to_formula(
         div = kpi["divide_by"]
         return f"(({num}) / ({div}))"
 
-    raise ValueError(f"derived_kpi '{name}': unsupported shape (need subtract/add/denominator/divide_by)")
+    if "multiply_by" in kpi:
+        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names)
+        mul = _expand_numerator(str(kpi["multiply_by"]), by_name, visiting, base_metric_names)
+        scale = kpi.get("multiply", 1)
+        try:
+            scale_f = float(scale)
+        except (TypeError, ValueError):
+            scale_f = 1.0
+        if scale_f == 1.0:
+            return f"(({num}) * ({mul}))"
+        return f"({scale_f} * ({num}) * ({mul}))"
+
+    raise ValueError(f"derived_kpi '{name}': unsupported shape (need subtract/add/denominator/divide_by/multiply_by)")
 
 
 def kpi_to_aggregate_ratio_parts(
@@ -112,6 +124,13 @@ def kpi_to_aggregate_ratio_parts(
         if div_f == 0:
             raise ValueError(f"derived_kpi '{kpi.get('name')}': divide_by cannot be zero")
         return (f"({num})", str(div_f), 1.0)
+
+    if "multiply_by" in kpi:
+        # Product of two metrics — treat as (numerator * multiply_by) / 1
+        # This is structurally additive when both inputs are additive
+        num = _expand_numerator(str(kpi["numerator"]), by_name, set(), base_metric_names)
+        mul = _expand_numerator(str(kpi["multiply_by"]), by_name, set(), base_metric_names)
+        return (f"(({num}) * ({mul}))", "1", 1.0)
 
     return None
 
