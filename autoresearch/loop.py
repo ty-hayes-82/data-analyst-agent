@@ -42,29 +42,99 @@ COST_PER_EXPERIMENT = 0.09  # estimated
 # ---------------------------------------------------------------------------
 
 MUTATION_TARGETS = [
+    # --- Output layer (presentation) ---
     {
         "name": "executive_brief_ceo_prompt",
         "path": "config/prompts/executive_brief_ceo.md",
         "type": "prompt",
-        "description": "CEO executive brief generation prompt",
+        "description": "CEO executive brief generation prompt — controls final brief structure, voice, and formatting",
     },
     {
         "name": "report_synthesis_prompt",
         "path": "config/prompts/report_synthesis.md",
         "type": "prompt",
-        "description": "Report synthesis prompt",
+        "description": "Report synthesis prompt — assembles all analysis results into a structured executive markdown",
     },
     {
         "name": "narrative_prompt",
         "path": "data_analyst_agent/sub_agents/narrative_agent/prompt.py",
         "type": "prompt",
-        "description": "Narrative agent instruction prompt",
+        "description": "Narrative agent instruction — generates semantic insight cards from hierarchy/stats results",
     },
     {
         "name": "executive_brief_base_prompt",
         "path": "config/prompts/executive_brief.md",
         "type": "prompt",
-        "description": "Base executive brief prompt",
+        "description": "Base executive brief prompt template — non-CEO style brief generation",
+    },
+    # --- Analysis layer (deeper quality) ---
+    {
+        "name": "statistical_insights_prompt",
+        "path": "data_analyst_agent/sub_agents/statistical_insights_agent/prompt.py",
+        "type": "prompt",
+        "description": "Statistical insights agent — controls what statistical patterns are detected (variance, trends, outliers, rolling averages)",
+    },
+    {
+        "name": "hierarchy_variance_prompt",
+        "path": "data_analyst_agent/sub_agents/hierarchy_variance_agent/prompt.py",
+        "type": "prompt",
+        "description": "Hierarchy variance agent — controls drill-down logic, entity ranking, concentration analysis, and variance decomposition",
+    },
+    {
+        "name": "alert_scoring_prompt",
+        "path": "data_analyst_agent/sub_agents/alert_scoring_agent/prompt.py",
+        "type": "prompt",
+        "description": "Alert scoring agent — controls anomaly detection sensitivity, threshold scoring, and severity classification",
+    },
+    {
+        "name": "planner_prompt",
+        "path": "data_analyst_agent/sub_agents/planner_agent/prompt.py",
+        "type": "prompt",
+        "description": "Planner agent — determines which analysis agents run and in what order based on data characteristics",
+    },
+    {
+        "name": "report_synthesis_agent_prompt",
+        "path": "data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py",
+        "type": "prompt",
+        "description": "Report synthesis agent prompt.py — the agent-level synthesis prompt (separate from config .md)",
+    },
+    {
+        "name": "executive_brief_agent_prompt",
+        "path": "data_analyst_agent/sub_agents/executive_brief_agent/prompt.py",
+        "type": "prompt",
+        "description": "Executive brief agent prompt.py — controls brief generation logic, scoped briefs, and hybrid pipeline behavior",
+    },
+    # --- Data packaging layer (what gets sent to the LLM) ---
+    {
+        "name": "brief_utils",
+        "path": "data_analyst_agent/brief_utils.py",
+        "type": "code",
+        "description": "Digest builder — constructs the data package (insight cards, stats, hierarchy results) sent to the brief LLM. Controls what data is included, how it is ranked, filtered, and formatted before the LLM sees it.",
+    },
+    {
+        "name": "hybrid_brief_pipeline",
+        "path": "data_analyst_agent/sub_agents/executive_brief_agent/hybrid_brief_pipeline.py",
+        "type": "code",
+        "description": "Hybrid CEO brief pipeline — Pass0 code-based ranking of signals, Pass1 Flash-Lite curation, Pass2 Pro synthesis. Controls which insights survive ranking and how they are packaged for the final LLM call.",
+    },
+    {
+        "name": "brief_prompt_utils",
+        "path": "data_analyst_agent/sub_agents/executive_brief_agent/prompt_utils.py",
+        "type": "code",
+        "description": "Prompt construction utilities — builds the actual LLM prompt payload from digest data, contract metadata, and temporal context. Controls token budget, field selection, and data formatting.",
+    },
+    # --- Insight generation layer (what insights get created) ---
+    {
+        "name": "hierarchy_insight_cards",
+        "path": "data_analyst_agent/sub_agents/hierarchical_analysis_agent/cross_dimension.py",
+        "type": "code",
+        "description": "Cross-dimension analysis step — generates insight cards comparing entities across hierarchy levels, identifying concentration risk and relative performance.",
+    },
+    {
+        "name": "executive_brief_ceo_lite_prompt",
+        "path": "config/prompts/executive_brief_ceo_lite.md",
+        "type": "prompt",
+        "description": "CEO Lite prompt — the Pass1 curation prompt that filters and ranks insights before the final synthesis. Controls which signals survive to the final brief.",
     },
 ]
 
