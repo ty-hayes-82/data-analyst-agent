@@ -1,3 +1,4 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
 2026-03-25T20:40:27	0	620530c	22.0	22.0	0.0	baseline	-	Initial baseline	101
 2026-03-25T20:40:59	0	fe271a7	86.5	47.5	39.0	baseline	-	Initial baseline	112
+2026-03-25T20:43:14	1	discarded	86.5	47.5	39.0	discard	narrative_prompt	Added an 'actionable_recommendation' field to the insight cards and a corresponding constraint to improve actionability.	135
