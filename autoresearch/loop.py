@@ -1,0 +1,385 @@
+"""
+Autonomous experimentation loop for data-analyst-agent pipeline optimization.
+
+Adapts the Karpathy autoresearch pattern: modify -> run -> score -> keep/discard -> repeat.
+
+Usage:
+    python autoresearch/loop.py [--max-iterations N] [--budget DOLLARS]
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import os
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from datasets import EVAL_DATASETS
+from evaluate import score_run
+from run_experiment import run_pipeline, find_latest_output
+
+PROJECT_ROOT = Path(__file__).parent.parent
+RESULTS_TSV = Path(__file__).parent / "results.tsv"
+BASELINE_PATH = Path(__file__).parent / "baseline_scores.json"
+
+# Budget defaults
+DEFAULT_MAX_ITERATIONS = 20
+DEFAULT_BUDGET = 2.0  # dollars per session
+COST_PER_EXPERIMENT = 0.09  # estimated
+
+
+# ---------------------------------------------------------------------------
+# Mutation targets (ordered by priority)
+# ---------------------------------------------------------------------------
+
+MUTATION_TARGETS = [
+    {
+        "name": "executive_brief_ceo_prompt",
+        "path": "config/prompts/executive_brief_ceo.md",
+        "type": "prompt",
+        "description": "CEO executive brief generation prompt",
+    },
+    {
+        "name": "report_synthesis_prompt",
+        "path": "config/prompts/report_synthesis.md",
+        "type": "prompt",
+        "description": "Report synthesis prompt",
+    },
+    {
+        "name": "narrative_prompt",
+        "path": "data_analyst_agent/sub_agents/narrative_agent/prompt.py",
+        "type": "prompt",
+        "description": "Narrative agent instruction prompt",
+    },
+    {
+        "name": "executive_brief_base_prompt",
+        "path": "config/prompts/executive_brief.md",
+        "type": "prompt",
+        "description": "Base executive brief prompt",
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# Git helpers
+# ---------------------------------------------------------------------------
+
+def git_sha() -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    return result.stdout.strip()
+
+
+def git_commit(message: str) -> str:
+    subprocess.run(["git", "add", "-A"], cwd=PROJECT_ROOT, capture_output=True)
+    subprocess.run(
+        ["git", "commit", "-m", message],
+        cwd=PROJECT_ROOT, capture_output=True,
+    )
+    return git_sha()
+
+
+def git_reset_hard() -> None:
+    subprocess.run(
+        ["git", "reset", "--hard", "HEAD~1"],
+        cwd=PROJECT_ROOT, capture_output=True,
+    )
+
+
+def git_branch() -> str:
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        capture_output=True, text=True, cwd=PROJECT_ROOT,
+    )
+    return result.stdout.strip()
+
+
+# ---------------------------------------------------------------------------
+# Mutation generation
+# ---------------------------------------------------------------------------
+
+def generate_mutation(target: Dict[str, Any], recent_results: List[Dict]) -> Optional[Dict[str, Any]]:
+    """Use LLM to propose a specific modification to the target file."""
+    file_path = PROJECT_ROOT / target["path"]
+    if not file_path.exists():
+        print(f"[loop] Target file not found: {file_path}")
+        return None
+
+    current_content = file_path.read_text(encoding="utf-8")
+
+    # Truncate very long files for the mutation prompt
+    if len(current_content) > 8000:
+        current_content = current_content[:4000] + "\n\n... [truncated] ...\n\n" + current_content[-4000:]
+
+    recent_str = ""
+    for r in recent_results[-5:]:
+        recent_str += f"  iter {r.get('iteration', '?')}: {r.get('status', '?')} (BQS {r.get('bqs_total', '?')}) - {r.get('description', '?')}\n"
+
+    prompt = f"""You are optimizing a data analysis pipeline's output quality.
+
+The scoring rubric measures: actionability (concrete recommendations), causal depth (explains WHY),
+data specificity (exact numbers), narrative coherence (logical story), completeness (all metrics covered).
+
+Current file: {target['path']}
+Description: {target['description']}
+
+Current content:
+---
+{current_content}
+---
+
+Recent experiment results:
+{recent_str if recent_str else '  (no prior experiments)'}
+
+Propose ONE specific, small modification to improve the Brief Quality Score.
+- Change one thing at a time
+- Keep it simple - a small targeted improvement
+- Do NOT rewrite the entire file
+- Focus on the scoring dimensions that are weakest
+
+Return valid JSON:
+{{"description": "Brief description of what you changed", "new_content": "The COMPLETE new file content"}}
+"""
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.7,
+                response_mime_type="application/json",
+            ),
+        )
+        result = json.loads(response.text.strip())
+        return {
+            "target": target,
+            "description": result.get("description", "unknown mutation"),
+            "new_content": result.get("new_content", ""),
+            "original_content": file_path.read_text(encoding="utf-8"),
+        }
+    except Exception as exc:
+        print(f"[loop] Mutation generation failed: {exc}")
+        return None
+
+
+def apply_mutation(mutation: Dict[str, Any]) -> bool:
+    """Write the mutated content to the target file."""
+    file_path = PROJECT_ROOT / mutation["target"]["path"]
+    new_content = mutation.get("new_content", "")
+    if not new_content or len(new_content) < 50:
+        print("[loop] Mutation content too short, skipping")
+        return False
+    file_path.write_text(new_content, encoding="utf-8")
+    print(f"[loop] Applied mutation to {mutation['target']['path']}")
+    return True
+
+
+def revert_mutation(mutation: Dict[str, Any]) -> None:
+    """Restore the original file content."""
+    file_path = PROJECT_ROOT / mutation["target"]["path"]
+    file_path.write_text(mutation["original_content"], encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Results logging
+# ---------------------------------------------------------------------------
+
+def load_results() -> List[Dict]:
+    """Load results from TSV."""
+    results = []
+    if RESULTS_TSV.exists():
+        with open(RESULTS_TSV, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f, delimiter="\t")
+            for row in reader:
+                results.append(row)
+    return results
+
+
+def log_result(
+    iteration: int,
+    commit: str,
+    bqs_total: float,
+    tier1: float,
+    tier2: float,
+    status: str,
+    target: str,
+    description: str,
+    duration: float,
+) -> None:
+    """Append a result to the TSV."""
+    exists = RESULTS_TSV.exists()
+    with open(RESULTS_TSV, "a", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f, delimiter="\t")
+        if not exists:
+            writer.writerow([
+                "timestamp", "iteration", "commit", "bqs_total",
+                "tier1_score", "tier2_score", "status", "mutation_target", "description", "duration_sec",
+            ])
+        writer.writerow([
+            datetime.utcnow().isoformat(timespec="seconds"),
+            iteration, commit, f"{bqs_total:.1f}",
+            f"{tier1:.1f}", f"{tier2:.1f}",
+            status, target, description, f"{duration:.0f}",
+        ])
+
+
+# ---------------------------------------------------------------------------
+# Main loop
+# ---------------------------------------------------------------------------
+
+def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
+    """Run pipeline on all eval datasets and return average BQS."""
+    all_scores = []
+    all_t1 = []
+    all_t2 = []
+    all_details = {}
+
+    for ds in datasets:
+        print(f"\n[loop] Running pipeline: {ds['name']} / {ds['metrics']}")
+        try:
+            output_dir = run_pipeline(ds["name"], ds["metrics"])
+            if output_dir:
+                bqs, details = score_run(output_dir, ds)
+                all_scores.append(bqs)
+                all_t1.append(details["tier1_score"])
+                all_t2.append(details["tier2_score"])
+                all_details[ds["name"]] = details
+                print(f"[loop] {ds['name']}: BQS={bqs:.1f} (T1={details['tier1_score']:.1f}, T2={details['tier2_score']:.1f})")
+            else:
+                print(f"[loop] {ds['name']}: Pipeline failed, scoring 0")
+                all_scores.append(0)
+                all_t1.append(0)
+                all_t2.append(0)
+        except Exception as exc:
+            print(f"[loop] {ds['name']}: Error: {exc}")
+            all_scores.append(0)
+            all_t1.append(0)
+            all_t2.append(0)
+
+    avg_bqs = sum(all_scores) / len(all_scores) if all_scores else 0
+    avg_t1 = sum(all_t1) / len(all_t1) if all_t1 else 0
+    avg_t2 = sum(all_t2) / len(all_t2) if all_t2 else 0
+    return round(avg_bqs, 1), round(avg_t1, 1), round(avg_t2, 1), all_details
+
+
+def pick_target(results: List[Dict]) -> Dict[str, Any]:
+    """Pick the next mutation target, cycling through priorities."""
+    idx = len(results) % len(MUTATION_TARGETS)
+    return MUTATION_TARGETS[idx]
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Autoresearch loop for data-analyst-agent")
+    parser.add_argument("--max-iterations", type=int, default=DEFAULT_MAX_ITERATIONS)
+    parser.add_argument("--budget", type=float, default=DEFAULT_BUDGET)
+    args = parser.parse_args()
+
+    branch = git_branch()
+    if not branch.startswith("autoresearch/"):
+        print(f"[loop] ERROR: Must be on an autoresearch/* branch (currently on {branch})")
+        sys.exit(1)
+
+    print(f"\n{'='*80}")
+    print(f"AUTORESEARCH LOOP")
+    print(f"  Branch: {branch}")
+    print(f"  Max iterations: {args.max_iterations}")
+    print(f"  Budget: ${args.budget:.2f}")
+    print(f"  Datasets: {', '.join(d['name'] for d in EVAL_DATASETS)}")
+    print(f"{'='*80}\n")
+
+    # --- Baseline ---
+    print("[loop] Running baseline...")
+    start = time.time()
+    best_bqs, best_t1, best_t2, baseline_details = run_and_score_all(EVAL_DATASETS)
+    baseline_duration = time.time() - start
+
+    BASELINE_PATH.write_text(json.dumps(baseline_details, indent=2), encoding="utf-8")
+    log_result(0, git_sha(), best_bqs, best_t1, best_t2, "baseline", "-", "Initial baseline", baseline_duration)
+    print(f"\n[loop] BASELINE: BQS={best_bqs:.1f} (T1={best_t1:.1f}, T2={best_t2:.1f})")
+
+    estimated_cost = 0.0
+    results = load_results()
+
+    # --- Experiment loop ---
+    for iteration in range(1, args.max_iterations + 1):
+        if estimated_cost >= args.budget:
+            print(f"\n[loop] Budget limit reached (${estimated_cost:.2f} >= ${args.budget:.2f}). Stopping.")
+            break
+
+        print(f"\n{'='*80}")
+        print(f"ITERATION {iteration}/{args.max_iterations}")
+        print(f"  Best BQS: {best_bqs:.1f}  |  Est. cost: ${estimated_cost:.2f}/{args.budget:.2f}")
+        print(f"{'='*80}")
+
+        start = time.time()
+
+        # 1. Pick target and generate mutation
+        target = pick_target(results)
+        print(f"[loop] Target: {target['name']} ({target['path']})")
+
+        mutation = generate_mutation(target, results)
+        if not mutation:
+            print("[loop] Failed to generate mutation, skipping")
+            continue
+
+        print(f"[loop] Mutation: {mutation['description']}")
+
+        # 2. Apply mutation and commit
+        if not apply_mutation(mutation):
+            continue
+
+        sha = git_commit(f"[autoresearch] iter {iteration}: {mutation['description']}")
+
+        # 3. Run and score
+        bqs, t1, t2, details = run_and_score_all(EVAL_DATASETS)
+        duration = time.time() - start
+        estimated_cost += COST_PER_EXPERIMENT
+
+        # 4. Keep or discard
+        if bqs > best_bqs:
+            status = "keep"
+            best_bqs = bqs
+            best_t1 = t1
+            best_t2 = t2
+            print(f"\n[loop] >>> KEEP: BQS {bqs:.1f} > {best_bqs:.1f} (improvement!)")
+        else:
+            status = "discard"
+            git_reset_hard()
+            print(f"\n[loop] <<< DISCARD: BQS {bqs:.1f} <= {best_bqs:.1f}")
+
+        # 5. Log
+        log_result(
+            iteration, sha if status == "keep" else "discarded",
+            bqs, t1, t2, status, target["name"],
+            mutation["description"], duration,
+        )
+        results = load_results()
+
+    # --- Summary ---
+    print(f"\n{'='*80}")
+    print(f"AUTORESEARCH COMPLETE")
+    print(f"  Iterations: {iteration if 'iteration' in dir() else 0}")
+    print(f"  Final BQS: {best_bqs:.1f}")
+    print(f"  Est. cost: ${estimated_cost:.2f}")
+    kept = sum(1 for r in results if r.get("status") == "keep")
+    print(f"  Kept: {kept}/{len(results)-1} experiments")
+    print(f"{'='*80}")
+
+
+if __name__ == "__main__":
+    main()
