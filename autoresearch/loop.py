@@ -433,8 +433,8 @@ def main():
     args = parser.parse_args()
 
     branch = git_branch()
-    if not branch.startswith("autoresearch/"):
-        print(f"[loop] ERROR: Must be on an autoresearch/* branch (currently on {branch})")
+    if not branch:
+        print("[loop] ERROR: Not in a git repository or cannot determine branch")
         sys.exit(1)
 
     print(f"\n{'='*80}")

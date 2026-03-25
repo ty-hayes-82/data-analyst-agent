@@ -1,2 +1,2 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
-2026-03-25T22:41:53+00:00	19	discarded	94.0	50.0	44.0	discard	alert_scoring_prompt	Enhanced data specificity for detection signals by requiring details on *how* each anomaly was detected, including specific metrics or thresholds.	133
+2026-03-25T23:24:20+00:00	0	1b49a19	90.0	50.0	40.0	baseline	-	Initial baseline	123

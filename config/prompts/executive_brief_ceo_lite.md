@@ -25,7 +25,7 @@ Output: valid JSON. First char `{`, last char `}`.
 **trend_status**: 2-4 one-line items with classification embedded naturally.
   Classifications: positive momentum, developing trend, persistent issue, one-week noise, watchable
 
-**where_it_came_from**: exactly 1 positive, 1 drag, 1 watch item. Format: "Region / Terminal — reason"
+**where_it_came_from**: exactly 1 positive, 1 drag, 1 watch item. Format: "Region / Terminal — root cause"
 
 **why_it_matters**: 1 sentence. Connects execution to earnings quality. Opinionated.
 
