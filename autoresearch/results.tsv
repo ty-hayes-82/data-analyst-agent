@@ -1,2 +1,3 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
 2026-03-25T23:24:20+00:00	0	1b49a19	90.0	50.0	40.0	baseline	-	Initial baseline	123
+2026-03-25T23:44:27+00:00	11	discarded	92.0	50.0	42.0	discard	executive_brief_base_prompt	Adds explicit requirements for the Executive Summary section to include the most significant finding, its overarching cause, and its business impact, enhancing causal depth, actionability, and narrative coherence at a high level.	147
