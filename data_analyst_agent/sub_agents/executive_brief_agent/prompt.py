@@ -122,11 +122,10 @@ def get_ceo_section_contract(temporal_grain: str = "weekly") -> list:
         {"title": "What moved the business", "mode": "insights"},
         {"title": "Trend status", "mode": "insights"},
         {"title": "Where it came from", "mode": "insights"},
-        {"title": "Why it matters", "mode": "content"},
+        {"title": "Why it matters: Business Impact and Key Data", "mode": "content"},
         {"title": outlook_title, "mode": "content"},
         {"title": "Leadership focus", "mode": "insights"},
     ]
 
 # Default for backward compatibility
 CEO_SECTION_CONTRACT = get_ceo_section_contract("weekly")
-
