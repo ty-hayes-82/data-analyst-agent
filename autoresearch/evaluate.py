@@ -191,17 +191,29 @@ CRITIC_PROMPT_PATH = Path(__file__).parent / "critic_prompt.txt"
 def tier2_score(brief_md: str, dataset_desc: str, metrics_list: str) -> Tuple[float, Dict[str, Any]]:
     """Score brief using LLM critic. Returns (score, details_dict)."""
     prompt_template = CRITIC_PROMPT_PATH.read_text(encoding="utf-8")
-    prompt = prompt_template.format(
-        brief_text=brief_md,
-        dataset_description=dataset_desc,
-        metrics_list=metrics_list,
+    prompt = (
+        prompt_template
+        .replace("$BRIEF_TEXT$", brief_md)
+        .replace("$DATASET_DESCRIPTION$", dataset_desc)
+        .replace("$METRICS_LIST$", metrics_list)
     )
 
     try:
+        # Load project .env for API key / auth
+        from dotenv import load_dotenv
+        load_dotenv(PROJECT_ROOT / ".env", override=False)
+
         from google import genai
         from google.genai import types
 
-        client = genai.Client()
+        api_key = os.environ.get("GOOGLE_API_KEY")
+        if api_key:
+            client = genai.Client(api_key=api_key)
+        else:
+            # Fallback to Vertex AI with service account
+            project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+            client = genai.Client(vertexai=True, project=project, location=location)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,

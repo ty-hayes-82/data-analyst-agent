@@ -5,13 +5,13 @@ Be harsh. A score of 7+ means genuinely excellent on that dimension.
 A score of 5 means adequate. Below 5 means deficient.
 
 BRIEF TO EVALUATE:
-{brief_text}
+$BRIEF_TEXT$
 
 DATASET CONTEXT:
-{dataset_description}
+$DATASET_DESCRIPTION$
 
 METRICS ANALYZED:
-{metrics_list}
+$METRICS_LIST$
 
 Score each dimension:
 
