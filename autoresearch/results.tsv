@@ -2,3 +2,5 @@ timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_tar
 2026-03-25T20:40:27	0	620530c	22.0	22.0	0.0	baseline	-	Initial baseline	101
 2026-03-25T20:40:59	0	fe271a7	86.5	47.5	39.0	baseline	-	Initial baseline	112
 2026-03-25T20:43:14	1	discarded	86.5	47.5	39.0	discard	narrative_prompt	Added an 'actionable_recommendation' field to the insight cards and a corresponding constraint to improve actionability.	135
+2026-03-25T20:48:12	16	discarded	22.0	22.0	0.0	discard	executive_brief_base_prompt	Added a requirement for Key Finding insights to include clear implications or next investigative steps, enhancing actionability without using prescriptive language or new JSON fields.	134
+2026-03-25T20:48:36	25	aa6503a	86.5	47.5	39.0	keep	executive_brief_base_prompt	Add a 'business_impact' field to each Key Finding insight to explain the consequence or 'so what' for the business, explicitly prohibiting recommendations to align with existing rules.	141
