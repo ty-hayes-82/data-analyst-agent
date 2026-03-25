@@ -25,16 +25,24 @@ def _expand_numerator(
     by_name: Dict[str, Dict[str, Any]],
     visiting: Set[str],
     base_metric_names: Set[str],
+    name_to_column: Optional[Dict[str, str]] = None,
 ) -> str:
-    """Expand a token that may be another KPI name or a base metric/column name."""
+    """Expand a token that may be another KPI name or a base metric/column name.
+    
+    When name_to_column is provided, base metric names are resolved to their
+    physical column names for correct pandas eval expression generation.
+    """
     if token in by_name and token not in base_metric_names:
         if token in visiting:
             raise ValueError(f"derived_kpis: circular reference involving '{token}'")
         visiting.add(token)
         try:
-            return f"({kpi_to_formula(by_name[token], by_name, base_metric_names, visiting)})"
+            return f"({kpi_to_formula(by_name[token], by_name, base_metric_names, visiting, name_to_column)})"
         finally:
             visiting.discard(token)
+    # Resolve metric name to physical column name if mapping is available
+    if name_to_column and token in name_to_column:
+        return name_to_column[token]
     return token
 
 
@@ -43,6 +51,7 @@ def kpi_to_formula(
     by_name: Dict[str, Dict[str, Any]],
     base_metric_names: Set[str],
     visiting: Optional[Set[str]] = None,
+    name_to_column: Optional[Dict[str, str]] = None,
 ) -> str:
     """Build a single expression using only physical column names (additive metrics)."""
     visiting = visiting if visiting is not None else set()
@@ -51,18 +60,18 @@ def kpi_to_formula(
         raise ValueError("derived_kpi entry missing 'name'")
 
     if "subtract" in kpi:
-        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names)
-        sub = _expand_numerator(str(kpi["subtract"]), by_name, visiting, base_metric_names)
+        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names, name_to_column)
+        sub = _expand_numerator(str(kpi["subtract"]), by_name, visiting, base_metric_names, name_to_column)
         return f"({num} - {sub})"
 
     if "add" in kpi:
-        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names)
-        add_tok = _expand_numerator(str(kpi["add"]), by_name, visiting, base_metric_names)
+        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names, name_to_column)
+        add_tok = _expand_numerator(str(kpi["add"]), by_name, visiting, base_metric_names, name_to_column)
         return f"({num} + {add_tok})"
 
     if "denominator" in kpi:
-        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names)
-        den = _expand_numerator(str(kpi["denominator"]), by_name, visiting, base_metric_names)
+        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names, name_to_column)
+        den = _expand_numerator(str(kpi["denominator"]), by_name, visiting, base_metric_names, name_to_column)
         mult = kpi.get("multiply", 1)
         try:
             mult_f = float(mult)
@@ -73,13 +82,13 @@ def kpi_to_formula(
         return f"({mult_f} * ({num}) / ({den}))"
 
     if "divide_by" in kpi:
-        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names)
+        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names, name_to_column)
         div = kpi["divide_by"]
         return f"(({num}) / ({div}))"
 
     if "multiply_by" in kpi:
-        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names)
-        mul = _expand_numerator(str(kpi["multiply_by"]), by_name, visiting, base_metric_names)
+        num = _expand_numerator(str(kpi["numerator"]), by_name, visiting, base_metric_names, name_to_column)
+        mul = _expand_numerator(str(kpi["multiply_by"]), by_name, visiting, base_metric_names, name_to_column)
         scale = kpi.get("multiply", 1)
         try:
             scale_f = float(scale)
@@ -150,15 +159,29 @@ def column_refs_in_expr(expr: str, available_columns: Set[str]) -> Set[str]:
 def derived_kpis_to_metric_definitions(
     derived_kpis: List[Dict[str, Any]],
     base_metric_names: Set[str],
+    base_metrics: Optional[List[Any]] = None,
 ) -> List[Dict[str, Any]]:
-    """Return MetricDefinition-shaped dicts for each derived KPI (for merging into contract.metrics)."""
+    """Return MetricDefinition-shaped dicts for each derived KPI (for merging into contract.metrics).
+    
+    Args:
+        base_metrics: Optional list of MetricDefinition objects for name->column resolution.
+    """
     by_name = {k["name"]: k for k in derived_kpis if k.get("name")}
+    # Build name->column mapping from base metrics
+    name_to_column: Optional[Dict[str, str]] = None
+    if base_metrics:
+        name_to_column = {}
+        for m in base_metrics:
+            col = getattr(m, "column", None) or getattr(m, "name", None)
+            name = getattr(m, "name", None)
+            if name and col:
+                name_to_column[name] = col
     out: List[Dict[str, Any]] = []
     for kpi in derived_kpis:
         nm = kpi.get("name")
         if not nm or nm in base_metric_names:
             continue
-        formula = kpi_to_formula(kpi, by_name, base_metric_names, set())
+        formula = kpi_to_formula(kpi, by_name, base_metric_names, set(), name_to_column)
         fmt = kpi.get("format") or "float"
         if fmt == "percentage":
             fmt = "percent"

@@ -381,7 +381,7 @@ class DatasetContract(BaseModel):
             base_names = {m.name for m in self.metrics}
             from .derived_kpi_formula import derived_kpis_to_metric_definitions
 
-            extra_dicts = derived_kpis_to_metric_definitions(self.derived_kpis, base_names)
+            extra_dicts = derived_kpis_to_metric_definitions(self.derived_kpis, base_names, list(self.metrics))
             merged = list(self.metrics)
             seen = {m.name for m in merged}
             for d in extra_dicts:
