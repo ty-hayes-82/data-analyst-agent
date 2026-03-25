@@ -189,7 +189,9 @@ CRITIC_PROMPT_PATH = Path(__file__).parent / "critic_prompt.txt"
 
 
 def tier2_score(brief_md: str, dataset_desc: str, metrics_list: str) -> Tuple[float, Dict[str, Any]]:
-    """Score brief using LLM critic. Returns (score, details_dict)."""
+    """Score brief using LLM critic with retry. Returns (score, details_dict)."""
+    import time as _time
+
     prompt_template = CRITIC_PROMPT_PATH.read_text(encoding="utf-8")
     prompt = (
         prompt_template
@@ -198,44 +200,56 @@ def tier2_score(brief_md: str, dataset_desc: str, metrics_list: str) -> Tuple[fl
         .replace("$METRICS_LIST$", metrics_list)
     )
 
-    try:
-        # Load project .env for API key / auth
-        from dotenv import load_dotenv
-        load_dotenv(PROJECT_ROOT / ".env", override=False)
+    # Load project .env for API key / auth
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env", override=False)
 
-        from google import genai
-        from google.genai import types
+    from google import genai
+    from google.genai import types
 
-        api_key = os.environ.get("GOOGLE_API_KEY")
-        if api_key:
-            client = genai.Client(api_key=api_key)
-        else:
-            # Fallback to Vertex AI with service account
-            project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
-            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
-            client = genai.Client(vertexai=True, project=project, location=location)
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.0,
-                response_mime_type="application/json",
-            ),
-        )
-        text = response.text.strip()
-        scores = json.loads(text)
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    if api_key:
+        client = genai.Client(api_key=api_key)
+    else:
+        project = os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+        location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+        client = genai.Client(vertexai=True, project=project, location=location)
 
-        total = 0
-        details: Dict[str, Any] = {}
-        for dim in ["actionability", "causal_depth", "data_specificity", "narrative_coherence", "completeness"]:
-            val = min(10, max(0, int(scores.get(dim, 0))))
-            details[dim] = val
-            total += val
-        return float(total), details
+    backoff = [2, 5, 10]
+    last_error = None
 
-    except Exception as exc:
-        print(f"[evaluate] Tier 2 LLM critic failed: {exc}")
-        return 0.0, {"error": str(exc)}
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    response_mime_type="application/json",
+                ),
+            )
+            text = response.text.strip()
+            # Strip control chars before parsing
+            text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+            scores = json.loads(text)
+
+            total = 0
+            details: Dict[str, Any] = {}
+            for dim in ["actionability", "causal_depth", "data_specificity", "narrative_coherence", "completeness"]:
+                val = min(10, max(0, int(scores.get(dim, 0))))
+                details[dim] = val
+                total += val
+            return float(total), details
+
+        except Exception as exc:
+            last_error = exc
+            if attempt < 2:
+                wait = backoff[attempt]
+                print(f"[evaluate] Tier 2 attempt {attempt+1} failed: {exc}. Retrying in {wait}s...")
+                _time.sleep(wait)
+
+    print(f"[evaluate] Tier 2 LLM critic failed after 3 attempts: {last_error}")
+    return 0.0, {"error": str(last_error), "retries_exhausted": True}
 
 
 # ---------------------------------------------------------------------------

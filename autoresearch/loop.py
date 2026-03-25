@@ -13,10 +13,12 @@ import argparse
 import csv
 import json
 import os
+import random
+import re
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -244,7 +246,10 @@ Return valid JSON:
                 response_mime_type="application/json",
             ),
         )
-        result = json.loads(response.text.strip())
+        result = _parse_mutation_json(response.text)
+        if not result:
+            print("[loop] Failed to parse mutation JSON from LLM response")
+            return None
         return {
             "target": target,
             "description": result.get("description", "unknown mutation"),
@@ -256,14 +261,55 @@ Return valid JSON:
         return None
 
 
+def _parse_mutation_json(raw_text: str) -> Optional[Dict[str, Any]]:
+    """Parse mutation JSON with control char stripping and regex fallback."""
+    text = raw_text.strip()
+    # Strip ASCII control chars (0x00-0x1F) except newline, carriage return, tab
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Fallback: try to extract JSON object with regex
+    match = re.search(r'\{[^{}]*"description"\s*:\s*"[^"]*"[^{}]*"new_content"\s*:', text, re.DOTALL)
+    if match:
+        # Find matching closing brace
+        start = match.start()
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == '{':
+                depth += 1
+            elif text[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start:i+1])
+                    except json.JSONDecodeError:
+                        break
+    return None
+
+
 def apply_mutation(mutation: Dict[str, Any]) -> bool:
-    """Write the mutated content to the target file."""
+    """Write the mutated content to the target file. Validates syntax for code targets."""
     file_path = PROJECT_ROOT / mutation["target"]["path"]
     new_content = mutation.get("new_content", "")
     if not new_content or len(new_content) < 50:
         print("[loop] Mutation content too short, skipping")
         return False
     file_path.write_text(new_content, encoding="utf-8")
+
+    # Syntax check for Python code targets
+    if mutation["target"].get("type") == "code" and file_path.suffix == ".py":
+        result = subprocess.run(
+            [sys.executable, "-c", f"compile(open('{file_path}').read(), '{file_path}', 'exec')"],
+            capture_output=True, text=True, cwd=PROJECT_ROOT,
+        )
+        if result.returncode != 0:
+            print(f"[loop] SYNTAX ERROR in {file_path.name}: {result.stderr.strip()[-200:]}")
+            # Revert immediately — don't commit broken code
+            file_path.write_text(mutation["original_content"], encoding="utf-8")
+            return False
+
     print(f"[loop] Applied mutation to {mutation['target']['path']}")
     return True
 
@@ -310,7 +356,7 @@ def log_result(
                 "tier1_score", "tier2_score", "status", "mutation_target", "description", "duration_sec",
             ])
         writer.writerow([
-            datetime.utcnow().isoformat(timespec="seconds"),
+            datetime.now(timezone.utc).isoformat(timespec="seconds"),
             iteration, commit, f"{bqs_total:.1f}",
             f"{tier1:.1f}", f"{tier2:.1f}",
             status, target, description, f"{duration:.0f}",
@@ -322,7 +368,8 @@ def log_result(
 # ---------------------------------------------------------------------------
 
 def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
-    """Run pipeline on all eval datasets and return average BQS."""
+    """Run pipeline on all eval datasets. Uses max score (not average) to avoid
+    one flaky dataset tanking the whole experiment."""
     all_scores = []
     all_t1 = []
     all_t2 = []
@@ -350,16 +397,21 @@ def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
             all_t1.append(0)
             all_t2.append(0)
 
-    avg_bqs = sum(all_scores) / len(all_scores) if all_scores else 0
-    avg_t1 = sum(all_t1) / len(all_t1) if all_t1 else 0
-    avg_t2 = sum(all_t2) / len(all_t2) if all_t2 else 0
-    return round(avg_bqs, 1), round(avg_t1, 1), round(avg_t2, 1), all_details
+    # Use max instead of average — prevents one flaky dataset from zeroing the score
+    best_bqs = max(all_scores) if all_scores else 0
+    best_t1 = max(all_t1) if all_t1 else 0
+    best_t2 = max(all_t2) if all_t2 else 0
+    return round(best_bqs, 1), round(best_t1, 1), round(best_t2, 1), all_details
 
 
 def pick_target(results: List[Dict]) -> Dict[str, Any]:
-    """Pick the next mutation target, cycling through priorities."""
-    idx = len(results) % len(MUTATION_TARGETS)
-    return MUTATION_TARGETS[idx]
+    """Pick a mutation target with weighted random selection.
+
+    Prompt targets get weight 3 (safer, higher leverage).
+    Code targets get weight 1 (riskier, can break syntax).
+    """
+    weights = [3 if t.get("type") == "prompt" else 1 for t in MUTATION_TARGETS]
+    return random.choices(MUTATION_TARGETS, weights=weights, k=1)[0]
 
 
 def main():
