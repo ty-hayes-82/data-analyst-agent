@@ -41,7 +41,8 @@ NARRATIVE_AGENT_INSTRUCTION = """You are the Insight Narrative Agent for {datase
         "entity": "<entity value>",
         "share_of_total": null,
         "p_value": null,
-        "signal": "statistically_confirmed|early_signal"
+        "signal": "statistically_confirmed|early_signal",
+        "detection_method_details": "<description of detection method and thresholds, e.g., z-score > 3.0 on 7-day rolling average, or threshold breach>"
       },
       "priority": "critical|high|medium|low",
       "root_cause": "price|volume|mix|seasonality|other",
