@@ -41,6 +41,7 @@ from ...utils import parse_bool_env
 from ...utils.stub_guard import contains_stub_content
 from ...utils.contract_summary import (
     build_contract_metadata,
+    build_contract_examples,
     format_contract_context,
     format_contract_reference_block,
 )
@@ -1314,6 +1315,16 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 f"{json.dumps(contract_metadata, indent=2, ensure_ascii=False)}\n\n"
             )
         contract_reference_block = format_contract_reference_block(contract)
+        # Build dataset-specific examples for prompt templatization
+        contract_examples = build_contract_examples(contract)
+        contract_examples_block = ""
+        if contract_examples:
+            contract_examples_block = (
+                "DATASET-SPECIFIC CONTEXT (use these terms, not generic placeholders):\n"
+                f"  Primary metrics: {', '.join(contract_examples.get('primary_metrics', []))}\n"
+                f"  Primary dimensions: {', '.join(contract_examples.get('primary_dimensions', []))}\n"
+                f"  Hierarchy levels: {' > '.join(contract_examples.get('hierarchy_levels', []))}\n\n"
+            )
         # Use ANALYZED metrics (from filtered reports) instead of ALL contract metrics
         # This prevents the brief from trying to synthesize insights for non-analyzed metrics
         metric_names = sorted(reports.keys())
@@ -1518,6 +1529,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 f"{focus_preamble_text}"
                 f"{contract_summary_block}"
                 f"{contract_metadata_block}"
+                f"{contract_examples_block}"
                 f"{contract_reference_block}"
                 f"{metric_coverage_block}"
                 f"{severity_enforcement_block}"

@@ -1,4 +1,4 @@
-def build_narrative_prompt(dataset_display_name: str, variance_pct: float, variance_absolute: float) -> str:
+def build_narrative_prompt(dataset_display_name: str, variance_pct: float, variance_absolute: float, min_share: float = 0.10, min_variance_explanation: float = 0.60) -> str:
     """Build the narrative agent instruction prompt with contract-specific thresholds.
     
     Args:
@@ -17,7 +17,7 @@ def build_narrative_prompt(dataset_display_name: str, variance_pct: float, varia
     return NARRATIVE_AGENT_INSTRUCTION.format(
         dataset_display_name=dataset_display_name,
         variance_pct=variance_pct,
-        variance_absolute=variance_absolute
+        variance_absolute=variance_absolute,
     )
 
 
@@ -58,6 +58,7 @@ CONSTRAINTS
 3. `business_impact` must clearly articulate the consequence or 'so what' for the business (≤35 words), without offering prescriptive recommendations.
 4. Fill `evidence` with concrete numbers (`+$316K`, `-3.4%`, `32% share`). Skip slices <10% share unless they explain >60% of variance or highlight concentration risk. Flag partial periods explicitly.
 5. Use only contract-defined metric, hierarchy, and dimension names. `signal="statistically_confirmed"` requires p < 0.05; otherwise set `early_signal` and describe the uncertainty.
-6. Close with a single `narrative_summary` sentence (≤35 words) linking headline → driver → cause.
-7. Output JSON only — no markdown, comments, apologies, or trailing commas.
+6. **Materiality reasoning:** For each insight card, evaluate whether the statistical severity matches the business materiality from the contract. A 2-sigma event in a metric with 5% materiality threshold is different from a 2-sigma event in a 0.5% threshold metric. Adjust priority accordingly — statistical significance alone does not equal business significance.
+7. Close with a single `narrative_summary` sentence (≤35 words) linking headline → driver → cause.
+8. Output JSON only — no markdown, comments, apologies, or trailing commas.
 """
