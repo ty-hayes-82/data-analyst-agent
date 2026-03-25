@@ -2,7 +2,7 @@ source:
   type: csv
   format: long
   file: "data/csv/global_superstore/Global_Superstore.csv"
-  encoding: utf-8
+  encoding: latin-1
   delimiter: ","
 
 filter_columns:

@@ -36,12 +36,12 @@ time:
 grain:
   columns:
     - order_date
-    - market
-    - region
-    - country
-    - segment
-    - category
-    - sub_category
+    - Market
+    - Region
+    - Country
+    - Segment
+    - Category
+    - Sub-Category
 
 metrics:
   - name: sales

@@ -36,8 +36,8 @@ time:
 grain:
   columns:
     - invoice_date
-    - country
-    - stock_code
+    - Country
+    - StockCode
 
 metrics:
   - name: quantity
