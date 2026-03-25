@@ -1,3 +1,4 @@
+--- 
 ---
 # EXECUTIVE BRIEF — JSON OUTPUT SPECIFICATION
 
@@ -19,7 +20,7 @@ You are synthesizing {metric_count} metric analyses for {analysis_period} as a *
     "sections": [
       {"title": "Executive Summary", "content": "2-3 sentences", "insights": []},
       {"title": "Key Findings", "content": "1 intro sentence", "insights": [
-        {"title": "5-8 words", "details": "2-4 sentences, ≥{min_insight_values} numeric values"}
+        {"title": "5-8 words", "details": "2-4 sentences: explain the finding, its likely cause, business impact ('so what'), and a clear implication or next step, with ≥{min_insight_values} numeric values."}
       ]},
       {"title": "Forward Outlook", "content": "2-4 sentences: trajectory, best/worst case, indicators", "insights": []}
     ]
@@ -127,3 +128,12 @@ Recent experiment results:
   iter 0: baseline (BQS 22.0) - Initial baseline
   iter 0: baseline (BQS 86.5) - Initial baseline
   iter 1: discard (BQS 86.5) - Added an 'actionable_recommendation' field to the insight cards and a corresponding constraint to improve actionability.
+
+---
+
+Recent experiment results:
+  iter 1: discard (BQS 86.5) - Added an 'actionable_recommendation' field to the insight cards and a corresponding constraint to improve actionability.
+  iter 16: discard (BQS 22.0) - Added a requirement for Key Finding insights to include clear implications or next investigative steps, enhancing actionability without using prescriptive language or new JSON fields.
+  iter 25: keep (BQS 86.5) - Add a 'business_impact' field to each Key Finding insight to explain the consequence or 'so what' for the business, explicitly prohibiting recommendations to align with existing rules.
+  iter 27: discard (BQS 46.8) - Added a 'business_impact' field to each insight card and a corresponding constraint. This directly addresses the 'actionability' scoring dimension by requiring the agent to articulate the consequence or 'so what' for the business, aligning with successful experiment iteration 25 which improved BQS without introducing prescriptive recommendations.
+  iter 23: discard (BQS 88.5) - Add a 'business_impact' field to each Key Finding insight in the JSON structure and update validation rules to explicitly require it. This field is designed to articulate the consequence or 'so what' for the business, directly addressing the 'actionability' scoring dimension as per successful experiment iteration 25, while ensuring no prescriptive recommendations are included.
