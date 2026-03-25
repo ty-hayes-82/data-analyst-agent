@@ -252,9 +252,97 @@ def get_default_grain_column(contract: Any | None, fallback: str = "entity") -> 
     return fallback
 
 
+
+
+def build_contract_examples(contract: Any | None) -> Dict[str, Any]:
+    """Generate domain-appropriate brief examples from contract metadata.
+
+    Instead of hardcoding trucking examples (deadhead, terminal, loaded miles),
+    this builds examples using the actual metric and dimension names from the
+    contract, so prompts are dataset-agnostic.
+
+    Returns dict with keys: what_moved_example, where_from_example,
+    leadership_example, trend_example.
+    """
+    if not contract:
+        return {}
+
+    metrics = _field(contract, "metrics") or []
+    dimensions = _field(contract, "dimensions") or []
+    hierarchies = _field(contract, "hierarchies") or []
+    display_name = _field(contract, "display_name") or _field(contract, "name") or "dataset"
+
+    # Get first 3 metric display names
+    metric_names = []
+    for m in metrics[:4]:
+        name = _field(m, "display_name") or _field(m, "name") or "metric"
+        fmt = _field(m, "format") or "float"
+        metric_names.append({"name": name, "format": fmt})
+
+    # Get primary dimension names
+    dim_names = []
+    for d in dimensions:
+        if (_field(d, "role") or "").lower() in ("primary", "time"):
+            dim_names.append(_field(d, "display_name") or _field(d, "name") or "dimension")
+
+    # Get hierarchy level names
+    hierarchy_levels = []
+    if hierarchies:
+        h = hierarchies[0]
+        levels = _field(h, "levels") or _field(h, "children") or []
+        hierarchy_levels = levels[:3]
+
+    # Build example fragments
+    m1 = metric_names[0]["name"] if metric_names else "Revenue"
+    m2 = metric_names[1]["name"] if len(metric_names) > 1 else "Volume"
+    m3 = metric_names[2]["name"] if len(metric_names) > 2 else "Cost"
+    d1 = dim_names[0] if dim_names else "Region"
+    d2 = dim_names[1] if len(dim_names) > 1 else "Category"
+    h_top = hierarchy_levels[0] if hierarchy_levels else d1
+    h_mid = hierarchy_levels[1] if len(hierarchy_levels) > 1 else d2
+
+    is_currency = any(m.get("format") == "currency" for m in metric_names[:2])
+    val_prefix = "$" if is_currency else ""
+
+    what_moved = (
+        f"- **{m1}:** {val_prefix}X.XM, -4.1% WoW, driven by {d1}-level contraction\n"
+        f"- **{m2}:** {val_prefix}X.X, +2.3% WoW, partially offsetting the {m1} decline\n"
+        f"- **{m3}:** {val_prefix}X.X, flat WoW, masking mix shift between {d1} segments"
+    )
+
+    where_from = (
+        f"- **Positive:** [Top {h_top}] -- strongest {m1} growth, adding {val_prefix}X to the network\n"
+        f"- **Drag:** [Bottom {h_top}] -- largest absolute decline, shedding {val_prefix}X\n"
+        f"- **Watch item:** [{h_mid}] -- anomalous spike requiring validation"
+    )
+
+    leadership = (
+        f"- Intervene on [worst {h_top}] {m1} decline immediately\n"
+        f"- Lock in [best {h_top}] volume gains with capacity commitment\n"
+        f"- Audit [{h_mid}] pricing to confirm margin viability"
+    )
+
+    trend = (
+        f"- {m1} contraction in [entity] is a persistent issue\n"
+        f"- {m2} surge in [entity] is positive momentum\n"
+        f"- {m3} anomaly in [entity] is one-week noise to filter"
+    )
+
+    return {
+        "dataset_display_name": display_name,
+        "what_moved_example": what_moved,
+        "where_from_example": where_from,
+        "leadership_example": leadership,
+        "trend_example": trend,
+        "primary_metrics": [m["name"] for m in metric_names],
+        "primary_dimensions": dim_names,
+        "hierarchy_levels": hierarchy_levels,
+    }
+
 __all__ = [
     "build_contract_metadata",
     "format_contract_context",
     "format_contract_reference_block",
     "get_default_grain_column",
+    "build_contract_examples",
 ]
