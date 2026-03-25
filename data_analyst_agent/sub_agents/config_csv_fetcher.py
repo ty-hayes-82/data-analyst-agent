@@ -101,20 +101,27 @@ class ConfigCSVFetcher(BaseAgent):
             n_rows = len(df)
             print(f"[TIMER] <<< ConfigCSVFetcher: Loaded {n_rows:,} rows in {duration:.2f}s")
 
-            # --- Hard Row Limit Guard (Spec 042) ---
+            # --- Smart Row Limit Guard with Auto-Aggregation (Spec 042+) ---
             max_rows = int(os.environ.get("DATA_ANALYST_MAX_ROWS", "250000"))
             if n_rows > max_rows:
-                error_msg = (
-                    f"!!! HARD LIMIT EXCEEDED: CSV returned {n_rows:,} rows, "
-                    f"which exceeds the safety threshold of {max_rows:,} rows.\n\n"
-                    "Possible causes:\n"
-                    "1. Missing dimension filters for a large dataset.\n"
-                    "2. Analysis date range is too broad.\n\n"
-                    "The analysis has been aborted to prevent memory saturation."
-                )
-                print(f"[ConfigCSVFetcher] {error_msg}")
-                yield self._error_event(ctx, error_msg)
-                return
+                print(f"[ConfigCSVFetcher] Row limit exceeded: {n_rows:,} > {max_rows:,}. Attempting auto-aggregation...")
+                df, agg_msg = self._auto_aggregate(df, contract, max_rows)
+                n_rows = len(df)
+                if n_rows > max_rows:
+                    suggestions = (
+                        f"Auto-aggregation reduced to {n_rows:,} rows but still exceeds {max_rows:,}. "
+                        f"Result: {agg_msg} "
+                        "Suggestions: "
+                        "1. Add dimension filters (e.g., --dimension country --dimension-value 'United Kingdom') "
+                        "2. Reduce grain columns in the contract "
+                        "3. Increase DATA_ANALYST_MAX_ROWS if memory allows "
+                        "4. Use --start-date / --end-date for a shorter range"
+                    )
+                    print(f"[ConfigCSVFetcher] {suggestions}")
+                    yield self._error_event(ctx, suggestions)
+                    return
+                else:
+                    print(f"[ConfigCSVFetcher] Auto-aggregation succeeded: {agg_msg}")
 
             # --- Pre-flight validation logging ---
             if not df.empty:
@@ -164,6 +171,63 @@ class ConfigCSVFetcher(BaseAgent):
             author=self.name,
             content=Content(role="model", parts=[Part(text=message)]),
         )
+
+    @staticmethod
+    def _auto_aggregate(df, contract, max_rows: int):
+        """Progressively aggregate data by dropping fine-grained dimensions.
+        
+        Strategy: identify grain columns by cardinality (highest first),
+        drop the most granular one and re-aggregate, repeat until under limit.
+        """
+        import pandas as pd
+        
+        time_col = contract.time.column if contract.time else None
+        grain_cols = list(contract.grain.columns) if contract.grain else []
+        
+        # Separate time from dimension grain columns
+        dim_grain_cols = [c for c in grain_cols if c != time_col and c in df.columns]
+        
+        if not dim_grain_cols:
+            return df, "No dimension grain columns to aggregate"
+        
+        # Identify numeric columns for summing
+        numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+        numeric_cols = [c for c in numeric_cols if c not in dim_grain_cols and c != time_col]
+        
+        dropped = []
+        current_df = df
+        
+        # Sort dimensions by cardinality (most unique values first = most granular)
+        dim_cardinality = [(c, current_df[c].nunique()) for c in dim_grain_cols if c in current_df.columns]
+        dim_cardinality.sort(key=lambda x: x[1], reverse=True)
+        
+        for col, card in dim_cardinality:
+            if len(current_df) <= max_rows:
+                break
+            
+            print(f"[AutoAgg] Dropping '{col}' (cardinality={card:,}) and re-aggregating...")
+            remaining_dims = [c for c in dim_grain_cols if c != col and c not in dropped and c in current_df.columns]
+            group_cols = ([time_col] if time_col and time_col in current_df.columns else []) + remaining_dims
+            
+            if not group_cols:
+                break
+            
+            # Aggregate: sum numerics, drop the fine-grained column
+            agg_dict = {c: "sum" for c in numeric_cols if c in current_df.columns}
+            if agg_dict:
+                current_df = current_df.groupby(group_cols, as_index=False).agg(agg_dict)
+            else:
+                current_df = current_df.drop(columns=[col], errors="ignore").drop_duplicates()
+            
+            dropped.append(col)
+            dim_grain_cols = remaining_dims
+            print(f"[AutoAgg] After dropping '{col}': {len(current_df):,} rows")
+        
+        msg = (
+            f"Dropped {len(dropped)} dimension(s): {dropped}. "
+            f"Reduced from {len(df):,} to {len(current_df):,} rows."
+        )
+        return current_df, msg
 
     @staticmethod
     def _error_event(ctx: InvocationContext, message: str) -> Event:
