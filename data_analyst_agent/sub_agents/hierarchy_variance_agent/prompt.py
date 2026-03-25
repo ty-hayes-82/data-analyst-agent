@@ -44,7 +44,7 @@ Return ONLY a raw JSON object based on the tool results. DO NOT include any intr
         "is_pvm": boolean,
         "pvm_details": {{ ... if applicable ... }}
       }},
-      "now_what": "Drill down to next level or investigate specific driver.",
+      "now_what": "Suggest a concrete, priority-driven next action (e.g., 'Investigate root causes', 'Monitor trend', 'Drill down to <next_level>').",
       "priority": "low" | "medium" | "high" | "critical",
       "tags": ["hierarchy", "variance"]
     }}
@@ -58,4 +58,3 @@ Return ONLY a raw JSON object based on the tool results. DO NOT include any intr
 - Keep descriptions concise and domain-agnostic.
 - For PVM, explain the Price vs Volume split in the 'why' field.
 """
-
