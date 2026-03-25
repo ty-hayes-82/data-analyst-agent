@@ -216,12 +216,18 @@ Recent experiment results:
 
 Propose ONE specific, small modification to improve the Brief Quality Score.
 - Change one thing at a time
-- Keep it simple - a small targeted improvement
-- Do NOT rewrite the entire file
+- Keep it simple — a small targeted improvement
 - Focus on the scoring dimensions that are weakest
+- Provide the EXACT text to find and the EXACT replacement text
 
-Return valid JSON:
-{{"description": "Brief description of what you changed", "new_content": "The COMPLETE new file content"}}
+IMPORTANT: Return a JSON with THREE fields:
+- "description": a short summary of what you changed
+- "find": the exact substring from the current file to replace (copy-paste it exactly)
+- "replace": the new text to put in its place
+
+Keep "find" and "replace" SHORT — just the specific lines you are changing, not the whole file.
+
+Example: {{"description": "Added causal explanation requirement", "find": "Explain what changed.", "replace": "Explain what changed and WHY it changed, citing the root cause."}}
 """
 
     try:
@@ -250,11 +256,34 @@ Return valid JSON:
         if not result:
             print("[loop] Failed to parse mutation JSON from LLM response")
             return None
+
+        # Build the new file content by applying the find/replace
+        original_content = file_path.read_text(encoding="utf-8")
+        find_str = result.get("find", "")
+        replace_str = result.get("replace", "")
+
+        if not find_str or not replace_str:
+            # Fallback: check if LLM returned new_content instead (old format)
+            if result.get("new_content"):
+                return {
+                    "target": target,
+                    "description": result.get("description", "unknown mutation"),
+                    "new_content": result["new_content"],
+                    "original_content": original_content,
+                }
+            print("[loop] Mutation has empty find or replace, skipping")
+            return None
+
+        if find_str not in original_content:
+            print(f"[loop] Find string not found in file (len={len(find_str)}), skipping")
+            return None
+
+        new_content = original_content.replace(find_str, replace_str, 1)
         return {
             "target": target,
             "description": result.get("description", "unknown mutation"),
-            "new_content": result.get("new_content", ""),
-            "original_content": file_path.read_text(encoding="utf-8"),
+            "new_content": new_content,
+            "original_content": original_content,
         }
     except Exception as exc:
         print(f"[loop] Mutation generation failed: {exc}")
@@ -262,31 +291,14 @@ Return valid JSON:
 
 
 def _parse_mutation_json(raw_text: str) -> Optional[Dict[str, Any]]:
-    """Parse mutation JSON with control char stripping and regex fallback."""
+    """Parse mutation JSON with control char stripping."""
     text = raw_text.strip()
-    # Strip ASCII control chars (0x00-0x1F) except newline, carriage return, tab
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
-        pass
-    # Fallback: try to extract JSON object with regex
-    match = re.search(r'\{[^{}]*"description"\s*:\s*"[^"]*"[^{}]*"new_content"\s*:', text, re.DOTALL)
-    if match:
-        # Find matching closing brace
-        start = match.start()
-        depth = 0
-        for i in range(start, len(text)):
-            if text[i] == '{':
-                depth += 1
-            elif text[i] == '}':
-                depth -= 1
-                if depth == 0:
-                    try:
-                        return json.loads(text[start:i+1])
-                    except json.JSONDecodeError:
-                        break
-    return None
+    except json.JSONDecodeError as e:
+        print(f"[loop] JSON parse error: {e}")
+        return None
 
 
 def apply_mutation(mutation: Dict[str, Any]) -> bool:
