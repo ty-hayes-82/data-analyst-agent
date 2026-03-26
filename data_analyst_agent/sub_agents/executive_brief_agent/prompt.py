@@ -124,7 +124,7 @@ def get_ceo_section_contract(temporal_grain: str = "weekly") -> list:
         {"title": "Root Causes and Contributing Factors", "mode": "insights"},
         {"title": "Why it matters: Business Impact and Key Data", "mode": "content"},
         {"title": outlook_title, "mode": "content"},
-        {"title": "Leadership focus and Actionable Recommendations", "mode": "insights"},
+        {"title": "Leadership focus and Actionable Recommendations (addressing key drivers and root causes)", "mode": "insights"},
     ]
 
 # Default for backward compatibility
