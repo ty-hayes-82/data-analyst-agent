@@ -1,1 +1,2 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
+2026-03-26T03:20:49+00:00	4	discarded	90.5	50.0	40.5	discard	statistical_insights_prompt	Enhanced the 'why' field to explicitly require explanation of potential underlying causes or drivers, and how to address cases where direct causal factors are not evident, improving causal depth.	202
