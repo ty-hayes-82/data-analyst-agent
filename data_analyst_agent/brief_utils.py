@@ -568,7 +568,7 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         "- why_it_matters: Explain the business impact and significance of the observed trends, linking them to underlying causes or potential downstream effects. Focus on the 'so what?' for the business.\n"
         "- next_week_outlook: qualitative or mechanism-only unless a specific number appears in the "
         "signals above; do not add best/worst-case dollar ranges.\n"
-        "- leadership_focus: Each point must be a concrete, actionable recommendation, explaining its connection to a specific trend or cause identified in the insights.\n"
+        "- leadership_focus: Each point must be a concrete, actionable recommendation, explaining its connection to a specific trend or cause identified in the insights, referencing the exact data or numbers that support it.\n"
     )
 
     schema = types.Schema(type=types.Type.OBJECT, properties={
