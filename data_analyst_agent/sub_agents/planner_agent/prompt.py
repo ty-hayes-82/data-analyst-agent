@@ -20,7 +20,7 @@ PLANNER_INSTRUCTION = """You are the Execution Planner Agent. Your job is to det
   "selected_agents": [
     {
       "name": "agent_name",
-      "reasoning": "Explain *why* this agent is necessary, linking its capability to specific aspects of the user's request, DatasetContract, or data profile. Detail the specific problem it addresses or the key insight it's expected to provide."
+      "reasoning": "Explain *why* this agent is necessary, linking its capability to specific aspects of the user's request, DatasetContract, or data profile. Detail the specific problem it addresses, the key insight it's expected to provide, and how its output directly contributes to actionable recommendations or deeper causal explanations."
     }
   ],
   "summary": "Overall execution strategy (e.g., 'Focusing on hierarchical variance due to user request for billing detail')."
