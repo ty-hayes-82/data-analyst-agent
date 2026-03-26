@@ -154,14 +154,24 @@ def tier1_score(brief_json: Dict[str, Any], brief_md: str, metric_jsons: List[Di
     details["evidence_grounding"] = evidence_score
     score += evidence_score
 
-    # 6. Contract term compliance (5 pts)
+    # 6. Contract term compliance (5 pts) — fuzzy matching
     metric_names_found = 0
     metric_names_total = 0
+    brief_lower = brief_md.lower()
     for mj in metric_jsons:
         name = mj.get("dimension_value", "")
         if name:
             metric_names_total += 1
-            if name.lower().replace("_", " ") in brief_md.lower():
+            # Try multiple forms: exact name, underscores as spaces, individual words
+            variants = {
+                name.lower(),
+                name.lower().replace("_", " "),
+                name.lower().replace("_", ""),
+            }
+            # Also split on underscore and check if all words appear
+            words = name.lower().split("_")
+            all_words_present = all(w in brief_lower for w in words if len(w) > 2)
+            if any(v in brief_lower for v in variants) or all_words_present:
                 metric_names_found += 1
     if metric_names_total > 0:
         compliance_score = round(5 * metric_names_found / metric_names_total, 1)
@@ -215,41 +225,53 @@ def tier2_score(brief_md: str, dataset_desc: str, metrics_list: str) -> Tuple[fl
         location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
         client = genai.Client(vertexai=True, project=project, location=location)
 
+    # Run critic 2x and average to reduce noise (T2 fluctuates 3-4 pts between runs)
+    NUM_CRITIC_RUNS = 2
+    all_run_scores: List[Dict[str, int]] = []
     backoff = [2, 5, 10]
-    last_error = None
 
-    for attempt in range(3):
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.0,
-                    response_mime_type="application/json",
-                ),
-            )
-            text = response.text.strip()
-            # Strip control chars before parsing
-            text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
-            scores = json.loads(text)
+    for run_idx in range(NUM_CRITIC_RUNS):
+        last_error = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.0,
+                        response_mime_type="application/json",
+                    ),
+                )
+                text = response.text.strip()
+                text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+                scores = json.loads(text)
+                run_scores = {}
+                for dim in ["actionability", "causal_depth", "data_specificity", "narrative_coherence", "completeness"]:
+                    run_scores[dim] = min(10, max(0, int(scores.get(dim, 0))))
+                all_run_scores.append(run_scores)
+                break  # success, move to next run
 
-            total = 0
-            details: Dict[str, Any] = {}
-            for dim in ["actionability", "causal_depth", "data_specificity", "narrative_coherence", "completeness"]:
-                val = min(10, max(0, int(scores.get(dim, 0))))
-                details[dim] = val
-                total += val
-            return float(total), details
+            except Exception as exc:
+                last_error = exc
+                if attempt < 2:
+                    wait = backoff[attempt]
+                    print(f"[evaluate] Tier 2 run {run_idx+1} attempt {attempt+1} failed: {exc}. Retrying in {wait}s...")
+                    _time.sleep(wait)
+        else:
+            print(f"[evaluate] Tier 2 run {run_idx+1} failed after 3 attempts: {last_error}")
 
-        except Exception as exc:
-            last_error = exc
-            if attempt < 2:
-                wait = backoff[attempt]
-                print(f"[evaluate] Tier 2 attempt {attempt+1} failed: {exc}. Retrying in {wait}s...")
-                _time.sleep(wait)
+    if not all_run_scores:
+        return 0.0, {"error": str(last_error), "retries_exhausted": True}
 
-    print(f"[evaluate] Tier 2 LLM critic failed after 3 attempts: {last_error}")
-    return 0.0, {"error": str(last_error), "retries_exhausted": True}
+    # Average across runs
+    details: Dict[str, Any] = {}
+    total = 0
+    for dim in ["actionability", "causal_depth", "data_specificity", "narrative_coherence", "completeness"]:
+        avg = sum(r[dim] for r in all_run_scores) / len(all_run_scores)
+        details[dim] = round(avg, 1)
+        total += avg
+    details["critic_runs"] = len(all_run_scores)
+    return round(total, 1), details
 
 
 # ---------------------------------------------------------------------------

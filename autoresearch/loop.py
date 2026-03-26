@@ -380,8 +380,8 @@ def log_result(
 # ---------------------------------------------------------------------------
 
 def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
-    """Run pipeline on all eval datasets. Uses max score (not average) to avoid
-    one flaky dataset tanking the whole experiment."""
+    """Run pipeline on all eval datasets. Uses average score across datasets
+    so improvements to ANY dataset count, not just the best one."""
     all_scores = []
     all_t1 = []
     all_t2 = []
@@ -409,11 +409,10 @@ def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
             all_t1.append(0)
             all_t2.append(0)
 
-    # Use max instead of average — prevents one flaky dataset from zeroing the score
-    best_bqs = max(all_scores) if all_scores else 0
-    best_t1 = max(all_t1) if all_t1 else 0
-    best_t2 = max(all_t2) if all_t2 else 0
-    return round(best_bqs, 1), round(best_t1, 1), round(best_t2, 1), all_details
+    avg_bqs = sum(all_scores) / len(all_scores) if all_scores else 0
+    avg_t1 = sum(all_t1) / len(all_t1) if all_t1 else 0
+    avg_t2 = sum(all_t2) / len(all_t2) if all_t2 else 0
+    return round(avg_bqs, 1), round(avg_t1, 1), round(avg_t2, 1), all_details
 
 
 def pick_target(results: List[Dict]) -> Dict[str, Any]:
@@ -457,6 +456,8 @@ def main():
 
     estimated_cost = 0.0
     results = load_results()
+    consecutive_discards = 0
+    last_target_type = None
 
     # --- Experiment loop ---
     for iteration in range(1, args.max_iterations + 1):
@@ -467,12 +468,21 @@ def main():
         print(f"\n{'='*80}")
         print(f"ITERATION {iteration}/{args.max_iterations}")
         print(f"  Best BQS: {best_bqs:.1f}  |  Est. cost: ${estimated_cost:.2f}/{args.budget:.2f}")
+        print(f"  Consecutive discards: {consecutive_discards}")
         print(f"{'='*80}")
 
         start = time.time()
 
-        # 1. Pick target and generate mutation
+        # 1. Pick target — force diversity after 5 consecutive discards on same type
         target = pick_target(results)
+        if consecutive_discards >= 5 and last_target_type:
+            # Force a different target type
+            alt_targets = [t for t in MUTATION_TARGETS if t.get("type") != last_target_type]
+            if alt_targets:
+                target = random.choice(alt_targets)
+                print(f"[loop] Diversity bonus: switching from {last_target_type} to {target.get('type')} targets")
+                consecutive_discards = 0
+
         print(f"[loop] Target: {target['name']} ({target['path']})")
 
         mutation = generate_mutation(target, results)
@@ -493,17 +503,20 @@ def main():
         duration = time.time() - start
         estimated_cost += COST_PER_EXPERIMENT
 
-        # 4. Keep or discard
-        if bqs > best_bqs:
+        # 4. Keep or discard (>= allows ties — equal quality with different approach may unlock next step)
+        if bqs >= best_bqs:
             status = "keep"
             best_bqs = bqs
             best_t1 = t1
             best_t2 = t2
-            print(f"\n[loop] >>> KEEP: BQS {bqs:.1f} > {best_bqs:.1f} (improvement!)")
+            consecutive_discards = 0
+            print(f"\n[loop] >>> KEEP: BQS {bqs:.1f} >= {best_bqs:.1f}")
         else:
             status = "discard"
             git_reset_hard()
-            print(f"\n[loop] <<< DISCARD: BQS {bqs:.1f} <= {best_bqs:.1f}")
+            consecutive_discards += 1
+            last_target_type = target.get("type")
+            print(f"\n[loop] <<< DISCARD: BQS {bqs:.1f} < {best_bqs:.1f}")
 
         # 5. Log
         log_result(

@@ -1,3 +1,1 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
-2026-03-25T23:56:45+00:00	0	39e2499	94.0	50.0	44.0	baseline	-	Initial baseline	135
-2026-03-26T00:46:01+00:00	20	discarded	89.0	50.0	40.0	discard	alert_scoring_prompt	Enhanced actionability and causal depth by instructing the agent to explicitly link recommended actions to the root cause hypothesis.	132
