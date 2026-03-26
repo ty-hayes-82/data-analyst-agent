@@ -376,7 +376,7 @@ async def generate_hybrid_insights_report_async(meta: dict[str, Any]) -> str:
 3.  **Grouped Insights**: {_group}
 4.  **Ranking**: Within each category, list insights in ascending order of their 'rank'.
 5.  **Insight Format**: Use a single line for each insight in this exact format:
-    - **MetricName - Dimension**: One-line explanation of the core insight and its business implication. Statistics (e.g., ±X.X% WoW | current vs prior).
+    - **MetricName - Dimension**: One-line explanation of the core insight, its likely cause, and its business implication. Statistics (e.g., ±X.X% WoW | current vs prior).
     - Example: **Total Revenue - Location: Manteno**: Revenue impact in Manteno aligns with the sharp drop in miles. -95.3% WoW | $10.1K vs $214.2K
     - *Note*: Extract the statistics part (e.g., "-95.3% WoW | $10.1K vs $214.2K") from the 'metric_description' field.
 6.  **Tone**: Professional, crisp, and analytical.
