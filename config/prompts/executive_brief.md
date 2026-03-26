@@ -20,7 +20,7 @@ You are synthesizing {metric_count} metric analyses for {analysis_period} as a *
     "sections": [
       {"title": "Executive Summary", "content": "2-3 sentences", "insights": []},
       {"title": "Key Findings", "content": "1 intro sentence", "insights": [
-        {"title": "5-8 words", "details": "2-4 sentences: explain the finding, its likely cause, business impact ('so what'), and a clear implication or next step, with ≥{min_insight_values} numeric values."}
+        {"title": "5-8 words", "details": "2-4 sentences: explain the finding, its likely cause, and a clear implication or next step, with ≥{min_insight_values} numeric values.", "business_impact": "1-2 sentences explaining the business consequence ('so what')."}
       ]},
       {"title": "Forward Outlook", "content": "2-4 sentences: trajectory, best/worst case, indicators", "insights": []}
     ]

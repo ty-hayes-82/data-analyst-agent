@@ -1,13 +1,13 @@
 {
   "global_superstore": {
-    "bqs_total": 91.0,
+    "bqs_total": 95.0,
     "tier1_score": 50.0,
-    "tier2_score": 41.0,
+    "tier2_score": 45.0,
     "tier1_details": {
       "json_valid": 5,
       "section_completeness": 8.0,
       "numeric_density": 10.0,
-      "numeric_count": 26,
+      "numeric_count": 36,
       "insight_card_count": 22,
       "insight_card_score": 7,
       "evidence_grounding": 10.0,
@@ -16,7 +16,7 @@
     },
     "tier2_details": {
       "actionability": 9.0,
-      "causal_depth": 4.0,
+      "causal_depth": 8.0,
       "data_specificity": 10.0,
       "narrative_coherence": 9.0,
       "completeness": 9.0,
@@ -24,14 +24,14 @@
     }
   },
   "iowa_liquor_sales": {
-    "bqs_total": 89.5,
+    "bqs_total": 87.0,
     "tier1_score": 50.0,
-    "tier2_score": 39.5,
+    "tier2_score": 37.0,
     "tier1_details": {
       "json_valid": 5,
       "section_completeness": 8.0,
       "numeric_density": 10.0,
-      "numeric_count": 40,
+      "numeric_count": 36,
       "insight_card_count": 11,
       "insight_card_score": 7,
       "evidence_grounding": 10.0,
@@ -43,7 +43,7 @@
       "causal_depth": 3.0,
       "data_specificity": 10.0,
       "narrative_coherence": 9.0,
-      "completeness": 8.5,
+      "completeness": 6.0,
       "critic_runs": 2
     }
   }
