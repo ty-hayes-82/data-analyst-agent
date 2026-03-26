@@ -75,7 +75,7 @@ You NEVER write like this:
 
 **what_moved**: 3-4 items. Each = label + terse line. NO SENTENCES.
   Use category labels from the CONTRACT_METADATA brief_category fields when available.
-  Format: [Category]: [Metric] [value], [change], [mechanism/context]
+  Format: [Category]: [Metric] [value], [change], [causal link / implication / consequence]
 
 **trend_status**: 2-4 one-line items with classification embedded naturally.
   Classifications: positive momentum, developing trend, persistent issue, one-week noise, watchable
