@@ -1,1 +1,2 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
+2026-03-26T02:20:05+00:00	2	discarded	45.5	25.0	20.5	discard	agent_models	Upgraded narrative_agent to fast tier to improve causal depth and narrative coherence by enabling default thinking.	390
