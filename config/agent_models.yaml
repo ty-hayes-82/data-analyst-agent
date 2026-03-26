@@ -80,7 +80,7 @@ agents:
       by code-based ranker when USE_CODE_INSIGHTS=true)
     safe_tiers: *id001
   seasonal_baseline_agent:
-    tier: fast
+    tier: pro
     description: Creates seasonal baselines from STL decomposition
   report_synthesis_agent:
     tier: fast
