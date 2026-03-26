@@ -37,7 +37,7 @@ Return ONLY a raw JSON object based on the tool results. DO NOT include any intr
     {{
       "title": "Level <level> Variance Driver: <item>",
       "what_changed": "Variance of $<dollar> (<percent>%)",
-      "why": "Explain the primary drivers of the variance, leveraging insights from the hierarchy analysis. For PVM, clearly articulate the Price vs Volume split and its contribution.",
+      "why": "Explain the primary drivers of the variance, quantifying their specific contribution from the hierarchy analysis (e.g., 'Item X accounted for Y% of the variance'). For PVM, clearly articulate the Price vs Volume split and its precise dollar and percentage contribution.",
       "evidence": {{
         "variance_dollar": <from tool>,
         "variance_pct": <from tool>,
