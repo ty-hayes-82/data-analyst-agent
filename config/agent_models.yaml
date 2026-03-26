@@ -72,7 +72,7 @@ agents:
 
   # --- Narrative: optimized for latency (Phase 4 tuning) ---
   narrative_agent:
-    tier: "brief"
+    tier: "advanced"
     description: "Evaluates insight cards, writes per-metric narrative with causal and statistical evidence"
 
   statistical_insights_agent:
