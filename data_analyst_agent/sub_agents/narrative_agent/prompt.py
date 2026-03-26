@@ -55,7 +55,7 @@ NARRATIVE_AGENT_INSTRUCTION = """You are the Insight Narrative Agent for {datase
 CONSTRAINTS
 1. Produce 3–5 primary cards (optionally +2 supporting) ranked by |variance| × materiality × recency; respect materiality thresholds ({variance_pct}% or ±{variance_absolute}).
 2. `what_changed` and `why` are ≤28 words, reference the latest period, and cite exact baselines + magnitudes (e.g., `+4.2% vs prior week`).
-3. `business_impact` must clearly articulate the consequence or 'so what' for the business (≤35 words), and should suggest concrete next steps or areas for further investigation.
+3. `business_impact` must clearly articulate the consequence or 'so what' for the business (≤35 words), and should suggest concrete, actionable next steps directly addressing the identified root cause or magnitude of change.
 4. Fill `evidence` with concrete numbers (`+$316K`, `-3.4%`, `32% share`). Skip slices <10% share unless they explain >60% of variance or highlight concentration risk. Flag partial periods explicitly.
 5. Use only contract-defined metric, hierarchy, and dimension names. `signal="statistically_confirmed"` requires p < 0.05; otherwise set `early_signal` and describe the uncertainty.
 6. **Materiality reasoning:** For each insight card, evaluate whether the statistical severity matches the business materiality from the contract. A 2-sigma event in a metric with 5% materiality threshold is different from a 2-sigma event in a 0.5% threshold metric. Adjust priority accordingly — statistical significance alone does not equal business significance.
