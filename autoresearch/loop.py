@@ -49,7 +49,7 @@ MUTATION_TARGETS = [
         "name": "agent_models",
         "path": "config/agent_models.yaml",
         "type": "config",
-        "description": "Model tier assignments per agent. Available tiers: lite (gemini-3-flash-preview, no thinking), ultra (gemini-2.5-flash-lite), fast (gemini-3-flash, default thinking), standard (gemini-3-flash, no thinking), advanced (gemini-3-flash, high thinking budget=14000), pro (gemini-3.1-pro, high thinking), brief (gemini-3.1-flash-lite). Key agents to experiment with: narrative_agent (currently brief), report_synthesis_agent (currently fast), executive_brief_agent (currently brief), executive_brief_hybrid_curator (currently brief), executive_brief_hybrid_synthesis (currently pro). Try upgrading narrative_agent or report_synthesis_agent to fast/advanced/pro tiers to get deeper reasoning. Only change ONE agent tier per experiment.",
+        "description": "Model tier assignments per agent. Each agent has a safe_tiers list — you MUST only use tiers from that list. CRITICAL: JSON-output agents (narrative_agent, statistical_insights_agent, executive_brief_agent, executive_brief_hybrid_curator) CANNOT use thinking tiers (fast/advanced/pro) — thinking corrupts JSON output. Text-output agents (report_synthesis_agent, executive_brief_hybrid_synthesis, hierarchical_analysis_agent) CAN use thinking tiers. Key experiments: try 'standard' for narrative_agent (currently brief), try 'advanced' or 'pro' for executive_brief_hybrid_synthesis, try 'pro' for report_synthesis_agent. Only change ONE agent tier per experiment. Check the safe_tiers field for each agent before proposing a change.",
     },
     # --- Output layer (presentation) ---
     {
@@ -325,7 +325,29 @@ def apply_mutation(mutation: Dict[str, Any]) -> bool:
         )
         if result.returncode != 0:
             print(f"[loop] SYNTAX ERROR in {file_path.name}: {result.stderr.strip()[-200:]}")
-            # Revert immediately — don't commit broken code
+            file_path.write_text(mutation["original_content"], encoding="utf-8")
+            return False
+
+    # Safe tier validation for agent_models changes
+    if mutation["target"].get("name") == "agent_models" and file_path.suffix in (".yaml", ".yml"):
+        import yaml as _yaml
+        try:
+            config = _yaml.safe_load(new_content)
+            agents = config.get("agents", {})
+            tiers = config.get("model_tiers", {})
+            for agent_name, agent_cfg in agents.items():
+                tier = agent_cfg.get("tier", "")
+                safe = agent_cfg.get("safe_tiers", [])
+                if safe and tier not in safe:
+                    print(f"[loop] UNSAFE TIER: {agent_name} set to '{tier}' but safe_tiers={safe}")
+                    file_path.write_text(mutation["original_content"], encoding="utf-8")
+                    return False
+                if tier and tier not in tiers:
+                    print(f"[loop] UNKNOWN TIER: {agent_name} set to '{tier}' which is not in model_tiers")
+                    file_path.write_text(mutation["original_content"], encoding="utf-8")
+                    return False
+        except Exception as e:
+            print(f"[loop] YAML PARSE ERROR in agent_models: {e}")
             file_path.write_text(mutation["original_content"], encoding="utf-8")
             return False
 

@@ -1,6 +1,1 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
-2026-03-26T02:20:05+00:00	2	discarded	45.5	25.0	20.5	discard	agent_models	Upgraded narrative_agent to fast tier to improve causal depth and narrative coherence by enabling default thinking.	390
-2026-03-26T02:23:02+00:00	3	d8691f7	91.8	50.0	41.8	keep	planner_prompt	Enhanced reasoning for agent selection to explicitly include the specific problem or key insight, improving causal depth and actionability of the plan.	177
-2026-03-26T02:26:02+00:00	5	9141b9e	91.8	50.0	41.8	keep	hybrid_brief_pipeline	Enhanced causal depth in insight summaries by asking for the likely cause within each insight's explanation.	172
-2026-03-26T02:47:59+00:00	12	discarded	90.5	50.0	40.5	discard	brief_utils	Added explicit instruction for 'why_it_matters' to enhance causal depth and explain broader impact.	195
-2026-03-26T03:00:42+00:00	16	discarded	92.2	50.0	42.2	discard	executive_brief_base_prompt	Clarified the 'details' field to explicitly include 'for decision-makers' in the implication/next step, reinforcing actionability.	193
