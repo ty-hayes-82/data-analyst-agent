@@ -117,7 +117,7 @@ For each alert:
 **[TIME] BACK-BILLING WINDOW:** [If within 180 days, emphasize this]
 
 **Recommended Action:**
-[Reference config/action_items.yaml for specific next steps based on priority and signals. Ensure actions directly address the hypothesized root cause.]
+[Reference config/action_items.yaml for specific next steps based on priority and signals. Ensure actions directly address the hypothesized root cause. Clearly state the expected impact or benefit of the action, referencing the alert's specific variance or score.]
 
 **Root Cause Hypothesis:**
 [Based on detection signals AND available operational context, suggest 1-2 most probable root causes. Prioritize hypotheses that lead to clear, actionable investigation steps, explaining how they are supported by the detection signals and available operational context.]
