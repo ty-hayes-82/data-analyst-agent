@@ -565,7 +565,7 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         "Do not invent revenue bands, dollar outlook ranges, or scenario numbers.\n"
         "- Never mirror the same percentage across two different metrics (e.g. deadhead change in pts "
         "vs LRPM in $/mi). State the unit explicitly for each figure (pts, % WoW, $, etc.).\n"
-        "- why_it_matters: Explain the business impact and significance of the observed trends, linking them to underlying causes or potential downstream effects. Focus on the 'so what?' for the business.\n"
+        "- why_it_matters: Explain the business impact and significance of the observed trends, articulating the specific causal mechanisms or drivers and their quantified impact where possible. Focus on the 'so what?' for the business, referencing exact numbers from insights to support claims of impact.\n"
         "- next_week_outlook: qualitative or mechanism-only unless a specific number appears in the "
         "signals above; do not add best/worst-case dollar ranges.\n"
         "- leadership_focus: Each point must be a concrete, actionable recommendation, explaining its connection to a specific trend or cause identified in the insights, referencing the exact data or numbers that support it.\n"
