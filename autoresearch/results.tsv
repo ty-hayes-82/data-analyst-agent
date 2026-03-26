@@ -1,2 +1,3 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
 2026-03-26T01:04:50+00:00	0	c71f7a0	91.0	50.0	41.0	baseline	-	Initial baseline	150
+2026-03-26T02:01:49+00:00	22	discarded	89.5	50.0	39.5	discard	executive_brief_ceo_lite_prompt	Clarified that the 'but' sentence in the bottom line should also include the core causal mechanism, enhancing initial causal depth and narrative coherence for curated insights.	178

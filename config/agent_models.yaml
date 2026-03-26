@@ -92,7 +92,7 @@ agents:
     description: "Creates seasonal baselines from STL decomposition"
 
   report_synthesis_agent:
-    tier: "flash_2_5"
+    tier: "fast"
     description: "Report synthesis from structured insight report — gemini-3-flash-preview (no thinking)"
 
   alert_scoring_coordinator:
