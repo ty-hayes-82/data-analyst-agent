@@ -12,7 +12,7 @@ Output: valid JSON. First char `{`, last char `}`.
   - If weekly: say "WoW", "vs prior week", "next week"
   - If daily: say "DoD", "vs prior day", "next day"
 - EVERY number you cite must come VERBATIM from the digest. Do NOT compute your own percentages or totals.
-- If the digest includes DERIVED KPIs, cite at least 3 by name and exact value.
+- If the digest includes DERIVED KPIs, cite at least 3 by name and exact value. Additionally, ensure the 'what_moved' section highlights the 3-5 most significant metric changes, whether raw or derived.
 - If two metrics appear to contradict, you MUST explain the mechanism — do not present both without connecting them.
 - Each brief must emphasize the UNIQUE story of its metric mix. Don't default to the most dramatic single signal.
 - Use dimension and metric names from the CONTRACT_METADATA. Do NOT invent entity names or metric labels.
