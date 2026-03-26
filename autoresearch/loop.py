@@ -356,6 +356,7 @@ def log_result(
     iteration: int,
     commit: str,
     bqs_total: float,
+    tier0: float,
     tier1: float,
     tier2: float,
     status: str,
@@ -370,12 +371,12 @@ def log_result(
         if not exists:
             writer.writerow([
                 "timestamp", "iteration", "commit", "bqs_total",
-                "tier1_score", "tier2_score", "status", "mutation_target", "description", "duration_sec",
+                "tier0_score", "tier1_score", "tier2_score", "status", "mutation_target", "description", "duration_sec",
             ])
         writer.writerow([
             datetime.now(timezone.utc).isoformat(timespec="seconds"),
             iteration, commit, f"{bqs_total:.1f}",
-            f"{tier1:.1f}", f"{tier2:.1f}",
+            f"{tier0:.1f}", f"{tier1:.1f}", f"{tier2:.1f}",
             status, target, description, f"{duration:.0f}",
         ])
 
@@ -384,10 +385,10 @@ def log_result(
 # Main loop
 # ---------------------------------------------------------------------------
 
-def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
-    """Run pipeline on all eval datasets. Uses average score across datasets
-    so improvements to ANY dataset count, not just the best one."""
+def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, float, Dict]:
+    """Run pipeline on all eval datasets. Returns (avg_bqs, avg_t0, avg_t1, avg_t2, details)."""
     all_scores = []
+    all_t0 = []
     all_t1 = []
     all_t2 = []
     all_details = {}
@@ -399,18 +400,22 @@ def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
             if output_dir:
                 bqs, details = score_run(output_dir, ds)
                 all_scores.append(bqs)
+                all_t0.append(details.get("tier0_score", 0))
                 all_t1.append(details["tier1_score"])
                 all_t2.append(details["tier2_score"])
                 all_details[ds["name"]] = details
-                print(f"[loop] {ds['name']}: BQS={bqs:.1f} (T1={details['tier1_score']:.1f}, T2={details['tier2_score']:.1f})")
+                t0 = details.get("tier0_score", 0)
+                print(f"[loop] {ds['name']}: BQS={bqs:.1f} (T0={t0:.1f}, T1={details['tier1_score']:.1f}, T2={details['tier2_score']:.1f})")
             else:
                 print(f"[loop] {ds['name']}: Pipeline failed, scoring 0")
                 all_scores.append(0)
+                all_t0.append(0)
                 all_t1.append(0)
                 all_t2.append(0)
         except Exception as exc:
             print(f"[loop] {ds['name']}: Error: {exc}")
             all_scores.append(0)
+            all_t0.append(0)
             all_t1.append(0)
             all_t2.append(0)
 
@@ -418,9 +423,10 @@ def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
     weights = [ds.get("weight", 1.0) for ds in datasets]
     total_w = sum(weights[:len(all_scores)]) or 1
     avg_bqs = sum(s * w for s, w in zip(all_scores, weights)) / total_w if all_scores else 0
+    avg_t0 = sum(s * w for s, w in zip(all_t0, weights)) / total_w if all_t0 else 0
     avg_t1 = sum(s * w for s, w in zip(all_t1, weights)) / total_w if all_t1 else 0
     avg_t2 = sum(s * w for s, w in zip(all_t2, weights)) / total_w if all_t2 else 0
-    return round(avg_bqs, 1), round(avg_t1, 1), round(avg_t2, 1), all_details
+    return round(avg_bqs, 1), round(avg_t0, 1), round(avg_t1, 1), round(avg_t2, 1), all_details
 
 
 def pick_target(results: List[Dict]) -> Dict[str, Any]:
@@ -456,12 +462,12 @@ def main():
     # --- Baseline ---
     print("[loop] Running baseline...")
     start = time.time()
-    best_bqs, best_t1, best_t2, baseline_details = run_and_score_all(EVAL_DATASETS)
+    best_bqs, best_t0, best_t1, best_t2, baseline_details = run_and_score_all(EVAL_DATASETS)
     baseline_duration = time.time() - start
 
     BASELINE_PATH.write_text(json.dumps(baseline_details, indent=2), encoding="utf-8")
-    log_result(0, git_sha(), best_bqs, best_t1, best_t2, "baseline", "-", "Initial baseline", baseline_duration)
-    print(f"\n[loop] BASELINE: BQS={best_bqs:.1f} (T1={best_t1:.1f}, T2={best_t2:.1f})")
+    log_result(0, git_sha(), best_bqs, best_t0, best_t1, best_t2, "baseline", "-", "Initial baseline", baseline_duration)
+    print(f"\n[loop] BASELINE: BQS={best_bqs:.1f} (T0={best_t0:.1f}, T1={best_t1:.1f}, T2={best_t2:.1f})")
 
     estimated_cost = 0.0
     results = load_results()
@@ -508,7 +514,7 @@ def main():
         sha = git_commit(f"[autoresearch] iter {iteration}: {mutation['description']}")
 
         # 3. Run and score
-        bqs, t1, t2, details = run_and_score_all(EVAL_DATASETS)
+        bqs, t0, t1, t2, details = run_and_score_all(EVAL_DATASETS)
         duration = time.time() - start
         estimated_cost += COST_PER_EXPERIMENT
 
@@ -516,6 +522,7 @@ def main():
         if bqs >= best_bqs - 0.5:
             status = "keep"
             best_bqs = bqs
+            best_t0 = t0
             best_t1 = t1
             best_t2 = t2
             consecutive_discards = 0
@@ -530,7 +537,7 @@ def main():
         # 5. Log
         log_result(
             iteration, sha if status == "keep" else "discarded",
-            bqs, t1, t2, status, target["name"],
+            bqs, t0, t1, t2, status, target["name"],
             mutation["description"], duration,
         )
         results = load_results()
