@@ -53,7 +53,7 @@ agents:
     description: Extracts dimension values — schema-constrained slot-filling
     safe_tiers: *id001
   narrative_agent:
-    tier: standard
+    tier: brief
     description: Evaluates insight cards, writes per-metric narrative with causal
       and statistical evidence
     safe_tiers: *id001

@@ -1,3 +1,4 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
 2026-03-26T16:12:53+00:00	0	8808fda	93.7	50.0	43.6	baseline	-	Initial baseline	250
 2026-03-26T16:17:31+00:00	1	7ed397d	94.2	50.0	44.1	keep	agent_models	Upgraded 'alert_scoring_coordinator' to 'pro' for enhanced reasoning in alert management, improving actionability and causal depth.	277
+2026-03-26T16:26:43+00:00	3	discarded	92.5	49.1	43.4	discard	executive_brief_agent_prompt	Emphasized the requirement for exact numerical data in the business impact section for improved data specificity.	284
