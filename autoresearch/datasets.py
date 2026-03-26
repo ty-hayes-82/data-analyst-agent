@@ -6,6 +6,11 @@ EVAL_DATASETS = [
         "metrics": "ttl_rev_amt,ordr_cnt,dh_miles,truck_count",
         "description": "Ops Metrics DS (Tableau): 16 base metrics + 9 derived KPIs, weekly trucking ops with geographic hierarchy (region > terminal > driver mgr). Revenue, volume, productivity, and efficiency cross-metric analysis.",
         "weight": 1.0,
+        "extra_args": [
+            "--lob", "Line Haul",
+            "--end-date", "2026-03-14",
+            "--period-type", "week_end",
+        ],
     },
 ]
 

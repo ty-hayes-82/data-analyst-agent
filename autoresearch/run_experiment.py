@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
@@ -26,13 +26,15 @@ def find_latest_output(dataset_name: str) -> Optional[str]:
     return None
 
 
-def run_pipeline(dataset_name: str, metrics: str, timeout: int = 180) -> Optional[str]:
+def run_pipeline(dataset_name: str, metrics: str, timeout: int = 180,
+                 extra_args: Optional[List[str]] = None) -> Optional[str]:
     """Run the data-analyst-agent pipeline and return the output directory path.
 
     Args:
         dataset_name: Dataset to analyze (e.g., "global_superstore")
         metrics: Comma-separated metric names (e.g., "Sales,Profit")
         timeout: Max seconds to wait for pipeline completion
+        extra_args: Additional CLI arguments (e.g., ["--lob", "Line Haul", "--end-date", "2026-03-14"])
 
     Returns:
         Path to the output directory, or None on failure.
@@ -45,6 +47,8 @@ def run_pipeline(dataset_name: str, metrics: str, timeout: int = 180) -> Optiona
         "--dataset", dataset_name,
         "--metrics", metrics,
     ]
+    if extra_args:
+        cmd.extend(extra_args)
 
     print(f"[run] Executing: {' '.join(cmd)}")
     print(f"[run] ACTIVE_DATASET={dataset_name}")
@@ -86,7 +90,7 @@ def run_pipeline(dataset_name: str, metrics: str, timeout: int = 180) -> Optiona
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python run_experiment.py <dataset_name> <metrics>")
+        print("Usage: python run_experiment.py <dataset_name> <metrics> [extra_args...]")
         sys.exit(1)
-    result = run_pipeline(sys.argv[1], sys.argv[2])
+    result = run_pipeline(sys.argv[1], sys.argv[2], extra_args=sys.argv[3:] or None)
     print(f"Output: {result}")

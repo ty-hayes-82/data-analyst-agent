@@ -395,7 +395,7 @@ def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
     for ds in datasets:
         print(f"\n[loop] Running pipeline: {ds['name']} / {ds['metrics']}")
         try:
-            output_dir = run_pipeline(ds["name"], ds["metrics"])
+            output_dir = run_pipeline(ds["name"], ds["metrics"], extra_args=ds.get("extra_args"))
             if output_dir:
                 bqs, details = score_run(output_dir, ds)
                 all_scores.append(bqs)
