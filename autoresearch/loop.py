@@ -44,6 +44,13 @@ COST_PER_EXPERIMENT = 0.09  # estimated
 # ---------------------------------------------------------------------------
 
 MUTATION_TARGETS = [
+    # --- Model selection layer (highest priority — test different models) ---
+    {
+        "name": "agent_models",
+        "path": "config/agent_models.yaml",
+        "type": "config",
+        "description": "Model tier assignments per agent. Available tiers: lite (gemini-3-flash-preview, no thinking), ultra (gemini-2.5-flash-lite), fast (gemini-3-flash, default thinking), standard (gemini-3-flash, no thinking), advanced (gemini-3-flash, high thinking budget=14000), pro (gemini-3.1-pro, high thinking), brief (gemini-3.1-flash-lite). Key agents to experiment with: narrative_agent (currently brief), report_synthesis_agent (currently fast), executive_brief_agent (currently brief), executive_brief_hybrid_curator (currently brief), executive_brief_hybrid_synthesis (currently pro). Try upgrading narrative_agent or report_synthesis_agent to fast/advanced/pro tiers to get deeper reasoning. Only change ONE agent tier per experiment.",
+    },
     # --- Output layer (presentation) ---
     {
         "name": "executive_brief_ceo_prompt",
@@ -137,13 +144,6 @@ MUTATION_TARGETS = [
         "path": "config/prompts/executive_brief_ceo_lite.md",
         "type": "prompt",
         "description": "CEO Lite prompt — the Pass1 curation prompt that filters and ranks insights before the final synthesis. Controls which signals survive to the final brief.",
-    },
-    # --- Model selection layer ---
-    {
-        "name": "agent_models",
-        "path": "config/agent_models.yaml",
-        "type": "config",
-        "description": "Model tier assignments per agent. Available tiers: lite (gemini-3-flash-preview, no thinking), ultra (gemini-2.5-flash-lite), fast (gemini-3-flash, default thinking), standard (gemini-3-flash, no thinking), advanced (gemini-3-flash, high thinking), pro (gemini-3.1-pro, high thinking), brief (gemini-3.1-flash-lite). Key agents: narrative_agent, report_synthesis_agent, executive_brief_agent, executive_brief_hybrid_synthesis (currently pro). Try upgrading key agents to higher tiers or enabling thinking.",
     },
 ]
 
@@ -428,7 +428,7 @@ def pick_target(results: List[Dict]) -> Dict[str, Any]:
     Prompt targets get weight 3 (safer, higher leverage).
     Code targets get weight 1 (riskier, can break syntax).
     """
-    type_weights = {"prompt": 3, "config": 2, "code": 1}
+    type_weights = {"prompt": 2, "config": 5, "code": 1}
     weights = [type_weights.get(t.get("type", "code"), 1) for t in MUTATION_TARGETS]
     return random.choices(MUTATION_TARGETS, weights=weights, k=1)[0]
 
