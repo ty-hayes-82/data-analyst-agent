@@ -1137,7 +1137,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         digest = _apply_unit_to_text(digest, presentation_unit)
 
-        # --- Derived KPIs: compute from hierarchy totals and append to digest ---
+        # --- Network totals + Derived KPIs: extract from hierarchy L0 and append to digest ---
         try:
             from .kpi_calculator import compute_derived_kpis, format_kpis_block
             current_totals: dict[str, float] = {}
@@ -1163,6 +1163,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     current_totals[metric_key] = float(curr)
                 if pri is not None:
                     prior_totals[metric_key] = float(pri)
+
+            # Prepend network totals summary so the brief LLM has exact numbers to cite
+            if current_totals:
+                totals_lines = ["=== NETWORK TOTALS (current period) ==="]
+                for mk, cv in sorted(current_totals.items()):
+                    pv = prior_totals.get(mk)
+                    if pv and pv != 0:
+                        var_pct = (cv - pv) / abs(pv) * 100
+                        totals_lines.append(f"  {mk}: {cv:,.0f} (prior: {pv:,.0f}, {var_pct:+.1f}%)")
+                    else:
+                        totals_lines.append(f"  {mk}: {cv:,.0f}")
+                digest = "\n".join(totals_lines) + "\n\n" + digest
+                print(f"[BRIEF] Prepended network totals for {len(current_totals)} metrics")
             if current_totals:
                 grain = ctx.session.state.get("temporal_grain", "monthly")
                 # Compute actual days from period end date for accurate per-day KPIs
