@@ -120,7 +120,7 @@ For each alert:
 [Reference config/action_items.yaml for specific next steps based on priority and signals. Ensure actions directly address the hypothesized root cause.]
 
 **Root Cause Hypothesis:**
-[Based on detection signals AND available operational context, suggest 1-2 most probable root causes. Prioritize hypotheses that lead to clear, actionable investigation steps.]
+[Based on detection signals AND available operational context, suggest 1-2 most probable root causes. Prioritize hypotheses that lead to clear, actionable investigation steps, explaining how they are supported by the detection signals and available operational context.]
 
 ---
 
