@@ -77,7 +77,7 @@ You NEVER write like this:
   Use category labels from the CONTRACT_METADATA brief_category fields when available.
   Format: [Category]: [Metric] [value], [change], [causal link / implication / consequence]
 
-**trend_status**: 2-4 one-line items with classification embedded naturally.
+**trend_status**: 2-4 one-line items with classification embedded naturally. Each item must explain the underlying mechanism or implication.
   Classifications: positive momentum, developing trend, persistent issue, one-week noise, watchable
 
 **where_it_came_from**: exactly 1 positive, 1 drag, 1 watch item. Format: "[Entity] — reason"
