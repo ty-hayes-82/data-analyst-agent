@@ -1,2 +1,3 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
 2026-03-26T14:44:03+00:00	0	cffe90e	94.0	50.0	44.0	baseline	-	Initial baseline	294
+2026-03-26T14:52:47+00:00	2	discarded	93.0	50.0	43.0	discard	executive_brief_ceo_prompt	Added a rule to ensure coverage of significant raw metrics from the digest, beyond just derived KPIs, to improve completeness.	270

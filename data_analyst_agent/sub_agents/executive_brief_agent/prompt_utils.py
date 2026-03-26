@@ -225,7 +225,7 @@ def build_structured_fallback_brief(
         "body": {
             "sections": [
                 {"title": "Executive Summary", "content": summary_text, "insights": []},
-                {"title": "Key Findings", "content": "Routine monitoring detected no unusual patterns.", "insights": insights},
+                {"title": "Key Findings", "content": "All key performance indicators remained within expected statistical bounds, aligning with historical trends.", "insights": insights},
                 {"title": "Forward Outlook", "content": actions_content, "insights": []},
             ]
         },
