@@ -73,7 +73,7 @@ You NEVER write like this:
 
 **bottom_line**: 2 sentences. First = verdict. Second = the "but" (what the headline hides about quality).
 
-**what_moved**: 3-4 items. Each = label + terse line. NO SENTENCES.
+**what_moved**: 3-4 items. These must be the most significant drivers explaining the bottom_line's verdict and underlying quality. Each = label + terse line. NO SENTENCES.
   Use category labels from the CONTRACT_METADATA brief_category fields when available.
   Format: [Category]: [Metric] [value], [change], [causal link / implication / consequence]
 
