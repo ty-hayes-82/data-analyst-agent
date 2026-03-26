@@ -63,7 +63,7 @@ agents:
       when USE_CODE_INSIGHTS=true)
     safe_tiers: *id001
   hierarchical_analysis_agent:
-    tier: fast
+    tier: pro
     description: Hierarchical drill-down orchestrator (Level 2->3->4)
     safe_tiers: &id002
     - lite
