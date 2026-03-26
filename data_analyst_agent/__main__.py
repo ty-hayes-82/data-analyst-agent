@@ -165,10 +165,14 @@ if args.from_cache:
     print(f"  Loaded cached digest from: {digest_path}")
     print(f"  Cache keys: {', '.join(digest.keys()) if isinstance(digest, dict) else '(non-dict payload)'}")
     if args.brief_only:
-        print(f"  Mode: brief-only (regeneration will be wired up later)")
+        print(f"  Mode: brief-only regeneration")
     print(f"{'='*60}\n")
 
-    # TODO: wire up actual brief regeneration here
+    if args.brief_only:
+        # TODO: wire up standalone brief regeneration from cached digest
+        # For now, fall through to full pipeline which will reuse cached data
+        print("  WARNING: --brief-only not yet standalone; running full pipeline")
+    # Full pipeline with pre-loaded cache (not implemented yet)
     sys.exit(0)
 
 

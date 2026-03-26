@@ -49,68 +49,79 @@ MUTATION_TARGETS = [
         "name": "agent_models",
         "path": "config/agent_models.yaml",
         "type": "config",
+        "brief_only": False,
         "description": "Model tier assignments per agent. Each agent has a safe_tiers list — you MUST only use tiers from that list. CRITICAL: JSON-output agents (narrative_agent, statistical_insights_agent, executive_brief_agent, executive_brief_hybrid_curator) CANNOT use thinking tiers (fast/advanced/pro) — thinking corrupts JSON output. Text-output agents (report_synthesis_agent, executive_brief_hybrid_synthesis, hierarchical_analysis_agent) CAN use thinking tiers. Key experiments: try 'standard' for narrative_agent (currently brief), try 'advanced' or 'pro' for executive_brief_hybrid_synthesis, try 'pro' for report_synthesis_agent. Only change ONE agent tier per experiment. Check the safe_tiers field for each agent before proposing a change.",
     },
-    # --- Output layer (presentation) ---
+    # --- Output layer (presentation) — brief_only: reuse cached analysis ---
     {
         "name": "executive_brief_ceo_prompt",
         "path": "config/prompts/executive_brief_ceo.md",
         "type": "prompt",
+        "brief_only": True,
         "description": "CEO executive brief generation prompt — controls final brief structure, voice, and formatting",
     },
     {
         "name": "report_synthesis_prompt",
         "path": "config/prompts/report_synthesis.md",
         "type": "prompt",
+        "brief_only": True,
         "description": "Report synthesis prompt — assembles all analysis results into a structured executive markdown",
     },
     {
         "name": "narrative_prompt",
         "path": "data_analyst_agent/sub_agents/narrative_agent/prompt.py",
         "type": "prompt",
+        "brief_only": False,
         "description": "Narrative agent instruction — generates semantic insight cards from hierarchy/stats results",
     },
     {
         "name": "executive_brief_base_prompt",
         "path": "config/prompts/executive_brief.md",
         "type": "prompt",
+        "brief_only": True,
         "description": "Base executive brief prompt template — non-CEO style brief generation",
     },
-    # --- Analysis layer (deeper quality) ---
+    # --- Analysis layer (deeper quality) — full pipeline required ---
     {
         "name": "statistical_insights_prompt",
         "path": "data_analyst_agent/sub_agents/statistical_insights_agent/prompt.py",
         "type": "prompt",
+        "brief_only": False,
         "description": "Statistical insights agent — controls what statistical patterns are detected (variance, trends, outliers, rolling averages)",
     },
     {
         "name": "hierarchy_variance_prompt",
         "path": "data_analyst_agent/sub_agents/hierarchy_variance_agent/prompt.py",
         "type": "prompt",
+        "brief_only": False,
         "description": "Hierarchy variance agent — controls drill-down logic, entity ranking, concentration analysis, and variance decomposition",
     },
     {
         "name": "alert_scoring_prompt",
         "path": "data_analyst_agent/sub_agents/alert_scoring_agent/prompt.py",
         "type": "prompt",
+        "brief_only": False,
         "description": "Alert scoring agent — controls anomaly detection sensitivity, threshold scoring, and severity classification",
     },
     {
         "name": "planner_prompt",
         "path": "data_analyst_agent/sub_agents/planner_agent/prompt.py",
         "type": "prompt",
+        "brief_only": False,
         "description": "Planner agent — determines which analysis agents run and in what order based on data characteristics",
     },
     {
         "name": "report_synthesis_agent_prompt",
         "path": "data_analyst_agent/sub_agents/report_synthesis_agent/prompt.py",
         "type": "prompt",
+        "brief_only": True,
         "description": "Report synthesis agent prompt.py — the agent-level synthesis prompt (separate from config .md)",
     },
     {
         "name": "executive_brief_agent_prompt",
         "path": "data_analyst_agent/sub_agents/executive_brief_agent/prompt.py",
         "type": "prompt",
+        "brief_only": True,
         "description": "Executive brief agent prompt.py — controls brief generation logic, scoped briefs, and hybrid pipeline behavior",
     },
     # --- Code targets REMOVED — every code mutation in logs either crashed T1 or was discarded.
@@ -119,6 +130,7 @@ MUTATION_TARGETS = [
         "name": "executive_brief_ceo_lite_prompt",
         "path": "config/prompts/executive_brief_ceo_lite.md",
         "type": "prompt",
+        "brief_only": True,
         "description": "CEO Lite prompt — the Pass1 curation prompt that filters and ranks insights before the final synthesis. Controls which signals survive to the final brief.",
     },
 ]
