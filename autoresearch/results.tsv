@@ -1,4 +1,1 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
-2026-03-26T00:52:33+00:00	0	8d5b86c	90.2	50.0	40.2	baseline	-	Initial baseline	150
-2026-03-26T00:55:08+00:00	1	12f593b	91.0	50.0	41.0	keep	planner_prompt	Enhanced reasoning instruction to explicitly link agent selection to user request, data contract, or data profile, improving causal depth and data specificity.	156
-2026-03-26T01:01:14+00:00	3	discarded	93.0	50.0	43.0	discard	report_synthesis_agent_prompt	Enhanced narrative coherence by explicitly instructing the agent to weave insights into a cohesive story within the analysis sections.	166

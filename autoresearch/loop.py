@@ -138,6 +138,13 @@ MUTATION_TARGETS = [
         "type": "prompt",
         "description": "CEO Lite prompt — the Pass1 curation prompt that filters and ranks insights before the final synthesis. Controls which signals survive to the final brief.",
     },
+    # --- Model selection layer ---
+    {
+        "name": "agent_models",
+        "path": "config/agent_models.yaml",
+        "type": "config",
+        "description": "Model tier assignments per agent. Available tiers: lite (gemini-3-flash-preview, no thinking), ultra (gemini-2.5-flash-lite), fast (gemini-3-flash, default thinking), standard (gemini-3-flash, no thinking), advanced (gemini-3-flash, high thinking), pro (gemini-3.1-pro, high thinking), brief (gemini-3.1-flash-lite). Key agents: narrative_agent, report_synthesis_agent, executive_brief_agent, executive_brief_hybrid_synthesis (currently pro). Try upgrading key agents to higher tiers or enabling thinking.",
+    },
 ]
 
 
@@ -421,7 +428,8 @@ def pick_target(results: List[Dict]) -> Dict[str, Any]:
     Prompt targets get weight 3 (safer, higher leverage).
     Code targets get weight 1 (riskier, can break syntax).
     """
-    weights = [3 if t.get("type") == "prompt" else 1 for t in MUTATION_TARGETS]
+    type_weights = {"prompt": 3, "config": 2, "code": 1}
+    weights = [type_weights.get(t.get("type", "code"), 1) for t in MUTATION_TARGETS]
     return random.choices(MUTATION_TARGETS, weights=weights, k=1)[0]
 
 
