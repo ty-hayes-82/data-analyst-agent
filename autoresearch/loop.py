@@ -533,8 +533,8 @@ def main():
         duration = time.time() - start
         estimated_cost += COST_PER_EXPERIMENT
 
-        # 4. Keep or discard (>= allows ties — equal quality with different approach may unlock next step)
-        if bqs >= best_bqs:
+        # 4. Keep or discard (margin of -1.0 allows near-ties to be kept — reduces noise impact)
+        if bqs >= best_bqs - 1.0:
             status = "keep"
             best_bqs = bqs
             best_t1 = t1

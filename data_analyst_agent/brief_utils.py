@@ -282,33 +282,66 @@ class SignalRanker:
                                    entity=item, z_score=z)
 
     def extract_cross_metric(self):
-        """Compute cross-metric signals from L0 totals."""
-        totals = BriefUtils.get_network_totals(self.metrics)
-        
-        # Yield vs Volume
-        rev = totals.get("ttl_rev_xf_sr_amt")
-        miles = totals.get("total_miles_rpt")
-        if rev and miles:
-            rev_pct = rev["var_pct"]
-            miles_pct = miles["var_pct"]
-            gap = rev_pct - miles_pct
-            if abs(gap) > 1.0:
-                score = abs(gap) * 0.05
-                if rev_pct < miles_pct:
-                    detail = f"Yield compressing: Revenue {rev_pct:+.1f}% vs Miles {miles_pct:+.1f}% (gap {gap:+.1f}pts)"
-                else:
-                    detail = f"Yield improving: Revenue {rev_pct:+.1f}% vs Miles {miles_pct:+.1f}% (gap {gap:+.1f}pts)"
-                self.add_signal(score, "Yield", "Yield vs Volume", detail, "cross_metric", "cross_metric")
+        """Compute cross-metric signals from L0 totals — generic, contract-driven.
 
-        # Deadhead vs Miles
-        dh = totals.get("deadhead_pct")
-        if dh:
-            dh_var = dh["var_pct"] # This is usually point change for a percentage metric
-            if abs(dh_var) > 0.5:
-                score = abs(dh_var) * 0.2
-                direction = "deteriorating" if dh_var > 0 else "improving"
-                detail = f"Network efficiency {direction}: Deadhead {dh_var:+.2f}pts WoW"
-                self.add_signal(score, "Efficiency", "DH trend", detail, "deadhead_pct", "cross_metric")
+        Detects three patterns across any combination of metrics:
+        1. Divergence: metric A up, metric B down (e.g., sales up but profit down)
+        2. Rate mismatch: both move same direction but at very different rates
+        """
+        totals = BriefUtils.get_network_totals(self.metrics)
+        if not totals:
+            return
+
+        # Collect all metrics with valid variance data
+        metric_vars = []
+        for name, data in totals.items():
+            if isinstance(data, dict) and "var_pct" in data and data["var_pct"] is not None:
+                try:
+                    var_pct = float(data["var_pct"])
+                    display = data.get("display_name", name)
+                    metric_vars.append({"name": name, "display": display, "var_pct": var_pct})
+                except (ValueError, TypeError):
+                    continue
+
+        if len(metric_vars) < 2:
+            return
+
+        # Check all pairs for divergence and rate mismatch
+        for i in range(len(metric_vars)):
+            for j in range(i + 1, len(metric_vars)):
+                a = metric_vars[i]
+                b = metric_vars[j]
+                a_pct = a["var_pct"]
+                b_pct = b["var_pct"]
+
+                # Pattern 1: Divergence (opposite directions, both material)
+                if a_pct * b_pct < 0 and abs(a_pct) > 2.0 and abs(b_pct) > 2.0:
+                    gap = abs(a_pct - b_pct)
+                    score = min(gap * 0.03, 1.0)
+                    up_metric = a if a_pct > 0 else b
+                    down_metric = b if a_pct > 0 else a
+                    detail = (
+                        f"Divergence: {up_metric['display']} {up_metric['var_pct']:+.1f}% "
+                        f"vs {down_metric['display']} {down_metric['var_pct']:+.1f}% "
+                        f"(gap {gap:.1f}pts) — {up_metric['display']} growth may be low-quality"
+                    )
+                    self.add_signal(score, "Cross-Metric", f"{a['display']} vs {b['display']}",
+                                   detail, "cross_metric", "cross_metric")
+
+                # Pattern 2: Rate mismatch (same direction, different magnitudes)
+                elif a_pct * b_pct > 0 and abs(a_pct) > 3.0 and abs(b_pct) > 3.0:
+                    ratio = max(abs(a_pct), abs(b_pct)) / max(min(abs(a_pct), abs(b_pct)), 0.1)
+                    if ratio > 2.0:
+                        score = min((ratio - 2.0) * 0.1, 0.8)
+                        faster = a if abs(a_pct) > abs(b_pct) else b
+                        slower = b if abs(a_pct) > abs(b_pct) else a
+                        detail = (
+                            f"Rate mismatch: {faster['display']} moving {abs(faster['var_pct']):.1f}% "
+                            f"vs {slower['display']} {abs(slower['var_pct']):.1f}% "
+                            f"({ratio:.1f}x faster) — investigate mix shift or pricing change"
+                        )
+                        self.add_signal(score, "Cross-Metric", f"{a['display']} rate gap",
+                                       detail, "cross_metric", "cross_metric")
 
     def cluster_by_entity(self):
         """Group L2 cards by entity across metrics."""

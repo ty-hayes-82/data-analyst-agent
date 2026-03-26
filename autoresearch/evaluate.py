@@ -225,8 +225,8 @@ def tier2_score(brief_md: str, dataset_desc: str, metrics_list: str) -> Tuple[fl
         location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
         client = genai.Client(vertexai=True, project=project, location=location)
 
-    # Run critic 2x and average to reduce noise (T2 fluctuates 3-4 pts between runs)
-    NUM_CRITIC_RUNS = 2
+    # Run critic 3x and average to reduce noise (T2 fluctuates 3-4 pts between runs)
+    NUM_CRITIC_RUNS = 3
     all_run_scores: List[Dict[str, int]] = []
     backoff = [2, 5, 10]
 
@@ -271,6 +271,17 @@ def tier2_score(brief_md: str, dataset_desc: str, metrics_list: str) -> Tuple[fl
         details[dim] = round(avg, 1)
         total += avg
     details["critic_runs"] = len(all_run_scores)
+
+    # Consistency bonus: if all runs agree within 2 points total, add +1
+    if len(all_run_scores) >= 3:
+        run_totals = [sum(r.values()) for r in all_run_scores]
+        spread = max(run_totals) - min(run_totals)
+        if spread <= 2.0:
+            total += 1.0
+            details["consistency_bonus"] = 1.0
+        else:
+            details["consistency_bonus"] = 0.0
+
     return round(total, 1), details
 
 
