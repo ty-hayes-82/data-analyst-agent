@@ -69,6 +69,52 @@ def _infer_total_label(contract):
     return 'Total'
 
 
+
+def _enrich_with_supporting_metrics(primary_metrics, contract, max_supporting=2):
+    """Auto-select supporting metrics from contract for cross-metric analysis."""
+    contract_metrics = getattr(contract, "metrics", None) or []
+    if not contract_metrics or len(contract_metrics) <= len(primary_metrics):
+        return primary_metrics
+
+    primary_set = {m.lower().replace(" ", "_") for m in primary_metrics}
+
+    by_category = {}
+    for m in contract_metrics:
+        name = getattr(m, "name", "") or ""
+        tags = getattr(m, "tags", []) or []
+        cat = tags[0] if tags else None
+        mtype = getattr(m, "type", "additive")
+        if name.lower().replace(" ", "_") not in primary_set and mtype == "additive":
+            by_category.setdefault(cat or "other", []).append(name)
+
+    primary_categories = set()
+    for m in contract_metrics:
+        name = getattr(m, "name", "") or ""
+        if name.lower().replace(" ", "_") in primary_set:
+            tags = getattr(m, "tags", []) or []
+            cat = tags[0] if tags else None
+            primary_categories.add(cat or "other")
+
+    supporting = []
+    for cat, names in by_category.items():
+        if cat not in primary_categories and names:
+            supporting.append(names[0])
+            if len(supporting) >= max_supporting:
+                break
+
+    if not supporting:
+        for cat, names in by_category.items():
+            for name in names:
+                if name.lower().replace(" ", "_") not in primary_set:
+                    supporting.append(name)
+                    if len(supporting) >= max_supporting:
+                        break
+            if len(supporting) >= max_supporting:
+                break
+
+    return list(primary_metrics) + supporting if supporting else primary_metrics
+
+
 class CLIParameterInjector(BaseAgent):
     """Injects CLI-provided parameters into session state.
     
@@ -191,6 +237,14 @@ class CLIParameterInjector(BaseAgent):
         # Focus directives (persist in session state for planner + narrative + brief)
         state_delta["analysis_focus"] = analysis_focus
         state_delta["custom_focus"] = custom_focus
+
+        # --- Auto-enrich with supporting metrics from contract ---
+        if metrics and contract:
+            enriched = _enrich_with_supporting_metrics(metrics, contract)
+            if enriched != metrics:
+                added = [m for m in enriched if m not in metrics]
+                print(f"[CLIParameterInjector] Auto-enriched with supporting metrics: {added}")
+                metrics = enriched
 
         if metrics:
             state_delta["extracted_targets_raw"] = _json.dumps(metrics)

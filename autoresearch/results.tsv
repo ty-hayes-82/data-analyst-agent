@@ -1,3 +1,1 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
-2026-03-26T13:55:08+00:00	0	0b17495	84.5	43.5	41.0	baseline	-	Initial baseline	202
-2026-03-26T14:03:40+00:00	2	discarded	90.0	50.0	40.0	discard	alert_scoring_prompt	Enhanced causal depth by requiring a clear chain of reasoning from detection signals to the hypothesized root cause.	255

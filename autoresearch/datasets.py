@@ -9,8 +9,8 @@ EVAL_DATASETS = [
     },
     {
         "name": "iowa_liquor_sales",
-        "metrics": "sale_dollars,sale_bottles",
-        "description": "Iowa liquor: 50K rows, County > City > Store hierarchy, Revenue + Volume enables price/mix analysis",
+        "metrics": "sale_dollars",
+        "description": "Iowa liquor: 50K rows, County > City > Store hierarchy. Auto-enrichment adds supporting metrics from contract.",
         "weight": 1.0,
     },
 ]
