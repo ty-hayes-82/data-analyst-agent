@@ -2,6 +2,16 @@
 
 EVAL_DATASETS = [
     {
+        "name": "ops_metrics_ds",
+        "metrics": "ttl_rev_amt,ordr_cnt,dh_miles,truck_count",
+        "description": "Ops Metrics DS (Tableau): 16 base metrics + 9 derived KPIs, weekly trucking ops with geographic hierarchy (region > terminal > driver mgr). Revenue, volume, productivity, and efficiency cross-metric analysis.",
+        "weight": 1.0,
+    },
+]
+
+# Kept for reference — re-enable for multi-dataset runs
+CSV_EVAL_DATASETS = [
+    {
         "name": "global_superstore",
         "metrics": "Sales,Profit",
         "description": "Global retail: 51K rows, 4 years, Market > Region > Country hierarchy, Sales + Profit enables margin analysis",
@@ -12,12 +22,6 @@ EVAL_DATASETS = [
         "metrics": "sale_dollars",
         "description": "Iowa liquor: 50K rows, County > City > Store hierarchy. Auto-enrichment adds supporting metrics from contract.",
         "weight": 1.0,
-    },
-    {
-        "name": "ops_metrics_ds",
-        "metrics": "ttl_rev_amt,ordr_cnt,dh_miles,truck_count",
-        "description": "Ops Metrics DS (Tableau): 16 base metrics + 9 derived KPIs, weekly trucking ops with geographic hierarchy (region > terminal > driver mgr). Revenue, volume, productivity, and efficiency cross-metric analysis.",
-        "weight": 1.5,
     },
 ]
 
