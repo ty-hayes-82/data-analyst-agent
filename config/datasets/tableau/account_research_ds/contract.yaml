@@ -1,0 +1,101 @@
+name: account_research_ds
+version: 1.0.0
+display_name: Account Research DS
+target_label: Metric
+description: >
+  General ledger journal entry data for financial account analysis: 10.4M transaction records
+  across 3 years (2023-2025) with transaction amounts by GL account, division, LOB, and cost center.
+  Enables revenue/expense variance analysis at the account level by terminal and line of business.
+materiality:
+  variance_pct: 5
+  variance_absolute: 50000
+presentation:
+  unit: USD
+reporting:
+  max_drill_depth: 3
+  executive_brief_drill_levels: 2
+  max_scope_entities: 20
+  output_format: pdf
+data_source:
+  type: tableau_hyper
+  file: data/tableau/Account Research DS.tdsx
+  table: Extract.Extract
+time:
+  column: period_date
+  frequency: monthly
+  format: "%Y-%m-%d"
+  range_months: 24
+grain:
+  columns:
+  - period_date
+  - gl_div_nm
+  - ops_ln_of_bus_ref_nm
+  - Account Nbr
+metrics:
+- name: txfamt
+  column: TXFAMT
+  display_name: Transaction Amount
+  brief_category: Financial
+  brief_label: Transaction Amount
+  type: additive
+  format: currency
+  optimization: neutral
+  description: GL journal entry transaction amount (positive = expense, negative = revenue)
+- name: txn_count
+  column: cnt
+  display_name: Transaction Count
+  brief_category: Volume
+  brief_label: Transactions
+  type: additive
+  format: float
+  optimization: neutral
+  description: Count of GL transactions
+dimensions:
+- name: gl_div_nm
+  column: gl_div_nm
+  display_name: Division
+  role: primary
+  description: GL division name (terminal)
+- name: ops_ln_of_bus_ref_nm
+  column: ops_ln_of_bus_ref_nm
+  display_name: LOB
+  role: primary
+  description: Operations line of business reference name
+- name: ops_ln_of_bus_nm
+  column: ops_ln_of_bus_nm
+  display_name: Operations LOB
+  role: secondary
+  description: Operations line of business name
+- name: account_nbr
+  column: Account Nbr
+  display_name: Account Number
+  role: primary
+  description: GL account number
+- name: account_description
+  column: Accout Description
+  display_name: Account Description
+  role: primary
+  description: GL account description
+- name: thsrc
+  column: THSRC
+  display_name: Source
+  role: secondary
+  description: Transaction source code
+- name: cmpny
+  column: CMPNY
+  display_name: Company
+  role: secondary
+  description: Company code
+hierarchies:
+- name: geographic
+  display_name: Division Hierarchy
+  levels:
+  - ops_ln_of_bus_ref_nm
+  - gl_div_nm
+  description: LOB to Division
+- name: account
+  display_name: Account Hierarchy
+  levels:
+  - ops_ln_of_bus_ref_nm
+  - Account Nbr
+  description: LOB to Account

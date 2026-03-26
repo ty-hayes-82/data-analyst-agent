@@ -26,7 +26,7 @@ def find_latest_output(dataset_name: str) -> Optional[str]:
     return None
 
 
-def run_pipeline(dataset_name: str, metrics: str, timeout: int = 300) -> Optional[str]:
+def run_pipeline(dataset_name: str, metrics: str, timeout: int = 600) -> Optional[str]:
     """Run the data-analyst-agent pipeline and return the output directory path.
 
     Args:

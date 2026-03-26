@@ -414,9 +414,12 @@ def run_and_score_all(datasets: List[Dict]) -> Tuple[float, float, float, Dict]:
             all_t1.append(0)
             all_t2.append(0)
 
-    avg_bqs = sum(all_scores) / len(all_scores) if all_scores else 0
-    avg_t1 = sum(all_t1) / len(all_t1) if all_t1 else 0
-    avg_t2 = sum(all_t2) / len(all_t2) if all_t2 else 0
+    # Weighted average (default weight=1.0 if not specified)
+    weights = [ds.get("weight", 1.0) for ds in datasets]
+    total_w = sum(weights[:len(all_scores)]) or 1
+    avg_bqs = sum(s * w for s, w in zip(all_scores, weights)) / total_w if all_scores else 0
+    avg_t1 = sum(s * w for s, w in zip(all_t1, weights)) / total_w if all_t1 else 0
+    avg_t2 = sum(s * w for s, w in zip(all_t2, weights)) / total_w if all_t2 else 0
     return round(avg_bqs, 1), round(avg_t1, 1), round(avg_t2, 1), all_details
 
 

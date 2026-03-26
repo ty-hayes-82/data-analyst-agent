@@ -1,0 +1,60 @@
+source:
+  type: tableau_hyper
+  format: long
+
+hyper:
+  tdsx_file: "Account Research DS.tdsx"
+  tdsx_path: "data/tableau"
+  default_table: "Extract.Extract"
+  extract_dir: "data/tableau/extracted/account_research_ds"
+
+filter_columns:
+  division: "gl_div_nm"
+  lob: "ops_ln_of_bus_ref_nm"
+  account: "Account Nbr"
+  source: "THSRC"
+
+# Account Research DS uses THYEAR + THMNTH instead of a date column.
+# We synthesize a period_date from these in pre_processing.
+pre_processing:
+  synthesize_date:
+    year_column: "THYEAR"
+    month_column: "THMNTH"
+    output_column: "period_date"
+    day: 1
+
+aggregation:
+  period_type: month
+  date_column: "period_date"
+  period_alias: "period_date"
+  group_by_columns:
+    - "gl_div_nm"
+    - "ops_ln_of_bus_ref_nm"
+    - "ops_ln_of_bus_nm"
+    - "Account Nbr"
+    - "Accout Description"
+    - "THSRC"
+    - "CMPNY"
+  sum_columns:
+    - "TXFAMT"
+  count_columns:
+    - column: "*"
+      alias: "cnt"
+
+date_parsing:
+  source_column: "period_date"
+  input_format: "%Y-%m-%d"
+  output_column: "period_date"
+  output_format: "%Y-%m-%d"
+
+output_columns:
+  - "period_date"
+  - "gl_div_nm"
+  - "ops_ln_of_bus_ref_nm"
+  - "ops_ln_of_bus_nm"
+  - "Account Nbr"
+  - "Accout Description"
+  - "THSRC"
+  - "CMPNY"
+  - "TXFAMT"
+  - "cnt"
