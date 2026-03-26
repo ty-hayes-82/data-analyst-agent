@@ -147,6 +147,9 @@ class SignalRanker:
         self.extract_trends()
         self.extract_anomalies()
         self.extract_cross_metric()
+        self.extract_temporal_benchmarks()
+        self.extract_concentration_risk()
+        self.extract_price_volume_decomposition()
         self.cluster_by_entity()
         return self.get_ranked_signals()
 
@@ -342,6 +345,155 @@ class SignalRanker:
                         )
                         self.add_signal(score, "Cross-Metric", f"{a['display']} rate gap",
                                        detail, "cross_metric", "cross_metric")
+
+
+    def extract_temporal_benchmarks(self):
+        """Add temporal context: 'worst since X', 'above N-period average'."""
+        for m, payload in self.metrics.items():
+            stats = _dict_or_empty(payload.get("statistical_summary"))
+            summary = _dict_or_empty(stats.get("summary_stats"))
+            totals = BriefUtils.get_network_totals({m: payload})
+            m_total = totals.get(m, {})
+            current = m_total.get("current", 0)
+            var_pct = m_total.get("var_pct", 0)
+
+            # Check if current is near historical extremes
+            highest = summary.get("highest_total_period", {})
+            lowest = summary.get("lowest_total_period", {})
+
+            if highest and current and highest.get("total"):
+                pct_of_high = current / highest["total"] * 100
+                if pct_of_high >= 90:
+                    detail = f"{m} at {pct_of_high:.0f}% of all-time high ({highest.get('period', '?')})"
+                    self.add_signal(0.3, "Temporal", f"{m} near high", detail, m, "temporal_benchmark")
+
+            if lowest and current and lowest.get("total") and lowest["total"] > 0:
+                pct_of_low = current / lowest["total"] * 100
+                if pct_of_low <= 150:
+                    detail = f"{m} within 50% of all-time low ({lowest.get('period', '?')})"
+                    self.add_signal(0.4, "Temporal", f"{m} near low", detail, m, "temporal_benchmark")
+
+            # Check vs top driver averages (rolling context)
+            top_drivers = stats.get("top_drivers", [])
+            if top_drivers and isinstance(top_drivers, list):
+                for driver in top_drivers[:3]:
+                    avg = driver.get("avg", 0)
+                    item = driver.get("item_name", driver.get("item", ""))
+                    slope = driver.get("slope_3mo", 0)
+                    if avg and item and slope:
+                        if abs(slope) > avg * 0.1:  # slope > 10% of average = meaningful trend
+                            direction = "accelerating" if slope > 0 else "decelerating"
+                            detail = f"{item} {m} is {direction} (3-mo slope {slope:+.1f} vs avg {avg:.1f})"
+                            self.add_signal(0.25, "Trend Momentum", f"{item} {direction}", detail, m, "temporal_benchmark")
+
+    def extract_concentration_risk(self):
+        """Flag when a few entities dominate total volume — concentration risk."""
+        for m, payload in self.metrics.items():
+            ha = _dict_or_empty(payload.get("hierarchical_analysis"))
+            for level_key in ["level_1", "level_2"]:
+                level = _dict_or_empty(ha.get(level_key))
+                cards = level.get("insight_cards", [])
+                if not cards or len(cards) < 3:
+                    continue
+
+                # Calculate concentration from share_current
+                shares = []
+                for card in cards:
+                    ev = card.get("evidence", {}) if isinstance(card.get("evidence"), dict) else {}
+                    share = ev.get("share_current") or ev.get("share_of_total")
+                    entity = ev.get("entity", card.get("title", ""))
+                    if share is not None:
+                        shares.append((entity, float(share)))
+
+                if len(shares) < 3:
+                    continue
+
+                shares.sort(key=lambda x: x[1], reverse=True)
+                top3_share = sum(s[1] for s in shares[:3])
+                total_entities = len(shares)
+
+                if top3_share > 0.60:  # top 3 entities > 60% of total
+                    top3_names = ", ".join(s[0] for s in shares[:3])
+                    detail = (
+                        f"Concentration risk in {m} ({level_key}): top 3 of {total_entities} entities "
+                        f"({top3_names}) account for {top3_share*100:.0f}% of total"
+                    )
+                    score = min((top3_share - 0.60) * 2, 0.8)
+                    self.add_signal(score, "Concentration", f"{m} {level_key} concentrated",
+                                   detail, m, "concentration_risk")
+
+    def extract_price_volume_decomposition(self):
+        """When revenue + volume metrics exist, decompose variance into price vs volume effects."""
+        totals = BriefUtils.get_network_totals(self.metrics)
+        if len(totals) < 2:
+            return
+
+        # Find revenue-like and volume-like metrics by name heuristics
+        revenue_metrics = {}
+        volume_metrics = {}
+        for name, data in totals.items():
+            lower = name.lower()
+            if any(kw in lower for kw in ["rev", "dollar", "sales", "amount", "price", "cost"]):
+                revenue_metrics[name] = data
+            elif any(kw in lower for kw in ["count", "volume", "quantity", "bottles", "units", "orders", "miles", "liters", "gallons"]):
+                volume_metrics[name] = data
+
+        if not revenue_metrics or not volume_metrics:
+            return
+
+        # For each revenue-volume pair, decompose
+        for rev_name, rev_data in revenue_metrics.items():
+            for vol_name, vol_data in volume_metrics.items():
+                rev_pct = rev_data.get("var_pct", 0)
+                vol_pct = vol_data.get("var_pct", 0)
+
+                if rev_pct is None or vol_pct is None:
+                    continue
+
+                rev_pct = float(rev_pct)
+                vol_pct = float(vol_pct)
+
+                # Price effect = revenue change - volume change (approximate)
+                price_effect = rev_pct - vol_pct
+
+                if abs(price_effect) < 1.0:
+                    # Revenue and volume moving together = no price effect
+                    continue
+
+                if abs(rev_pct) < 2.0 and abs(vol_pct) < 2.0:
+                    # Both too small to decompose meaningfully
+                    continue
+
+                score = min(abs(price_effect) * 0.03, 0.8)
+
+                if price_effect > 0 and vol_pct >= 0:
+                    detail = (
+                        f"Price/yield improvement: {rev_name} {rev_pct:+.1f}% vs {vol_name} {vol_pct:+.1f}% "
+                        f"(+{price_effect:.1f}pts price effect) — getting more per unit"
+                    )
+                    category = "Price Improvement"
+                elif price_effect < 0 and vol_pct >= 0:
+                    detail = (
+                        f"Price/yield compression: {rev_name} {rev_pct:+.1f}% vs {vol_name} {vol_pct:+.1f}% "
+                        f"({price_effect:+.1f}pts price effect) — moving volume at lower rates"
+                    )
+                    category = "Price Compression"
+                elif price_effect > 0 and vol_pct < 0:
+                    detail = (
+                        f"Volume decline offset by pricing: {vol_name} {vol_pct:+.1f}% but {rev_name} {rev_pct:+.1f}% "
+                        f"(+{price_effect:.1f}pts price effect) — fewer units at higher prices"
+                    )
+                    category = "Mix Shift"
+                else:
+                    detail = (
+                        f"Double compression: {rev_name} {rev_pct:+.1f}% and {vol_name} {vol_pct:+.1f}% "
+                        f"({price_effect:+.1f}pts price effect) — losing both volume and pricing power"
+                    )
+                    category = "Double Compression"
+                    score = min(score * 1.5, 1.0)  # extra severity
+
+                self.add_signal(score, category, f"{rev_name} vs {vol_name} decomposition",
+                               detail, "cross_metric", "price_volume_decomp")
 
     def cluster_by_entity(self):
         """Group L2 cards by entity across metrics."""
