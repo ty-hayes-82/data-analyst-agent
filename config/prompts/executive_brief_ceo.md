@@ -87,7 +87,7 @@ You NEVER write like this:
 
 **outlook**: 1-2 sentences. Conditional. Use the correct period label from temporal grain.
 
-**leadership_focus**: exactly 3 items. Imperative verb first. Under 12 words. These must be DECISIONS, not analysis.
+**leadership_focus**: exactly 3 items. Imperative verb first. Under 12 words. These must be DECISIONS, not analysis, and directly address a key mechanism or trend identified above.
   BAD: "Investigate root causes of decline" / "Monitor trends"
   GOOD: "Halt [concessions] on [entity] immediately" / "Renegotiate [contract] within 30 days or exit"
 
