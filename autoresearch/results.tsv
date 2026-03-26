@@ -1,1 +1,2 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
+2026-03-26T16:12:53+00:00	0	8808fda	93.7	50.0	43.6	baseline	-	Initial baseline	250

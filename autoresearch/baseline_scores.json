@@ -1,13 +1,14 @@
 {
   "global_superstore": {
-    "bqs_total": 95.0,
+    "bqs_total": 96.0,
     "tier1_score": 50.0,
-    "tier2_score": 45.0,
+    "tier2_score": 46.0,
     "tier1_details": {
       "json_valid": 5,
+      "json_format": "hybrid",
       "section_completeness": 8.0,
       "numeric_density": 10.0,
-      "numeric_count": 40,
+      "numeric_count": 42,
       "insight_card_count": 44,
       "insight_card_score": 7,
       "evidence_grounding": 10.0,
@@ -16,23 +17,24 @@
     },
     "tier2_details": {
       "actionability": 9.0,
-      "causal_depth": 8.0,
-      "data_specificity": 9.7,
+      "causal_depth": 9.0,
+      "data_specificity": 10.0,
       "narrative_coherence": 9.0,
-      "completeness": 8.3,
+      "completeness": 8.0,
       "critic_runs": 3,
       "consistency_bonus": 1.0
     }
   },
   "iowa_liquor_sales": {
-    "bqs_total": 93.0,
+    "bqs_total": 91.3,
     "tier1_score": 50.0,
-    "tier2_score": 43.0,
+    "tier2_score": 41.3,
     "tier1_details": {
       "json_valid": 5,
+      "json_format": "hybrid",
       "section_completeness": 8.0,
       "numeric_density": 10.0,
-      "numeric_count": 42,
+      "numeric_count": 38,
       "insight_card_count": 33,
       "insight_card_score": 7,
       "evidence_grounding": 10.0,
@@ -41,10 +43,10 @@
     },
     "tier2_details": {
       "actionability": 9.0,
-      "causal_depth": 6.0,
+      "causal_depth": 4.0,
       "data_specificity": 10.0,
       "narrative_coherence": 9.0,
-      "completeness": 8.0,
+      "completeness": 8.3,
       "critic_runs": 3,
       "consistency_bonus": 1.0
     }

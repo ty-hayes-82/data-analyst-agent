@@ -88,7 +88,7 @@ agents:
       (no thinking)
     safe_tiers: *id002
   alert_scoring_coordinator:
-    tier: advanced
+    tier: pro
     description: Complete alert lifecycle manager (extraction, suppression, scoring,
       prioritization)
     safe_tiers: *id002
