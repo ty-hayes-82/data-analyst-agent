@@ -121,7 +121,7 @@ def get_ceo_section_contract(temporal_grain: str = "weekly") -> list:
     return [
         {"title": "What moved the business", "mode": "insights"},
         {"title": "Trend status", "mode": "insights"},
-        {"title": "Where it came from", "mode": "insights"},
+        {"title": "Root Causes and Contributing Factors", "mode": "insights"},
         {"title": "Why it matters: Business Impact and Key Data", "mode": "content"},
         {"title": outlook_title, "mode": "content"},
         {"title": "Leadership focus and Actionable Recommendations", "mode": "insights"},
