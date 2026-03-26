@@ -1,1 +1,2 @@
 timestamp	iteration	commit	bqs_total	tier1_score	tier2_score	status	mutation_target	description	duration_sec
+2026-03-26T14:25:16+00:00	3	discarded	78.5	37.0	41.5	discard	brief_prompt_utils	Enhanced the default 'Operations stable' insight in the fallback brief to include a causal explanation for stability, improving causal depth and narrative coherence.	171
