@@ -11,8 +11,8 @@ hyper:
 filter_columns:
   region: "gl_rgn_nm"
   division: "gl_div_nm"
-  lob: "ops_ln_of_bus_ref_nm"
-  lob_detail: "ops_ln_of_bus_nm"
+  lob: "ops_ln_of_bus_nm"
+  lob_ref: "ops_ln_of_bus_ref_nm"
   cost_center: "icc_cst_ctr_cd"
   date: "cal_dt"
 
