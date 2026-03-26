@@ -1,13 +1,38 @@
 {
   "global_superstore": {
-    "bqs_total": 95.0,
+    "bqs_total": 78.0,
+    "tier1_score": 37.0,
+    "tier2_score": 41.0,
+    "tier1_details": {
+      "json_valid": 0,
+      "section_completeness": 0.0,
+      "numeric_density": 10.0,
+      "numeric_count": 28,
+      "insight_card_count": 22,
+      "insight_card_score": 7,
+      "evidence_grounding": 10.0,
+      "contract_compliance": 5.0,
+      "no_stub": 5
+    },
+    "tier2_details": {
+      "actionability": 8.3,
+      "causal_depth": 7.3,
+      "data_specificity": 9.7,
+      "narrative_coherence": 9.0,
+      "completeness": 6.7,
+      "critic_runs": 3,
+      "consistency_bonus": 0.0
+    }
+  },
+  "iowa_liquor_sales": {
+    "bqs_total": 91.0,
     "tier1_score": 50.0,
-    "tier2_score": 45.0,
+    "tier2_score": 41.0,
     "tier1_details": {
       "json_valid": 5,
       "section_completeness": 8.0,
       "numeric_density": 10.0,
-      "numeric_count": 36,
+      "numeric_count": 37,
       "insight_card_count": 22,
       "insight_card_score": 7,
       "evidence_grounding": 10.0,
@@ -16,35 +41,12 @@
     },
     "tier2_details": {
       "actionability": 9.0,
-      "causal_depth": 8.0,
+      "causal_depth": 4.0,
       "data_specificity": 10.0,
       "narrative_coherence": 9.0,
-      "completeness": 9.0,
-      "critic_runs": 2
-    }
-  },
-  "iowa_liquor_sales": {
-    "bqs_total": 87.0,
-    "tier1_score": 50.0,
-    "tier2_score": 37.0,
-    "tier1_details": {
-      "json_valid": 5,
-      "section_completeness": 8.0,
-      "numeric_density": 10.0,
-      "numeric_count": 36,
-      "insight_card_count": 11,
-      "insight_card_score": 7,
-      "evidence_grounding": 10.0,
-      "contract_compliance": 5.0,
-      "no_stub": 5
-    },
-    "tier2_details": {
-      "actionability": 9.0,
-      "causal_depth": 3.0,
-      "data_specificity": 10.0,
-      "narrative_coherence": 9.0,
-      "completeness": 6.0,
-      "critic_runs": 2
+      "completeness": 8.0,
+      "critic_runs": 3,
+      "consistency_bonus": 1.0
     }
   }
 }

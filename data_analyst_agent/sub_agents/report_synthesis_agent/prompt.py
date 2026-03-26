@@ -90,7 +90,7 @@ def build_report_instruction(contract=None) -> str:
                     f"\n## {level_label} Breakdown\n"
                     f"For each {level_label} in the drill-down:\n"
                     f"- **[{level_label} Name]**: Key metrics (state exact numbers and percentages), contribution to overall performance.\n"
-                    f"- **Analysis**: Explain the *causes* behind notable changes or performance, and their *business impact*.\n"
+                    f"- **Analysis**: Explain the *causes* behind notable changes or performance, their *business impact*, and **concrete recommendations** for improvement or action.\n"
                     f"- Rank by impact (biggest movers first).\n"
                 )
 
