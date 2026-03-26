@@ -79,20 +79,49 @@ def tier1_score(brief_json: Dict[str, Any], brief_md: str, metric_jsons: List[Di
     details: Dict[str, Any] = {}
     score = 0.0
 
-    # 1. JSON validity (5 pts)
+    # 1. JSON validity (5 pts) — recognize all brief output formats
     hybrid = brief_json.get("hybrid_pass2_flat") or brief_json.get("hybrid_pipeline_output")
+    has_sections = bool(brief_json.get("sections"))
+    has_header_body = bool(brief_json.get("header") and brief_json.get("body"))
     if hybrid and isinstance(hybrid, dict):
         details["json_valid"] = 5
+        details["json_format"] = "hybrid"
         score += 5
-    elif brief_json.get("sections"):
+    elif has_sections:
+        details["json_valid"] = 5
+        details["json_format"] = "sections"
+        score += 5
+    elif has_header_body:
+        details["json_valid"] = 5
+        details["json_format"] = "header_body"
+        score += 5
+    elif brief_json:
         details["json_valid"] = 3
+        details["json_format"] = "unknown"
         score += 3
     else:
         details["json_valid"] = 0
+        details["json_format"] = "missing"
 
-    # 2. Section completeness (8 pts)
+    # 2. Section completeness (8 pts) — check across all formats
     if hybrid:
         present = sum(1 for s in REQUIRED_SECTIONS if s in hybrid)
+        section_score = round(8 * present / len(REQUIRED_SECTIONS), 1)
+    elif has_header_body:
+        # header/body format: check if brief_md contains the required section headers
+        md_lower = brief_md.lower()
+        section_keywords = {
+            "bottom_line": ["bottom line", "**bottom line"],
+            "what_moved": ["what moved", "## what moved"],
+            "trend_status": ["trend", "## trend"],
+            "where_it_came_from": ["where it came from", "where from", "## where"],
+            "why_it_matters": ["why it matters", "## why"],
+            "leadership_focus": ["leadership", "## leadership"],
+        }
+        present = 0
+        for section, keywords in section_keywords.items():
+            if any(kw in md_lower for kw in keywords):
+                present += 1
         section_score = round(8 * present / len(REQUIRED_SECTIONS), 1)
     else:
         sections = brief_json.get("sections", [])

@@ -113,32 +113,8 @@ MUTATION_TARGETS = [
         "type": "prompt",
         "description": "Executive brief agent prompt.py — controls brief generation logic, scoped briefs, and hybrid pipeline behavior",
     },
-    # --- Data packaging layer (what gets sent to the LLM) ---
-    {
-        "name": "brief_utils",
-        "path": "data_analyst_agent/brief_utils.py",
-        "type": "code",
-        "description": "Digest builder — constructs the data package (insight cards, stats, hierarchy results) sent to the brief LLM. Controls what data is included, how it is ranked, filtered, and formatted before the LLM sees it.",
-    },
-    {
-        "name": "hybrid_brief_pipeline",
-        "path": "data_analyst_agent/sub_agents/executive_brief_agent/hybrid_brief_pipeline.py",
-        "type": "code",
-        "description": "Hybrid CEO brief pipeline — Pass0 code-based ranking of signals, Pass1 Flash-Lite curation, Pass2 Pro synthesis. Controls which insights survive ranking and how they are packaged for the final LLM call.",
-    },
-    {
-        "name": "brief_prompt_utils",
-        "path": "data_analyst_agent/sub_agents/executive_brief_agent/prompt_utils.py",
-        "type": "code",
-        "description": "Prompt construction utilities — builds the actual LLM prompt payload from digest data, contract metadata, and temporal context. Controls token budget, field selection, and data formatting.",
-    },
-    # --- Insight generation layer (what insights get created) ---
-    {
-        "name": "hierarchy_insight_cards",
-        "path": "data_analyst_agent/sub_agents/hierarchical_analysis_agent/cross_dimension.py",
-        "type": "code",
-        "description": "Cross-dimension analysis step — generates insight cards comparing entities across hierarchy levels, identifying concentration risk and relative performance.",
-    },
+    # --- Code targets REMOVED — every code mutation in logs either crashed T1 or was discarded.
+    # Code changes require manual implementation, not LLM find/replace. ---
     {
         "name": "executive_brief_ceo_lite_prompt",
         "path": "config/prompts/executive_brief_ceo_lite.md",
@@ -533,8 +509,8 @@ def main():
         duration = time.time() - start
         estimated_cost += COST_PER_EXPERIMENT
 
-        # 4. Keep or discard (margin of -1.0 allows near-ties to be kept — reduces noise impact)
-        if bqs >= best_bqs - 1.0:
+        # 4. Keep or discard (margin of -0.5 allows near-ties without score drift)
+        if bqs >= best_bqs - 0.5:
             status = "keep"
             best_bqs = bqs
             best_t1 = t1
