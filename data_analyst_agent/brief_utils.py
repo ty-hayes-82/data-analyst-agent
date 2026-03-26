@@ -567,6 +567,7 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         "vs LRPM in $/mi). State the unit explicitly for each figure (pts, % WoW, $, etc.).\n"
         "- next_week_outlook: qualitative or mechanism-only unless a specific number appears in the "
         "signals above; do not add best/worst-case dollar ranges.\n"
+        "- leadership_focus: Each point must be a concrete, actionable recommendation, explaining its connection to a specific trend or cause identified in the insights.\n"
     )
 
     schema = types.Schema(type=types.Type.OBJECT, properties={
