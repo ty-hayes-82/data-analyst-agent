@@ -37,7 +37,7 @@ def load_prompt_variant(name: str) -> str:
 SCOPED_BRIEF_PREAMBLE = """
 
 SCOPE RESTRICTION: This brief covers the {scope_level_name} scope: **{scope_entity}** only.
-All insights, numbers, and entities mentioned must be specific to the {scope_entity} {scope_level_name}.
+All insights, numbers, and entities mentioned must be specific to the {scope_entity} {scope_level_name}. Where applicable, include exact numerical values, percentages, and units.
 Do NOT reference entities from other {scope_level_name}s unless explicitly comparing against the network total."""
 
 
