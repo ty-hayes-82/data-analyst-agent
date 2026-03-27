@@ -825,14 +825,23 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
     user_msg = (
         f"ANALYSIS PERIOD: {period}. All variances are WoW.\n"
         f"WEEKLY THESIS: {thesis}\n\n"
-        "NETWORK TOTALS:\n"
     )
+
+    # Only show raw totals for analyzed metrics that DON'T have a derived KPI equivalent
+    kpi_names = {s.get("title", "").lower() for s in signals if s.get("source") == "derived_kpi_signal"}
+    raw_totals_shown = 0
     for m, d in totals.items():
         label = _display.get(m, m)
+        # Skip if there's already a KPI signal for this metric (avoids duplicate/conflicting numbers)
+        if label.lower() in kpi_names or m.lower() in kpi_names:
+            continue
+        if raw_totals_shown == 0:
+            user_msg += "ANALYZED METRICS:\n"
         cur_fmt = format_brief_current_value(d.get("current"))
         user_msg += (
             f"- {label}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
         )
+        raw_totals_shown += 1
     
     # Separate KPI signals from other insights and list them prominently
     kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal"]
