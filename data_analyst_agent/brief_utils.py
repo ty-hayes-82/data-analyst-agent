@@ -231,6 +231,10 @@ class SignalRanker:
             self.add_signal(
                 0.8, "KPI", f"{display}", detail,
                 "derived_kpi", "derived_kpi_signal",
+                current_value=curr_val,
+                prior_value=prior_val,
+                var_pct=round(change, 1) if change is not None else None,
+                entity="Network",
             )
 
     def add_signal(self, score: float, category: str, title: str, detail: str, metric: str, source: str, **kwargs):
