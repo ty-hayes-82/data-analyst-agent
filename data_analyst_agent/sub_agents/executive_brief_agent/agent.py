@@ -1206,35 +1206,9 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             except Exception as supp_err:
                 print(f"[BRIEF] WARNING: Failed to supplement base metric totals: {supp_err}")
 
-            # Prepend network totals summary — only analyzed metrics (not all supplemented ones)
-            analyzed_metrics = set((json_data or {}).keys())
-            if current_totals and analyzed_metrics:
-                # Build display name lookup from contract metrics
-                display_names: dict[str, str] = {}
-                if contract:
-                    for m in (getattr(contract, "metrics", None) or []):
-                        mname = getattr(m, "name", "") or ""
-                        dname = getattr(m, "brief_label", "") or getattr(m, "display_name", "") or mname
-                        if mname:
-                            display_names[mname] = dname
-
-                totals_lines = [
-                    "=== NETWORK TOTALS (current period) ===",
-                    "IMPORTANT: Cite these absolute values in your brief.",
-                ]
-                for mk in sorted(analyzed_metrics):
-                    cv = current_totals.get(mk)
-                    if cv is None:
-                        continue
-                    label = display_names.get(mk, mk)
-                    pv = prior_totals.get(mk)
-                    if pv and pv != 0:
-                        var_pct = (cv - pv) / abs(pv) * 100
-                        totals_lines.append(f"  {label}: {cv:,.0f} ({var_pct:+.1f}% WoW)")
-                    else:
-                        totals_lines.append(f"  {label}: {cv:,.0f}")
-                digest = "\n".join(totals_lines) + "\n\n" + digest
-                print(f"[BRIEF] Prepended network totals for {len(analyzed_metrics)} analyzed metrics")
+            # Network totals block is now built AFTER derived KPIs are computed
+            # so we can show derived values (Truck Count avg, Rev/Trk/Day, etc.)
+            # instead of raw additive sums that confuse the LLM.
             if current_totals:
                 grain = ctx.session.state.get("temporal_grain", "monthly")
                 # Compute actual days from period end date for accurate per-day KPIs
@@ -1254,19 +1228,16 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
                 kpis = compute_derived_kpis_from_contract(contract, current_totals, prior_totals, days_in_period=days)
                 if kpis:
-                    # Merge derived KPIs into the NETWORK TOTALS block (top of digest)
-                    # so the LLM sees them as first-class metrics to cite
-                    kpi_lines = ["\n--- KEY PERFORMANCE INDICATORS ---"]
+                    # Build a single clean KEY METRICS block at the top of digest
+                    # This replaces both NETWORK TOTALS and DERIVED KPIs sections
+                    header_lines = [
+                        "=== KEY METRICS (current period) ===",
+                        "IMPORTANT: Your brief MUST cite these values. Use the exact numbers below.",
+                    ]
                     for kpi in kpis:
-                        kpi_lines.append(f"  {format_kpi_for_brief(kpi)}")
-                    kpi_insert = "\n".join(kpi_lines) + "\n"
-                    # Insert after the NETWORK TOTALS block (before the first === section)
-                    first_section = digest.find("\n===", 10)
-                    if first_section > 0:
-                        digest = digest[:first_section] + kpi_insert + digest[first_section:]
-                    else:
-                        digest = digest + kpi_insert
-                    print(f"[BRIEF] Merged {len(kpis)} derived KPIs into network totals block")
+                        header_lines.append(f"  {format_kpi_for_brief(kpi)}")
+                    digest = "\n".join(header_lines) + "\n\n" + digest
+                    print(f"[BRIEF] Prepended {len(kpis)} key metrics to digest")
         except Exception as kpi_err:
             print(f"[BRIEF] WARNING: Derived KPI computation failed: {kpi_err}")
 
