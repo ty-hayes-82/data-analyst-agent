@@ -1206,31 +1206,35 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             except Exception as supp_err:
                 print(f"[BRIEF] WARNING: Failed to supplement base metric totals: {supp_err}")
 
-            # Prepend network totals summary so the brief LLM has exact numbers to cite
-            if current_totals:
+            # Prepend network totals summary — only analyzed metrics (not all supplemented ones)
+            analyzed_metrics = set((json_data or {}).keys())
+            if current_totals and analyzed_metrics:
                 # Build display name lookup from contract metrics
                 display_names: dict[str, str] = {}
                 if contract:
                     for m in (getattr(contract, "metrics", None) or []):
                         mname = getattr(m, "name", "") or ""
-                        dname = getattr(m, "display_name", "") or getattr(m, "brief_label", "") or mname
+                        dname = getattr(m, "brief_label", "") or getattr(m, "display_name", "") or mname
                         if mname:
                             display_names[mname] = dname
 
                 totals_lines = [
                     "=== NETWORK TOTALS (current period) ===",
-                    "IMPORTANT: Cite these absolute values in your brief — every metric below should appear with its number.",
+                    "IMPORTANT: Cite these absolute values in your brief.",
                 ]
-                for mk, cv in sorted(current_totals.items()):
+                for mk in sorted(analyzed_metrics):
+                    cv = current_totals.get(mk)
+                    if cv is None:
+                        continue
                     label = display_names.get(mk, mk)
                     pv = prior_totals.get(mk)
                     if pv and pv != 0:
                         var_pct = (cv - pv) / abs(pv) * 100
-                        totals_lines.append(f"  {label} ({mk}): {cv:,.0f} (prior: {pv:,.0f}, {var_pct:+.1f}%)")
+                        totals_lines.append(f"  {label}: {cv:,.0f} ({var_pct:+.1f}% WoW)")
                     else:
-                        totals_lines.append(f"  {label} ({mk}): {cv:,.0f}")
+                        totals_lines.append(f"  {label}: {cv:,.0f}")
                 digest = "\n".join(totals_lines) + "\n\n" + digest
-                print(f"[BRIEF] Prepended network totals for {len(current_totals)} metrics")
+                print(f"[BRIEF] Prepended network totals for {len(analyzed_metrics)} analyzed metrics")
             if current_totals:
                 grain = ctx.session.state.get("temporal_grain", "monthly")
                 # Compute actual days from period end date for accurate per-day KPIs
