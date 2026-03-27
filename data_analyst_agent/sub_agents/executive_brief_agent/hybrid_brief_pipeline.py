@@ -258,14 +258,18 @@ def run_hybrid_ceo_brief_sync(
             curated = signals[:max_curated]
         thesis = str(curation.get("narrative_thesis", "Mixed operational signals."))
 
-    # Re-inject KPI signals that Flash Lite may have dropped — these are mandatory
-    curated_ids = {s["id"] for s in curated}
-    kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal" and s["id"] not in curated_ids]
+    # Re-inject ALL KPI signals — even if Flash Lite "kept" them, its metric_description
+    # often hallucinates wrong values. Use original signal detail (which has correct numbers).
+    kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal"]
+    # Remove any Flash Lite versions of KPI signals from curated
+    kpi_ids = {s["id"] for s in kpi_signals}
+    curated = [s for s in curated if s["id"] not in kpi_ids]
+    # Prepend original KPI signals with correct values
+    curated = kpi_signals + curated
     if kpi_signals:
-        curated = kpi_signals + curated
-        print(f"[HYBRID] Re-injected {len(kpi_signals)} KPI signals dropped by Pass 1")
+        print(f"[HYBRID] Injected {len(kpi_signals)} KPI signals with verified values into Pass 2")
 
-    flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period)
+    flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period, contract=contract)
     if flat_brief is None:
         raise ValueError("pass2_brief returned None")
     meta["pass2_elapsed"] = flat_brief.get("_elapsed")

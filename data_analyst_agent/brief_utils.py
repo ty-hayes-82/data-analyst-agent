@@ -796,7 +796,7 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
     curation["kept"] = kept_ok
     return curation
 
-def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], thesis: str, period: str) -> Dict[str, Any]:
+def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], thesis: str, period: str, contract=None) -> Dict[str, Any]:
     """Pass 2: Synthesize final CEO or billing-auditor brief from curated signals."""
     from google.genai import types
     import time
@@ -813,15 +813,25 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
     for k in ["metric_count", "scope_preamble", "dataset_specific_append", "prompt_variant_append"]:
         system_instruction = system_instruction.replace("{" + k + "}", "")
     
+    # Build display name map from contract
+    _display = {}
+    if contract:
+        for m in (getattr(contract, "metrics", None) or []):
+            mname = getattr(m, "name", "") or ""
+            dname = getattr(m, "brief_label", "") or getattr(m, "display_name", "") or mname
+            if mname:
+                _display[mname] = dname
+
     user_msg = (
         f"ANALYSIS PERIOD: {period}. All variances are WoW.\n"
         f"WEEKLY THESIS: {thesis}\n\n"
         "NETWORK TOTALS:\n"
     )
     for m, d in totals.items():
+        label = _display.get(m, m)
         cur_fmt = format_brief_current_value(d.get("current"))
         user_msg += (
-            f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
+            f"- {label}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
         )
     
     # Separate KPI signals from other insights and list them prominently
