@@ -258,27 +258,20 @@ def run_hybrid_ceo_brief_sync(
             curated = signals[:max_curated]
         thesis = str(curation.get("narrative_thesis", "Mixed operational signals."))
 
-    # Re-inject ALL KPI signals with verified values, replacing any Flash Lite versions.
-    # Flash Lite hallucinates absolute values (e.g., TRPM $15.05 instead of $2.33).
-    kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal"]
-    kpi_ids = {s["id"] for s in kpi_signals}
-    # Remove Flash Lite versions of KPI signals
-    curated = [s for s in curated if s["id"] not in kpi_ids]
-    # Also strip hallucinated metric_description from non-KPI curated signals
-    # to prevent wrong absolute values from leaking into Pass 2 context
-    for s in curated:
-        md = s.get("metric_description", "")
-        if md:
-            # Keep only the percentage part, strip absolute values that Flash Lite may have hallucinated
-            import re as _re
-            # Remove patterns like "| $15.0 vs $15.0" or "| 1.5M mi vs 1.6M mi"
-            cleaned = _re.sub(r'\s*\|.*$', '', md).strip()
-            if cleaned != md:
-                s["metric_description"] = cleaned
-    # Prepend original KPI signals
-    curated = kpi_signals + curated
+    # Ensure KPI signals are included in curated list (they may have been dropped by Flash Lite)
+    curated_ids = {s["id"] for s in curated}
+    kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal" and s["id"] not in curated_ids]
     if kpi_signals:
-        print(f"[HYBRID] Injected {len(kpi_signals)} KPI signals with verified values into Pass 2")
+        # Build deterministic metric_description for KPI signals
+        from data_analyst_agent.brief_utils import _build_deterministic_metric_description
+        for s in kpi_signals:
+            s["metric_description"] = _build_deterministic_metric_description(s)
+            s["clean_name"] = s.get("title", "")
+            s["dimension"] = s.get("entity", "Network")
+        curated = kpi_signals + curated
+        print(f"[HYBRID] Added {len(kpi_signals)} KPI signals to curated list")
+    # Note: metric_description for ALL curated signals is now deterministic
+    # (computed in merge_pass1_kept_into_signals, not from Flash Lite)
 
     flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period, contract=contract)
     if flat_brief is None:

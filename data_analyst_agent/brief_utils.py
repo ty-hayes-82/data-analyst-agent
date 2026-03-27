@@ -615,10 +615,40 @@ class SignalRanker:
                 deduped.append(s)
         return deduped[:top_n]
 
+def _build_deterministic_metric_description(signal: Dict[str, Any]) -> str:
+    """Build metric_description from verified signal fields — no LLM involved.
+
+    This replaces Flash Lite's hallucination-prone metric_description with
+    a deterministic version computed from the signal's actual values.
+    """
+    name = signal.get("clean_name") or signal.get("title", "?")
+    dim = signal.get("dimension") or signal.get("entity", "Network")
+    var_pct = signal.get("var_pct")
+    current = signal.get("current_value")
+    prior = signal.get("prior_value")
+
+    desc = f"{name} - {dim}"
+    if var_pct is not None:
+        desc += f": {var_pct:+.1f}% WoW"
+    if current is not None and prior is not None:
+        cur_fmt = format_brief_current_value(current)
+        pri_fmt = format_brief_current_value(prior)
+        desc += f" | {cur_fmt} vs {pri_fmt}."
+    elif current is not None:
+        desc += f" | {format_brief_current_value(current)}."
+    else:
+        desc += "."
+    return desc
+
+
 def merge_pass1_kept_into_signals(
     signals: List[Dict[str, Any]], kept_rows: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
-    """Attach Pass 1 structured fields to signals, ordered by Pass 1 rank (ascending)."""
+    """Attach Pass 1 structured fields to signals, ordered by Pass 1 rank (ascending).
+
+    metric_description is computed deterministically from verified signal fields,
+    NOT from Flash Lite's output (which hallucinates absolute values).
+    """
     by_id = {s["id"]: s for s in signals}
     out: List[Dict[str, Any]] = []
     for row in sorted(kept_rows, key=lambda r: (r.get("rank") is None, r.get("rank", 999))):
@@ -628,10 +658,11 @@ def merge_pass1_kept_into_signals(
         merged = dict(by_id[sid])
         merged["one_line_why"] = row.get("one_line_why", "")
         merged["executive_category"] = row.get("category", "")
-        merged["metric_description"] = row.get("metric_description", "")
-        merged["clean_name"] = row.get("clean_name", "")
-        merged["dimension"] = row.get("dimension", "")
+        merged["clean_name"] = row.get("clean_name", merged.get("title", ""))
+        merged["dimension"] = row.get("dimension", merged.get("entity", "Network"))
         merged["pass1_rank"] = row.get("rank")
+        # Deterministic metric_description — uses signal's verified values, never Flash Lite's
+        merged["metric_description"] = _build_deterministic_metric_description(merged)
         out.append(merged)
     return out
 
@@ -706,18 +737,9 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
         + "For EACH kept signal, also output:\n"
         + "- category: "
         + _cat_desc
-        + "- metric_description: ONE line in this EXACT pattern (no extra words before/after):\n"
-        + '  \"{clean_name} - {slice}: {+/-X.X}% WoW | {current_fmt} vs {prior_fmt}.\"\n'
-        + "  - clean_name: short label (e.g. \"Deadhead %\", \"Total Revenue\", \"Total Miles\").\n"
-        + "  - slice: entity/region name ONLY (e.g. Manteno, East, Gary), or \"Network\" for network-wide or cross_metric signals.\n"
-        + "  - WoW: use var_pct from the signal with one decimal and a leading + or - (e.g. +28.7% WoW).\n"
-        + "  - current_fmt vs prior_fmt: format using current_value and prior_value when present in the signal JSON. "
-        + "Use correct units: *_pct / deadhead → one-decimal percentages (e.g. 18.2% vs 14.1%); currency metrics → $ with K/M suffixes; "
-        + "miles → compact mi. Never use $ for pure percentage metrics.\n"
-        + "  - If current_value or prior_value is missing, end after WoW only: \"{clean_name} - {slice}: {+/-X.X}% WoW.\" "
-        + "Do not invent levels.\n"
-        + "- clean_name: same short metric label as embedded in metric_description.\n"
-        + "- dimension: scope for filtering. Use \"Region: East\" / \"Location: Gary\" when sliced; \"Network\" when not sliced.\n\n"
+        + "- clean_name: short human-readable metric label (e.g. \"Deadhead %\", \"Total Revenue\", \"Total Miles\").\n"
+        + "- dimension: scope for filtering. Use \"Region: East\" / \"Location: Gary\" when sliced; \"Network\" when not sliced.\n"
+        + "Do NOT output metric_description — it will be computed deterministically.\n\n"
         + "NETWORK TOTALS (for context):\n"
     )
     for m, d in totals.items():
@@ -738,13 +760,6 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
                 type=types.Type.STRING,
                 description="Executive theme: Revenue, Efficiency, Utilization, Capacity, Yield, Cost, Network, or Other.",
             ),
-            "metric_description": types.Schema(
-                type=types.Type.STRING,
-                description=(
-                    'Format: "{clean_name} - {slice}: ±X.X% WoW | current vs prior." '
-                    "Use signal current_value/prior_value when present; else end after WoW."
-                ),
-            ),
             "clean_name": types.Schema(type=types.Type.STRING, description="Short human-readable metric name."),
             "dimension": types.Schema(
                 type=types.Type.STRING,
@@ -755,7 +770,6 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
             "rank",
             "one_line_why",
             "category",
-            "metric_description",
             "clean_name",
             "dimension",
         ])),
