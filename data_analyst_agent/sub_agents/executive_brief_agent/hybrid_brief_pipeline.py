@@ -258,13 +258,24 @@ def run_hybrid_ceo_brief_sync(
             curated = signals[:max_curated]
         thesis = str(curation.get("narrative_thesis", "Mixed operational signals."))
 
-    # Re-inject ALL KPI signals — even if Flash Lite "kept" them, its metric_description
-    # often hallucinates wrong values. Use original signal detail (which has correct numbers).
+    # Re-inject ALL KPI signals with verified values, replacing any Flash Lite versions.
+    # Flash Lite hallucinates absolute values (e.g., TRPM $15.05 instead of $2.33).
     kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal"]
-    # Remove any Flash Lite versions of KPI signals from curated
     kpi_ids = {s["id"] for s in kpi_signals}
+    # Remove Flash Lite versions of KPI signals
     curated = [s for s in curated if s["id"] not in kpi_ids]
-    # Prepend original KPI signals with correct values
+    # Also strip hallucinated metric_description from non-KPI curated signals
+    # to prevent wrong absolute values from leaking into Pass 2 context
+    for s in curated:
+        md = s.get("metric_description", "")
+        if md:
+            # Keep only the percentage part, strip absolute values that Flash Lite may have hallucinated
+            import re as _re
+            # Remove patterns like "| $15.0 vs $15.0" or "| 1.5M mi vs 1.6M mi"
+            cleaned = _re.sub(r'\s*\|.*$', '', md).strip()
+            if cleaned != md:
+                s["metric_description"] = cleaned
+    # Prepend original KPI signals
     curated = kpi_signals + curated
     if kpi_signals:
         print(f"[HYBRID] Injected {len(kpi_signals)} KPI signals with verified values into Pass 2")
