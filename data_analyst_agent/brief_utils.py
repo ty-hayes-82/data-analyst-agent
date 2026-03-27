@@ -864,6 +864,15 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         )
         raw_totals_shown += 1
     
+    # Replace raw column names with display names in all signal details
+    if _display:
+        for s in signals:
+            detail = s.get("detail", "")
+            for raw_name, display_name in _display.items():
+                if raw_name in detail:
+                    detail = detail.replace(raw_name, display_name)
+            s["detail"] = detail
+
     # Separate KPI signals from other insights and list them prominently
     kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal"]
     other_signals = [s for s in signals if s.get("source") != "derived_kpi_signal"]
@@ -872,6 +881,14 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         user_msg += "\nKEY PERFORMANCE INDICATORS (MANDATORY — cite EVERY value below in your brief):\n"
         user_msg += "WARNING: Use ONLY these exact numbers for the metrics below. Other numbers in CURATED INSIGHTS may be wrong.\n"
         for s in kpi_signals:
+            user_msg += f"- {s['detail']}\n"
+        user_msg += "\n"
+
+    # Add regional summary from L1 hierarchy signals
+    regional_signals = [s for s in other_signals if s.get("source") == "hierarchy_level_1" and s.get("entity")]
+    if regional_signals:
+        user_msg += "REGIONAL BREAKDOWN:\n"
+        for s in regional_signals:
             user_msg += f"- {s['detail']}\n"
         user_msg += "\n"
 

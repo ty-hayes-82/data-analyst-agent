@@ -128,6 +128,10 @@ def compute_derived_kpis_from_contract(
         if curr_val is None:
             continue
 
+        # Skip KPIs marked as hidden (intermediate/duplicate values)
+        if d.get("brief_hidden"):
+            continue
+
         fmt = d.get("format", "float")
         display = d.get("display_name") or d.get("brief_label") or name
         change = _pct_change(curr_val, prior_val)
@@ -202,7 +206,7 @@ def format_kpi_for_brief(kpi: dict[str, Any]) -> str:
     change = kpi.get("change_pct")
 
     if kpi["format"] == "currency":
-        val_str = f"${val:,.2f}"
+        val_str = f"${val:,.0f}" if abs(val) >= 1000 else f"${val:,.2f}"
     elif kpi["format"] == "percentage":
         val_str = f"{val:.1f}%"
     elif val < 100:

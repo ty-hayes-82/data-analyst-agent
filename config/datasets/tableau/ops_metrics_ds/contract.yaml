@@ -446,14 +446,15 @@ derived_kpis:
   display_name: Seated Truck Count
   brief_label: Seated Trucks
   brief_category: Capacity
+  brief_hidden: true
   numerator: truck_count
   subtract: unmanned_truck_count
   subtract2: inactive_truck_count
   format: float
-  description: Trucks with assigned drivers (truck_count - open - inactive)
+  description: Trucks with assigned drivers — raw period sum (hidden from brief, used for chaining)
 - name: seated_truck_count_avg
-  display_name: Seated Truck Count (Avg)
-  brief_label: Seated Trucks Avg
+  display_name: Seated Truck Count
+  brief_label: Seated Trucks
   brief_category: Capacity
   numerator: seated_truck_count
   divide_by: period_days
@@ -463,18 +464,20 @@ derived_kpis:
   display_name: Rev/Trk/Wk
   brief_label: Rev/Trk/Wk
   brief_category: Productivity
+  brief_hidden: true
   numerator: ttl_rev_xf_sr_amt
   denominator: truck_count_avg
   format: currency
-  description: Revenue xFSR per average truck per week
+  description: Revenue xFSR per average truck per week (hidden — Rev/Trk/Day is primary)
 - name: rev_seated_trk_day
   display_name: Rev/Seated Trk/Day
   brief_label: Rev/Seated Trk/Day
   brief_category: Productivity
+  brief_hidden: true
   numerator: ttl_rev_xf_sr_amt
   denominator: seated_truck_count
   format: currency
-  description: Revenue xFSR per seated truck-day
+  description: Revenue xFSR per seated truck-day (hidden — intermediate)
 - name: loaded_miles_trk_wk
   display_name: Loaded Miles/Trk/Wk
   brief_label: Loaded Mi/Trk/Wk
@@ -493,23 +496,15 @@ derived_kpis:
   format: currency
   description: Fuel surcharge revenue per total mile
 # --- Driver productivity ---
-- name: driving_hrs_active_driver_total
-  display_name: Total Driving Hrs/Active Driver
-  brief_label: Total Drive Hrs
+- name: driving_hrs_active_driver_day
+  display_name: Driving Hrs/Active Driver/Day
+  brief_label: Drive Hrs/Day
   brief_category: Workforce
   numerator: drvg_min
   denominator: actv_drvr_cnt
   divide_by: 60
   format: float
-  description: Total driving hours per active driver for the period (drvg_min / actv_drvr_cnt / 60)
-- name: driving_hrs_active_driver_day
-  display_name: Driving Hrs/Active Driver/Day
-  brief_label: Drive Hrs/Day
-  brief_category: Workforce
-  numerator: driving_hrs_active_driver_total
-  divide_by: period_days
-  format: float
-  description: Driving hours per active driver per day (chained from total / period_days)
+  description: Driving hours per active driver per day (drvg_min / actv_drvr_cnt / 60 — both are period sums so ratio is per-day)
 - name: on_duty_hrs_driver_day
   display_name: On-Duty Hrs/Driver/Day
   brief_label: On-Duty Hrs/Day
@@ -518,7 +513,7 @@ derived_kpis:
   denominator: exprncd_drvr_cnt
   divide_by: 60
   format: float
-  description: On-duty hours per driver per day — note this is total for period, divide by period_days in display
+  description: On-duty hours per driver per day (same ratio logic as driving hrs)
 # --- Turnover ---
 - name: turnover_pct
   display_name: Turnover %
@@ -526,25 +521,25 @@ derived_kpis:
   brief_category: Workforce
   numerator: trmntd_drvr_cnt
   denominator: exprncd_drvr_cnt
-  multiply: 5200
+  multiply: 36400
   format: percentage
-  description: Annualized turnover percentage (terminated / total * 52 * 100)
+  description: Annualized turnover (trmntd / (exprncd/period_days) * 52 * 100 = trmntd/exprncd * 36400 for weekly)
 # --- Safety ---
 - name: cpmm
   display_name: CPMM
   brief_label: CPMM
   brief_category: Safety
   numerator: ocrnce_cnt
-  denominator: total_miles_rpt
+  denominator: ttl_trf_mi
   multiply: 1000000
   format: float
-  description: Crashes per million miles
+  description: Crashes per million miles (uses ttl_trf_mi to match dashboard)
 - name: dot_cpmm
   display_name: DOT CPMM
   brief_label: DOT CPMM
   brief_category: Safety
   numerator: dot_ocrnce_cnt
-  denominator: total_miles_rpt
+  denominator: ttl_trf_mi
   multiply: 1000000
   format: float
   description: DOT-reportable crashes per million miles
