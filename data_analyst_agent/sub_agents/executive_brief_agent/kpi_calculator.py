@@ -42,8 +42,10 @@ def _eval_kpi_value(
     days_in_period at runtime (7 for weekly, ~30 for monthly).
     """
     numerator_name = kpi_def.get("numerator", "")
-    num_val = totals.get(numerator_name, 0)
-    if not num_val and num_val != 0:
+    if numerator_name not in totals:
+        return None
+    num_val = totals[numerator_name]
+    if num_val is None:
         return None
 
     result = float(num_val)
@@ -51,26 +53,31 @@ def _eval_kpi_value(
     # Subtract shape: numerator - subtract - subtract2
     subtract_name = kpi_def.get("subtract")
     if subtract_name:
-        sub_val = totals.get(subtract_name, 0)
-        result = result - float(sub_val)
+        if subtract_name not in totals:
+            return None
+        result = result - float(totals[subtract_name])
     subtract2_name = kpi_def.get("subtract2")
     if subtract2_name:
-        sub2_val = totals.get(subtract2_name, 0)
-        result = result - float(sub2_val)
+        if subtract2_name not in totals:
+            return None
+        result = result - float(totals[subtract2_name])
 
     # Add shape: numerator + add
     add_name = kpi_def.get("add")
     if add_name:
-        add_val = totals.get(add_name, 0)
-        result = result + float(add_val)
+        if add_name not in totals:
+            return None
+        result = result + float(totals[add_name])
 
     # Denominator shape: result / denominator
     denom_name = kpi_def.get("denominator")
     if denom_name:
-        denom_val = totals.get(denom_name, 0)
-        if not denom_val or denom_val == 0:
+        if denom_name not in totals:
             return None
-        result = result / float(denom_val)
+        denom_val = float(totals[denom_name])
+        if denom_val == 0:
+            return None
+        result = result / denom_val
 
     # Divide_by shape: result / constant (supports 'period_days' token)
     divide_by = kpi_def.get("divide_by")
