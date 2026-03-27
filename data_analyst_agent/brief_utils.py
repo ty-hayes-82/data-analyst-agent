@@ -227,9 +227,9 @@ class SignalRanker:
             change_str = f" ({change:+.1f}% WoW)" if change is not None else ""
             detail = f"{display}: {val_str}{change_str}"
 
-            # High score (0.6) ensures KPIs appear near top of Pass 0 rankings
+            # Score 0.8 ensures KPIs rank above most hierarchy/trend signals (which max ~0.6)
             self.add_signal(
-                0.6, "KPI", f"{display}", detail,
+                0.8, "KPI", f"{display}", detail,
                 "derived_kpi", "derived_kpi_signal",
             )
 
