@@ -1166,14 +1166,27 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
             # Prepend network totals summary so the brief LLM has exact numbers to cite
             if current_totals:
-                totals_lines = ["=== NETWORK TOTALS (current period) ==="]
+                # Build display name lookup from contract metrics
+                display_names: dict[str, str] = {}
+                if contract:
+                    for m in (getattr(contract, "metrics", None) or []):
+                        mname = getattr(m, "name", "") or ""
+                        dname = getattr(m, "display_name", "") or getattr(m, "brief_label", "") or mname
+                        if mname:
+                            display_names[mname] = dname
+
+                totals_lines = [
+                    "=== NETWORK TOTALS (current period) ===",
+                    "IMPORTANT: Cite these absolute values in your brief — every metric below should appear with its number.",
+                ]
                 for mk, cv in sorted(current_totals.items()):
+                    label = display_names.get(mk, mk)
                     pv = prior_totals.get(mk)
                     if pv and pv != 0:
                         var_pct = (cv - pv) / abs(pv) * 100
-                        totals_lines.append(f"  {mk}: {cv:,.0f} (prior: {pv:,.0f}, {var_pct:+.1f}%)")
+                        totals_lines.append(f"  {label} ({mk}): {cv:,.0f} (prior: {pv:,.0f}, {var_pct:+.1f}%)")
                     else:
-                        totals_lines.append(f"  {mk}: {cv:,.0f}")
+                        totals_lines.append(f"  {label} ({mk}): {cv:,.0f}")
                 digest = "\n".join(totals_lines) + "\n\n" + digest
                 print(f"[BRIEF] Prepended network totals for {len(current_totals)} metrics")
             if current_totals:
