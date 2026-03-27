@@ -131,12 +131,17 @@ def tier0_score(brief_md: str, dataset_name: str) -> Tuple[float, Dict[str, Any]
     network = gt.get("network", {})
     regions = gt.get("regions", {})
 
+    # Use key_metrics if defined — otherwise fall back to all network metrics
+    key_metrics = gt.get("key_metrics")
+
     # --- Network-level accuracy (10 pts) ---
     # Check key network numbers appear in brief
     network_checks = {}
     checked = 0
     found = 0
-    for key, expected in network.items():
+    check_keys = key_metrics if key_metrics else list(network.keys())
+    for key in check_keys:
+        expected = network.get(key)
         if expected is None:
             continue
         checked += 1
@@ -164,7 +169,7 @@ def tier0_score(brief_md: str, dataset_name: str) -> Tuple[float, Dict[str, Any]
         if region_name.lower() not in brief_md.lower():
             continue
         # Check key values for mentioned regions
-        for key in ("ttl_rev_amt", "truck_count", "rev_trk_day"):
+        for key in ("ttl_rev_amt", "truck_count", "rev_trk_day", "Revenue xFuel", "Truck Count", "Rev/Trk/Day"):
             expected = region_data.get(key)
             if expected is None:
                 continue
