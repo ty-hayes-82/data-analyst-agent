@@ -297,12 +297,28 @@ def run_hybrid_ceo_brief_sync(
         if is_billing_auditor_style()
         else f"{grain_label} Performance Overview"
     )
+    # Build deterministic KPI rows from the KPI signals (computed in Python, not LLM)
+    kpi_rows = []
+    for s in signals:
+        if s.get("source") == "derived_kpi_signal" and s.get("current_value") is not None:
+            kpi_rows.append({
+                "name": s.get("title", ""),
+                "display_name": s.get("title", ""),
+                "value": s.get("current_value"),
+                "prior_value": s.get("prior_value"),
+                "change_pct": s.get("var_pct"),
+                "format": "currency" if "$" in s.get("detail", "") else (
+                    "percentage" if "%" in s.get("title", "") else "float"
+                ),
+            })
+
     md = render_flat_ceo_brief_markdown(
         flat_brief,
         heading=md_heading,
         analysis_period=analysis_period,
         outlook_heading=outlook_title,
         persona="billing_auditor" if is_billing_auditor_style() else "ceo",
+        kpi_rows=kpi_rows if kpi_rows else None,
     )
 
     return executive, md, meta

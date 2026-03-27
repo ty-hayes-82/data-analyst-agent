@@ -110,6 +110,7 @@ def render_flat_ceo_brief_markdown(
     analysis_period: str = "",
     outlook_heading: str = "Next-week outlook",
     persona: str = "ceo",
+    kpi_rows: list[dict[str, Any]] | None = None,
 ) -> str:
     """Render CEO JSON from hybrid pass2_brief (flat schema: what_moved, trend_status, etc.)."""
     _aud = (persona or "ceo").lower() == "billing_auditor"
@@ -134,6 +135,36 @@ def render_flat_ceo_brief_markdown(
     bottom = data.get("bottom_line", "")
     if bottom:
         lines.append(f"**{_bl}** {bottom}")
+        lines.append("")
+
+    # Deterministic KPI table — computed in Python, never hallucinated
+    if kpi_rows:
+        lines.append("## Key Performance Indicators")
+        lines.append("")
+        lines.append("| Metric | Current | Prior | Change |")
+        lines.append("|---|---|---|---|")
+        for kpi in kpi_rows:
+            name = kpi.get("display_name", kpi.get("name", ""))
+            val = kpi.get("value")
+            prior = kpi.get("prior_value")
+            change = kpi.get("change_pct")
+            fmt = kpi.get("format", "float")
+            if val is None:
+                continue
+            if fmt == "currency":
+                cur_str = f"${val:,.2f}" if val < 1000 else f"${val:,.0f}"
+                pri_str = f"${prior:,.2f}" if prior and prior < 1000 else (f"${prior:,.0f}" if prior else "-")
+            elif fmt == "percentage":
+                cur_str = f"{val:.1f}%"
+                pri_str = f"{prior:.1f}%" if prior is not None else "-"
+            elif val < 100:
+                cur_str = f"{val:,.1f}"
+                pri_str = f"{prior:,.1f}" if prior is not None else "-"
+            else:
+                cur_str = f"{val:,.0f}"
+                pri_str = f"{prior:,.0f}" if prior is not None else "-"
+            chg_str = f"{change:+.1f}%" if change is not None else "-"
+            lines.append(f"| {name} | {cur_str} | {pri_str} | {chg_str} |")
         lines.append("")
 
     movers = data.get("what_moved") or []
