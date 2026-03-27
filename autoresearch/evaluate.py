@@ -352,7 +352,7 @@ def tier1_score(brief_json: Dict[str, Any], brief_md: str, metric_jsons: List[Di
     details["evidence_grounding"] = evidence_score
     score += evidence_score
 
-    # 6. Contract term compliance (4 pts)
+    # 6. Contract term compliance (4 pts) — checks raw name OR display name
     metric_names_found = 0
     metric_names_total = 0
     brief_lower = brief_md.lower()
@@ -360,11 +360,16 @@ def tier1_score(brief_json: Dict[str, Any], brief_md: str, metric_jsons: List[Di
         name = mj.get("dimension_value", "")
         if name:
             metric_names_total += 1
+            # Check raw name variants
             variants = {
                 name.lower(),
                 name.lower().replace("_", " "),
                 name.lower().replace("_", ""),
             }
+            # Also check display name from the metric JSON
+            display = (mj.get("display_name") or mj.get("brief_label") or "").lower()
+            if display:
+                variants.add(display)
             words = name.lower().split("_")
             all_words_present = all(w in brief_lower for w in words if len(w) > 2)
             if any(v in brief_lower for v in variants) or all_words_present:
