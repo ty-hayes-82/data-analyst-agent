@@ -1,8 +1,129 @@
-"""Compute derived KPIs from raw additive metrics for CEO briefs."""
+"""Compute derived KPIs from raw additive metrics for CEO briefs.
+
+Uses the contract's derived_kpis definitions to ensure alignment with
+dashboard formulas. Falls back to hardcoded KPIs when no contract is available.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
+
+
+def _safe_div(numerator: float, denominator: float) -> Optional[float]:
+    if denominator and denominator != 0:
+        return numerator / denominator
+    return None
+
+
+def _pct_change(current: Optional[float], prior: Optional[float]) -> Optional[float]:
+    if current is None or prior is None or prior == 0:
+        return None
+    return ((current - prior) / abs(prior)) * 100
+
+
+def _eval_kpi_value(
+    kpi_def: dict[str, Any],
+    totals: dict[str, float],
+    days_in_period: int = 7,
+) -> Optional[float]:
+    """Evaluate a single derived KPI definition against scalar totals.
+
+    Supports contract shapes: numerator/denominator, numerator/subtract,
+    numerator/add, numerator/divide_by, with optional multiply.
+    """
+    numerator_name = kpi_def.get("numerator", "")
+    num_val = totals.get(numerator_name, 0)
+    if not num_val and num_val != 0:
+        return None
+
+    result = float(num_val)
+
+    # Subtract shape: numerator - subtract
+    subtract_name = kpi_def.get("subtract")
+    if subtract_name:
+        sub_val = totals.get(subtract_name, 0)
+        result = result - float(sub_val)
+
+    # Add shape: numerator + add
+    add_name = kpi_def.get("add")
+    if add_name:
+        # add_name could be another derived KPI name or a base metric
+        add_val = totals.get(add_name, 0)
+        result = result + float(add_val)
+
+    # Denominator shape: result / denominator
+    denom_name = kpi_def.get("denominator")
+    if denom_name:
+        denom_val = totals.get(denom_name, 0)
+        if not denom_val or denom_val == 0:
+            return None
+        result = result / float(denom_val)
+
+    # Divide_by shape: result / constant
+    divide_by = kpi_def.get("divide_by")
+    if divide_by:
+        result = result / float(divide_by)
+
+    # Multiply shape: result * constant
+    multiply = kpi_def.get("multiply")
+    if multiply:
+        result = result * float(multiply)
+
+    return result
+
+
+def compute_derived_kpis_from_contract(
+    contract: Any,
+    current_totals: dict[str, float],
+    prior_totals: dict[str, float],
+    days_in_period: int = 7,
+) -> list[dict[str, Any]]:
+    """Compute derived KPIs using the contract's derived_kpis definitions.
+
+    This ensures KPI values match the dashboard exactly (same formulas).
+    """
+    derived_defs = getattr(contract, "derived_kpis", None) or []
+    if not derived_defs:
+        return compute_derived_kpis(current_totals, prior_totals, days_in_period)
+
+    kpis = []
+
+    # First pass: compute simple derived values and add to totals for chaining
+    # (some KPIs reference other derived KPIs, e.g. rev_trk_day uses ttl_rev_xf_sr_amt)
+    curr_extended = dict(current_totals)
+    prior_extended = dict(prior_totals)
+
+    for kpi_def in derived_defs:
+        d = kpi_def if isinstance(kpi_def, dict) else kpi_def.__dict__ if hasattr(kpi_def, '__dict__') else {}
+        name = d.get("name", "")
+        curr_val = _eval_kpi_value(d, curr_extended, days_in_period)
+        prior_val = _eval_kpi_value(d, prior_extended, days_in_period)
+
+        # Store computed value for downstream KPIs that reference this one
+        if curr_val is not None:
+            curr_extended[name] = curr_val
+        if prior_val is not None:
+            prior_extended[name] = prior_val
+
+        if curr_val is None:
+            continue
+
+        fmt = d.get("format", "float")
+        display = d.get("display_name") or d.get("brief_label") or name
+        change = _pct_change(curr_val, prior_val)
+
+        kpis.append({
+            "name": name,
+            "display_name": display,
+            "value": curr_val,
+            "prior_value": prior_val,
+            "change_pct": round(change, 1) if change is not None else None,
+            "format": fmt,
+            "unit": "%" if fmt == "percentage" else "",
+            "optimization": d.get("optimization", "maximize"),
+        })
+
+    return kpis
 
 
 def compute_derived_kpis(
@@ -10,157 +131,53 @@ def compute_derived_kpis(
     prior_period: dict[str, float],
     days_in_period: int = 7,
 ) -> list[dict[str, Any]]:
-    """Compute CEO-facing KPIs from raw additive metric totals.
-
-    Args:
-        current_period: Dict of metric_name -> total for current period.
-        prior_period: Dict of metric_name -> total for prior period.
-        days_in_period: Number of days in the period (default 7 for weekly).
-
-    Returns:
-        List of KPI dicts with name, value, prior_value, change_pct, context.
-    """
+    """Fallback: compute hardcoded KPIs when no contract is available."""
     kpis = []
 
-    def _safe_div(num_key: str, den_key: str, data: dict) -> float | None:
-        num = data.get(num_key, 0)
-        den = data.get(den_key, 0)
-        if den and den != 0:
-            return num / den
-        return None
-
-    def _pct_change(current: float | None, prior: float | None) -> float | None:
-        if current is None or prior is None or prior == 0:
-            return None
-        return ((current - prior) / abs(prior)) * 100
-
-    def _add_kpi(
-        name: str,
-        display_name: str,
-        current_val: float | None,
-        prior_val: float | None,
-        fmt: str = "currency",
-        unit: str = "",
-        optimization: str = "maximize",
-    ) -> None:
+    def _add_kpi(name, display_name, current_val, prior_val, fmt="currency", unit="", optimization="maximize"):
         if current_val is None:
             return
         change = _pct_change(current_val, prior_val)
         kpis.append({
-            "name": name,
-            "display_name": display_name,
-            "value": current_val,
-            "prior_value": prior_val,
+            "name": name, "display_name": display_name,
+            "value": current_val, "prior_value": prior_val,
             "change_pct": round(change, 1) if change is not None else None,
-            "format": fmt,
-            "unit": unit,
-            "optimization": optimization,
+            "format": fmt, "unit": unit, "optimization": optimization,
         })
 
-    # Line-Haul Revenue Per Mile
-    _add_kpi(
-        "lrpm", "LRPM",
-        _safe_div("lh_rev_amt", "ld_trf_mi", current_period),
-        _safe_div("lh_rev_amt", "ld_trf_mi", prior_period),
-        fmt="currency",
-    )
-
-    # Total Revenue Per Mile
-    _add_kpi(
-        "trpm", "TRPM",
-        _safe_div("ttl_rev_amt", "ttl_trf_mi", current_period),
-        _safe_div("ttl_rev_amt", "ttl_trf_mi", prior_period),
-        fmt="currency",
-    )
-
-    # Revenue Per Truck Per Day
-    # truck_count from data is a period total (sum of daily counts), so it already
-    # represents truck-days. Divide revenue by it directly for rev/truck/day.
-    truck_days_curr = current_period.get("truck_count", 0) or 0
-    truck_days_prior = prior_period.get("truck_count", 0) or 0
-    _add_kpi(
-        "rev_per_truck_day", "Rev/Truck/Day",
-        current_period.get("ttl_rev_amt", 0) / truck_days_curr if truck_days_curr else None,
-        prior_period.get("ttl_rev_amt", 0) / truck_days_prior if truck_days_prior else None,
-        fmt="currency",
-    )
-
-    # Miles Per Truck Per Week
-    # truck_count is period-total truck-days; average fleet = truck_count / days_in_period
-    avg_fleet_curr = (current_period.get("truck_count", 0) or 0) / days_in_period if days_in_period else 0
-    avg_fleet_prior = (prior_period.get("truck_count", 0) or 0) / days_in_period if days_in_period else 0
-    weeks = max(days_in_period / 7, 1)
-    _add_kpi(
-        "miles_per_truck_week", "Miles/Truck/Week",
-        current_period.get("ttl_trf_mi", 0) / avg_fleet_curr / weeks if avg_fleet_curr else None,
-        prior_period.get("ttl_trf_mi", 0) / avg_fleet_prior / weeks if avg_fleet_prior else None,
-        fmt="number",
-    )
+    # Rev/Truck/Day
+    tc = current_period.get("truck_count", 0) or 0
+    tp = prior_period.get("truck_count", 0) or 0
+    _add_kpi("rev_per_truck_day", "Rev/Truck/Day",
+             current_period.get("ttl_rev_amt", 0) / tc if tc else None,
+             prior_period.get("ttl_rev_amt", 0) / tp if tp else None)
 
     # Deadhead %
-    _add_kpi(
-        "deadhead_pct", "Deadhead %",
-        (_safe_div("dh_miles", "ttl_trf_mi", current_period) or 0) * 100,
-        (_safe_div("dh_miles", "ttl_trf_mi", prior_period) or 0) * 100,
-        fmt="percentage", unit="%", optimization="minimize",
-    )
+    dh_c = current_period.get("dh_miles", 0)
+    tm_c = current_period.get("ttl_trf_mi", 0)
+    dh_p = prior_period.get("dh_miles", 0)
+    tm_p = prior_period.get("ttl_trf_mi", 0)
+    _add_kpi("deadhead_pct", "Deadhead %",
+             (dh_c / tm_c * 100) if tm_c else None,
+             (dh_p / tm_p * 100) if tm_p else None,
+             fmt="percentage", unit="%", optimization="minimize")
 
-    # Loaded %
-    _add_kpi(
-        "loaded_pct", "Loaded %",
-        (_safe_div("ld_trf_mi", "ttl_trf_mi", current_period) or 0) * 100,
-        (_safe_div("ld_trf_mi", "ttl_trf_mi", prior_period) or 0) * 100,
-        fmt="percentage", unit="%",
-    )
+    # Orders/Truck-Day
+    oc = current_period.get("ordr_cnt", 0) or 0
+    op = prior_period.get("ordr_cnt", 0) or 0
+    _add_kpi("orders_per_truck_day", "Orders/Truck-Day",
+             oc / tc if tc else None, op / tp if tp else None, fmt="number")
 
-    # Idle %
-    _add_kpi(
-        "idle_pct", "Idle %",
-        (_safe_div("idle_engn_tm", "ttl_engn_tm", current_period) or 0) * 100,
-        (_safe_div("idle_engn_tm", "ttl_engn_tm", prior_period) or 0) * 100,
-        fmt="percentage", unit="%", optimization="minimize",
-    )
-
-    # Orders Per Truck-Day (ordr_cnt and truck_count are both period totals)
-    _add_kpi(
-        "orders_per_truck_day", "Orders/Truck-Day",
-        _safe_div("ordr_cnt", "truck_count", current_period),
-        _safe_div("ordr_cnt", "truck_count", prior_period),
-        fmt="number",
-    )
-
-    # Revenue Per Order
-    _add_kpi(
-        "rev_per_order", "Rev/Order",
-        _safe_div("ttl_rev_amt", "ordr_cnt", current_period),
-        _safe_div("ttl_rev_amt", "ordr_cnt", prior_period),
-        fmt="currency",
-    )
-
-    # Revenue Per Mile
-    _add_kpi(
-        "rev_per_mile", "Rev/Mile",
-        _safe_div("ttl_rev_amt", "ordr_miles", current_period),
-        _safe_div("ttl_rev_amt", "ordr_miles", prior_period),
-        fmt="currency",
-    )
-
-    # Fuel Efficiency (miles per gallon)
-    _add_kpi(
-        "fuel_efficiency", "Fuel Efficiency",
-        _safe_div("ttl_trf_mi", "ttl_fuel_qty", current_period),
-        _safe_div("ttl_trf_mi", "ttl_fuel_qty", prior_period),
-        fmt="number", unit="mi/gal",
-    )
+    # Rev/Order
+    _add_kpi("rev_per_order", "Rev/Order",
+             current_period.get("ttl_rev_amt", 0) / oc if oc else None,
+             prior_period.get("ttl_rev_amt", 0) / op if op else None)
 
     return kpis
 
 
 def format_kpi_for_brief(kpi: dict[str, Any]) -> str:
-    """Format a single KPI for inclusion in the brief prompt.
-
-    Returns a string like: "LRPM $2.48, +1.9%"
-    """
+    """Format a single KPI for inclusion in the brief prompt."""
     val = kpi["value"]
     change = kpi.get("change_pct")
 
@@ -169,7 +186,6 @@ def format_kpi_for_brief(kpi: dict[str, Any]) -> str:
     elif kpi["format"] == "percentage":
         val_str = f"{val:.1f}%"
     elif val < 100:
-        # Small values (ratios, efficiency) get 1 decimal
         val_str = f"{val:,.1f}"
     else:
         val_str = f"{val:,.0f}"
@@ -184,14 +200,10 @@ def format_kpi_for_brief(kpi: dict[str, Any]) -> str:
 
 
 def format_kpis_block(kpis: list[dict[str, Any]]) -> str:
-    """Format all KPIs as a text block for the brief prompt.
-
-    Filters out KPIs with zero/null values or Idle % when 0.0% (no data).
-    """
+    """Format all KPIs as a text block for the brief prompt."""
     lines = []
     for kpi in kpis:
         val = kpi.get("value")
-        # Skip KPIs with zero or null values (likely missing data)
         if val is None or (val == 0.0 and kpi.get("format") == "percentage"):
             continue
         lines.append(f"- {format_kpi_for_brief(kpi)}")

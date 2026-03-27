@@ -1139,7 +1139,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         # --- Network totals + Derived KPIs: extract from hierarchy L0 and append to digest ---
         try:
-            from .kpi_calculator import compute_derived_kpis, format_kpis_block
+            from .kpi_calculator import compute_derived_kpis, compute_derived_kpis_from_contract, format_kpis_block
             current_totals: dict[str, float] = {}
             prior_totals: dict[str, float] = {}
             for metric_key, payload in (json_data or {}).items():
@@ -1193,7 +1193,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         days = 30
                 except Exception:
                     days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
-                kpis = compute_derived_kpis(current_totals, prior_totals, days_in_period=days)
+                kpis = compute_derived_kpis_from_contract(contract, current_totals, prior_totals, days_in_period=days)
                 if kpis:
                     kpi_block = format_kpis_block(kpis)
                     digest += f"\n\nDERIVED KPIs:\n{kpi_block}\n"
