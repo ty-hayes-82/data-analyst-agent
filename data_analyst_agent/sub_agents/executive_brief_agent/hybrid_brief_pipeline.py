@@ -122,6 +122,8 @@ def run_hybrid_ceo_brief_sync(
     skip_curation: bool,
     lite_model: str,
     pro_model: str,
+    contract: Any = None,
+    days_in_period: int = 7,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     """
     Run Pass 0 (code), optional Pass 1 (Flash-Lite), Pass 2 (Pro).
@@ -134,7 +136,7 @@ def run_hybrid_ceo_brief_sync(
     if not json_data:
         raise ValueError("hybrid CEO brief requires metric JSON payloads")
 
-    ranker = SignalRanker(json_data)
+    ranker = SignalRanker(json_data, contract=contract, days_in_period=days_in_period)
     signals = ranker.extract_all()
     totals = BriefUtils.get_network_totals(json_data)
 
@@ -302,6 +304,8 @@ async def run_hybrid_ceo_brief_async(
     skip_curation: bool,
     lite_model: str,
     pro_model: str,
+    contract: Any = None,
+    days_in_period: int = 7,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
@@ -316,6 +320,8 @@ async def run_hybrid_ceo_brief_async(
             skip_curation=skip_curation,
             lite_model=lite_model,
             pro_model=pro_model,
+            contract=contract,
+            days_in_period=days_in_period,
         ),
     )
 

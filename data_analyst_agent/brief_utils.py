@@ -123,8 +123,10 @@ class BriefUtils:
         return totals
 
 class SignalRanker:
-    def __init__(self, metrics: Dict[str, Any]):
+    def __init__(self, metrics: Dict[str, Any], contract=None, days_in_period: int = 7):
         self.metrics = metrics
+        self.contract = contract
+        self.days_in_period = days_in_period
         self.scored_signals: List[Dict[str, Any]] = []
 
     def _composite_score(self, stat: float, mag: float, mat: float) -> float:
@@ -150,8 +152,86 @@ class SignalRanker:
         self.extract_temporal_benchmarks()
         self.extract_concentration_risk()
         self.extract_price_volume_decomposition()
+        self.extract_derived_kpi_signals()
         self.cluster_by_entity()
         return self.get_ranked_signals()
+
+    def extract_derived_kpi_signals(self):
+        """Create high-priority signals for contract-derived KPIs.
+
+        These ensure the brief always cites key performance indicators
+        (Truck Count avg, Rev/Trk/Day, LRPM, Deadhead%, etc.) with their
+        exact current-period values.
+        """
+        if not self.contract:
+            return
+
+        derived_defs = getattr(self.contract, "derived_kpis", None) or []
+        if not derived_defs:
+            return
+
+        # Build totals from L0 hierarchy data + all available base metrics
+        totals = BriefUtils.get_network_totals(self.metrics)
+        current_totals: Dict[str, float] = {}
+        prior_totals: Dict[str, float] = {}
+        for mk, data in totals.items():
+            if data.get("current") is not None:
+                current_totals[mk] = float(data["current"])
+            if data.get("prior") is not None:
+                prior_totals[mk] = float(data["prior"])
+
+        if not current_totals:
+            return
+
+        try:
+            from data_analyst_agent.sub_agents.executive_brief_agent.kpi_calculator import (
+                _eval_kpi_value, format_kpi_for_brief, _pct_change,
+            )
+        except ImportError:
+            return
+
+        # Compute each derived KPI and create a signal card
+        extended_current = dict(current_totals)
+        extended_prior = dict(prior_totals)
+
+        for kpi_def in derived_defs:
+            d = kpi_def if isinstance(kpi_def, dict) else kpi_def.__dict__ if hasattr(kpi_def, '__dict__') else {}
+            name = d.get("name", "")
+            display = d.get("display_name") or d.get("brief_label") or name
+            fmt = d.get("format", "float")
+
+            curr_val = _eval_kpi_value(d, extended_current, self.days_in_period)
+            prior_val = _eval_kpi_value(d, extended_prior, self.days_in_period)
+
+            # Store for chaining
+            if curr_val is not None:
+                extended_current[name] = curr_val
+            if prior_val is not None:
+                extended_prior[name] = prior_val
+
+            if curr_val is None:
+                continue
+
+            change = _pct_change(curr_val, prior_val)
+
+            # Format the value for the signal detail
+            if fmt == "currency":
+                val_str = f"${curr_val:,.2f}"
+            elif fmt == "percentage":
+                val_str = f"{curr_val:.1f}%"
+            elif curr_val < 100:
+                val_str = f"{curr_val:,.1f}"
+            else:
+                val_str = f"{curr_val:,.0f}"
+
+            change_str = f" ({change:+.1f}% WoW)" if change is not None else ""
+            detail = f"{display}: {val_str}{change_str}"
+
+            # High score (0.6) ensures KPIs appear near top of Pass 0 rankings
+            self.add_signal(
+                0.6, "KPI", f"{display}", detail,
+                "derived_kpi", "derived_kpi_signal",
+            )
 
     def add_signal(self, score: float, category: str, title: str, detail: str, metric: str, source: str, **kwargs):
         # Generate a unique stable ID

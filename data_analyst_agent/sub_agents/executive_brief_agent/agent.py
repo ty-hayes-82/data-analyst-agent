@@ -1733,6 +1733,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         skip_curation=skip_cur,
                         lite_model=lite_model,
                         pro_model=pro_model,
+                        contract=contract,
+                        days_in_period=days,
                     )
                     used_fallback = False
                     await save_hybrid_artifacts_async(outputs_dir, hybrid_meta)
