@@ -282,7 +282,14 @@ class SignalRanker:
                     score = self._composite_score(stat_impact, mag_impact, mat_weight) * level_multiplier
                     
                     direction = "+" if var_pct > 0 else ""
-                    detail = f"{item}: {m} {direction}{var_pct:.1f}% WoW (${abs(ev.get('variance_dollar', 0)):,.0f})"
+                    # Use display name from contract if available, else raw metric name
+                    m_display = m
+                    if self.contract:
+                        for cm in (getattr(self.contract, "metrics", None) or []):
+                            if getattr(cm, "name", "") == m:
+                                m_display = getattr(cm, "brief_label", "") or getattr(cm, "display_name", "") or m
+                                break
+                    detail = f"{item}: {m_display} {direction}{var_pct:.1f}% WoW (${abs(ev.get('variance_dollar', 0)):,.0f})"
                     if ev.get("current") is not None:
                         detail += f", current {format_brief_current_value(ev.get('current'))}"
 
