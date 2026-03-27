@@ -898,16 +898,19 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
 
     user_msg += (
         "\nGROUNDING (mandatory):\n"
-        "- Every numeric claim must come verbatim from NETWORK TOTALS, KPIs, or CURATED INSIGHTS above. "
+        "- Every numeric claim must come verbatim from KPIs, REGIONAL BREAKDOWN, or CURATED INSIGHTS above. "
         "Do not invent revenue bands, dollar outlook ranges, or scenario numbers.\n"
-        "- Your bottom_line MUST reference at least 3 KPI values by their exact number.\n"
-        "- Your what_moved items MUST each include the absolute current value, not just percentages.\n"
-        "- Never mirror the same percentage across two different metrics (e.g. deadhead change in pts "
-        "vs LRPM in $/mi). State the unit explicitly for each figure (pts, % WoW, $, etc.).\n"
-        "- why_it_matters: Explain the business impact and significance of the observed trends, articulating the specific causal mechanisms or drivers and their quantified impact where possible. Focus on the 'so what?' for the business, referencing exact numbers from insights to support claims of impact.\n"
-        "- next_week_outlook: qualitative or mechanism-only unless a specific number appears in the "
-        "signals above; do not add best/worst-case dollar ranges.\n"
-        "- leadership_focus: Each point must be a concrete, actionable recommendation, explaining its connection to a specific trend or cause identified in the insights, referencing the exact data or numbers that support it.\n"
+        "- bottom_line MUST reference at least 3 KPI values by their exact number.\n"
+        "- what_moved MUST have at least 4 bullets covering: revenue, volume/orders, efficiency, and pricing/yield.\n"
+        "- what_moved items MUST each include the absolute current value, not just percentages.\n"
+        "- trend_status MUST have at least 3 trends.\n"
+        "- leadership_focus MUST have at least 3 specific, actionable recommendations with numbers.\n"
+        "- Reference at least 2 regions by name with their specific revenue numbers from REGIONAL BREAKDOWN.\n"
+        "- Use display names (Total Revenue xFSR, Deadhead Miles, Order Count) not column names (ttl_rev_amt, dh_miles, ordr_cnt).\n"
+        "- Never mirror the same percentage across two different metrics. State the unit explicitly for each figure.\n"
+        "- why_it_matters: Explain the business impact with specific causal mechanisms and quantified impact.\n"
+        "- next_week_outlook: qualitative or mechanism-only unless a specific number appears in signals.\n"
+        "- leadership_focus: Each point must connect to a specific trend with exact numbers.\n"
     )
 
     schema = types.Schema(type=types.Type.OBJECT, properties={
