@@ -131,3 +131,4 @@ __pycache__/
 *.tds
 *.hyper
 data/csv/
+config/datasets/**/ground_truth_*.json
