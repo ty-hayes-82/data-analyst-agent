@@ -1229,7 +1229,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 kpis = compute_derived_kpis_from_contract(contract, current_totals, prior_totals, days_in_period=days)
                 if kpis:
                     # Build a single clean KEY METRICS block at the top of digest
-                    # This replaces both NETWORK TOTALS and DERIVED KPIs sections
                     header_lines = [
                         "=== KEY METRICS (current period) ===",
                         "IMPORTANT: Your brief MUST cite these values. Use the exact numbers below.",
@@ -1238,6 +1237,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         header_lines.append(f"  {format_kpi_for_brief(kpi)}")
                     digest = "\n".join(header_lines) + "\n\n" + digest
                     print(f"[BRIEF] Prepended {len(kpis)} key metrics to digest")
+                    # Store for deterministic KPI table in the brief markdown
+                    ctx.session.state["_computed_kpi_rows"] = kpis
         except Exception as kpi_err:
             print(f"[BRIEF] WARNING: Derived KPI computation failed: {kpi_err}")
 
@@ -1735,6 +1736,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         pro_model=pro_model,
                         contract=contract,
                         days_in_period=days,
+                        kpi_rows=ctx.session.state.get("_computed_kpi_rows"),
                     )
                     used_fallback = False
                     await save_hybrid_artifacts_async(outputs_dir, hybrid_meta)

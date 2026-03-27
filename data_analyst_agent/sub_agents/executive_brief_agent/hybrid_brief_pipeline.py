@@ -124,6 +124,7 @@ def run_hybrid_ceo_brief_sync(
     pro_model: str,
     contract: Any = None,
     days_in_period: int = 7,
+    kpi_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     """
     Run Pass 0 (code), optional Pass 1 (Flash-Lite), Pass 2 (Pro).
@@ -297,20 +298,22 @@ def run_hybrid_ceo_brief_sync(
         if is_billing_auditor_style()
         else f"{grain_label} Performance Overview"
     )
-    # Build deterministic KPI rows from the KPI signals (computed in Python, not LLM)
-    kpi_rows = []
-    for s in signals:
-        if s.get("source") == "derived_kpi_signal" and s.get("current_value") is not None:
-            kpi_rows.append({
-                "name": s.get("title", ""),
-                "display_name": s.get("title", ""),
-                "value": s.get("current_value"),
-                "prior_value": s.get("prior_value"),
-                "change_pct": s.get("var_pct"),
-                "format": "currency" if "$" in s.get("detail", "") else (
-                    "percentage" if "%" in s.get("title", "") else "float"
-                ),
-            })
+    # Use pre-computed KPI rows from agent.py (has supplemented totals for ALL metrics)
+    # Fall back to KPI signals if not provided
+    if not kpi_rows:
+        kpi_rows = []
+        for s in signals:
+            if s.get("source") == "derived_kpi_signal" and s.get("current_value") is not None:
+                kpi_rows.append({
+                    "name": s.get("title", ""),
+                    "display_name": s.get("title", ""),
+                    "value": s.get("current_value"),
+                    "prior_value": s.get("prior_value"),
+                    "change_pct": s.get("var_pct"),
+                    "format": "currency" if "$" in s.get("detail", "") else (
+                        "percentage" if "%" in s.get("title", "") else "float"
+                    ),
+                })
 
     md = render_flat_ceo_brief_markdown(
         flat_brief,
@@ -337,6 +340,7 @@ async def run_hybrid_ceo_brief_async(
     pro_model: str,
     contract: Any = None,
     days_in_period: int = 7,
+    kpi_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
@@ -353,6 +357,7 @@ async def run_hybrid_ceo_brief_async(
             pro_model=pro_model,
             contract=contract,
             days_in_period=days_in_period,
+            kpi_rows=kpi_rows,
         ),
     )
 
