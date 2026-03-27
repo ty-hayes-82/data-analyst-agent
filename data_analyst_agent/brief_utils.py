@@ -824,14 +824,26 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
             f"- {m}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
         )
     
-    user_msg += "\nCURATED INSIGHTS (use ONLY these signals, preserve exact numbers):\n"
-    for i, s in enumerate(signals, 1):
+    # Separate KPI signals from other insights and list them prominently
+    kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal"]
+    other_signals = [s for s in signals if s.get("source") != "derived_kpi_signal"]
+
+    if kpi_signals:
+        user_msg += "\nKEY PERFORMANCE INDICATORS (MANDATORY — cite EVERY value below in your brief):\n"
+        for s in kpi_signals:
+            user_msg += f"- {s['detail']}\n"
+        user_msg += "\n"
+
+    user_msg += "CURATED INSIGHTS (use ONLY these signals, preserve exact numbers):\n"
+    for i, s in enumerate(other_signals, 1):
         user_msg += f"{i}. [{s['category']}] {s['detail']}\n"
 
     user_msg += (
         "\nGROUNDING (mandatory):\n"
-        "- Every numeric claim must come verbatim from NETWORK TOTALS or CURATED INSIGHTS above. "
+        "- Every numeric claim must come verbatim from NETWORK TOTALS, KPIs, or CURATED INSIGHTS above. "
         "Do not invent revenue bands, dollar outlook ranges, or scenario numbers.\n"
+        "- Your bottom_line MUST reference at least 3 KPI values by their exact number.\n"
+        "- Your what_moved items MUST each include the absolute current value, not just percentages.\n"
         "- Never mirror the same percentage across two different metrics (e.g. deadhead change in pts "
         "vs LRPM in $/mi). State the unit explicitly for each figure (pts, % WoW, $, etc.).\n"
         "- why_it_matters: Explain the business impact and significance of the observed trends, articulating the specific causal mechanisms or drivers and their quantified impact where possible. Focus on the 'so what?' for the business, referencing exact numbers from insights to support claims of impact.\n"

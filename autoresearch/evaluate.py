@@ -74,12 +74,15 @@ def _number_appears_in_brief(expected: float, brief_md: str, tolerance: float = 
     # For large numbers, check abbreviated forms (M, K, B)
     if abs_expected >= 1_000_000:
         millions = abs_expected / 1_000_000
-        # Check "23.2M" or "23.2 million" patterns
+        # Check "23.2M", "9.96M", "23.2 million" etc.
         patterns = [
+            rf'{millions:.2f}\s*m',
             rf'{millions:.1f}\s*m',
             rf'{millions:.0f}\s*m',
+            rf'\${millions:.2f}\s*m',
             rf'\${millions:.1f}\s*m',
             rf'\${millions:.0f}\s*m',
+            rf'{millions:.2f}\s*million',
             rf'{millions:.1f}\s*million',
             rf'{millions:.0f}\s*million',
         ]
@@ -90,6 +93,7 @@ def _number_appears_in_brief(expected: float, brief_md: str, tolerance: float = 
     if abs_expected >= 1_000:
         thousands = abs_expected / 1_000
         patterns = [
+            rf'{thousands:.2f}\s*k',
             rf'{thousands:.1f}\s*k',
             rf'{thousands:.0f}\s*k',
             rf'{thousands:.1f}\s*thousand',
