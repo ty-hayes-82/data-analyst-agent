@@ -1139,7 +1139,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
 
         # --- Network totals + Derived KPIs: extract from hierarchy L0 and append to digest ---
         try:
-            from .kpi_calculator import compute_derived_kpis, compute_derived_kpis_from_contract, format_kpis_block
+            from .kpi_calculator import compute_derived_kpis, compute_derived_kpis_from_contract, format_kpis_block, format_kpi_for_brief
             current_totals: dict[str, float] = {}
             prior_totals: dict[str, float] = {}
             for metric_key, payload in (json_data or {}).items():
@@ -1250,9 +1250,19 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                     days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
                 kpis = compute_derived_kpis_from_contract(contract, current_totals, prior_totals, days_in_period=days)
                 if kpis:
-                    kpi_block = format_kpis_block(kpis)
-                    digest += f"\n\nDERIVED KPIs:\n{kpi_block}\n"
-                    print(f"[BRIEF] Appended {len(kpis)} derived KPIs to digest")
+                    # Merge derived KPIs into the NETWORK TOTALS block (top of digest)
+                    # so the LLM sees them as first-class metrics to cite
+                    kpi_lines = ["\n--- KEY PERFORMANCE INDICATORS ---"]
+                    for kpi in kpis:
+                        kpi_lines.append(f"  {format_kpi_for_brief(kpi)}")
+                    kpi_insert = "\n".join(kpi_lines) + "\n"
+                    # Insert after the NETWORK TOTALS block (before the first === section)
+                    first_section = digest.find("\n===", 10)
+                    if first_section > 0:
+                        digest = digest[:first_section] + kpi_insert + digest[first_section:]
+                    else:
+                        digest = digest + kpi_insert
+                    print(f"[BRIEF] Merged {len(kpis)} derived KPIs into network totals block")
         except Exception as kpi_err:
             print(f"[BRIEF] WARNING: Derived KPI computation failed: {kpi_err}")
 
