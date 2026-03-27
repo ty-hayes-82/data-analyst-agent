@@ -1164,6 +1164,48 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 if pri is not None:
                     prior_totals[metric_key] = float(pri)
 
+            # Supplement with ALL contract base metrics from loaded data
+            # (derived KPIs may reference metrics not in the analyzed set)
+            try:
+                import pandas as pd
+                import io as _io
+                csv_data = ctx.session.state.get("primary_data_csv") or ctx.session.state.get("validated_pl_data_csv") or ""
+                if csv_data and contract:
+                    df_all = pd.read_csv(_io.StringIO(csv_data))
+                    time_col = contract.time.column if contract.time else None
+                    if time_col and time_col in df_all.columns and period_end:
+                        df_all[time_col] = pd.to_datetime(df_all[time_col], errors="coerce")
+                        pe = pd.to_datetime(str(period_end).split(" ")[0])
+                        df_current = df_all[df_all[time_col] == pe]
+                    else:
+                        df_current = df_all
+                    supplemented = 0
+                    for m in (getattr(contract, "metrics", None) or []):
+                        mname = getattr(m, "name", "") or ""
+                        mcol = getattr(m, "column", "") or mname
+                        if mname and mname not in current_totals and mcol in df_current.columns:
+                            val = pd.to_numeric(df_current[mcol], errors="coerce").sum()
+                            if pd.notna(val) and val != 0:
+                                current_totals[mname] = float(val)
+                                supplemented += 1
+                    # Also compute prior period totals for supplemented metrics
+                    if supplemented > 0 and time_col and time_col in df_all.columns:
+                        periods = sorted(df_all[time_col].dropna().unique())
+                        if len(periods) >= 2:
+                            prior_period_val = periods[-2]
+                            df_prior = df_all[df_all[time_col] == prior_period_val]
+                            for m in (getattr(contract, "metrics", None) or []):
+                                mname = getattr(m, "name", "") or ""
+                                mcol = getattr(m, "column", "") or mname
+                                if mname and mname not in prior_totals and mcol in df_prior.columns:
+                                    val = pd.to_numeric(df_prior[mcol], errors="coerce").sum()
+                                    if pd.notna(val) and val != 0:
+                                        prior_totals[mname] = float(val)
+                    if supplemented:
+                        print(f"[BRIEF] Supplemented {supplemented} additional base metric totals from loaded data")
+            except Exception as supp_err:
+                print(f"[BRIEF] WARNING: Failed to supplement base metric totals: {supp_err}")
+
             # Prepend network totals summary so the brief LLM has exact numbers to cite
             if current_totals:
                 # Build display name lookup from contract metrics

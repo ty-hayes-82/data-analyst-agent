@@ -21,6 +21,13 @@ def _pct_change(current: Optional[float], prior: Optional[float]) -> Optional[fl
     return ((current - prior) / abs(prior)) * 100
 
 
+def _resolve_period_token(value: Any, days_in_period: int) -> float:
+    """Resolve 'period_days' magic token to runtime days_in_period value."""
+    if isinstance(value, str) and value.strip().lower() == "period_days":
+        return float(days_in_period)
+    return float(value)
+
+
 def _eval_kpi_value(
     kpi_def: dict[str, Any],
     totals: dict[str, float],
@@ -30,6 +37,9 @@ def _eval_kpi_value(
 
     Supports contract shapes: numerator/denominator, numerator/subtract,
     numerator/add, numerator/divide_by, with optional multiply.
+
+    Magic token: 'period_days' in divide_by or multiply is replaced with
+    days_in_period at runtime (7 for weekly, ~30 for monthly).
     """
     numerator_name = kpi_def.get("numerator", "")
     num_val = totals.get(numerator_name, 0)
@@ -38,16 +48,19 @@ def _eval_kpi_value(
 
     result = float(num_val)
 
-    # Subtract shape: numerator - subtract
+    # Subtract shape: numerator - subtract - subtract2
     subtract_name = kpi_def.get("subtract")
     if subtract_name:
         sub_val = totals.get(subtract_name, 0)
         result = result - float(sub_val)
+    subtract2_name = kpi_def.get("subtract2")
+    if subtract2_name:
+        sub2_val = totals.get(subtract2_name, 0)
+        result = result - float(sub2_val)
 
     # Add shape: numerator + add
     add_name = kpi_def.get("add")
     if add_name:
-        # add_name could be another derived KPI name or a base metric
         add_val = totals.get(add_name, 0)
         result = result + float(add_val)
 
@@ -59,15 +72,15 @@ def _eval_kpi_value(
             return None
         result = result / float(denom_val)
 
-    # Divide_by shape: result / constant
+    # Divide_by shape: result / constant (supports 'period_days' token)
     divide_by = kpi_def.get("divide_by")
     if divide_by:
-        result = result / float(divide_by)
+        result = result / _resolve_period_token(divide_by, days_in_period)
 
-    # Multiply shape: result * constant
+    # Multiply shape: result * constant (supports 'period_days' token)
     multiply = kpi_def.get("multiply")
     if multiply:
-        result = result * float(multiply)
+        result = result * _resolve_period_token(multiply, days_in_period)
 
     return result
 

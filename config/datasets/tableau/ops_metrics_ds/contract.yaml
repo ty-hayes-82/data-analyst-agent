@@ -196,6 +196,175 @@ metrics:
   format: float
   optimization: minimize
   description: Idle engine time in minutes
+# --- Truck count breakdowns ---
+- name: solo_truck_count
+  column: solo_truck_count
+  display_name: Solo Truck Count
+  brief_category: Capacity
+  brief_label: Solo Trucks
+  type: additive
+  format: float
+  optimization: neutral
+  description: Number of solo trucks
+- name: team_truck_count
+  column: team_truck_count
+  display_name: Team Truck Count
+  brief_category: Capacity
+  brief_label: Team Trucks
+  type: additive
+  format: float
+  optimization: neutral
+  description: Number of team trucks
+- name: mentor_truck_count
+  column: mentor_truck_count
+  display_name: Mentor Truck Count
+  brief_category: Capacity
+  brief_label: Mentor Trucks
+  type: additive
+  format: float
+  optimization: neutral
+  description: Number of mentor trucks
+- name: unmanned_truck_count
+  column: unmanned_truck_count
+  display_name: Open Truck Count
+  brief_category: Capacity
+  brief_label: Open Trucks
+  type: additive
+  format: float
+  optimization: minimize
+  description: Number of unmanned/open trucks
+- name: inactive_truck_count
+  column: inactive_truck_count
+  display_name: Inactive Truck Count
+  brief_category: Capacity
+  brief_label: Inactive Trucks
+  type: additive
+  format: float
+  optimization: minimize
+  description: Number of inactive trucks
+# --- Driver counts ---
+- name: actv_drvr_cnt
+  column: actv_drvr_cnt
+  display_name: Active Driver Count
+  brief_category: Workforce
+  brief_label: Active Drivers
+  type: additive
+  format: float
+  optimization: maximize
+  description: Number of active drivers
+- name: mntr_drvr_cnt
+  column: mntr_drvr_cnt
+  display_name: Mentor Driver Count
+  brief_category: Workforce
+  brief_label: Mentor Drivers
+  type: additive
+  format: float
+  optimization: neutral
+  description: Number of mentor drivers
+- name: stdnt_drvr_cnt
+  column: stdnt_drvr_cnt
+  display_name: Student Driver Count
+  brief_category: Workforce
+  brief_label: Student Drivers
+  type: additive
+  format: float
+  optimization: neutral
+  description: Number of student drivers
+- name: trmntd_drvr_cnt
+  column: trmntd_drvr_cnt
+  display_name: Terminated Driver Count
+  brief_category: Workforce
+  brief_label: Turnover
+  type: additive
+  format: float
+  optimization: minimize
+  description: Number of terminated drivers (turnover)
+- name: rnstd_drvr_cnt
+  column: rnstd_drvr_cnt
+  display_name: Reinstated Driver Count
+  brief_category: Workforce
+  brief_label: Reinstated Drivers
+  type: additive
+  format: float
+  optimization: maximize
+  description: Number of reinstated drivers
+# --- Driver time ---
+- name: drvg_min
+  column: drvg_min
+  display_name: Driving Minutes
+  brief_category: Productivity
+  brief_label: Driving Time
+  type: additive
+  format: float
+  optimization: maximize
+  description: Total driving minutes
+- name: on_dty_min
+  column: on_dty_min
+  display_name: On-Duty Minutes
+  brief_category: Productivity
+  brief_label: On-Duty Time
+  type: additive
+  format: float
+  optimization: neutral
+  description: Total on-duty minutes
+# --- Driver pay ---
+- name: driver_layover_paid
+  column: driver_layover_paid
+  display_name: Driver Layover Pay
+  brief_category: Cost
+  brief_label: Layover Pay
+  type: additive
+  format: currency
+  optimization: minimize
+  description: Total driver layover pay
+- name: driver_exception_paid
+  column: driver_exception_paid
+  display_name: Driver Exception Pay
+  brief_category: Cost
+  brief_label: Exception Pay
+  type: additive
+  format: currency
+  optimization: minimize
+  description: Total driver exception pay
+# --- Orders / stops ---
+- name: stop_count
+  column: stop_count
+  display_name: Total Stop Count
+  brief_category: Volume
+  brief_label: Stops
+  type: additive
+  format: float
+  optimization: neutral
+  description: Total number of stops
+# --- Safety ---
+- name: ocrnce_cnt
+  column: ocrnce_cnt
+  display_name: Occurrence Count
+  brief_category: Safety
+  brief_label: Occurrences
+  type: additive
+  format: float
+  optimization: minimize
+  description: Total safety occurrences
+- name: dot_ocrnce_cnt
+  column: dot_ocrnce_cnt
+  display_name: DOT Occurrence Count
+  brief_category: Safety
+  brief_label: DOT Occurrences
+  type: additive
+  format: float
+  optimization: minimize
+  description: DOT-reportable safety occurrences
+# --- Period ---
+- name: wk_day_cnt
+  column: wk_day_cnt
+  display_name: Week Day Count
+  brief_category: Period
+  brief_label: Week Days
+  type: additive
+  format: float
+  optimization: neutral
+  description: Number of weekdays in period (for annualization)
 derived_kpis:
 - name: ttl_rev_xf_sr_amt
   display_name: Total Revenue xFSR
@@ -210,9 +379,9 @@ derived_kpis:
   brief_label: Trucks
   brief_category: Capacity
   numerator: truck_count
-  divide_by: 7
+  divide_by: period_days
   format: float
-  description: Average daily truck count
+  description: Average daily truck count (truck_count / days_in_period)
 - name: rev_trk_day
   display_name: Rev/Trk/Day
   brief_label: Rev/Trk/Day
@@ -236,9 +405,9 @@ derived_kpis:
   brief_category: Productivity
   numerator: total_miles_rpt
   denominator: truck_count
-  multiply: 7
+  multiply: period_days
   format: float
-  description: Miles per truck per week
+  description: Miles per truck per week (total_miles / truck_count * days_in_period)
 - name: trpm
   display_name: TRPM
   brief_label: TRPM
@@ -272,6 +441,113 @@ derived_kpis:
   multiply: 100
   format: percentage
   description: Deadhead miles as percentage of total traffic miles
+# --- Seated truck metrics ---
+- name: seated_truck_count
+  display_name: Seated Truck Count
+  brief_label: Seated Trucks
+  brief_category: Capacity
+  numerator: truck_count
+  subtract: unmanned_truck_count
+  subtract2: inactive_truck_count
+  format: float
+  description: Trucks with assigned drivers (truck_count - open - inactive)
+- name: seated_truck_count_avg
+  display_name: Seated Truck Count (Avg)
+  brief_label: Seated Trucks Avg
+  brief_category: Capacity
+  numerator: seated_truck_count
+  divide_by: period_days
+  format: float
+  description: Average daily seated truck count
+- name: rev_trk_wk
+  display_name: Rev/Trk/Wk
+  brief_label: Rev/Trk/Wk
+  brief_category: Productivity
+  numerator: ttl_rev_xf_sr_amt
+  denominator: truck_count_avg
+  format: currency
+  description: Revenue xFSR per average truck per week
+- name: rev_seated_trk_day
+  display_name: Rev/Seated Trk/Day
+  brief_label: Rev/Seated Trk/Day
+  brief_category: Productivity
+  numerator: ttl_rev_xf_sr_amt
+  denominator: seated_truck_count
+  format: currency
+  description: Revenue xFSR per seated truck-day
+- name: loaded_miles_trk_wk
+  display_name: Loaded Miles/Trk/Wk
+  brief_label: Loaded Mi/Trk/Wk
+  brief_category: Productivity
+  numerator: ld_mi_less_swift_billto
+  denominator: truck_count
+  multiply: period_days
+  format: float
+  description: Loaded miles per truck per week
+- name: fuel_rpm
+  display_name: Fuel RPM
+  brief_label: Fuel RPM
+  brief_category: Revenue / yield
+  numerator: fuel_srchrg_rev_amt
+  denominator: total_miles_rpt
+  format: currency
+  description: Fuel surcharge revenue per total mile
+# --- Driver productivity ---
+- name: driving_hrs_active_driver_total
+  display_name: Total Driving Hrs/Active Driver
+  brief_label: Total Drive Hrs
+  brief_category: Workforce
+  numerator: drvg_min
+  denominator: actv_drvr_cnt
+  divide_by: 60
+  format: float
+  description: Total driving hours per active driver for the period (drvg_min / actv_drvr_cnt / 60)
+- name: driving_hrs_active_driver_day
+  display_name: Driving Hrs/Active Driver/Day
+  brief_label: Drive Hrs/Day
+  brief_category: Workforce
+  numerator: driving_hrs_active_driver_total
+  divide_by: period_days
+  format: float
+  description: Driving hours per active driver per day (chained from total / period_days)
+- name: on_duty_hrs_driver_day
+  display_name: On-Duty Hrs/Driver/Day
+  brief_label: On-Duty Hrs/Day
+  brief_category: Workforce
+  numerator: on_dty_min
+  denominator: exprncd_drvr_cnt
+  divide_by: 60
+  format: float
+  description: On-duty hours per driver per day — note this is total for period, divide by period_days in display
+# --- Turnover ---
+- name: turnover_pct
+  display_name: Turnover %
+  brief_label: Turnover %
+  brief_category: Workforce
+  numerator: trmntd_drvr_cnt
+  denominator: exprncd_drvr_cnt
+  multiply: 5200
+  format: percentage
+  description: Annualized turnover percentage (terminated / total * 52 * 100)
+# --- Safety ---
+- name: cpmm
+  display_name: CPMM
+  brief_label: CPMM
+  brief_category: Safety
+  numerator: ocrnce_cnt
+  denominator: total_miles_rpt
+  multiply: 1000000
+  format: float
+  description: Crashes per million miles
+- name: dot_cpmm
+  display_name: DOT CPMM
+  brief_label: DOT CPMM
+  brief_category: Safety
+  numerator: dot_ocrnce_cnt
+  denominator: total_miles_rpt
+  multiply: 1000000
+  format: float
+  description: DOT-reportable crashes per million miles
 dimensions:
 - name: gl_rgn_nm
   column: gl_rgn_nm

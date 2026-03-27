@@ -29,22 +29,58 @@ aggregation:
     - "icc_cst_ctr_cd"
     - "icc_cst_ctr_nm"
   sum_columns:
+    # Revenue
     - "ttl_rev_amt"
     - "lh_rev_amt"
     - "fuel_srchrg_rev_amt"
     - "acsrl_rev_amt"
+    # Volume / Orders
     - "ordr_cnt"
     - "ordr_miles"
+    - "stop_count"
+    # Miles
     - "ttl_trf_mi"
     - "ld_trf_mi"
     - "ld_mi_less_swift_billto"
     - "dh_miles"
+    - "auth_trf_mi"
+    # Truck counts
     - "truck_count"
+    - "solo_truck_count"
+    - "team_truck_count"
+    - "mentor_truck_count"
+    - "company_truck_count"
+    - "oo_truck_count"
+    - "unmanned_truck_count"
+    - "inactive_truck_count"
+    - "inactive_oo_truck_count"
+    - "non_operational_truck_count"
+    # Driver counts
     - "exprncd_drvr_cnt"
-    - "ttl_fuel_qty"
-    - "idle_fuel_qty"
+    - "actv_drvr_cnt"
+    - "mntr_drvr_cnt"
+    - "stdnt_drvr_cnt"
+    - "trmntd_drvr_cnt"
+    - "rnstd_drvr_cnt"
+    # Driver time
+    - "drvg_min"
+    - "on_dty_min"
     - "drvr_engn_tm"
     - "idle_engn_tm"
+    # Driver pay
+    - "driver_layover_paid"
+    - "driver_exception_paid"
+    - "driver_pay_ttl_paid"
+    # Fuel
+    - "ttl_fuel_qty"
+    - "idle_fuel_qty"
+    - "drvng_fuel_qty"
+    # Safety
+    - "ocrnce_cnt"
+    - "dot_ocrnce_cnt"
+    - "prvntbl_ocrnce_cnt"
+    # Period day counts (for annualization)
+    - "wk_day_cnt"
 
 date_parsing:
   source_column: "cal_dt"
@@ -61,19 +97,55 @@ output_columns:
   - "ops_ln_of_bus_nm"
   - "icc_cst_ctr_cd"
   - "icc_cst_ctr_nm"
+  # Revenue
   - "ttl_rev_amt"
   - "lh_rev_amt"
   - "fuel_srchrg_rev_amt"
   - "acsrl_rev_amt"
+  # Volume / Orders
   - "ordr_cnt"
   - "ordr_miles"
+  - "stop_count"
+  # Miles
   - "ttl_trf_mi"
   - "ld_trf_mi"
   - "ld_mi_less_swift_billto"
   - "dh_miles"
+  - "auth_trf_mi"
+  # Truck counts
   - "truck_count"
+  - "solo_truck_count"
+  - "team_truck_count"
+  - "mentor_truck_count"
+  - "company_truck_count"
+  - "oo_truck_count"
+  - "unmanned_truck_count"
+  - "inactive_truck_count"
+  - "inactive_oo_truck_count"
+  - "non_operational_truck_count"
+  # Driver counts
   - "exprncd_drvr_cnt"
-  - "ttl_fuel_qty"
-  - "idle_fuel_qty"
+  - "actv_drvr_cnt"
+  - "mntr_drvr_cnt"
+  - "stdnt_drvr_cnt"
+  - "trmntd_drvr_cnt"
+  - "rnstd_drvr_cnt"
+  # Driver time
+  - "drvg_min"
+  - "on_dty_min"
   - "drvr_engn_tm"
   - "idle_engn_tm"
+  # Driver pay
+  - "driver_layover_paid"
+  - "driver_exception_paid"
+  - "driver_pay_ttl_paid"
+  # Fuel
+  - "ttl_fuel_qty"
+  - "idle_fuel_qty"
+  - "drvng_fuel_qty"
+  # Safety
+  - "ocrnce_cnt"
+  - "dot_ocrnce_cnt"
+  - "prvntbl_ocrnce_cnt"
+  # Period
+  - "wk_day_cnt"
