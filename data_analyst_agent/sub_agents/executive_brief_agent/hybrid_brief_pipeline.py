@@ -258,6 +258,13 @@ def run_hybrid_ceo_brief_sync(
             curated = signals[:max_curated]
         thesis = str(curation.get("narrative_thesis", "Mixed operational signals."))
 
+    # Re-inject KPI signals that Flash Lite may have dropped — these are mandatory
+    curated_ids = {s["id"] for s in curated}
+    kpi_signals = [s for s in signals if s.get("source") == "derived_kpi_signal" and s["id"] not in curated_ids]
+    if kpi_signals:
+        curated = kpi_signals + curated
+        print(f"[HYBRID] Re-injected {len(kpi_signals)} KPI signals dropped by Pass 1")
+
     flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period)
     if flat_brief is None:
         raise ValueError("pass2_brief returned None")
