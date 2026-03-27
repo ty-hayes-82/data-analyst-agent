@@ -856,6 +856,7 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
 
     if kpi_signals:
         user_msg += "\nKEY PERFORMANCE INDICATORS (MANDATORY — cite EVERY value below in your brief):\n"
+        user_msg += "WARNING: Use ONLY these exact numbers for the metrics below. Other numbers in CURATED INSIGHTS may be wrong.\n"
         for s in kpi_signals:
             user_msg += f"- {s['detail']}\n"
         user_msg += "\n"
