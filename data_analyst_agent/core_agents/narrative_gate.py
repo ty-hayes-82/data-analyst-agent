@@ -256,6 +256,22 @@ class ConditionalNarrativeAgent(BaseAgent):
 
     async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         state = ctx.session.state
+
+        # Allow skipping narrative entirely (e.g. during autoresearch when only brief is scored)
+        if os.environ.get("NARRATIVE_AGENT_SKIP", "").lower() in ("true", "1", "yes"):
+            payload = {
+                "insight_cards": [],
+                "narrative_summary": "Narrative skipped (NARRATIVE_AGENT_SKIP=true)",
+                "recommended_actions": [],
+                "meta": {"narrative_skipped": True, "reason": "env_skip"},
+            }
+            yield Event(
+                invocation_id=ctx.invocation_id,
+                author=self.name,
+                actions=EventActions(state_delta={"narrative_results": json.dumps(payload)}),
+            )
+            return
+
         if (
             not _hierarchy_has_insight_cards(state)
             and not _has_high_severity_anomaly(state)

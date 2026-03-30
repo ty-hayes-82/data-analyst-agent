@@ -146,9 +146,18 @@ def _max_scoped_briefs() -> int:
     """Return the current scoped brief cap (reads env each call).
 
     Default allows all typical L1 regions (e.g. East/Central/West) without extra env.
+    Set EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=0 to skip all scoped briefs.
     Set EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS=1 to cap cost/latency when drilling deeper.
     """
-    return _parse_positive_int_env("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", 20)
+    value = os.getenv("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS")
+    if value is not None:
+        try:
+            parsed = int(str(value).strip())
+            if parsed >= 0:
+                return parsed
+        except (TypeError, ValueError):
+            pass
+    return 20
 
 
 def _scope_concurrency_limit() -> int:
@@ -1907,14 +1916,14 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         )
                         return (entity, None)
 
-            if drill_levels >= 1 and json_data:
+            if drill_levels >= 1 and json_data and max_scoped_briefs != 0:
                 print(
                     f"[BRIEF] Drill levels={drill_levels}: generating scoped briefs "
                     f"(hierarchy levels 1..{scoped_brief_max_hierarchy_level})"
                 )
                 scheduled_scoped = 0
                 for level in range(1, scoped_brief_max_hierarchy_level + 1):
-                    if max_scoped_briefs and scheduled_scoped >= max_scoped_briefs:
+                    if max_scoped_briefs is not None and max_scoped_briefs > 0 and scheduled_scoped >= max_scoped_briefs:
                         print(
                             f"[BRIEF] Reached EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS={max_scoped_briefs}; skipping remaining levels"
                         )
@@ -1950,7 +1959,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             entities = [e for e in entities if e not in sole_l2_children]
                     level_name = scope_level_labels.get(level, f"Level {level}")
 
-                    if max_scoped_briefs:
+                    if max_scoped_briefs is not None and max_scoped_briefs > 0:
                         remaining = max_scoped_briefs - scheduled_scoped
                         if remaining <= 0:
                             break

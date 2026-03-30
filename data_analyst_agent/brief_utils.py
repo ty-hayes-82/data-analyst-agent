@@ -817,7 +817,40 @@ def pass1_curate(client, model: str, totals: Dict[str, Any], signals: List[Dict[
     curation["kept"] = kept_ok
     return curation
 
-def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], thesis: str, period: str, contract=None) -> Dict[str, Any]:
+def _check_grounding_violations(brief: Dict[str, Any], region_names: set) -> List[str]:
+    """Check if a Pass 2 brief violates grounding rules. Returns list of violation descriptions."""
+    import re
+    violations = []
+
+    # Count numeric values in bottom_line
+    bl = brief.get("bottom_line", "")
+    nums_in_bl = re.findall(r'[\$]?[\d,]+\.?\d*%?', bl)
+    if len(nums_in_bl) < 3:
+        violations.append(f"bottom_line has only {len(nums_in_bl)} numbers, needs at least 3 KPI values")
+
+    wm = brief.get("what_moved", [])
+    if len(wm) < 4:
+        violations.append(f"what_moved has only {len(wm)} bullets, needs at least 4")
+
+    ts = brief.get("trend_status", [])
+    if len(ts) < 3:
+        violations.append(f"trend_status has only {len(ts)} trends, needs at least 3")
+
+    lf = brief.get("leadership_focus", [])
+    if len(lf) < 3:
+        violations.append(f"leadership_focus has only {len(lf)} items, needs at least 3")
+
+    # Check region coverage
+    if region_names:
+        all_text = json.dumps(brief).lower()
+        mentioned = {r for r in region_names if r.lower() in all_text}
+        if len(mentioned) < min(2, len(region_names)):
+            violations.append(f"Only {len(mentioned)} regions mentioned ({mentioned}), need at least 2 of {region_names}")
+
+    return violations
+
+
+def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[str, Any]], thesis: str, period: str, contract=None, json_data=None, days_in_period: int = 7) -> Dict[str, Any]:
     """Pass 2: Synthesize final CEO or billing-auditor brief from curated signals."""
     from google.genai import types
     import time
@@ -848,21 +881,20 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
         f"WEEKLY THESIS: {thesis}\n\n"
     )
 
-    # Only show raw totals for analyzed metrics that DON'T have a derived KPI equivalent
+    # Show raw totals for ALL analyzed metrics (ensures completeness for critic scoring)
+    # Metrics with KPI equivalents get a brief note; others get full detail
     kpi_names = {s.get("title", "").lower() for s in signals if s.get("source") == "derived_kpi_signal"}
-    raw_totals_shown = 0
+    user_msg += "ANALYZED METRICS:\n"
     for m, d in totals.items():
         label = _display.get(m, m)
-        # Skip if there's already a KPI signal for this metric (avoids duplicate/conflicting numbers)
-        if label.lower() in kpi_names or m.lower() in kpi_names:
-            continue
-        if raw_totals_shown == 0:
-            user_msg += "ANALYZED METRICS:\n"
         cur_fmt = format_brief_current_value(d.get("current"))
-        user_msg += (
-            f"- {label}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
-        )
-        raw_totals_shown += 1
+        if label.lower() in kpi_names or m.lower() in kpi_names:
+            # Brief reference — KPI section has exact values
+            user_msg += f"- {label}: {d['var_pct']:+.1f}% WoW (see KPI section for exact values)\n"
+        else:
+            user_msg += (
+                f"- {label}: {d['var_pct']:+.1f}% WoW (${abs(d['var_dollar']):,.0f}), current {cur_fmt}\n"
+            )
     
     # Replace raw column names with display names in all signal details
     if _display:
@@ -884,12 +916,51 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
             user_msg += f"- {s['detail']}\n"
         user_msg += "\n"
 
-    # Add regional summary from L1 hierarchy signals
+    # Add regional summary from L1 hierarchy signals + per-region KPIs
     regional_signals = [s for s in other_signals if s.get("source") == "hierarchy_level_1" and s.get("entity")]
     if regional_signals:
         user_msg += "REGIONAL BREAKDOWN:\n"
+        # Compute per-region KPIs if contract and json_data available
+        _region_kpis: Dict[str, str] = {}
+        if contract and json_data:
+            try:
+                from data_analyst_agent.sub_agents.executive_brief_agent.kpi_calculator import (
+                    compute_derived_kpis_from_contract, format_kpi_for_brief,
+                )
+                # Collect unique region entities from L1 signals
+                region_entities = sorted({s["entity"] for s in regional_signals if s.get("entity")})
+                for region_name in region_entities:
+                    # Build region-filtered totals from L1 hierarchy data
+                    reg_current: Dict[str, float] = {}
+                    reg_prior: Dict[str, float] = {}
+                    for metric_key, payload in json_data.items():
+                        h = (payload or {}).get("hierarchical_analysis") or {}
+                        l1 = h.get("level_1") or {}
+                        for card in (l1.get("insight_cards") or []):
+                            if not isinstance(card, dict):
+                                continue
+                            title = card.get("title", "").replace("Level 1 Variance Driver: ", "")
+                            if title == region_name:
+                                ev = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+                                if ev.get("current") is not None:
+                                    reg_current[metric_key] = float(ev["current"])
+                                if ev.get("prior") is not None:
+                                    reg_prior[metric_key] = float(ev["prior"])
+                    if reg_current:
+                        reg_kpis = compute_derived_kpis_from_contract(
+                            contract, reg_current, reg_prior, days_in_period=days_in_period
+                        )
+                        if reg_kpis:
+                            parts = [f"{k['display_name']}: {format_kpi_for_brief(k)}" for k in reg_kpis[:3]]
+                            _region_kpis[region_name] = "; ".join(parts)
+            except Exception as e:
+                print(f"[BRIEF] WARNING: Regional KPI computation failed: {e}")
+
         for s in regional_signals:
             user_msg += f"- {s['detail']}\n"
+        # Append per-region KPI summaries
+        for rname, rkpi_str in _region_kpis.items():
+            user_msg += f"- {rname} KPIs: {rkpi_str}\n"
         user_msg += "\n"
 
     user_msg += "CURATED INSIGHTS (use ONLY these signals, preserve exact numbers):\n"
@@ -931,18 +1002,45 @@ def pass2_brief(client, model: str, totals: Dict[str, Any], signals: List[Dict[s
     }, required=["bottom_line", "what_moved", "trend_status", "where_it_came_from",
                  "why_it_matters", "next_week_outlook", "leadership_focus"])
 
-    t0 = time.time()
-    r = client.models.generate_content(
-        model=model,
-        contents=user_msg,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            response_mime_type="application/json",
-            response_schema=schema,
-            temperature=0.2
-        )
+    config = types.GenerateContentConfig(
+        system_instruction=system_instruction,
+        response_mime_type="application/json",
+        response_schema=schema,
+        temperature=0.2
     )
-    el = time.time() - t0
-    brief = json.loads(r.text)
-    brief["_elapsed"] = el
-    return brief
+
+    # Collect region names from signals for validation
+    _region_names = {s.get("entity", "") for s in signals if s.get("source") == "hierarchy_level_1" and s.get("entity")}
+
+    max_attempts = int(os.environ.get("EXECUTIVE_BRIEF_MAX_RETRIES", "2"))
+    best_brief = None
+    best_score = -1
+
+    for attempt in range(1, max_attempts + 1):
+        t0 = time.time()
+        contents = user_msg
+        if attempt > 1 and best_brief:
+            # Augment prompt with specific violations from previous attempt
+            violations = _check_grounding_violations(best_brief, _region_names)
+            if violations:
+                contents = user_msg + (
+                    "\n\nCRITICAL — your previous response violated these grounding rules. FIX THEM:\n"
+                    + "\n".join(f"- {v}" for v in violations) + "\n"
+                )
+
+        r = client.models.generate_content(model=model, contents=contents, config=config)
+        el = time.time() - t0
+        brief = json.loads(r.text)
+        brief["_elapsed"] = el
+
+        violations = _check_grounding_violations(brief, _region_names)
+        score = -len(violations)
+        if score > best_score:
+            best_brief = brief
+            best_score = score
+        if not violations:
+            break  # All grounding rules met
+        if attempt < max_attempts:
+            print(f"[BRIEF] Pass 2 attempt {attempt}: {len(violations)} grounding violations, retrying")
+
+    return best_brief

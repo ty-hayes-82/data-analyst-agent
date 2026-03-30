@@ -41,7 +41,7 @@ def _kill_orphan_hyper_processes() -> None:
         pass
 
 
-def run_pipeline(dataset_name: str, metrics: str, timeout: int = 600,
+def run_pipeline(dataset_name: str, metrics: str, timeout: int = 300,
                  extra_args: Optional[List[str]] = None) -> Optional[str]:
     """Run the data-analyst-agent pipeline and return the output directory path.
 
@@ -58,6 +58,15 @@ def run_pipeline(dataset_name: str, metrics: str, timeout: int = 600,
 
     env = os.environ.copy()
     env["ACTIVE_DATASET"] = dataset_name
+    # Skip per-metric LLM agents (narrative + report synthesis) — the hybrid
+    # brief pipeline reads from metric JSON directly, not from their output.
+    env.setdefault("NARRATIVE_AGENT_SKIP", "true")
+    env.setdefault("REPORT_SYNTHESIS_SKIP", "true")
+    # Skip scoped (regional) briefs — not scored by BQS
+    env.setdefault("EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS", "0")
+    # Reduce brief retries and timeout
+    env.setdefault("EXECUTIVE_BRIEF_MAX_RETRIES", "1")
+    env.setdefault("EXECUTIVE_BRIEF_TIMEOUT", "120")
 
     cmd = [
         sys.executable, "-m", "data_analyst_agent",

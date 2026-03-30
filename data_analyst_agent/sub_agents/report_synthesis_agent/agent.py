@@ -426,6 +426,16 @@ class ReportSynthesisWrapper(BaseAgent):
         from google.genai.types import Content, Part
         from google.adk.events.event import Event
 
+        # Allow skipping report synthesis entirely (e.g. during autoresearch when only brief is scored)
+        if os.environ.get("REPORT_SYNTHESIS_SKIP", "").lower() in ("true", "1", "yes"):
+            print("[REPORT_SYNTHESIS] Skipped (REPORT_SYNTHESIS_SKIP=true)")
+            yield Event(
+                invocation_id=ctx.invocation_id,
+                author=self.name,
+                actions=EventActions(state_delta={"report_synthesis_result": ""}),
+            )
+            return
+
         print(f"\n{'='*80}")
         print(f"[REPORT_SYNTHESIS] Starting report synthesis agent")
         print(f"{'='*80}\n")

@@ -271,10 +271,26 @@ def run_hybrid_ceo_brief_sync(
             s["dimension"] = s.get("entity", "Network")
         curated = kpi_signals + curated
         print(f"[HYBRID] Added {len(kpi_signals)} KPI signals to curated list")
+
+    # Ensure regional (L1) signals are included — they may have been dropped by Flash Lite
+    regional_signals = [s for s in signals if s.get("source") == "hierarchy_level_1" and s["id"] not in curated_ids]
+    if regional_signals:
+        from data_analyst_agent.brief_utils import _build_deterministic_metric_description
+        for s in regional_signals:
+            s["metric_description"] = _build_deterministic_metric_description(s)
+            s["clean_name"] = s.get("title", "")
+            s["dimension"] = s.get("entity", "Network")
+        curated_ids_after_kpi = {s["id"] for s in curated}
+        new_regional = [s for s in regional_signals if s["id"] not in curated_ids_after_kpi]
+        if new_regional:
+            curated.extend(new_regional)
+            print(f"[HYBRID] Added {len(new_regional)} regional (L1) signals to curated list")
+
     # Note: metric_description for ALL curated signals is now deterministic
     # (computed in merge_pass1_kept_into_signals, not from Flash Lite)
 
-    flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period, contract=contract)
+    flat_brief = pass2_brief(client, pro_model, totals, curated, thesis, analysis_period,
+                             contract=contract, json_data=json_data, days_in_period=days_in_period)
     if flat_brief is None:
         raise ValueError("pass2_brief returned None")
     meta["pass2_elapsed"] = flat_brief.get("_elapsed")
