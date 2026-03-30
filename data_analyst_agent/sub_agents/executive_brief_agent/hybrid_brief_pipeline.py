@@ -26,7 +26,7 @@ from google import genai
 from google.genai import types
 
 from config.model_loader import get_agent_model
-from .brief_format import render_flat_ceo_brief_markdown
+from .brief_format import render_flat_ceo_brief_markdown, render_flat_ceo_brief_html
 from .prompt import get_ceo_section_contract, is_billing_auditor_style
 
 
@@ -340,6 +340,16 @@ def run_hybrid_ceo_brief_sync(
         kpi_rows=kpi_rows if kpi_rows else None,
     )
 
+    html = render_flat_ceo_brief_html(
+        flat_brief,
+        heading=md_heading,
+        analysis_period=analysis_period,
+        outlook_heading=outlook_title,
+        kpi_rows=kpi_rows if kpi_rows else None,
+        generated_date=period_end,
+    )
+
+    meta["html"] = html
     return executive, md, meta
 
 

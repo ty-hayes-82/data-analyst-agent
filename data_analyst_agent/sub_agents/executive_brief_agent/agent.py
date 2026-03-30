@@ -131,6 +131,33 @@ class ExecutiveBriefConfig:
 BRIEF_CONFIG = ExecutiveBriefConfig()
 
 
+def _sections_to_flat(brief_json: dict[str, Any]) -> dict[str, Any]:
+    """Convert sections-based scoped brief JSON to flat format for HTML rendering."""
+    flat: dict[str, Any] = {}
+    flat["bottom_line"] = (brief_json.get("header") or {}).get("summary", "")
+    sections = (brief_json.get("body") or {}).get("sections", [])
+    for sec in sections:
+        title = (sec.get("title") or "").lower()
+        insights = sec.get("insights") or []
+        content = sec.get("content", "")
+        if "key finding" in title:
+            flat["what_moved"] = [{"label": i.get("title", ""), "line": i.get("details", "")} for i in insights]
+        elif "trend" in title:
+            flat["trend_status"] = [i.get("details", "") for i in insights] if insights else [content]
+        elif "driver" in title or "where" in title:
+            flat["where_it_came_from"] = {}
+            for i, ins in enumerate(insights):
+                key = ["positive", "drag", "watch_item"][min(i, 2)]
+                flat["where_it_came_from"][key] = ins.get("details", "")
+        elif "impact" in title or "why" in title or "matter" in title:
+            flat["why_it_matters"] = content or (insights[0].get("details", "") if insights else "")
+        elif "outlook" in title or "next" in title:
+            flat["next_week_outlook"] = content or (insights[0].get("details", "") if insights else "")
+        elif "action" in title or "leadership" in title or "recommend" in title:
+            flat["leadership_focus"] = [i.get("details", "") for i in insights] if insights else [content]
+    return flat
+
+
 def _parse_positive_int_env(var_name: str, default: int) -> int:
     value = os.getenv(var_name)
     if value is None:
@@ -1734,6 +1761,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         os.environ.get("EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION", "false")
                     )
 
+                    hybrid_meta = None
                     brief_json, brief_md, hybrid_meta = await run_hybrid_ceo_brief_async(
                         json_data,
                         analysis_period=analysis_period,
@@ -1826,6 +1854,14 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             brief_json_path.write_text(json.dumps(brief_json, indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"[BRIEF] Saved executive brief JSON to {json_filename} (in {deliverables_dir.name}/)")
 
+            # Save HTML email version if available from hybrid pipeline
+            brief_html = hybrid_meta.get("html") if hybrid_meta else None
+            if brief_html:
+                html_filename = "brief.html" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.html"
+                html_path = deliverables_dir / html_filename
+                html_path.write_text(brief_html, encoding="utf-8")
+                print(f"[BRIEF] Saved HTML email brief to {html_filename} (in {deliverables_dir.name}/)")
+
             print("\n" + "=" * 80)
             print("EXECUTIVE BRIEF")
             print("=" * 80)
@@ -1897,6 +1933,25 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         )
                         scoped_json_path = deliverables_dir / scoped_json_filename
                         scoped_json_path.write_text(json.dumps(scoped_json, indent=2, ensure_ascii=False), encoding="utf-8")
+
+                        # Generate HTML email for scoped brief
+                        try:
+                            from .brief_format import render_flat_ceo_brief_html
+                            scoped_flat = _sections_to_flat(scoped_json)
+                            scoped_html = render_flat_ceo_brief_html(
+                                scoped_flat,
+                                heading=f"{entity} Region — Performance Overview",
+                                analysis_period=analysis_period,
+                                generated_date=str(period_end),
+                            )
+                            scoped_html_filename = (
+                                "brief_" + safe_entity + ".html"
+                                if os.getenv("DATA_ANALYST_OUTPUT_DIR")
+                                else f"executive_brief_{period_end}_{safe_entity}.html"
+                            )
+                            (deliverables_dir / scoped_html_filename).write_text(scoped_html, encoding="utf-8")
+                        except Exception as html_err:
+                            print(f"[BRIEF] WARNING: Scoped HTML for {entity} failed: {html_err}")
                         return (
                             entity,
                             {
