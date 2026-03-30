@@ -8,6 +8,7 @@ from google.adk.agents.invocation_context import InvocationContext
 from google.adk.agents.llm_agent import Agent as LlmAgent
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
@@ -81,6 +82,7 @@ class DrillDownDecisionAgent(LlmAgent):
     """LLM agent that decides whether to drill down to next level (fallback path)."""
 
     def __init__(self) -> None:
+        _thinking = get_agent_thinking_config("drill_down_decision_agent")
         super().__init__(
             name="drill_down_decision_agent",
             model=get_agent_model("drill_down_decision_agent"),
@@ -90,8 +92,8 @@ class DrillDownDecisionAgent(LlmAgent):
                 response_modalities=["TEXT"],
                 response_mime_type="application/json",
                 temperature=0.0,
-                thinking_config=get_agent_thinking_config("drill_down_decision_agent"),
             ),
+            **({"planner": BuiltInPlanner(thinking_config=_thinking)} if _thinking else {}),
         )
 
 

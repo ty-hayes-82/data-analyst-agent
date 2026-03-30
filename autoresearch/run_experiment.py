@@ -7,6 +7,7 @@ Handles pipeline invocation, output directory discovery, and error recovery.
 from __future__ import annotations
 
 import os
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -26,19 +27,35 @@ def find_latest_output(dataset_name: str) -> Optional[str]:
     return None
 
 
-def run_pipeline(dataset_name: str, metrics: str, timeout: int = 180,
+def _kill_orphan_hyper_processes() -> None:
+    """Kill any orphaned hyperd.exe processes that could lock .hyper files."""
+    try:
+        if platform.system() == "Windows":
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "hyperd.exe"],
+                capture_output=True, timeout=5,
+            )
+        else:
+            subprocess.run(["pkill", "-f", "hyperd"], capture_output=True, timeout=5)
+    except Exception:
+        pass
+
+
+def run_pipeline(dataset_name: str, metrics: str, timeout: int = 600,
                  extra_args: Optional[List[str]] = None) -> Optional[str]:
     """Run the data-analyst-agent pipeline and return the output directory path.
 
     Args:
         dataset_name: Dataset to analyze (e.g., "global_superstore")
         metrics: Comma-separated metric names (e.g., "Sales,Profit")
-        timeout: Max seconds to wait for pipeline completion
+        timeout: Max seconds to wait for pipeline completion (default 600s / 10 min)
         extra_args: Additional CLI arguments (e.g., ["--lob", "Line Haul", "--end-date", "2026-03-14"])
 
     Returns:
         Path to the output directory, or None on failure.
     """
+    _kill_orphan_hyper_processes()
+
     env = os.environ.copy()
     env["ACTIVE_DATASET"] = dataset_name
 
@@ -61,6 +78,7 @@ def run_pipeline(dataset_name: str, metrics: str, timeout: int = 180,
             timeout=timeout,
             cwd=str(PROJECT_ROOT),
             env=env,
+            stdin=subprocess.DEVNULL,
         )
 
         if result.returncode != 0:

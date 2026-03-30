@@ -1209,23 +1209,24 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             # Network totals block is now built AFTER derived KPIs are computed
             # so we can show derived values (Truck Count avg, Rev/Trk/Day, etc.)
             # instead of raw additive sums that confuse the LLM.
+            # Compute days_in_period unconditionally (needed by hybrid pipeline even when current_totals is empty)
+            grain = ctx.session.state.get("temporal_grain", "monthly")
+            days = 7  # default fallback
+            try:
+                from datetime import datetime as _dt
+                _pe = _dt.strptime(str(period_end).split(" ")[0], "%Y-%m-%d")
+                if grain == "monthly":
+                    import calendar
+                    days = calendar.monthrange(_pe.year, _pe.month)[1]
+                elif grain == "weekly":
+                    days = 7
+                elif grain == "yearly":
+                    days = 366 if calendar.isleap(_pe.year) else 365
+                else:
+                    days = 30
+            except Exception:
+                days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
             if current_totals:
-                grain = ctx.session.state.get("temporal_grain", "monthly")
-                # Compute actual days from period end date for accurate per-day KPIs
-                try:
-                    from datetime import datetime as _dt
-                    _pe = _dt.strptime(str(period_end).split(" ")[0], "%Y-%m-%d")
-                    if grain == "monthly":
-                        import calendar
-                        days = calendar.monthrange(_pe.year, _pe.month)[1]
-                    elif grain == "weekly":
-                        days = 7
-                    elif grain == "yearly":
-                        days = 366 if calendar.isleap(_pe.year) else 365
-                    else:
-                        days = 30
-                except Exception:
-                    days = {"weekly": 7, "monthly": 30, "yearly": 365}.get(grain, 30)
                 kpis = compute_derived_kpis_from_contract(contract, current_totals, prior_totals, days_in_period=days)
                 if kpis:
                     # Build a single clean KEY METRICS block at the top of digest

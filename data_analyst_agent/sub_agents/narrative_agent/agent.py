@@ -7,6 +7,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 from google.genai.types import Content, Part
 from .prompt import NARRATIVE_AGENT_INSTRUCTION
@@ -129,6 +130,7 @@ def _env_true(var_name: str, default: str = "false") -> bool:
     return str(os.getenv(var_name, default)).strip().lower() in {"1", "true", "yes", "on"}
 
 
+_narrative_thinking = get_agent_thinking_config("narrative_agent")
 _base_agent = Agent(
     model=get_agent_model("narrative_agent"),
     name="narrative_agent",
@@ -139,8 +141,8 @@ _base_agent = Agent(
         response_mime_type="application/json",
         temperature=0.0,
         max_output_tokens=2048,  # Reduced from 4096: typical output is 3-5 cards (~800-1200 tokens)
-        thinking_config=get_agent_thinking_config("narrative_agent"),
     ),
+    **({"planner": BuiltInPlanner(thinking_config=_narrative_thinking)} if _narrative_thinking else {}),
 )
 
 class NarrativeWrapper(BaseAgent):
@@ -538,6 +540,7 @@ class NarrativeWrapper(BaseAgent):
 
 def create_narrative_agent():
     """Create a fresh instance of the narrative agent to avoid race conditions."""
+    _thinking = get_agent_thinking_config("narrative_agent")
     base = Agent(
         model=get_agent_model("narrative_agent"),
         name="narrative_agent",
@@ -548,8 +551,8 @@ def create_narrative_agent():
             response_mime_type="application/json",
             temperature=0.0,
             max_output_tokens=2048,
-            thinking_config=get_agent_thinking_config("narrative_agent"),
         ),
+        **({"planner": BuiltInPlanner(thinking_config=_thinking)} if _thinking else {}),
     )
     return NarrativeWrapper(base)
 

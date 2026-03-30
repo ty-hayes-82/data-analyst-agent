@@ -8,6 +8,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from .prompt import PLANNER_INSTRUCTION
@@ -187,6 +188,7 @@ class FocusAwarePlannerAgent(BaseAgent):
             yield event
 
 
+_planner_thinking = get_agent_thinking_config("planner_agent")
 _llm_planner = Agent(
     model=get_agent_model("planner_agent"),
     name="planner_agent",
@@ -197,8 +199,8 @@ _llm_planner = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_modalities=["TEXT"],
         temperature=0.0,
-        thinking_config=get_agent_thinking_config("planner_agent"),
     ),
+    **({"planner": BuiltInPlanner(thinking_config=_planner_thinking)} if _planner_thinking else {}),
 )
 
 root_agent = RuleBasedPlanner() if USE_CODE_INSIGHTS else FocusAwarePlannerAgent(_llm_planner)

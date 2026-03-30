@@ -30,6 +30,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
@@ -224,6 +225,7 @@ class AlertScoringPipeline(BaseAgent):
 # LLM fallback: original wrapper (used when USE_CODE_INSIGHTS=false)
 # ---------------------------------------------------------------------------
 
+_alert_thinking = get_agent_thinking_config("alert_scoring_coordinator")
 _base_agent = Agent(
     model=get_agent_model("alert_scoring_coordinator"),
     name="alert_scoring_coordinator_llm",
@@ -241,8 +243,8 @@ _base_agent = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_modalities=["TEXT"],
         temperature=0.1,
-        thinking_config=get_agent_thinking_config("alert_scoring_coordinator"),
     ),
+    **({"planner": BuiltInPlanner(thinking_config=_alert_thinking)} if _alert_thinking else {}),
 )
 
 

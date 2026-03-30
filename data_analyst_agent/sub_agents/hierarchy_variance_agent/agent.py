@@ -30,6 +30,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
@@ -157,6 +158,7 @@ class HierarchyInsightCardAgent(BaseAgent):
 
 
 # LLM fallback agent (used when USE_CODE_INSIGHTS=false)
+_hierarchy_thinking = get_agent_thinking_config("hierarchy_variance_ranker_agent")
 _llm_agent = Agent(
     model=get_agent_model("hierarchy_variance_ranker_agent"),
     name="hierarchy_variance_ranker_agent",
@@ -166,9 +168,9 @@ _llm_agent = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_modalities=["TEXT"],
         temperature=0.0,
-        thinking_config=get_agent_thinking_config("hierarchy_variance_ranker_agent"),
     ),
     output_key="level_analysis_result",
+    **({"planner": BuiltInPlanner(thinking_config=_hierarchy_thinking)} if _hierarchy_thinking else {}),
 )
 
 class HierarchyRankerWrapper(BaseAgent):

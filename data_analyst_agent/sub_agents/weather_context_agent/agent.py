@@ -32,6 +32,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 from google.genai.types import Content, Part
 
@@ -81,6 +82,7 @@ def _parse_weather_response(text: str) -> dict[str, Any]:
         return {"results": []}
 
 
+_weather_thinking = get_agent_thinking_config("narrative_agent")
 _base_agent = Agent(
     model=get_agent_model("narrative_agent"),
     name="weather_context_agent",
@@ -91,8 +93,8 @@ _base_agent = Agent(
     generate_content_config=types.GenerateContentConfig(
         response_modalities=["TEXT"],
         temperature=0.2,
-        thinking_config=get_agent_thinking_config("narrative_agent"),
     ),
+    **({"planner": BuiltInPlanner(thinking_config=_weather_thinking)} if _weather_thinking else {}),
 )
 
 

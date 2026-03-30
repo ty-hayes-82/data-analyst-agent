@@ -32,6 +32,7 @@ from google.adk.agents.llm_agent import Agent as LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
@@ -179,6 +180,7 @@ class StatisticalInsightsAgent(LlmAgent):
     """LLM agent that interprets statistical results with business context (fallback path)."""
 
     def __init__(self):
+        _thinking = get_agent_thinking_config("statistical_insights_agent")
         super().__init__(
             name="statistical_llm_interpreter",
             model=get_agent_model("statistical_insights_agent"),
@@ -188,8 +190,8 @@ class StatisticalInsightsAgent(LlmAgent):
                 response_modalities=["TEXT"],
                 response_mime_type="application/json",
                 temperature=0.0,
-                thinking_config=get_agent_thinking_config("statistical_insights_agent"),
             ),
+            **({"planner": BuiltInPlanner(thinking_config=_thinking)} if _thinking else {}),
         )
 
 

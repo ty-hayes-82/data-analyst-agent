@@ -27,6 +27,7 @@ from google.adk.agents.base_agent import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
 from google.adk.events.event import Event
 from google.adk.events.event_actions import EventActions
+from google.adk.planners import BuiltInPlanner
 from google.genai import types
 
 from config.model_loader import get_agent_model, get_agent_thinking_config
@@ -46,6 +47,7 @@ from ...utils.hierarchy_levels import hierarchy_level_range, independent_level_r
 from ...utils.stub_guard import contains_stub_content, stub_outputs_allowed
 
 
+_thinking = get_agent_thinking_config("report_synthesis_agent")
 _base_agent = Agent(
     model=get_agent_model("report_synthesis_agent"),
     name="report_synthesis_agent",
@@ -57,8 +59,8 @@ _base_agent = Agent(
         response_modalities=["TEXT"],
         temperature=0.2,
         max_output_tokens=2048,  # Reduced from 4096: typical tool call output is ~600-800 tokens
-        thinking_config=get_agent_thinking_config("report_synthesis_agent"),
     ),
+    **({"planner": BuiltInPlanner(thinking_config=_thinking)} if _thinking else {}),
 )
 
 
@@ -1002,8 +1004,8 @@ def create_report_synthesis_agent(model: str | None = None, thinking_budget: int
             response_modalities=["TEXT"],
             temperature=0.2,
             max_output_tokens=4096,
-            thinking_config=thinking_config,
         ),
+        **({"planner": BuiltInPlanner(thinking_config=thinking_config)} if thinking_config else {}),
     )
     return ReportSynthesisWrapper(base)
 
