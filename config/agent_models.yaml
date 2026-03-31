@@ -97,6 +97,11 @@ agents:
     description: Cross-metric synthesis executive brief — gemini-3-flash-preview (Tier
       1 winner)
     safe_tiers: *id001
+  executive_brief_scoped:
+    tier: lite
+    description: Regional/scoped briefs — gemini-3-flash-preview (more reliable than
+      flash-lite for thin regional data)
+    safe_tiers: *id001
   executive_brief_hybrid_curator:
     tier: brief
     description: CEO hybrid Pass 1 — curate top signals (Flash-Lite)

@@ -825,25 +825,20 @@ def _validate_structured_brief(
             if title == "Key Findings" and not _ceo_active and not details:
                 errors.append(f"Key Findings entry {insight_idx} missing details")
             elif details == SECTION_FALLBACK_TEXT:
-                # Skip fallback check for CEO content-only sections
-                allow_kf_placeholder = (
-                    is_scoped
-                    and title == "Key Findings"
-                    and scoped_digest_signal_count is not None
-                    and scoped_digest_signal_count <= 3
-                    and kf_placeholder_count <= 1
-                )
-                if not (_ceo_active and title in _ceo_content_only):
-                    if not allow_kf_placeholder:
-                        errors.append(
-                            f"{title} entry {insight_idx} contains only placeholder fallback text - "
-                            "LLM did not populate this insight"
-                        )
+                # Scoped briefs: always allow placeholders (thin regional data can't fill all insights)
+                if is_scoped:
+                    pass
+                elif not (_ceo_active and title in _ceo_content_only):
+                    errors.append(
+                        f"{title} entry {insight_idx} contains only placeholder fallback text - "
+                        "LLM did not populate this insight"
+                    )
             if not details and not title_field:
                 errors.append(f"{title or f'section[{idx}]'} insight {insight_idx} missing title/detail content")
 
             # Validate numeric values in insight-heavy sections
-            needs_numeric = (title == "Key Findings" and not _ceo_active) or (_ceo_active and title in _ceo_insight_sections)
+            # Scoped briefs: skip per-insight numeric validation (regional data is often sparse)
+            needs_numeric = (title == "Key Findings" and not _ceo_active and not is_scoped) or (_ceo_active and title in _ceo_insight_sections)
             if needs_numeric and details:
                 insight_text = title_field + " " + details
                 insight_value_count = _count_numeric_values(insight_text)

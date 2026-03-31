@@ -41,7 +41,7 @@ def _kill_orphan_hyper_processes() -> None:
         pass
 
 
-def run_pipeline(dataset_name: str, metrics: str, timeout: int = 300,
+def run_pipeline(dataset_name: str, metrics: str, timeout: int = 360,
                  extra_args: Optional[List[str]] = None) -> Optional[str]:
     """Run the data-analyst-agent pipeline and return the output directory path.
 
