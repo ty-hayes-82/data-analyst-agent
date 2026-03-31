@@ -41,7 +41,7 @@ def _kill_orphan_hyper_processes() -> None:
         pass
 
 
-def run_pipeline(dataset_name: str, metrics: str, timeout: int = 420,
+def run_pipeline(dataset_name: str, metrics: str, timeout: int = 300,
                  extra_args: Optional[List[str]] = None) -> Optional[str]:
     """Run the data-analyst-agent pipeline and return the output directory path.
 
@@ -64,7 +64,9 @@ def run_pipeline(dataset_name: str, metrics: str, timeout: int = 420,
     env.setdefault("REPORT_SYNTHESIS_SKIP", "true")
     # Reduce brief retries and timeout
     env.setdefault("EXECUTIVE_BRIEF_MAX_RETRIES", "1")
+    env.setdefault("EXECUTIVE_BRIEF_MAX_SCOPED_RETRIES", "1")
     env.setdefault("EXECUTIVE_BRIEF_TIMEOUT", "120")
+    env.setdefault("EXECUTIVE_BRIEF_RETRY_DELAY", "1")
 
     cmd = [
         sys.executable, "-m", "data_analyst_agent",
