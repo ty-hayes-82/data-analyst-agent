@@ -468,15 +468,40 @@ def run_scoped_brief_sync(
     ranker = SignalRanker(filtered_json, contract=contract, days_in_period=days_in_period)
     signals = ranker.extract_all()
 
-    # Filter signals to only those relevant to this entity or network-level
+    # Filter signals to only those relevant to this entity.
+    # Exclude: network KPI signals (they carry $23M network totals, not regional),
+    # signals for other regions, and signals whose detail text names other regions.
     entity_lower = entity.lower()
-    signals = [
-        s for s in signals
-        if not s.get("entity")  # network-level signals (no entity)
-        or s["entity"].lower() == entity_lower  # this region
-        or s["entity"].lower() == "network"  # explicitly network
-        or s.get("source") == "derived_kpi_signal"  # KPIs always included
-    ]
+
+    # Collect all region names from L1 cards across all metrics to detect cross-region bleed
+    _all_regions: set[str] = set()
+    _l1_prefix = "Level 1 Variance Driver: "
+    for _p in json_data.values():
+        _ha = (_p or {}).get("hierarchical_analysis") or {}
+        _l1 = _ha.get("level_1") or {}
+        for _c in (_l1.get("insight_cards") or []):
+            if isinstance(_c, dict):
+                _rname = _c.get("title", "").replace(_l1_prefix, "").strip()
+                if _rname:
+                    _all_regions.add(_rname)
+    _other_regions = {r for r in _all_regions if r.lower() != entity_lower}
+
+    def _signal_relevant(s: dict) -> bool:
+        # Exclude network-level KPI signals (they carry network totals, not regional)
+        if s.get("source") == "derived_kpi_signal" and (s.get("entity") or "").lower() in ("network", ""):
+            return False
+        sig_entity = (s.get("entity") or "").lower()
+        # Keep signals with no entity (general trends), this entity, or "network"
+        if sig_entity and sig_entity != entity_lower and sig_entity != "network":
+            return False
+        # Reject signals whose detail text explicitly names another region
+        detail = s.get("detail", "")
+        for other in _other_regions:
+            if other in detail:
+                return False
+        return True
+
+    signals = [s for s in signals if _signal_relevant(s)]
 
     if not signals:
         flat_brief = {
@@ -558,20 +583,39 @@ def run_scoped_brief_sync(
             curated = signals[:max_curated]
         thesis = str(curation.get("narrative_thesis", f"Mixed operational signals for {entity}."))
 
-    # --- 5. Re-inject KPI signals (same pattern as network brief) ---
-    curated_ids = {s["id"] for s in curated}
-    kpi_signals = [
-        s for s in signals
-        if s.get("source") == "derived_kpi_signal" and s["id"] not in curated_ids
-    ]
-    if kpi_signals:
-        from data_analyst_agent.brief_utils import _build_deterministic_metric_description
-        for s in kpi_signals:
-            s["metric_description"] = _build_deterministic_metric_description(s)
-            s["clean_name"] = s.get("title", "")
-            s["dimension"] = s.get("entity", entity)
-        curated = kpi_signals + curated
-        print(f"[SCOPED-{entity}] Added {len(kpi_signals)} KPI signals to curated list")
+    # --- 5. Inject regional KPI signals from kpi_rows (not from network-level signals) ---
+    if kpi_rows:
+        from data_analyst_agent.brief_utils import _build_deterministic_metric_description, format_brief_current_value
+        regional_kpi_signals = []
+        for kpi in kpi_rows:
+            display = kpi.get("display_name", kpi.get("name", ""))
+            cur_val = kpi.get("value")
+            pri_val = kpi.get("prior_value")
+            change = kpi.get("change_pct")
+            if cur_val is None:
+                continue
+            val_str = format_brief_current_value(cur_val)
+            chg_str = f"{change:+.1f}%" if change is not None else "N/A"
+            detail = f"{display}: {val_str} ({chg_str} WoW)"
+            sig = {
+                "id": f"scoped_kpi_{entity}_{kpi.get('name', '')}",
+                "score": 0.8,
+                "signal_type": "KPI",
+                "title": display,
+                "detail": detail,
+                "metric": kpi.get("name", ""),
+                "source": "derived_kpi_signal",
+                "entity": entity,
+                "current_value": cur_val,
+                "prior_value": pri_val,
+                "var_pct": change,
+            }
+            sig["metric_description"] = _build_deterministic_metric_description(sig)
+            sig["clean_name"] = display
+            sig["dimension"] = entity
+            regional_kpi_signals.append(sig)
+        curated = regional_kpi_signals + curated
+        print(f"[SCOPED-{entity}] Injected {len(regional_kpi_signals)} regional KPI signals")
 
     regional_signals = [
         s for s in signals
