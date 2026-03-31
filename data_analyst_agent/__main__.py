@@ -94,7 +94,7 @@ parser.add_argument(
     "--standard-brief",
     action="store_true",
     help=(
-        "Use standard executive brief (single digest LLM). Default is CEO hybrid: "
+        "Use standard executive brief (single digest LLM). Default is CEO pipeline: "
         "code rank -> gemini-3.1-flash-lite curate -> gemini-3.1-pro synthesis."
     ),
 )
@@ -106,8 +106,8 @@ parser.add_argument(
     help=(
         "Override network executive brief persona. "
         "billing_auditor = customer/lane billing review queue; "
-        "ceo = COO-style hybrid; default = standard JSON brief. "
-        "When omitted, uses contract reporting.executive_brief_style if set, else CEO hybrid."
+        "ceo = COO-style brief; default = standard JSON brief. "
+        "When omitted, uses contract reporting.executive_brief_style if set, else CEO pipeline."
     ),
 )
 parser.add_argument(
@@ -257,7 +257,7 @@ if args.start_date and args.end_date and not validate_date_range(args.start_date
 # ------------------------------------------------------------------
 os.environ["ACTIVE_DATASET"] = args.dataset
 
-# CEO hybrid brief by default (Pass1: 3.1 Flash-Lite, Pass2: 3.1 Pro). Override with .env, --brief-style, or --standard-brief.
+# CEO brief by default (Pass1: 3.1 Flash-Lite, Pass2: 3.1 Pro). Override with .env, --brief-style, or --standard-brief.
 if args.brief_style:
     os.environ["EXECUTIVE_BRIEF_STYLE"] = args.brief_style
     os.environ["EXECUTIVE_BRIEF_STYLE_FROM_CLI"] = "1"
@@ -334,7 +334,7 @@ else:
 if args.standard_brief:
     print(f"  Brief style: standard (digest + single LLM)")
 else:
-    print(f"  Brief style: CEO hybrid (Lite curate + Pro); use --standard-brief to disable")
+    print(f"  Brief style: CEO pipeline (Lite curate + Pro); use --standard-brief to disable")
 print(f"  Query     : {query[:80]}{'...' if len(query) > 80 else ''}")
 print(f"{'='*60}\n")
 

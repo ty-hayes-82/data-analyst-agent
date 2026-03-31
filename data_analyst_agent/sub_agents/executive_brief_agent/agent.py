@@ -75,7 +75,7 @@ from .scope_utils import (
     _sanitize_entity_name,
     derive_scope_level_labels,
 )
-from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, run_scoped_brief_async, save_hybrid_artifacts_async
+from .brief_pipeline import run_brief_async, run_scoped_brief_async, save_brief_artifacts_async
 
 
 class ExecutiveBriefConfig:
@@ -1209,7 +1209,7 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             # Network totals block is now built AFTER derived KPIs are computed
             # so we can show derived values (Truck Count avg, Rev/Trk/Day, etc.)
             # instead of raw additive sums that confuse the LLM.
-            # Compute days_in_period unconditionally (needed by hybrid pipeline even when current_totals is empty)
+            # Compute days_in_period unconditionally (needed by brief pipeline even when current_totals is empty)
             grain = ctx.session.state.get("temporal_grain", "monthly")
             days = 7  # default fallback
             try:
@@ -1691,42 +1691,42 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             used_fallback: bool
 
             print(
-                "[BRIEF] Using hybrid CEO pipeline: Pass0 code rank -> "
+                "[BRIEF] Using CEO pipeline: Pass0 code rank -> "
                 "Pass1 Flash-Lite curate -> Pass2 Pro synthesis"
             )
 
-            def _hybrid_top_n() -> int:
-                raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_TOP_SIGNALS", "30")
+            def _brief_top_n() -> int:
+                raw = os.environ.get("EXECUTIVE_BRIEF_TOP_SIGNALS", "30")
                 try:
                     return max(5, min(int(raw), 80))
                 except (TypeError, ValueError):
                     return 30
 
-            def _hybrid_max_kept() -> int:
-                raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_MAX_CURATED", "12")
+            def _brief_max_kept() -> int:
+                raw = os.environ.get("EXECUTIVE_BRIEF_MAX_CURATED", "12")
                 try:
                     return max(4, min(int(raw), 20))
                 except (TypeError, ValueError):
                     return 12
 
             lite_model = os.environ.get(
-                "EXECUTIVE_BRIEF_HYBRID_LITE_MODEL",
-            ) or get_agent_model("executive_brief_hybrid_curator")
+                "EXECUTIVE_BRIEF_LITE_MODEL",
+            ) or get_agent_model("brief_curator")
             pro_model = os.environ.get(
-                "EXECUTIVE_BRIEF_HYBRID_PRO_MODEL",
-            ) or get_agent_model("executive_brief_hybrid_synthesis")
+                "EXECUTIVE_BRIEF_PRO_MODEL",
+            ) or get_agent_model("brief_synthesis")
             skip_cur = parse_bool_env(
-                os.environ.get("EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION", "false")
+                os.environ.get("EXECUTIVE_BRIEF_SKIP_CURATION", "false")
             )
 
-            hybrid_meta = None
-            brief_json, brief_md, hybrid_meta = await run_hybrid_ceo_brief_async(
+            brief_meta = None
+            brief_json, brief_md, brief_meta = await run_brief_async(
                 json_data,
                 analysis_period=analysis_period,
                 period_end=str(period_end),
                 canonical_grain=canonical_grain,
-                top_signals=_hybrid_top_n(),
-                max_curated=_hybrid_max_kept(),
+                top_signals=_brief_top_n(),
+                max_curated=_brief_max_kept(),
                 skip_curation=skip_cur,
                 lite_model=lite_model,
                 pro_model=pro_model,
@@ -1735,10 +1735,10 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                 kpi_rows=ctx.session.state.get("_computed_kpi_rows"),
             )
             used_fallback = False
-            await save_hybrid_artifacts_async(outputs_dir, hybrid_meta)
+            await save_brief_artifacts_async(outputs_dir, brief_meta)
             print(
-                f"[BRIEF] Hybrid complete (pass0={hybrid_meta.get('pass0_count')}, "
-                f"pass1_skipped={hybrid_meta.get('pass1_skipped', False)})"
+                f"[BRIEF] Pipeline complete (pass0={brief_meta.get('pass0_count')}, "
+                f"pass1_skipped={brief_meta.get('pass1_skipped', False)})"
             )
 
             # Post-process: fix temporal grain in title and section headings
@@ -1777,8 +1777,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             brief_json_path.write_text(json.dumps(brief_json, indent=2, ensure_ascii=False), encoding="utf-8")
             print(f"[BRIEF] Saved executive brief JSON to {json_filename} (in {deliverables_dir.name}/)")
 
-            # Save HTML email version if available from hybrid pipeline
-            brief_html = hybrid_meta.get("html") if hybrid_meta else None
+            # Save HTML email version if available from brief pipeline
+            brief_html = brief_meta.get("html") if brief_meta else None
             if brief_html:
                 html_filename = "brief.html" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}.html"
                 html_path = deliverables_dir / html_filename
@@ -1813,8 +1813,8 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             analysis_period=analysis_period,
                             period_end=str(period_end),
                             canonical_grain=canonical_grain,
-                            lite_model=os.environ.get("EXECUTIVE_BRIEF_HYBRID_LITE_MODEL") or get_agent_model("executive_brief_hybrid_curator"),
-                            pro_model=os.environ.get("EXECUTIVE_BRIEF_SCOPED_MODEL") or get_agent_model("executive_brief_scoped") or get_agent_model("executive_brief_hybrid_synthesis"),
+                            lite_model=os.environ.get("EXECUTIVE_BRIEF_LITE_MODEL") or get_agent_model("brief_curator"),
+                            pro_model=os.environ.get("EXECUTIVE_BRIEF_SCOPED_MODEL") or get_agent_model("executive_brief_scoped") or get_agent_model("brief_synthesis"),
                             contract=contract,
                             days_in_period=days,
                         )

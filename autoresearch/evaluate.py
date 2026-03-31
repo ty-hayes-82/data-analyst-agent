@@ -255,7 +255,7 @@ def tier1_score(brief_json: Dict[str, Any], brief_md: str, metric_jsons: List[Di
     score = 0.0
 
     # 1. JSON validity (4 pts)
-    hybrid = brief_json.get("hybrid_pass2_flat") or brief_json.get("hybrid_pipeline_output")
+    hybrid = brief_json.get("pass2_flat") or brief_json.get("hybrid_pass2_flat") or brief_json.get("hybrid_pipeline_output")
     has_sections = bool(brief_json.get("sections"))
     has_header_body = bool(brief_json.get("header") and brief_json.get("body"))
     if hybrid and isinstance(hybrid, dict):

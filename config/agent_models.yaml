@@ -102,13 +102,13 @@ agents:
     description: Regional/scoped briefs — gemini-3-flash-preview (more reliable than
       flash-lite for thin regional data)
     safe_tiers: *id001
-  executive_brief_hybrid_curator:
+  brief_curator:
     tier: brief
-    description: CEO hybrid Pass 1 — curate top signals (Flash-Lite)
+    description: CEO brief Pass 1 — curate top signals (Flash-Lite)
     safe_tiers: *id001
-  executive_brief_hybrid_synthesis:
+  brief_synthesis:
     tier: pro
-    description: CEO hybrid Pass 2 — Pro synthesis from curated signals
+    description: CEO brief Pass 2 — Pro synthesis from curated signals
     safe_tiers: *id002
   output_persistence_agent:
     tier: lite

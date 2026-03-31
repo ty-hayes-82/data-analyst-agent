@@ -1,4 +1,4 @@
-"""Three-step hybrid CEO brief: deterministic ranking, Flash-Lite curation, Pro synthesis.
+"""Three-step CEO brief pipeline: deterministic ranking, Flash-Lite curation, Pro synthesis.
 
 Models (see config/agent_models.yaml): Pass1 tier ``brief`` (gemini-3.1-flash-lite-preview),
 Pass2 tier ``pro`` (gemini-3.1-pro-preview).
@@ -39,7 +39,7 @@ def _grain_display_label(canonical_grain: str) -> str:
     }.get((canonical_grain or "weekly").lower(), "Weekly")
 
 
-def flat_hybrid_ceo_to_executive_structure(
+def flat_ceo_to_executive_structure(
     flat: dict[str, Any],
     *,
     period_end: str,
@@ -106,12 +106,12 @@ def flat_hybrid_ceo_to_executive_structure(
                 {"title": "Leadership focus", "content": "", "insights": leadership},
             ],
         },
-        "hybrid_pipeline": True,
-        "hybrid_pass2_flat": flat_clean,
+        "pipeline": True,
+        "pass2_flat": flat_clean,
     }
 
 
-def run_hybrid_ceo_brief_sync(
+def run_brief_sync(
     json_data: dict[str, Any],
     *,
     analysis_period: str,
@@ -135,7 +135,7 @@ def run_hybrid_ceo_brief_sync(
         meta: timings and optional curation payload
     """
     if not json_data:
-        raise ValueError("hybrid CEO brief requires metric JSON payloads")
+        raise ValueError("CEO brief requires metric JSON payloads")
 
     ranker = SignalRanker(json_data, contract=contract, days_in_period=days_in_period)
     signals = ranker.extract_all()
@@ -219,7 +219,7 @@ def run_hybrid_ceo_brief_sync(
             (s["title"] for s in contract_early if s["title"].lower().startswith("next")),
             "Next-week outlook",
         )
-        executive_empty = flat_hybrid_ceo_to_executive_structure(
+        executive_empty = flat_ceo_to_executive_structure(
             flat_brief,
             period_end=period_end,
             outlook_title=outlook_early,
@@ -270,7 +270,7 @@ def run_hybrid_ceo_brief_sync(
             s["clean_name"] = s.get("title", "")
             s["dimension"] = s.get("entity", "Network")
         curated = kpi_signals + curated
-        print(f"[HYBRID] Added {len(kpi_signals)} KPI signals to curated list")
+        print(f"[BRIEF] Added {len(kpi_signals)} KPI signals to curated list")
 
     # Ensure regional (L1) signals are included — they may have been dropped by Flash Lite
     regional_signals = [s for s in signals if s.get("source") == "hierarchy_level_1" and s["id"] not in curated_ids]
@@ -284,7 +284,7 @@ def run_hybrid_ceo_brief_sync(
         new_regional = [s for s in regional_signals if s["id"] not in curated_ids_after_kpi]
         if new_regional:
             curated.extend(new_regional)
-            print(f"[HYBRID] Added {len(new_regional)} regional (L1) signals to curated list")
+            print(f"[BRIEF] Added {len(new_regional)} regional (L1) signals to curated list")
 
     # Note: metric_description for ALL curated signals is now deterministic
     # (computed in merge_pass1_kept_into_signals, not from Flash Lite)
@@ -301,7 +301,7 @@ def run_hybrid_ceo_brief_sync(
         "Next-week outlook",
     )
 
-    executive = flat_hybrid_ceo_to_executive_structure(
+    executive = flat_ceo_to_executive_structure(
         flat_brief,
         period_end=period_end,
         outlook_title=outlook_title,
@@ -502,7 +502,7 @@ def run_scoped_brief_sync(
         )
         grain_label = _grain_display_label(canonical_grain)
         heading = f"{entity} Region — {grain_label} Performance Overview"
-        exec_struct = flat_hybrid_ceo_to_executive_structure(
+        exec_struct = flat_ceo_to_executive_structure(
             flat_brief, period_end=period_end,
             outlook_title=outlook_title, canonical_grain=canonical_grain,
         )
@@ -590,7 +590,7 @@ def run_scoped_brief_sync(
         "Next-week outlook",
     )
 
-    executive = flat_hybrid_ceo_to_executive_structure(
+    executive = flat_ceo_to_executive_structure(
         flat_brief, period_end=period_end,
         outlook_title=outlook_title, canonical_grain=canonical_grain,
     )
@@ -642,7 +642,7 @@ async def run_scoped_brief_async(
     )
 
 
-async def run_hybrid_ceo_brief_async(
+async def run_brief_async(
     json_data: dict[str, Any],
     *,
     analysis_period: str,
@@ -660,7 +660,7 @@ async def run_hybrid_ceo_brief_async(
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         None,
-        lambda: run_hybrid_ceo_brief_sync(
+        lambda: run_brief_sync(
             json_data,
             analysis_period=analysis_period,
             period_end=period_end,
@@ -677,28 +677,28 @@ async def run_hybrid_ceo_brief_async(
     )
 
 
-def save_hybrid_artifacts(outputs_dir: Path, meta: dict[str, Any]) -> None:
-    """Write hybrid debug JSON next to the brief (optional)."""
+def save_brief_artifacts(outputs_dir: Path, meta: dict[str, Any]) -> None:
+    """Write brief debug JSON next to the brief (optional)."""
     try:
-        # Move hybrid metadata to meta/ subfolder if in standardized run dir
+        # Move brief metadata to meta/ subfolder if in standardized run dir
         meta_dir = outputs_dir / "meta" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else outputs_dir
         if meta_dir != outputs_dir:
             meta_dir.mkdir(parents=True, exist_ok=True)
-            
-        path = meta_dir / "hybrid_brief_pipeline_meta.json"
+
+        path = meta_dir / "brief_pipeline_meta.json"
         path.write_text(json.dumps(meta, indent=2, default=str), encoding="utf-8")
     except OSError:
         pass
 
 
-async def generate_hybrid_insights_report_async(meta: dict[str, Any]) -> str:
-    """Generate a simple MD file listing all top insights from hybrid metadata using Flash-Lite."""
+async def generate_insights_report_async(meta: dict[str, Any]) -> str:
+    """Generate a simple MD file listing all top insights from brief metadata using Flash-Lite."""
     curation = meta.get("curation")
     if not curation or not curation.get("kept"):
         return ""
 
-    # 'executive_brief_hybrid_curator' is the agent that uses 'brief' tier (3.1 flash lite)
-    model_name = get_agent_model("executive_brief_hybrid_curator")
+    # 'brief_curator' is the agent that uses 'brief' tier (3.1 flash lite)
+    model_name = get_agent_model("brief_curator")
     client = genai.Client()
     
     kept = curation.get("kept", [])
@@ -751,17 +751,17 @@ async def generate_hybrid_insights_report_async(meta: dict[str, Any]) -> str:
         )
         return response.text.strip()
     except Exception as e:
-        print(f"[HYBRID] Failed to generate insights report: {e}")
+        print(f"[BRIEF] Failed to generate insights report: {e}")
         return ""
 
 
-async def save_hybrid_artifacts_async(outputs_dir: Path, meta: dict[str, Any]) -> None:
-    """Write hybrid debug JSON and the new insights MD report next to the brief."""
+async def save_brief_artifacts_async(outputs_dir: Path, meta: dict[str, Any]) -> None:
+    """Write brief debug JSON and the insights MD report next to the brief."""
     # First save the JSON metadata (sync)
-    save_hybrid_artifacts(outputs_dir, meta)
-    
+    save_brief_artifacts(outputs_dir, meta)
+
     # Then generate and save the insights report (async)
-    insights_md = await generate_hybrid_insights_report_async(meta)
+    insights_md = await generate_insights_report_async(meta)
     if insights_md:
         try:
             # Place in deliverables/ if in standardized run dir, else outputs_dir
@@ -769,8 +769,8 @@ async def save_hybrid_artifacts_async(outputs_dir: Path, meta: dict[str, Any]) -
             if target_dir != outputs_dir:
                 target_dir.mkdir(parents=True, exist_ok=True)
                 
-            path = target_dir / "hybrid_insights.md"
+            path = target_dir / "insights.md"
             path.write_text(insights_md, encoding="utf-8")
-            print(f"[HYBRID] Saved curation insights report to {path.name} (in {target_dir.name}/)")
+            print(f"[BRIEF] Saved curation insights report to {path.name} (in {target_dir.name}/)")
         except OSError as e:
-            print(f"[HYBRID] Error saving insights report: {e}")
+            print(f"[BRIEF] Error saving insights report: {e}")

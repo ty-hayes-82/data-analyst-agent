@@ -36,14 +36,14 @@ EXPERIMENTS = [
     },
     {
         "name": "curator=fast + narrative=fast",
-        "changes": {"executive_brief_hybrid_curator": "fast", "narrative_agent": "fast"},
+        "changes": {"brief_curator": "fast", "narrative_agent": "fast"},
     },
     {
         "name": "all_upgraded: narrative=fast, synthesis=advanced, curator=fast",
         "changes": {
             "narrative_agent": "fast",
             "report_synthesis_agent": "advanced",
-            "executive_brief_hybrid_curator": "fast",
+            "brief_curator": "fast",
         },
     },
 ]

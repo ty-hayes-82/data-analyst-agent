@@ -88,15 +88,15 @@ python -m data_analyst_agent --dataset <dataset_name> --metrics "metric1,metric2
 Unless you pass **`--standard-brief`** or set `EXECUTIVE_BRIEF_STYLE=default`, the CLI sets **`EXECUTIVE_BRIEF_STYLE=ceo`**. When CEO style is on and per-metric JSON payloads are present, the **network** executive brief uses a fixed 3-step pipeline:
 
 1. **Pass 0 (code)** — rank and extract signals from metric JSON  
-2. **Pass 1 — `gemini-3.1-flash-lite-preview`** (tier `brief`, agent `executive_brief_hybrid_curator`) — curate the top pool (optional; see below)  
-3. **Pass 2 — `gemini-3.1-pro-preview`** (tier `pro`, agent `executive_brief_hybrid_synthesis`) — synthesize the flat CEO brief JSON, then map it to the same `brief.json` / PDF / HTML shape as the legacy path  
+2. **Pass 1 — `gemini-3.1-flash-lite-preview`** (tier `brief`, agent `brief_curator`) — curate the top pool (optional; see below)
+3. **Pass 2 — `gemini-3.1-pro-preview`** (tier `pro`, agent `brief_synthesis`) — synthesize the flat CEO brief JSON, then map it to the same `brief.json` / PDF / HTML shape as the legacy path
 
 **Not hybrid:** With `--standard-brief` (or `EXECUTIVE_BRIEF_STYLE=default`), the network brief is a **single** LLM call using `executive_brief_agent` (default tier **`brief`** = `gemini-3.1-flash-lite-preview` only) — no separate Pro pass.
 
 **Disable** only the hybrid steps while keeping CEO JSON shape: `EXECUTIVE_BRIEF_USE_HYBRID_PIPELINE=false` (still CEO prompts; falls back to digest LLM).
 
-**Tuning:** `EXECUTIVE_BRIEF_HYBRID_TOP_SIGNALS`, `EXECUTIVE_BRIEF_HYBRID_MAX_CURATED`, `EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION`.  
-**Models:** `EXECUTIVE_BRIEF_HYBRID_LITE_MODEL` / `EXECUTIVE_BRIEF_HYBRID_PRO_MODEL`, or `executive_brief_hybrid_curator` / `executive_brief_hybrid_synthesis` in `config/agent_models.yaml`.
+**Tuning:** `EXECUTIVE_BRIEF_TOP_SIGNALS`, `EXECUTIVE_BRIEF_MAX_CURATED`, `EXECUTIVE_BRIEF_SKIP_CURATION`.
+**Models:** `EXECUTIVE_BRIEF_LITE_MODEL` / `EXECUTIVE_BRIEF_PRO_MODEL`, or `brief_curator` / `brief_synthesis` in `config/agent_models.yaml`.
 
 Scoped hierarchy briefs (when `EXECUTIVE_BRIEF_DRILL_LEVELS` is set above 0) still use the **standard** digest + LLM JSON contract (not the CEO hybrid prompt), so they stay aligned with `Executive Summary` / `Key Findings` validation. Entities at each level are discovered from **all** level insight cards (including titles like `metric (Region)` and `evidence.entity`), not only `Variance Driver:` lines. **`EXECUTIVE_BRIEF_MAX_SCOPED_BRIEFS` defaults to 20** so typical L1 regions (e.g. all three) each get a brief; set to `1` in `.env` if you want only the top entity for speed/cost.
 

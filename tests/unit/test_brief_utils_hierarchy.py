@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from data_analyst_agent.brief_utils import BriefUtils, SignalRanker, _dict_or_empty
-from data_analyst_agent.sub_agents.executive_brief_agent.hybrid_brief_pipeline import (
-    run_hybrid_ceo_brief_sync,
+from data_analyst_agent.sub_agents.executive_brief_agent.brief_pipeline import (
+    run_brief_sync,
 )
 
 
@@ -66,12 +66,12 @@ def test_signal_ranker_null_summary_stats_inner() -> None:
     assert ranker.scored_signals == []
 
 
-def test_run_hybrid_ceo_brief_sync_skips_llm_when_no_signals() -> None:
+def test_run_brief_sync_skips_llm_when_no_signals() -> None:
     """Pass 0 yields no signals: deterministic brief, no genai client needed."""
     json_data = {
         "m1": {"hierarchical_analysis": None, "statistical_summary": None},
     }
-    executive, md, meta = run_hybrid_ceo_brief_sync(
+    executive, md, meta = run_brief_sync(
         json_data,
         analysis_period="the week ending 2026-03-14",
         period_end="2026-03-14",
@@ -86,4 +86,4 @@ def test_run_hybrid_ceo_brief_sync_skips_llm_when_no_signals() -> None:
     assert meta.get("pass0_count") == 0
     assert meta.get("pass1_skipped") is True
     assert "No ranked signals" in executive["header"]["summary"] or "No ranked signals" in md
-    assert "hybrid_pipeline" in executive
+    assert "pipeline" in executive
