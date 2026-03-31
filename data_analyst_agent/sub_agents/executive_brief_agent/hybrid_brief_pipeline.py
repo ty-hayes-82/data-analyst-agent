@@ -353,6 +353,295 @@ def run_hybrid_ceo_brief_sync(
     return executive, md, meta
 
 
+def _filter_json_data_to_entity(json_data: dict[str, Any], entity: str) -> dict[str, Any]:
+    """Return a shallow copy of json_data with hierarchy cards filtered to *entity*.
+
+    Keeps L0 (network totals for context), filters L1 to only cards matching
+    *entity*, and keeps all L2 cards (parentage is not encoded in the payload).
+    """
+    prefix = "Level 1 Variance Driver: "
+    filtered: dict[str, Any] = {}
+    for metric_name, payload in json_data.items():
+        p = dict(payload)  # shallow copy of the metric payload
+        ha = p.get("hierarchical_analysis")
+        if not isinstance(ha, dict):
+            filtered[metric_name] = p
+            continue
+        ha = dict(ha)  # shallow copy
+        # Filter L1 cards
+        l1 = ha.get("level_1")
+        if isinstance(l1, dict):
+            l1 = dict(l1)
+            cards = l1.get("insight_cards") or []
+            if isinstance(cards, list):
+                l1["insight_cards"] = [
+                    c for c in cards
+                    if isinstance(c, dict)
+                    and c.get("title", "").replace(prefix, "").strip() == entity
+                ]
+            ha["level_1"] = l1
+        p["hierarchical_analysis"] = ha
+        filtered[metric_name] = p
+    return filtered
+
+
+def _extract_entity_totals(
+    json_data: dict[str, Any], entity: str,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Extract current/prior base-metric totals from L1 cards matching *entity*."""
+    prefix = "Level 1 Variance Driver: "
+    current_totals: dict[str, float] = {}
+    prior_totals: dict[str, float] = {}
+    for metric_name, payload in json_data.items():
+        ha = payload.get("hierarchical_analysis")
+        if not isinstance(ha, dict):
+            continue
+        l1 = ha.get("level_1")
+        if not isinstance(l1, dict):
+            continue
+        for card in l1.get("insight_cards") or []:
+            if not isinstance(card, dict):
+                continue
+            title = card.get("title", "").replace(prefix, "").strip()
+            if title != entity:
+                continue
+            ev = card.get("evidence") if isinstance(card.get("evidence"), dict) else {}
+            if ev.get("current") is not None:
+                current_totals[metric_name] = float(ev["current"])
+            if ev.get("prior") is not None:
+                prior_totals[metric_name] = float(ev["prior"])
+    return current_totals, prior_totals
+
+
+def run_scoped_brief_sync(
+    json_data: dict[str, Any],
+    entity: str,
+    *,
+    analysis_period: str,
+    period_end: str,
+    canonical_grain: str,
+    lite_model: str,
+    pro_model: str,
+    contract: Any = None,
+    days_in_period: int = 7,
+) -> tuple[dict[str, Any], str, str, dict[str, Any]]:
+    """Run the 3-pass brief pipeline scoped to a single region entity.
+
+    Returns (executive_json, markdown, html, meta).
+    """
+    from .kpi_calculator import compute_derived_kpis_from_contract
+
+    if not json_data:
+        raise ValueError("scoped brief requires metric JSON payloads")
+
+    # --- 1. Filter json_data to the target region ---
+    filtered_json = _filter_json_data_to_entity(json_data, entity)
+
+    # --- 2. Compute per-region base metric totals & KPIs ---
+    region_current, region_prior = _extract_entity_totals(json_data, entity)
+    kpi_rows: list[dict[str, Any]] = []
+    if region_current and contract:
+        kpi_rows = compute_derived_kpis_from_contract(
+            contract, region_current, region_prior, days_in_period,
+        )
+
+    # Build totals dict (same shape as BriefUtils.get_network_totals) for Pass 2
+    totals: dict[str, Any] = {}
+    for m, cur in region_current.items():
+        pri = region_prior.get(m)
+        var_dollar = (cur - pri) if pri is not None else 0
+        var_pct = ((var_dollar / abs(pri)) * 100) if pri else 0
+        totals[m] = {
+            "current": cur,
+            "prior": pri,
+            "var_pct": var_pct,
+            "var_dollar": var_dollar,
+        }
+
+    # --- 3. Pass 0 — deterministic signal extraction on filtered data ---
+    ranker = SignalRanker(filtered_json, contract=contract, days_in_period=days_in_period)
+    signals = ranker.extract_all()
+
+    if not signals:
+        flat_brief = {
+            "bottom_line": (
+                f"No ranked signals were extracted for the {entity} region this period; "
+                "metric outputs may lack hierarchy cards, statistical summaries, or material variance."
+            ),
+            "what_moved": [
+                {
+                    "label": "Summary",
+                    "line": (
+                        f"No deterministic signals passed Pass 0 for {entity}; verify per-metric "
+                        "JSON includes hierarchical_analysis and statistics."
+                    ),
+                }
+            ],
+            "trend_status": ["No trend signals available."],
+            "where_it_came_from": {
+                "positive": f"N/A — no {entity} drivers extracted.",
+                "drag": f"N/A — no {entity} drivers extracted.",
+                "watch_item": "",
+            },
+            "why_it_matters": (
+                f"Without Pass 0 signals the {entity} region brief cannot be grounded in "
+                "automated variance drivers."
+            ),
+            "next_week_outlook": (
+                "Re-run after validating data extracts and hierarchy drill-down."
+            ),
+            "leadership_focus": [
+                f"Validate that metric runs produce hierarchy and stats for {entity} before synthesis.",
+            ],
+            "_elapsed": 0.0,
+        }
+        contract_obj = get_ceo_section_contract(canonical_grain)
+        outlook_title = next(
+            (s["title"] for s in contract_obj if s["title"].lower().startswith("next")),
+            "Next-week outlook",
+        )
+        grain_label = _grain_display_label(canonical_grain)
+        heading = f"{entity} Region — {grain_label} Performance Overview"
+        exec_struct = flat_hybrid_ceo_to_executive_structure(
+            flat_brief, period_end=period_end,
+            outlook_title=outlook_title, canonical_grain=canonical_grain,
+        )
+        md = render_flat_ceo_brief_markdown(
+            flat_brief, heading=heading, analysis_period=analysis_period,
+            outlook_heading=outlook_title, persona="ceo",
+        )
+        html = render_flat_ceo_brief_html(
+            flat_brief, heading=heading, analysis_period=analysis_period,
+            outlook_heading=outlook_title, generated_date=period_end,
+        )
+        meta_empty: dict[str, Any] = {
+            "pass0_count": 0, "pass1_skipped": True,
+            "empty_signals": True, "entity": entity, "html": html,
+        }
+        return exec_struct, md, html, meta_empty
+
+    # --- 4. Pass 1 — curation (skip if ≤ 5 signals) ---
+    client = genai.Client()
+    meta: dict[str, Any] = {"pass0_count": len(signals), "entity": entity}
+    max_curated = 8
+
+    if len(signals) <= 5:
+        curated = signals
+        thesis = f"Mixed operational signals for the {entity} region (curation skipped — ≤ 5 signals)."
+        meta["pass1_skipped"] = True
+    else:
+        pool = signals[:20]
+        curation = pass1_curate(client, lite_model, totals, pool, max_curated)
+        if curation is None:
+            raise ValueError("pass1_curate returned None")
+        meta["pass1_elapsed"] = curation.get("_elapsed")
+        meta["curation"] = {k: v for k, v in curation.items() if k != "_elapsed"}
+        kept_rows = curation.get("kept", [])
+        curated = merge_pass1_kept_into_signals(signals, kept_rows)
+        if not curated:
+            curated = signals[:max_curated]
+        thesis = str(curation.get("narrative_thesis", f"Mixed operational signals for {entity}."))
+
+    # --- 5. Re-inject KPI signals (same pattern as network brief) ---
+    curated_ids = {s["id"] for s in curated}
+    kpi_signals = [
+        s for s in signals
+        if s.get("source") == "derived_kpi_signal" and s["id"] not in curated_ids
+    ]
+    if kpi_signals:
+        from data_analyst_agent.brief_utils import _build_deterministic_metric_description
+        for s in kpi_signals:
+            s["metric_description"] = _build_deterministic_metric_description(s)
+            s["clean_name"] = s.get("title", "")
+            s["dimension"] = s.get("entity", entity)
+        curated = kpi_signals + curated
+        print(f"[SCOPED-{entity}] Added {len(kpi_signals)} KPI signals to curated list")
+
+    regional_signals = [
+        s for s in signals
+        if s.get("source") == "hierarchy_level_1" and s["id"] not in curated_ids
+    ]
+    if regional_signals:
+        from data_analyst_agent.brief_utils import _build_deterministic_metric_description
+        for s in regional_signals:
+            s["metric_description"] = _build_deterministic_metric_description(s)
+            s["clean_name"] = s.get("title", "")
+            s["dimension"] = s.get("entity", entity)
+        curated_ids_after_kpi = {s["id"] for s in curated}
+        new_regional = [s for s in regional_signals if s["id"] not in curated_ids_after_kpi]
+        if new_regional:
+            curated.extend(new_regional)
+            print(f"[SCOPED-{entity}] Added {len(new_regional)} regional (L1) signals to curated list")
+
+    # --- 6. Pass 2 — Pro synthesis ---
+    scoped_period = f"{entity} region for the {analysis_period}"
+    flat_brief = pass2_brief(
+        client, pro_model, totals, curated, thesis, scoped_period,
+        contract=contract, json_data=filtered_json, days_in_period=days_in_period,
+    )
+    if flat_brief is None:
+        raise ValueError("pass2_brief returned None")
+    meta["pass2_elapsed"] = flat_brief.get("_elapsed")
+
+    # --- 7. Render ---
+    section_contract = get_ceo_section_contract(canonical_grain)
+    outlook_title = next(
+        (s["title"] for s in section_contract if s["title"].lower().startswith("next")),
+        "Next-week outlook",
+    )
+
+    executive = flat_hybrid_ceo_to_executive_structure(
+        flat_brief, period_end=period_end,
+        outlook_title=outlook_title, canonical_grain=canonical_grain,
+    )
+
+    grain_label = _grain_display_label(canonical_grain)
+    heading = f"{entity} Region — {grain_label} Performance Overview"
+
+    # Fall back to KPI signals if contract-based kpi_rows are empty
+    if not kpi_rows:
+        kpi_rows = []
+        for s in signals:
+            if s.get("source") == "derived_kpi_signal" and s.get("current_value") is not None:
+                kpi_rows.append({
+                    "name": s.get("title", ""),
+                    "display_name": s.get("title", ""),
+                    "value": s.get("current_value"),
+                    "prior_value": s.get("prior_value"),
+                    "change_pct": s.get("var_pct"),
+                    "format": "currency" if "$" in s.get("detail", "") else (
+                        "percentage" if "%" in s.get("title", "") else "float"
+                    ),
+                })
+
+    md = render_flat_ceo_brief_markdown(
+        flat_brief, heading=heading, analysis_period=analysis_period,
+        outlook_heading=outlook_title, persona="ceo",
+        kpi_rows=kpi_rows if kpi_rows else None,
+    )
+    html = render_flat_ceo_brief_html(
+        flat_brief, heading=heading, analysis_period=analysis_period,
+        outlook_heading=outlook_title,
+        kpi_rows=kpi_rows if kpi_rows else None,
+        generated_date=period_end,
+    )
+
+    meta["html"] = html
+    return executive, md, html, meta
+
+
+async def run_scoped_brief_async(
+    json_data: dict[str, Any],
+    entity: str,
+    **kwargs: Any,
+) -> tuple[dict[str, Any], str, str, dict[str, Any]]:
+    """Async wrapper for run_scoped_brief_sync."""
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None, lambda: run_scoped_brief_sync(json_data, entity, **kwargs),
+    )
+
+
 async def run_hybrid_ceo_brief_async(
     json_data: dict[str, Any],
     *,

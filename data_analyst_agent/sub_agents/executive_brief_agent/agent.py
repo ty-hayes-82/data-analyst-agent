@@ -32,10 +32,8 @@ from google.genai import types
 from config.model_loader import get_agent_model, get_agent_thinking_config
 from .prompt import (
     get_executive_brief_instruction,
-    SCOPED_BRIEF_PREAMBLE,
     load_dataset_specific_append,
     load_prompt_variant,
-    load_standard_executive_brief_instruction,
 )
 from ...utils import parse_bool_env
 from ...utils.stub_guard import contains_stub_content
@@ -72,14 +70,12 @@ from .report_utils import (
     build_minimal_metric_markdown_from_json,
 )
 from .scope_utils import (
-    _build_scoped_digest,
     _discover_level_entities,
     _load_hierarchy_level_mapping,
     _sanitize_entity_name,
-    count_scoped_digest_signals,
     derive_scope_level_labels,
 )
-from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, save_hybrid_artifacts_async
+from .hybrid_brief_pipeline import run_hybrid_ceo_brief_async, run_scoped_brief_async, save_hybrid_artifacts_async
 
 
 class ExecutiveBriefConfig:
@@ -129,33 +125,6 @@ class ExecutiveBriefConfig:
 
 
 BRIEF_CONFIG = ExecutiveBriefConfig()
-
-
-def _sections_to_flat(brief_json: dict[str, Any]) -> dict[str, Any]:
-    """Convert sections-based scoped brief JSON to flat format for HTML rendering."""
-    flat: dict[str, Any] = {}
-    flat["bottom_line"] = (brief_json.get("header") or {}).get("summary", "")
-    sections = (brief_json.get("body") or {}).get("sections", [])
-    for sec in sections:
-        title = (sec.get("title") or "").lower()
-        insights = sec.get("insights") or []
-        content = sec.get("content", "")
-        if "key finding" in title:
-            flat["what_moved"] = [{"label": i.get("title", ""), "line": i.get("details", "")} for i in insights]
-        elif "trend" in title:
-            flat["trend_status"] = [i.get("details", "") for i in insights] if insights else [content]
-        elif "driver" in title or "where" in title:
-            flat["where_it_came_from"] = {}
-            for i, ins in enumerate(insights):
-                key = ["positive", "drag", "watch_item"][min(i, 2)]
-                flat["where_it_came_from"][key] = ins.get("details", "")
-        elif "impact" in title or "why" in title or "matter" in title:
-            flat["why_it_matters"] = content or (insights[0].get("details", "") if insights else "")
-        elif "outlook" in title or "next" in title:
-            flat["next_week_outlook"] = content or (insights[0].get("details", "") if insights else "")
-        elif "action" in title or "leadership" in title or "recommend" in title:
-            flat["leadership_focus"] = [i.get("details", "") for i in insights] if insights else [content]
-    return flat
 
 
 def _parse_positive_int_env(var_name: str, default: int) -> int:
@@ -1717,101 +1686,60 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             if _brief_min_insight is not None and not is_ceo_style():
                 _ceo_min_values = _brief_min_insight
 
-            use_hybrid_ceo = (
-                is_ceo_style()
-                and bool(json_data)
-                and parse_bool_env(os.environ.get("EXECUTIVE_BRIEF_USE_HYBRID_PIPELINE", "true"))
-            )
             brief_json: dict[str, Any]
             brief_md: str
             used_fallback: bool
 
-            if use_hybrid_ceo:
-                print(
-                    "[BRIEF] Using hybrid CEO pipeline: Pass0 code rank -> "
-                    "Pass1 Flash-Lite curate -> Pass2 Pro synthesis"
-                )
+            print(
+                "[BRIEF] Using hybrid CEO pipeline: Pass0 code rank -> "
+                "Pass1 Flash-Lite curate -> Pass2 Pro synthesis"
+            )
+
+            def _hybrid_top_n() -> int:
+                raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_TOP_SIGNALS", "30")
                 try:
-                    def _hybrid_top_n() -> int:
-                        raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_TOP_SIGNALS", "30")
-                        try:
-                            return max(5, min(int(raw), 80))
-                        except (TypeError, ValueError):
-                            return 30
+                    return max(5, min(int(raw), 80))
+                except (TypeError, ValueError):
+                    return 30
 
-                    def _hybrid_max_kept() -> int:
-                        raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_MAX_CURATED", "12")
-                        try:
-                            return max(4, min(int(raw), 20))
-                        except (TypeError, ValueError):
-                            return 12
+            def _hybrid_max_kept() -> int:
+                raw = os.environ.get("EXECUTIVE_BRIEF_HYBRID_MAX_CURATED", "12")
+                try:
+                    return max(4, min(int(raw), 20))
+                except (TypeError, ValueError):
+                    return 12
 
-                    lite_model = os.environ.get(
-                        "EXECUTIVE_BRIEF_HYBRID_LITE_MODEL",
-                    ) or get_agent_model("executive_brief_hybrid_curator")
-                    pro_model = os.environ.get(
-                        "EXECUTIVE_BRIEF_HYBRID_PRO_MODEL",
-                    ) or get_agent_model("executive_brief_hybrid_synthesis")
-                    skip_cur = parse_bool_env(
-                        os.environ.get("EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION", "false")
-                    )
+            lite_model = os.environ.get(
+                "EXECUTIVE_BRIEF_HYBRID_LITE_MODEL",
+            ) or get_agent_model("executive_brief_hybrid_curator")
+            pro_model = os.environ.get(
+                "EXECUTIVE_BRIEF_HYBRID_PRO_MODEL",
+            ) or get_agent_model("executive_brief_hybrid_synthesis")
+            skip_cur = parse_bool_env(
+                os.environ.get("EXECUTIVE_BRIEF_HYBRID_SKIP_CURATION", "false")
+            )
 
-                    hybrid_meta = None
-                    brief_json, brief_md, hybrid_meta = await run_hybrid_ceo_brief_async(
-                        json_data,
-                        analysis_period=analysis_period,
-                        period_end=str(period_end),
-                        canonical_grain=canonical_grain,
-                        top_signals=_hybrid_top_n(),
-                        max_curated=_hybrid_max_kept(),
-                        skip_curation=skip_cur,
-                        lite_model=lite_model,
-                        pro_model=pro_model,
-                        contract=contract,
-                        days_in_period=days,
-                        kpi_rows=ctx.session.state.get("_computed_kpi_rows"),
-                    )
-                    used_fallback = False
-                    await save_hybrid_artifacts_async(outputs_dir, hybrid_meta)
-                    print(
-                        f"[BRIEF] Hybrid complete (pass0={hybrid_meta.get('pass0_count')}, "
-                        f"pass1_skipped={hybrid_meta.get('pass1_skipped', False)})"
-                    )
-                except Exception as hybrid_err:
-                    print(
-                        f"[BRIEF] Hybrid CEO pipeline failed ({hybrid_err}); "
-                        "falling back to digest LLM brief.",
-                        flush=True,
-                    )
-                    brief_json, brief_md, used_fallback = await _llm_generate_brief(
-                        model_name=model_name,
-                        instruction=instruction,
-                        user_message=user_message,
-                        thinking_config=thinking_config,
-                        digest=digest,
-                        section_contract=active_section_contract,
-                        reports=reports,
-                        unit=presentation_unit,
-                        has_critical_findings=has_critical,
-                        critical_metrics=critical_metrics,
-                        min_insight_values=_ceo_min_values,
-                        min_total_numeric_values=_brief_min_total,
-                    )
-            else:
-                brief_json, brief_md, used_fallback = await _llm_generate_brief(
-                    model_name=model_name,
-                    instruction=instruction,
-                    user_message=user_message,
-                    thinking_config=thinking_config,
-                    digest=digest,
-                    section_contract=active_section_contract,
-                    reports=reports,
-                    unit=presentation_unit,
-                    has_critical_findings=has_critical,
-                    critical_metrics=critical_metrics,
-                    min_insight_values=_ceo_min_values,
-                    min_total_numeric_values=_brief_min_total,
-                )
+            hybrid_meta = None
+            brief_json, brief_md, hybrid_meta = await run_hybrid_ceo_brief_async(
+                json_data,
+                analysis_period=analysis_period,
+                period_end=str(period_end),
+                canonical_grain=canonical_grain,
+                top_signals=_hybrid_top_n(),
+                max_curated=_hybrid_max_kept(),
+                skip_curation=skip_cur,
+                lite_model=lite_model,
+                pro_model=pro_model,
+                contract=contract,
+                days_in_period=days,
+                kpi_rows=ctx.session.state.get("_computed_kpi_rows"),
+            )
+            used_fallback = False
+            await save_hybrid_artifacts_async(outputs_dir, hybrid_meta)
+            print(
+                f"[BRIEF] Hybrid complete (pass0={hybrid_meta.get('pass0_count')}, "
+                f"pass1_skipped={hybrid_meta.get('pass1_skipped', False)})"
+            )
 
             # Post-process: fix temporal grain in title and section headings
             _grain_to_label = {"monthly": "Monthly", "weekly": "Weekly", "yearly": "Annual", "daily": "Daily"}
@@ -1864,7 +1792,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             print("=" * 80 + "\n")
 
             scoped_briefs: dict[str, dict[str, Any]] = {}
-            scoped_digests_map: dict[str, str] = {}
             hierarchy_hint = ctx.session.state.get("selected_hierarchy") or ctx.session.state.get("hierarchy_name")
             scope_level_labels = derive_scope_level_labels(contract, preferred_name=hierarchy_hint)
             max_scoped_briefs = _max_scoped_briefs()
@@ -1874,96 +1801,56 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
             async def _generate_scoped_brief(
                 entity: str,
                 level_name: str,
-                scoped_instruction: str,
-                scoped_user_message: str,
-                scoped_digest: str,
                 level: int,
             ) -> tuple[str, dict[str, Any] | None]:
                 async with scoped_sem:
                     async with scoped_log_lock:
-                        print(
-                            f"[BRIEF] Generating scoped brief for {entity} ({level_name})...",
-                            flush=True,
-                        )
+                        print(f"[BRIEF] Generating scoped brief for {entity} ({level_name})...", flush=True)
                     try:
-                        _sig_ct = count_scoped_digest_signals(scoped_digest)
-                        _min_iv = 1 if _sig_ct <= 3 else 2
-                        _min_total = 5 if _sig_ct <= 3 else None
-                        scoped_json, scoped_brief_md, scoped_fallback = await _llm_generate_brief(
-                            model_name=model_name,
-                            instruction=scoped_instruction,
-                            user_message=scoped_user_message,
-                            thinking_config=thinking_config,
-                            digest=scoped_digest,
-                            section_contract=SCOPED_SECTION_CONTRACT,
-                            reports=reports,
-                            unit=presentation_unit,
-                            has_critical_findings=False,  # TODO: Implement scope-specific critical check
-                            critical_metrics=[],
-                            max_attempts=BRIEF_CONFIG.max_scoped_retries(),
-                            min_insight_values=_min_iv,
-                            is_scoped=True,  # Relaxed validation for entity-scoped briefs
-                            min_total_numeric_values=_min_total,
-                            scoped_digest_signal_count=_sig_ct,
-                        )
-                        if scoped_fallback:
-                            print(f"[BRIEF] WARNING: Scoped brief for {entity} used structured fallback output.")
-                        safe_entity = _sanitize_entity_name(entity)
-                        scoped_filename = (
-                            "brief_" + safe_entity + ".md"
-                            if os.getenv("DATA_ANALYST_OUTPUT_DIR")
-                            else f"executive_brief_{period_end}_{safe_entity}.md"
-                        )
-                        scoped_path = deliverables_dir / scoped_filename
-                        scoped_path.write_text(scoped_brief_md, encoding="utf-8")
-                        async with scoped_log_lock:
-                            print(
-                                f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename} (in {deliverables_dir.name}/)",
-                                flush=True,
-                            )
-                        scoped_json_filename = (
-                            "brief_" + safe_entity + ".json"
-                            if os.getenv("DATA_ANALYST_OUTPUT_DIR")
-                            else f"executive_brief_{period_end}_{safe_entity}.json"
-                        )
-                        scoped_json_path = deliverables_dir / scoped_json_filename
-                        scoped_json_path.write_text(json.dumps(scoped_json, indent=2, ensure_ascii=False), encoding="utf-8")
-
-                        # Generate HTML email for scoped brief
-                        try:
-                            from .brief_format import render_flat_ceo_brief_html
-                            scoped_flat = _sections_to_flat(scoped_json)
-                            scoped_html = render_flat_ceo_brief_html(
-                                scoped_flat,
-                                heading=f"{entity} Region — Performance Overview",
-                                analysis_period=analysis_period,
-                                generated_date=str(period_end),
-                            )
-                            scoped_html_filename = (
-                                "brief_" + safe_entity + ".html"
-                                if os.getenv("DATA_ANALYST_OUTPUT_DIR")
-                                else f"executive_brief_{period_end}_{safe_entity}.html"
-                            )
-                            (deliverables_dir / scoped_html_filename).write_text(scoped_html, encoding="utf-8")
-                        except Exception as html_err:
-                            print(f"[BRIEF] WARNING: Scoped HTML for {entity} failed: {html_err}")
-                        return (
+                        scoped_exec, scoped_brief_md, scoped_html, scoped_meta = await run_scoped_brief_async(
+                            json_data,
                             entity,
-                            {
-                                "path": str(scoped_path),
-                                "json_path": str(scoped_json_path),
-                                "content": scoped_brief_md,
-                                "level": level,
-                                "level_name": level_name,
-                                "bookmark_label": f"{entity} ({level_name})",
-                                "used_fallback": scoped_fallback,
-                            },
+                            analysis_period=analysis_period,
+                            period_end=str(period_end),
+                            canonical_grain=canonical_grain,
+                            lite_model=os.environ.get("EXECUTIVE_BRIEF_HYBRID_LITE_MODEL") or get_agent_model("executive_brief_hybrid_curator"),
+                            pro_model=os.environ.get("EXECUTIVE_BRIEF_SCOPED_MODEL") or get_agent_model("executive_brief_scoped") or get_agent_model("executive_brief_hybrid_synthesis"),
+                            contract=contract,
+                            days_in_period=days,
                         )
+
+                        safe_entity = _sanitize_entity_name(entity)
+                        deliverables_dir_local = deliverables_dir  # captured from outer scope
+
+                        # Save markdown
+                        scoped_filename = "brief_" + safe_entity + ".md" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}_{safe_entity}.md"
+                        scoped_path = deliverables_dir_local / scoped_filename
+                        scoped_path.write_text(scoped_brief_md, encoding="utf-8")
+
+                        # Save JSON
+                        scoped_json_filename = "brief_" + safe_entity + ".json" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}_{safe_entity}.json"
+                        scoped_json_path = deliverables_dir_local / scoped_json_filename
+                        scoped_json_path.write_text(json.dumps(scoped_exec, indent=2, ensure_ascii=False), encoding="utf-8")
+
+                        # Save HTML
+                        if scoped_html:
+                            scoped_html_filename = "brief_" + safe_entity + ".html" if os.getenv("DATA_ANALYST_OUTPUT_DIR") else f"executive_brief_{period_end}_{safe_entity}.html"
+                            (deliverables_dir_local / scoped_html_filename).write_text(scoped_html, encoding="utf-8")
+
+                        async with scoped_log_lock:
+                            print(f"[BRIEF] Saved scoped brief for {entity} to {scoped_filename} (in {deliverables_dir_local.name}/)", flush=True)
+
+                        return (entity, {
+                            "path": str(scoped_path),
+                            "json_path": str(scoped_json_path),
+                            "content": scoped_brief_md,
+                            "level": level,
+                            "level_name": level_name,
+                            "bookmark_label": f"{entity} ({level_name})",
+                            "used_fallback": False,
+                        })
                     except Exception as scope_err:
-                        print(
-                            f"[BRIEF] WARNING: scoped brief for {entity} failed after retries: {scope_err}",
-                            flush=True,
-                        )
+                        print(f"[BRIEF] WARNING: scoped brief for {entity} failed: {scope_err}", flush=True)
                         return (entity, None)
 
             if drill_levels >= 1 and json_data and max_scoped_briefs != 0:
@@ -2025,147 +1912,12 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                         flush=True,
                     )
 
-                    hierarchy_map = _load_hierarchy_level_mapping(
-                        json_data,
-                        level,
-                        level + 1,
-                        contract=contract,
-                        preferred_hierarchy=hierarchy_hint,
-                    )
-                    if hierarchy_map:
-                        total_children = sum(len(v) for v in hierarchy_map.values())
-                        print(
-                            f"[BRIEF] Hierarchy mapping loaded ({total_children} children across {len(hierarchy_map)} parents)"
-                        )
-                    else:
-                        print("[BRIEF] No hierarchy mapping found — using Strategy A fallback")
-
                     tasks: list[asyncio.Task[tuple[str, dict[str, Any] | None]]] = []
                     for entity in entities:
-                        scope_children = set(hierarchy_map.get(entity, [])) if hierarchy_map else None
-                        scoped_digest = _build_scoped_digest(
-                            json_data,
-                            reports,
-                            entity,
-                            level,
-                            analysis_period,
-                            scope_children=scope_children,
-                            unit=presentation_unit,
-                        )
-                        scoped_digests_map[entity] = scoped_digest
-
-                        scope_preamble = SCOPED_BRIEF_PREAMBLE.format(
-                            scope_entity=entity,
-                            scope_level_name=level_name.lower(),
-                        )
-                        
-                        # Build section title enforcement for scoped briefs (inject into system instruction)
-                        scoped_expected_sections = [spec["title"] for spec in SCOPED_SECTION_CONTRACT]
-                        scoped_section_enforcement = (
-                            "\n\n⚠️ SECTION TITLE ENFORCEMENT (MANDATORY — VALIDATION WILL FAIL IF VIOLATED):\n"
-                            "Your JSON body.sections array MUST contain EXACTLY these section titles in this order:\n"
-                            + "\n".join(f"{i+1}. \"{title}\"" for i, title in enumerate(scoped_expected_sections))
-                            + "\n\n"
-                            "FORBIDDEN SECTION TITLES (DO NOT USE):\n"
-                            "- \"Opening\" (use \"Executive Summary\" instead)\n"
-                            "- \"Top Operational Insights\" (use \"Key Findings\" instead)\n"
-                            "- \"Network Snapshot\" (merge into \"Key Findings\")\n"
-                            "- \"Focus For Next Week\" (use \"Forward Outlook\" instead)\n"
-                            "- \"Leadership Question\" (merge into \"Forward Outlook\")\n"
-                            "- \"Recommended Actions\" (use \"Forward Outlook\" instead)\n"
-                            "- \"Actions\" (use \"Forward Outlook\" instead)\n"
-                            "- \"Next Steps\" (use \"Forward Outlook\" instead)\n"
-                            "- Any other custom titles not listed above\n\n"
-                            "VALIDATION PROCESS:\n"
-                            "1. Parse your JSON response\n"
-                            "2. Check body.sections[i].title matches expected titles exactly\n"
-                            "3. If mismatch detected → automatic retry (up to 2 attempts for scoped briefs)\n"
-                            "4. After exhausting retries → structured fallback output\n"
-                        )
-                        
-                        # Standard prompt only: CEO network prompt targets a different JSON shape and
-                        # breaks scoped validation / section contract when EXECUTIVE_BRIEF_STYLE=ceo.
-                        scoped_instruction = _format_instruction(
-                            load_standard_executive_brief_instruction(),
-                            metric_count=len(reports),
-                            analysis_period=analysis_period,
-                            scope_preamble=scope_preamble,
-                            dataset_specific_append=load_dataset_specific_append() + contract_context_text,
-                            prompt_variant_append=load_prompt_variant(
-                                os.environ.get("EXECUTIVE_BRIEF_PROMPT_VARIANT", "default")
-                            ),
-                            min_insight_values="2",
-                            reference_period_end=str(period_end).split(" ")[0],
-                        )
-                        # Inject section title enforcement into system instruction
-                        scoped_instruction = scoped_instruction + scoped_section_enforcement
-                        scoped_instruction = augment_instruction(scoped_instruction, ctx.session.state)
-                        
-                        scoped_json_enforcement = (
-                            "⚠️ JSON OUTPUT REQUIREMENTS (CRITICAL):\n"
-                            "1. '{' must be the FIRST character of your reply and '}' the LAST.\n"
-                            "2. Do NOT wrap the JSON in markdown fences (```json...```).\n"
-                            "3. Do NOT include any prose, acknowledgements, or explanations outside the JSON object.\n"
-                            "4. Your response must deserialize into the exact header/body/sections structure defined in the system instruction.\n\n"
-                        )
-                        
-                        # Build explicit section title reminder for scoped brief
-                        _scoped_titles_quoted = ", ".join(f'"{t}"' for t in scoped_expected_sections)
-                        scoped_section_reminder = (
-                            f"⚠️ REQUIRED SECTION TITLES (in this exact order):\n"
-                            f"{_scoped_titles_quoted}\n\n"
-                        )
-                        
-                        # Build numeric value enforcement for scoped briefs
-                        scoped_numeric_enforcement = (
-                            "⚠️ NUMERIC VALUE REQUIREMENT (MANDATORY — YOUR RESPONSE WILL BE REJECTED IF VIOLATED):\n"
-                            "Each Key Findings insight MUST contain AT LEAST 2 SPECIFIC NUMERIC VALUES.\n\n"
-                            "✅ VALID numeric values (count toward requirement):\n"
-                            "- Dollar amounts: \"$420K\", \"$1.5M\", \"+$316,042\"\n"
-                            "- Percentages: \"22%\", \"+3.2%\", \"-15.7%\"\n"
-                            "- Units with scale: \"503K units\", \"1.8M\"\n"
-                            "- Baseline comparisons: \"vs $2.1M prior week\", \"compared to 195K average\"\n"
-                            "- Statistical measures: \"z-score 2.06\", \"p-value 0.003\", \"r=0.99\"\n\n"
-                            "❌ INVALID (do NOT count):\n"
-                            "- Vague references: \"significant increase\", \"multiple regions\"\n"
-                            "- Generic counts: \"3 states\", \"several ports\"\n"
-                            "- Ordinal only: \"top driver\", \"primary segment\"\n\n"
-                            "VALIDATION: Your response will be parsed and each Key Findings insight will be checked for ≥2 numeric values.\n"
-                            "If ANY insight has <2 numeric values → AUTOMATIC RETRY (max 2 attempts).\n"
-                            "After 2 failed attempts → your response is DISCARDED.\n\n"
-                            "EXAMPLE VALID INSIGHT:\n"
-                            "\"details\": \"Trade value in {entity} increased $420K (+3.2%) compared to the prior week, reaching $1.8M. "
-                            "This growth represents 22% of the total network variance and was driven primarily by CA ports (+$316K).\"\n"
-                            "→ Contains 6 numeric values: $420K, +3.2%, prior week baseline, $1.8M, 22%, +$316K ✅\n\n"
-                        )
-                        
-                        scoped_user_message = (
-                            f"{scoped_section_reminder}"  # FIRST — most visible
-                            f"{scoped_numeric_enforcement}"  # SECOND — critical for validation
-                            f"{scoped_json_enforcement}"
-                            f"{focus_preamble_text}"
-                            f"{contract_summary_block}"
-                            f"{contract_metadata_block}"
-                            f"{contract_reference_block}"
-                            f"{metric_coverage_block}"
-                            f"BRIEF_TEMPORAL_CONTEXT (MANDATORY GROUNDING):\n"
-                            f"{json.dumps(brief_temporal_context, indent=2)}\n\n"
-                            f"Use the above 'reference_period_end' when writing header.title.\n"
-                            f"TITLE RULE: header.title MUST match temporal_grain. "
-                            f"If temporal_grain is 'monthly' use 'Monthly' (NOT 'Weekly'). "
-                            f"If temporal_grain is 'weekly' use 'Weekly'.\n\n"
-                            f"Here are the individual metric analysis summaries for {analysis_period}, scoped to {entity}.\n\n"
-                            f"{scoped_digest}\n\n"
-                            "Generate the executive brief JSON as instructed. Your response must be ONLY the JSON object — no markdown fences, no preamble, no explanation. Focus exclusively on this scope."
-                        )
-
                         task = asyncio.create_task(
                             _generate_scoped_brief(
                                 entity=entity,
                                 level_name=level_name,
-                                scoped_instruction=scoped_instruction,
-                                scoped_user_message=scoped_user_message,
-                                scoped_digest=scoped_digest,
                                 level=level,
                             )
                         )
@@ -2191,20 +1943,6 @@ class CrossMetricExecutiveBriefAgent(BaseAgent):
                             if scoped_info:
                                 scoped_briefs[entity_name] = scoped_info
 
-                if scoped_digests_map:
-                    _write_executive_brief_cache(
-                        outputs_dir=outputs_dir,
-                        digest=digest + weather_block,
-                        period_end=period_end,
-                        analysis_period=analysis_period,
-                        metric_names=metric_names,
-                        timeframe=timeframe if isinstance(timeframe, dict) else {},
-                        weather_context=ctx.session.state.get("weather_context"),
-                        dataset=ctx.session.state.get("dataset"),
-                        contract_metadata=contract_metadata,
-                        drill_levels=drill_levels,
-                        scoped_digests=scoped_digests_map,
-                    )
             env_format = os.environ.get("EXECUTIVE_BRIEF_OUTPUT_FORMAT")
             if env_format:
                 output_format = env_format.lower()
