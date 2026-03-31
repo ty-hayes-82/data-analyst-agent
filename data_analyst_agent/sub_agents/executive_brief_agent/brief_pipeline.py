@@ -357,7 +357,8 @@ def _filter_json_data_to_entity(json_data: dict[str, Any], entity: str) -> dict[
     """Return a shallow copy of json_data with hierarchy cards filtered to *entity*.
 
     Keeps L0 (network totals for context), filters L1 to only cards matching
-    *entity*, and keeps all L2 cards (parentage is not encoded in the payload).
+    *entity*, and removes L2+ cards entirely (parentage is not encoded in the
+    payload, so we can't determine which terminals belong to which region).
     """
     prefix = "Level 1 Variance Driver: "
     filtered: dict[str, Any] = {}
@@ -368,7 +369,7 @@ def _filter_json_data_to_entity(json_data: dict[str, Any], entity: str) -> dict[
             filtered[metric_name] = p
             continue
         ha = dict(ha)  # shallow copy
-        # Filter L1 cards
+        # Filter L1 cards to only the target entity
         l1 = ha.get("level_1")
         if isinstance(l1, dict):
             l1 = dict(l1)
@@ -380,6 +381,11 @@ def _filter_json_data_to_entity(json_data: dict[str, Any], entity: str) -> dict[
                     and c.get("title", "").replace(prefix, "").strip() == entity
                 ]
             ha["level_1"] = l1
+        # Remove L2+ cards — they are terminals/locations whose region parentage
+        # is not encoded, so including them bleeds other-region insights into this brief
+        for level_key in list(ha.keys()):
+            if level_key.startswith("level_") and level_key not in ("level_0", "level_1"):
+                ha[level_key] = {}
         p["hierarchical_analysis"] = ha
         filtered[metric_name] = p
     return filtered
@@ -461,6 +467,16 @@ def run_scoped_brief_sync(
     # --- 3. Pass 0 — deterministic signal extraction on filtered data ---
     ranker = SignalRanker(filtered_json, contract=contract, days_in_period=days_in_period)
     signals = ranker.extract_all()
+
+    # Filter signals to only those relevant to this entity or network-level
+    entity_lower = entity.lower()
+    signals = [
+        s for s in signals
+        if not s.get("entity")  # network-level signals (no entity)
+        or s["entity"].lower() == entity_lower  # this region
+        or s["entity"].lower() == "network"  # explicitly network
+        or s.get("source") == "derived_kpi_signal"  # KPIs always included
+    ]
 
     if not signals:
         flat_brief = {
