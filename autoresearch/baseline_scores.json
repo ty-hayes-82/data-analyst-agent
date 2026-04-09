@@ -1,54 +1,76 @@
 {
-  "global_superstore": {
-    "bqs_total": 96.0,
-    "tier1_score": 50.0,
-    "tier2_score": 46.0,
+  "ops_metrics_ds": {
+    "bqs_total": 88.3,
+    "tier0_score": 10.0,
+    "tier1_score": 37.3,
+    "tier2_score": 41.0,
+    "tier0_details": {
+      "skipped": false,
+      "network_accuracy": 10.0,
+      "network_found": 9,
+      "network_checked": 9,
+      "network_checks": {
+        "Revenue xFuel": {
+          "expected": 23233591.0,
+          "found": true
+        },
+        "Truck Count": {
+          "expected": 6119.0,
+          "found": true
+        },
+        "Rev/Trk/Day": {
+          "expected": 759.0,
+          "found": true
+        },
+        "Total Miles": {
+          "expected": 9961464.0,
+          "found": true
+        },
+        "Miles/Trk/Wk": {
+          "expected": 1628,
+          "found": true
+        },
+        "Deadhead %": {
+          "expected": 15.5,
+          "found": true
+        },
+        "LRPM": {
+          "expected": 2.76,
+          "found": true
+        },
+        "TRPM": {
+          "expected": 2.33,
+          "found": true
+        },
+        "Avg LOH": {
+          "expected": 370,
+          "found": true
+        }
+      },
+      "region_accuracy": 0,
+      "region_found": 0,
+      "region_checked": 0
+    },
     "tier1_details": {
-      "json_valid": 5,
+      "json_valid": 4,
       "json_format": "hybrid",
-      "section_completeness": 8.0,
-      "numeric_density": 10.0,
-      "numeric_count": 42,
-      "insight_card_count": 44,
-      "insight_card_score": 7,
-      "evidence_grounding": 10.0,
-      "contract_compliance": 5.0,
-      "no_stub": 5
+      "section_completeness": 6.0,
+      "numeric_density": 8.0,
+      "numeric_count": 62,
+      "insight_card_count": 84,
+      "insight_card_score": 6,
+      "evidence_grounding": 8.0,
+      "contract_compliance": 1.3,
+      "no_stub": 4
     },
     "tier2_details": {
       "actionability": 9.0,
-      "causal_depth": 9.0,
-      "data_specificity": 10.0,
+      "causal_depth": 8.0,
+      "data_specificity": 9.0,
       "narrative_coherence": 9.0,
-      "completeness": 8.0,
+      "completeness": 6.0,
       "critic_runs": 3,
-      "consistency_bonus": 1.0
-    }
-  },
-  "iowa_liquor_sales": {
-    "bqs_total": 91.3,
-    "tier1_score": 50.0,
-    "tier2_score": 41.3,
-    "tier1_details": {
-      "json_valid": 5,
-      "json_format": "hybrid",
-      "section_completeness": 8.0,
-      "numeric_density": 10.0,
-      "numeric_count": 38,
-      "insight_card_count": 33,
-      "insight_card_score": 7,
-      "evidence_grounding": 10.0,
-      "contract_compliance": 5.0,
-      "no_stub": 5
-    },
-    "tier2_details": {
-      "actionability": 9.0,
-      "causal_depth": 4.0,
-      "data_specificity": 10.0,
-      "narrative_coherence": 9.0,
-      "completeness": 8.3,
-      "critic_runs": 3,
-      "consistency_bonus": 1.0
+      "consistency_bonus": 0.0
     }
   }
 }
